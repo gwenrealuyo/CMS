@@ -1,8 +1,14 @@
 "use client";
 
 import { Event } from "@/src/types/event";
+import { useAuth } from "@/src/contexts/AuthContext";
 import { useEventTypeStyles } from "@/src/contexts/EventTypeStylesContext";
 import EventRecurringChip from "@/src/components/events/EventRecurringChip";
+import YouWerePresentChip from "@/src/components/events/YouWerePresentChip";
+import {
+  occurrenceDateKey,
+  viewerAttendanceForOccurrence,
+} from "@/src/lib/events/viewerAttendance";
 
 export type EventAgendaRowSize = "compact" | "comfortable";
 
@@ -30,9 +36,13 @@ function PendingChip({ size = "sm" }: { size?: "sm" | "md" }) {
 function EventMeta({
   event,
   size = "compact",
+  viewerPresent = false,
+  viewerMode = null,
 }: {
   event: Event;
   size?: EventAgendaRowSize;
+  viewerPresent?: boolean;
+  viewerMode?: ReturnType<typeof viewerAttendanceForOccurrence>["mode"];
 }) {
   const { getChipStyle } = useEventTypeStyles();
   const showChip = shouldShowTypeChip(event);
@@ -53,6 +63,7 @@ function EventMeta({
         />
       )}
       {event.booking_status === "pending" && <PendingChip />}
+      {viewerPresent && <YouWerePresentChip size="sm" mode={viewerMode} />}
       {event.location && (
         <span
           className={`${metaTextClass} text-gray-500 truncate max-w-[140px] sm:max-w-[180px] lg:max-w-none`}
@@ -71,15 +82,11 @@ function formatTime(dateString: string): string {
   });
 }
 
-function toOccurrenceDateKey(isoDateTime: string): string {
-  return new Date(isoDateTime).toISOString().split("T")[0];
-}
-
 function getOccurrenceAttendanceCount(
   event: Event,
   occurrenceStartDate: string
 ): number {
-  const dateKey = toOccurrenceDateKey(occurrenceStartDate);
+  const dateKey = occurrenceDateKey(occurrenceStartDate);
   return (event.attendance_records ?? []).filter(
     (record) => record.occurrence_date === dateKey
   ).length;
@@ -88,9 +95,13 @@ function getOccurrenceAttendanceCount(
 function EventComfortableDetails({
   event,
   occurrenceStartDate,
+  viewerPresent,
+  viewerMode,
 }: {
   event: Event;
   occurrenceStartDate: string;
+  viewerPresent: boolean;
+  viewerMode: ReturnType<typeof viewerAttendanceForOccurrence>["mode"];
 }) {
   const { getChipStyle } = useEventTypeStyles();
   const attendeeCount = getOccurrenceAttendanceCount(event, occurrenceStartDate);
@@ -108,6 +119,7 @@ function EventComfortableDetails({
           />
         )}
         {event.booking_status === "pending" && <PendingChip />}
+        {viewerPresent && <YouWerePresentChip size="sm" mode={viewerMode} />}
       </div>
 
       {event.description?.trim() && (
@@ -176,9 +188,15 @@ export default function EventAgendaRow({
   onClick,
   size = "compact",
 }: EventAgendaRowProps) {
+  const { user } = useAuth();
   const isComfortable = size === "comfortable";
   const startTime = formatTime(occurrenceStartDate);
   const endTime = formatTime(occurrenceEndDate);
+  const viewerAttendance = viewerAttendanceForOccurrence(
+    event,
+    user?.id,
+    occurrenceStartDate,
+  );
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" || e.key === " ") {
@@ -222,7 +240,12 @@ export default function EventAgendaRow({
           {event.title}
         </span>
         <span className="flex items-center gap-2 mt-1 min-w-0 flex-wrap">
-          <EventMeta event={event} size={size} />
+          <EventMeta
+            event={event}
+            size={size}
+            viewerPresent={viewerAttendance.present}
+            viewerMode={viewerAttendance.mode}
+          />
         </span>
       </span>
 
@@ -237,7 +260,12 @@ export default function EventAgendaRow({
           {event.title}
         </span>
         <span className="flex items-center gap-2 shrink-0">
-          <EventMeta event={event} size={size} />
+          <EventMeta
+            event={event}
+            size={size}
+            viewerPresent={viewerAttendance.present}
+            viewerMode={viewerAttendance.mode}
+          />
         </span>
       </span>
 
@@ -250,6 +278,8 @@ export default function EventAgendaRow({
           <EventComfortableDetails
             event={event}
             occurrenceStartDate={occurrenceStartDate}
+            viewerPresent={viewerAttendance.present}
+            viewerMode={viewerAttendance.mode}
           />
         </span>
       )}

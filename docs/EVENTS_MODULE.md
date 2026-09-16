@@ -75,6 +75,8 @@ The recurrence service expands this pattern on demand in `apps.events.services.r
 - `DELETE /api/events/{id}/attendance/{attendance_id}/` removes the attendance record and its journey.
 - The generic `/api/attendance/` endpoints provide CRUD access plus `/api/attendance/by-event/{event_id}/` for reporting scenarios.
 - On the frontend, `EventView` includes an Attendance panel that:
+  - is shown only to Admin, Pastor, and Events Coordinator / Senior Coordinator (`canWriteEvents`). Members without Events write do not see Add Attendee, Open Check-In, Generate Report, or the roster;
+  - still shows the occurrence attendee count on the event title card for everyone, plus a **You were present** chip (with Onsite/Online when known) when the logged-in user has a `PRESENT` record for that occurrence. The same present chip appears on agenda rows, and calendar days get a small check when the viewer attended that day;
   - shows attendees for the selected occurrence, with derived badges (cluster, family, LAMP ID without the `LAMP` prefix, **Onsite** / **Online**, and online venue when set);
   - tints attendee cards (emerald onsite, sky online) and filters the list by name/LAMP ID plus All / Onsite / Online beside the search bar;
   - lets coordinators add/remove attendees; status defaults to “Present” and edits sync journeys automatically;
@@ -95,7 +97,7 @@ The Event form shows these toggles only when the type is Sunday Service. Other e
 
 ### Check-In Page
 
-- Route: `/events/check-in?event={id}&occurrence=YYYY-MM-DD` (requires auth via `ProtectedRoute`).
+- Route: `/events/check-in?event={id}&occurrence=YYYY-MM-DD` (requires auth via `ProtectedRoute`, plus Events write: Admin, Pastor, Events Coordinator / Senior Coordinator). Other members see an access message and should use self-check-in when it is enabled.
 - Layout: full-width, centered column without the dashboard sidebar — intended for tablets or a dedicated check-in tab.
 - Stats (branch-aware when `event.branch` is set):
   - **Total** — expected attendees for the event. For Sunday Service this uses the expected-attendee flags (Active / Semi-active / Inactive / optional Ongoing visitors). For other types, non-admin people in the event branch (or all when church-wide). Deceased people are excluded. When Ongoing visitors are included, Total notes how many of them are in the count;

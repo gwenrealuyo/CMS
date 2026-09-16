@@ -7,6 +7,7 @@ export type CalendarEventItem = {
   start_date: string;
   type: string;
   type_display?: string;
+  viewerPresent?: boolean;
 };
 
 interface EventCalendarProps {
@@ -24,6 +25,16 @@ function isSameLocalDay(a: Date, b: Date): boolean {
     a.getFullYear() === b.getFullYear() &&
     a.getMonth() === b.getMonth() &&
     a.getDate() === b.getDate()
+  );
+}
+
+function dayHasViewerPresent(
+  events: CalendarEventItem[],
+  date: Date,
+): boolean {
+  return events.some(
+    (event) =>
+      event.viewerPresent && isSameLocalDay(new Date(event.start_date), date),
   );
 }
 
@@ -226,11 +237,20 @@ export default function EventCalendar({
           const overflow = uniqueTypes.length - visibleTypes.length;
           const isCurrentDate = isToday(date);
           const isSelectedDate = isSelected(date);
+          const viewerPresent = date
+            ? dayHasViewerPresent(events, date)
+            : false;
 
           const ariaLabel = date
-            ? uniqueTypes.length > 0
-              ? `${monthNames[date.getMonth()]} ${date.getDate()}, ${uniqueTypes.length} event type${uniqueTypes.length !== 1 ? "s" : ""}`
-              : `${monthNames[date.getMonth()]} ${date.getDate()}`
+            ? [
+                `${monthNames[date.getMonth()]} ${date.getDate()}`,
+                uniqueTypes.length > 0
+                  ? `${uniqueTypes.length} event type${uniqueTypes.length !== 1 ? "s" : ""}`
+                  : null,
+                viewerPresent ? "you were present" : null,
+              ]
+                .filter(Boolean)
+                .join(", ")
             : undefined;
 
           return (
@@ -258,11 +278,27 @@ export default function EventCalendar({
               {date && (
                 <>
                   <span
-                    className={`text-xs md:text-sm ${
+                    className={`text-xs md:text-sm inline-flex items-center gap-0.5 ${
                       isCurrentDate ? "text-primary" : "text-gray-900"
                     }`}
                   >
                     {date.getDate()}
+                    {viewerPresent ? (
+                      <svg
+                        className="h-3 w-3 text-emerald-600"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                        aria-hidden="true"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2.5}
+                          d="M5 13l4 4L19 7"
+                        />
+                      </svg>
+                    ) : null}
                   </span>
                   {uniqueTypes.length > 0 && (
                     <div

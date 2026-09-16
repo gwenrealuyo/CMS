@@ -33,6 +33,7 @@ import { Event } from "@/src/types/event";
 import { useEvents } from "@/src/hooks/useEvents";
 import { useModuleSettings } from "@/src/hooks/useModuleSettings";
 import { canManageEventRooms, canWriteEvents, canRequestEventBooking, canApproveEventBooking, canCreateEvent } from "@/src/lib/events/eventPermissions";
+import { viewerAttendanceForOccurrence } from "@/src/lib/events/viewerAttendance";
 import { formatApiErrorMessage } from "@/src/lib/apiErrors";
 import { requestNotificationsRefetch } from "@/src/lib/notificationsEvents";
 import {
@@ -347,8 +348,13 @@ export default function EventsPage() {
         start_date: item.occurrence.start_date,
         type: item.event.type,
         type_display: item.event.type_display,
+        viewerPresent: viewerAttendanceForOccurrence(
+          item.event,
+          user?.id,
+          item.occurrence.start_date,
+        ).present,
       })),
-    [baseFilteredItems]
+    [baseFilteredItems, user?.id]
   );
 
   const agendaGroups = useMemo(() => {
@@ -525,8 +531,16 @@ export default function EventsPage() {
     }
   };
 
+  const viewedEvent = useMemo(() => {
+    if (!viewEditEvent) return null;
+    return (
+      events.find((event) => String(event.id) === String(viewEditEvent.id)) ??
+      viewEditEvent
+    );
+  }, [events, viewEditEvent]);
+
   const isOwnViewEvent = Boolean(
-    viewEditEvent && user && viewEditEvent.created_by === user.id
+    viewedEvent && user && viewedEvent.created_by === user.id
   );
   const canEditViewEvent =
     Boolean(viewEditEvent) &&
@@ -610,7 +624,10 @@ export default function EventsPage() {
       setViewMode("view");
       setIsModalOpen(true);
       try {
-        await getEvent(item.event.id, { include_attendance: true });
+        const fresh = await getEvent(item.event.id, {
+          include_attendance: true,
+        });
+        setViewEditEvent(fresh);
       } catch (error) {
         console.error("Failed to load event details", error);
       }
@@ -1036,19 +1053,20 @@ export default function EventsPage() {
         hideHeader={viewMode === "view"}
         closeOnOutsideClick={viewMode === "view"}
       >
-        {viewMode === "view" && viewEditEvent ? (
+        {viewMode === "view" && viewedEvent ? (
           <EventView
-            event={viewEditEvent}
+            event={viewedEvent}
             initialOccurrenceDate={viewOccurrenceDate}
             showAuditMetadata={canWriteEventsAccess}
+            canManageAttendance={canWriteEventsAccess}
             onEdit={
               canEditViewEvent
                 ? ({ occurrenceDate }) => {
-                    if (viewEditEvent.is_recurring && canWriteEventsAccess) {
+                    if (viewedEvent.is_recurring && canWriteEventsAccess) {
                       setViewOccurrenceDate(occurrenceDate);
                       setEditChooser({
                         isOpen: true,
-                        event: viewEditEvent,
+                        event: viewedEvent,
                         occurrenceDate,
                       });
                       return;
@@ -1064,7 +1082,7 @@ export default function EventsPage() {
                 ? ({ occurrenceDate }) => {
                     setDeleteConfirmation({
                       isOpen: true,
-                      event: viewEditEvent,
+                      event: viewedEvent,
                       occurrenceDate,
                       loading: false,
                     });
@@ -1072,12 +1090,12 @@ export default function EventsPage() {
                 : undefined
             }
             onApprove={
-              canApproveBookings && viewEditEvent.booking_status === "pending"
+              canApproveBookings && viewedEvent.booking_status === "pending"
                 ? handleApproveBooking
                 : undefined
             }
             onReject={
-              canApproveBookings && viewEditEvent.booking_status === "pending"
+              canApproveBookings && viewedEvent.booking_status === "pending"
                 ? handleRejectBooking
                 : undefined
             }

@@ -142,6 +142,22 @@ class RecurrenceGenerationTests(SimpleTestCase):
             dates, ["2026-09-25", "2026-10-30", "2026-11-27", "2026-12-25"]
         )
 
+    def test_as_dict_includes_church_occurrence_date(self):
+        from zoneinfo import ZoneInfo
+
+        start = datetime(2026, 9, 13, 1, 0, tzinfo=ZoneInfo("Asia/Manila"))
+        occs = generate_occurrences(
+            _event(start),
+            {
+                "frequency": "weekly",
+                "weekdays": [6],
+                "through": "2026-09-20",
+            },
+        )
+        payload = occs[0].as_dict()
+        self.assertEqual(payload["occurrence_date"], "2026-09-13")
+        self.assertEqual(occs[1].as_dict()["occurrence_date"], "2026-09-20")
+
 
 class RecurrenceAPITests(APITestCase):
     def setUp(self):

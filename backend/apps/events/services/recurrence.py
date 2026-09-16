@@ -31,11 +31,13 @@ class Occurrence:
     is_base_occurrence: bool
 
     def as_dict(self) -> Dict[str, str]:
+        calendar_day = church_calendar_date(self.start)
         return {
             "event_id": self.event_id,
             "occurrence_id": self.occurrence_id,
             "start_date": self.start.isoformat(),
             "end_date": self.end.isoformat(),
+            "occurrence_date": calendar_day.isoformat() if calendar_day else "",
             "is_base_occurrence": self.is_base_occurrence,
         }
 

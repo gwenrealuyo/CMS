@@ -21,6 +21,8 @@ import EventDeleteModal, {
 import {
   RecurrenceScope,
   buildScopedEventDraft,
+  occurrenceCalendarDate,
+  toDateKey,
 } from "@/src/lib/events/recurrenceScope";
 import EventsFilterToolbar from "@/src/components/events/EventsFilterToolbar";
 import EventAgendaPanel from "@/src/components/events/EventAgendaPanel";
@@ -43,12 +45,7 @@ import {
 
 function toLocalDayKey(value?: string | null): string | null {
   if (!value) return null;
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) return value.slice(0, 10);
-  const year = parsed.getFullYear();
-  const month = String(parsed.getMonth() + 1).padStart(2, "0");
-  const day = String(parsed.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
+  return toDateKey(value);
 }
 
 const MONTH_NAMES = [
@@ -282,6 +279,7 @@ export default function EventsPage() {
             occurrence_id: occurrenceId,
             start_date: event.start_date,
             end_date: event.end_date,
+            occurrence_date: toDateKey(event.start_date),
             is_base_occurrence: true,
           },
         },
@@ -427,7 +425,7 @@ export default function EventsPage() {
   const handleUpdateEvent = async (eventData: Partial<Event>) => {
     if (!viewEditEvent) return;
     try {
-      const occurrenceDate = viewOccurrenceDate;
+      const occurrenceDate = toLocalDayKey(viewOccurrenceDate);
       let result: Event | { event: Event; created_event: Event } | void;
       if (
         viewEditEvent.is_recurring &&
@@ -558,7 +556,8 @@ export default function EventsPage() {
 
     const target = deleteConfirmation.event;
     const eventTitle = target.title;
-    const occurrenceDate = deleteConfirmation.occurrenceDate;
+    const occurrenceDate =
+      toLocalDayKey(deleteConfirmation.occurrenceDate);
 
     try {
       setDeleteConfirmation((prev) => ({ ...prev, loading: true }));
@@ -620,7 +619,10 @@ export default function EventsPage() {
   const handleViewItem = useCallback(
     async (item: EventCardItem) => {
       setViewEditEvent(item.event);
-      setViewOccurrenceDate(item.occurrence.start_date);
+      setViewOccurrenceDate(
+        occurrenceCalendarDate(item.occurrence) ||
+          item.occurrence.start_date
+      );
       setViewMode("view");
       setIsModalOpen(true);
       try {
@@ -1174,7 +1176,7 @@ export default function EventsPage() {
         isOpen={deleteConfirmation.isOpen}
         event={deleteConfirmation.event}
         occurrenceDate={deleteConfirmation.occurrenceDate}
-        canDeleteSeries={userCanHardDelete}
+        canDeleteSeries={canWriteEventsAccess || userCanHardDelete}
         canEditSeries={canWriteEventsAccess}
         onClose={closeDeleteConfirmation}
         onConfirm={handleConfirmDelete}

@@ -109,16 +109,14 @@ class CanCreateOrUpdateEvent(permissions.BasePermission):
         if action in ("update", "partial_update"):
             return can_create_event(user)
         if action == "destroy":
-            if getattr(user, "role", None) == "ADMIN":
-                return True
-            return can_request_event_booking(user)
+            return has_events_write(user) or can_request_event_booking(user)
         return has_events_write(user)
 
     def has_object_permission(self, request, view, obj):
         user = request.user
         action = getattr(view, "action", None)
         if action == "destroy":
-            if getattr(user, "role", None) == "ADMIN":
+            if has_events_write(user):
                 return True
             return (
                 can_request_event_booking(user)

@@ -73,8 +73,9 @@ The recurrence service expands this pattern on demand in `apps.events.services.r
 - Deleting or editing a recurring event from the detail view asks what to apply:
   - **This occurrence** — delete uses `POST /api/events/{id}/exclude-occurrence/`; edit uses `POST /api/events/{id}/split-edit/` with `scope=occurrence` (that week becomes its own event; the date is excluded from the original series).
   - **This and following occurrences** — delete uses `POST /api/events/{id}/end-recurrence/`; edit uses `split-edit` with `scope=following` (original series ends the day before; a new event continues from the selected date).
-  - **Entire series** — edit is a normal `PUT /api/events/{id}/`. Delete is admin-only `DELETE /api/events/{id}/`.
-- Coordinators with Events write can remove or edit a single week or this-and-following; only admins can delete the whole event. One-off events still use admin-only delete.
+  - **Entire series** — edit is a normal `PUT /api/events/{id}/`. Delete is `DELETE /api/events/{id}/` for Admin, Pastor, and Events Coordinator / Senior Coordinator. Split-off weeks from an earlier occurrence/following edit are not included.
+- Coordinators with Events write can skip a week, end from a date, or delete the whole remaining series. One-off event delete uses the same Events-write permission. Type/room hard-delete stays admin-only.
+- Occurrence skip/edit/delete use the church calendar day (`occurrence_date`, Asia/Manila), not the UTC date of the ISO timestamp.
 - Excluding a week or ending/splitting the series keeps existing attendance (moved onto the new event when splitting). Deleting the entire series cascades those records.
 
 ## Attendance Tracking

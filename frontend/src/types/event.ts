@@ -5,6 +5,7 @@ export interface EventOccurrence {
   occurrence_id: string;
   start_date: string;
   end_date: string;
+  occurrence_date?: string;
   is_base_occurrence: boolean;
 }
 

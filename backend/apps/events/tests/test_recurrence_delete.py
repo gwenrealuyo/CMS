@@ -80,10 +80,103 @@ class RecurringEventDeleteAPITests(APITestCase):
         self.event.refresh_from_db()
         self.assertTrue(Event.objects.filter(pk=self.event.id).exists())
         self.assertIn("2026-09-13", self.event.recurrence_pattern["excluded_dates"])
+        occurrence_dates = [
+            occ.get("occurrence_date")
+            for occ in response.data.get("occurrences", [])
+        ]
+        self.assertNotIn("2026-09-13", occurrence_dates)
         occurrence_starts = [
             occ["start_date"][:10] for occ in response.data.get("occurrences", [])
         ]
         self.assertNotIn("2026-09-13", occurrence_starts)
+
+    def test_exclude_iso_datetime_uses_church_calendar_day(self):
+        """A UTC timestamp on the previous calendar day still skips the Manila day."""
+        from datetime import timezone as dt_timezone
+        from zoneinfo import ZoneInfo
+
+        manila = ZoneInfo("Asia/Manila")
+        start = datetime(2026, 9, 13, 1, 0, tzinfo=manila)
+        event = Event.objects.create(
+            title="Dawn Service",
+            description="",
+            start_date=start,
+            end_date=start + timedelta(hours=2),
+            event_type=self.event_type,
+            location="HQ",
+            is_recurring=True,
+            recurrence_pattern={
+                "frequency": "weekly",
+                "weekdays": [6],
+                "through": "2026-10-04",
+                "excluded_dates": [],
+            },
+            created_by=self.coordinator,
+        )
+        self.client.force_authenticate(self.coordinator)
+        utc_iso = start.astimezone(dt_timezone.utc).isoformat().replace(
+            "+00:00", "Z"
+        )
+        self.assertTrue(utc_iso.startswith("2026-09-12"))
+        response = self.client.post(
+            f"/api/events/{event.id}/exclude-occurrence/",
+            {"date": utc_iso},
+            format="json",
+        )
+        self.assertEqual(response.status_code, 200, response.data)
+        event.refresh_from_db()
+        self.assertIn("2026-09-13", event.recurrence_pattern["excluded_dates"])
+        occ_dates = [
+            occ.get("occurrence_date")
+            for occ in response.data.get("occurrences", [])
+        ]
+        self.assertNotIn("2026-09-13", occ_dates)
+        self.assertTrue(
+            all(occ.get("occurrence_date") for occ in response.data["occurrences"])
+        )
+
+    def test_end_recurrence_iso_datetime_uses_church_calendar_day(self):
+        from datetime import timezone as dt_timezone
+        from zoneinfo import ZoneInfo
+
+        manila = ZoneInfo("Asia/Manila")
+        start = datetime(2026, 9, 6, 1, 0, tzinfo=manila)
+        event = Event.objects.create(
+            title="Dawn Series",
+            description="",
+            start_date=start,
+            end_date=start + timedelta(hours=2),
+            event_type=self.event_type,
+            location="HQ",
+            is_recurring=True,
+            recurrence_pattern={
+                "frequency": "weekly",
+                "weekdays": [6],
+                "through": "2026-10-04",
+                "excluded_dates": [],
+            },
+            created_by=self.coordinator,
+        )
+        self.client.force_authenticate(self.coordinator)
+        target = datetime(2026, 9, 20, 1, 0, tzinfo=manila)
+        utc_iso = target.astimezone(dt_timezone.utc).isoformat().replace(
+            "+00:00", "Z"
+        )
+        self.assertTrue(utc_iso.startswith("2026-09-19"))
+        response = self.client.post(
+            f"/api/events/{event.id}/end-recurrence/",
+            {"date": utc_iso},
+            format="json",
+        )
+        self.assertEqual(response.status_code, 200, response.data)
+        event.refresh_from_db()
+        self.assertEqual(event.recurrence_pattern["through"], "2026-09-19")
+        occ_dates = [
+            occ.get("occurrence_date")
+            for occ in response.data.get("occurrences", [])
+        ]
+        self.assertNotIn("2026-09-20", occ_dates)
+        self.assertNotIn("2026-09-27", occ_dates)
 
     def test_end_recurrence_removes_selected_and_later(self):
         self.client.force_authenticate(self.coordinator)
@@ -122,8 +215,14 @@ class RecurringEventDeleteAPITests(APITestCase):
         )
         self.assertEqual(response.status_code, 403)
 
-    def test_coordinator_cannot_delete_series(self):
+    def test_coordinator_can_delete_series(self):
         self.client.force_authenticate(self.coordinator)
+        response = self.client.delete(f"/api/events/{self.event.id}/")
+        self.assertEqual(response.status_code, 204)
+        self.assertFalse(Event.objects.filter(pk=self.event.id).exists())
+
+    def test_member_cannot_delete_series(self):
+        self.client.force_authenticate(self.member)
         response = self.client.delete(f"/api/events/{self.event.id}/")
         self.assertEqual(response.status_code, 403)
         self.assertTrue(Event.objects.filter(pk=self.event.id).exists())
@@ -170,6 +269,58 @@ class RecurringEventSplitEditAPITests(APITestCase):
             for occ in response.data["event"].get("occurrences", [])
         ]
         self.assertNotIn("2026-09-13", orig_starts)
+
+    def test_split_edit_iso_datetime_uses_church_calendar_day(self):
+        from datetime import timezone as dt_timezone
+        from zoneinfo import ZoneInfo
+
+        manila = ZoneInfo("Asia/Manila")
+        start = datetime(2026, 9, 6, 1, 0, tzinfo=manila)
+        event = Event.objects.create(
+            title="Dawn Split",
+            description="",
+            start_date=start,
+            end_date=start + timedelta(hours=2),
+            event_type=self.event_type,
+            location="HQ",
+            is_recurring=True,
+            recurrence_pattern={
+                "frequency": "weekly",
+                "weekdays": [6],
+                "through": "2026-10-04",
+                "excluded_dates": [],
+            },
+            created_by=self.coordinator,
+        )
+        target = datetime(2026, 9, 13, 1, 0, tzinfo=manila)
+        utc_iso = target.astimezone(dt_timezone.utc).isoformat().replace(
+            "+00:00", "Z"
+        )
+        self.assertTrue(utc_iso.startswith("2026-09-12"))
+        self.client.force_authenticate(self.coordinator)
+        response = self.client.post(
+            f"/api/events/{event.id}/split-edit/",
+            {
+                "scope": "occurrence",
+                "date": utc_iso,
+                "title": "Special Dawn",
+                "description": "",
+                "type": "SUNDAY_SERVICE",
+                "location": "Annex",
+                "start_date": target.isoformat(),
+                "end_date": (target + timedelta(hours=2)).isoformat(),
+                "is_recurring": False,
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, 201, response.data)
+        event.refresh_from_db()
+        self.assertIn("2026-09-13", event.recurrence_pattern["excluded_dates"])
+        orig_dates = [
+            occ.get("occurrence_date")
+            for occ in response.data["event"].get("occurrences", [])
+        ]
+        self.assertNotIn("2026-09-13", orig_dates)
 
     def test_split_edit_following_starts_new_series(self):
         self.client.force_authenticate(self.coordinator)

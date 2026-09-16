@@ -74,6 +74,10 @@ export default function EventDeleteModal({
 
   const [scope, setScope] = useState<RecurrenceScope>(defaultScope);
 
+  const scopeRadioName = isEdit
+    ? "event-recurrence-scope-edit"
+    : "event-recurrence-scope-delete";
+
   useEffect(() => {
     if (isOpen) {
       setScope(defaultScope);
@@ -170,7 +174,7 @@ export default function EventDeleteModal({
                       >
                         <input
                           type="radio"
-                          name="event-recurrence-scope"
+                          name={scopeRadioName}
                           value="occurrence"
                           checked={scope === "occurrence"}
                           onChange={() => setScope("occurrence")}
@@ -198,7 +202,7 @@ export default function EventDeleteModal({
                       >
                         <input
                           type="radio"
-                          name="event-recurrence-scope"
+                          name={scopeRadioName}
                           value="following"
                           checked={scope === "following"}
                           onChange={() => setScope("following")}
@@ -226,7 +230,7 @@ export default function EventDeleteModal({
                       >
                         <input
                           type="radio"
-                          name="event-recurrence-scope"
+                          name={scopeRadioName}
                           value="series"
                           checked={scope === "series"}
                           onChange={() => setScope("series")}
@@ -238,8 +242,8 @@ export default function EventDeleteModal({
                           </span>
                           <span className="block text-sm text-gray-500">
                             {isEdit
-                              ? "Change every week of this series."
-                              : "Permanently delete every occurrence of this event. This cannot be undone."}
+                              ? "Change every remaining week of this event. Weeks already split into a separate event are not included."
+                              : "Permanently delete every remaining week of this event. Weeks already split into a separate event are not included. This cannot be undone."}
                           </span>
                         </span>
                       </label>

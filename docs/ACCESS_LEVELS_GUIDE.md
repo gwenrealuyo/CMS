@@ -192,7 +192,7 @@ Coordinators and pastors should **mark records inactive** or update status inste
 - Reporters, Teachers, Bible Sharers, and plain members cannot create events. Events has no Teacher or Bible Sharer assignment in Admin Settings.
 - Pending bookings are visible to the requester and to approvers; members only see approved events. Self-check-in stays closed until approved.
 - Requesters may edit or cancel their own pending request. Changing room or time on their own already-approved event sends it back to pending. Approvers can edit approved events without re-approval.
-- Coordinators with Events write may remove or edit a single recurring occurrence or this-and-following weeks. **Hard delete of the entire event** is admin-only.
+- Coordinators with Events write may remove or edit a single recurring occurrence, this-and-following weeks, or **delete the entire series**. Type/room hard delete stays admin-only.
 
 **Ministries**
 

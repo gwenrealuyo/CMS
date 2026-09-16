@@ -138,10 +138,12 @@ export default function EventView({
   const selectedOccurrence = useMemo(() => {
     if (!selectedOccurrenceDate) return null;
     if (event.occurrences && event.occurrences.length > 0) {
-      const match = event.occurrences.find(
-        (occurrence) =>
-          occurrenceDateKey(occurrence.start_date) === selectedOccurrenceDate
-      );
+      const match = event.occurrences.find((occurrence) => {
+        const occKey = occurrence.occurrence_date
+          ? occurrenceDateKey(occurrence.occurrence_date)
+          : occurrenceDateKey(occurrence.start_date);
+        return occKey === selectedOccurrenceDate;
+      });
       if (match) return match;
     }
 
@@ -149,6 +151,7 @@ export default function EventView({
       return {
         start_date: event.start_date,
         end_date: event.end_date,
+        occurrence_date: selectedOccurrenceDate,
       };
     }
 
@@ -405,7 +408,7 @@ export default function EventView({
           onClick={() =>
             onDelete({
               occurrenceDate:
-                selectedOccurrence?.start_date ||
+                selectedOccurrence?.occurrence_date ||
                 selectedOccurrenceDate ||
                 eventDateKey,
             })
@@ -476,7 +479,7 @@ export default function EventView({
             onClick={() =>
               onEdit({
                 occurrenceDate:
-                  selectedOccurrence?.start_date ||
+                  selectedOccurrence?.occurrence_date ||
                   selectedOccurrenceDate ||
                   eventDateKey,
               })

@@ -3,12 +3,10 @@ import {
   Event,
   EventAttendanceRecord,
 } from "@/src/types/event";
+import { toDateKey } from "@/src/lib/events/recurrenceScope";
 
 export function occurrenceDateKey(value: string): string {
-  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
-    return value;
-  }
-  return new Date(value).toISOString().split("T")[0];
+  return toDateKey(value);
 }
 
 export function recordsForOccurrence(

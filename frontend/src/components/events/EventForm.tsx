@@ -118,6 +118,12 @@ const formatDateForInput = (date: Date) => {
   return `${year}-${month}-${day}T${hours}:${minutes}`;
 };
 
+const toDateTimeLocalValue = (value: string): string => {
+  const date = parseLocalDateTime(value);
+  if (!date) return "";
+  return formatDateForInput(date);
+};
+
 const DEFAULT_EVENT_DURATION_HOURS = 2;
 
 function endDateFromStart(startValue: string): string {
@@ -331,8 +337,14 @@ export default function EventForm({
         branch: defaultBranch,
         room: resolveRoomSelection(initialData),
         is_recurring: initialData.is_recurring || false,
-        start_date: initialData.start_date || "",
-        end_date: initialData.end_date || "",
+        start_date:
+          toDateTimeLocalValue(initialData.start_date || "") ||
+          initialData.start_date ||
+          "",
+        end_date:
+          toDateTimeLocalValue(initialData.end_date || "") ||
+          initialData.end_date ||
+          "",
         expected_include_active: initialData.expected_include_active ?? true,
         expected_include_semiactive:
           initialData.expected_include_semiactive ?? true,
@@ -661,9 +673,7 @@ export default function EventForm({
   };
 
   const formatDateTimeLocal = (dateString: string) => {
-    const date = parseLocalDateTime(dateString);
-    if (!date) return "";
-    return formatDateForInput(date);
+    return toDateTimeLocalValue(dateString);
   };
 
   const pendingAttendeeCount = recordedAttendeeCount(initialData);

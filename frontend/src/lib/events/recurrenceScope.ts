@@ -1,12 +1,25 @@
-import { Event } from "@/src/types/event";
+import { Event, EventOccurrence } from "@/src/types/event";
 
 export type RecurrenceScope = "occurrence" | "following" | "series";
 
+/** Church/local calendar day (YYYY-MM-DD). Never UTC from toISOString. */
 export function toDateKey(value: string): string {
   if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
   const parsed = new Date(value);
   if (Number.isNaN(parsed.getTime())) return value;
-  return parsed.toISOString().split("T")[0];
+  const year = parsed.getFullYear();
+  const month = String(parsed.getMonth() + 1).padStart(2, "0");
+  const day = String(parsed.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+export function occurrenceCalendarDate(
+  occurrence: Pick<EventOccurrence, "occurrence_date" | "start_date"> | null
+): string | null {
+  if (!occurrence) return null;
+  if (occurrence.occurrence_date) return toDateKey(occurrence.occurrence_date);
+  if (occurrence.start_date) return toDateKey(occurrence.start_date);
+  return null;
 }
 
 export function isFirstOccurrence(
@@ -22,7 +35,7 @@ export function findOccurrence(event: Event, occurrenceDate: string | null) {
   const key = toDateKey(occurrenceDate);
   return (
     event.occurrences?.find(
-      (occurrence) => toDateKey(occurrence.start_date) === key
+      (occurrence) => occurrenceCalendarDate(occurrence) === key
     ) ?? null
   );
 }

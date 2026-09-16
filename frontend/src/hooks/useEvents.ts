@@ -159,8 +159,12 @@ export const useEvents = () => {
   const findAndReplaceEvent = useCallback(
     (next: Event) => {
       setEvents((current) => {
-        const updated = current.some((event) => event.id === next.id)
-          ? current.map((event) => (event.id === next.id ? next : event))
+        const updated = current.some(
+          (event) => String(event.id) === String(next.id)
+        )
+          ? current.map((event) =>
+              String(event.id) === String(next.id) ? next : event
+            )
           : [...current, next];
         setCalendarEvents(buildCalendarOccurrences(updated));
         return updated;
@@ -189,42 +193,32 @@ export const useEvents = () => {
 
   const deleteEvent = useCallback(
     async (id: string) => {
-      try {
-        await eventsApi.delete(id);
-        setEvents((current) => {
-          const remaining = current.filter((event) => event.id !== id);
-          setCalendarEvents(buildCalendarOccurrences(remaining));
-          return remaining;
-        });
-      } catch (err) {
-        throw new Error("Failed to delete event");
-      }
+      await eventsApi.delete(id);
+      setEvents((current) => {
+        const remaining = current.filter(
+          (event) => String(event.id) !== String(id)
+        );
+        setCalendarEvents(buildCalendarOccurrences(remaining));
+        return remaining;
+      });
     },
     [buildCalendarOccurrences]
   );
 
   const excludeOccurrence = useCallback(
     async (id: string, date: string) => {
-      try {
-        const response = await eventsApi.excludeOccurrence(id, { date });
-        findAndReplaceEvent(response.data);
-        return response.data;
-      } catch (err) {
-        throw new Error("Failed to exclude occurrence");
-      }
+      const response = await eventsApi.excludeOccurrence(id, { date });
+      findAndReplaceEvent(response.data);
+      return response.data;
     },
     [findAndReplaceEvent]
   );
 
   const endRecurrence = useCallback(
     async (id: string, date: string) => {
-      try {
-        const response = await eventsApi.endRecurrence(id, { date });
-        findAndReplaceEvent(response.data);
-        return response.data;
-      } catch (err) {
-        throw new Error("Failed to end recurrence");
-      }
+      const response = await eventsApi.endRecurrence(id, { date });
+      findAndReplaceEvent(response.data);
+      return response.data;
     },
     [findAndReplaceEvent]
   );
@@ -242,7 +236,9 @@ export const useEvents = () => {
     async (id: string, payload?: { review_note?: string }) => {
       const response = await eventsApi.reject(id, payload);
       setEvents((current) => {
-        const remaining = current.filter((event) => event.id !== id);
+        const remaining = current.filter(
+          (event) => String(event.id) !== String(id)
+        );
         setCalendarEvents(buildCalendarOccurrences(remaining));
         return remaining;
       });

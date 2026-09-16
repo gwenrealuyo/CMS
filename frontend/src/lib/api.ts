@@ -38,6 +38,7 @@ import {
 import {
   SelfCheckInInviter,
   SelfCheckInSessionResponse,
+  PublicSelfCheckInSessionResponse,
   SelfCheckInVisitorMatch,
   SelfCheckInVisitorWrite,
 } from "@/src/types/selfCheckIn";
@@ -97,6 +98,13 @@ import { NotificationFeedResponse } from "@/src/types/notifications";
 import { ReportsScopeMeta, PeopleSummary, EngagementSummary, NccSummary, CymSummary, V2bSummary, StewardshipSummary, OverviewSummary } from "@/src/types/reports";
 
 const api = axios.create({
+  baseURL: process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api",
+  headers: {
+    "Content-Type": "application/json",
+  },
+});
+
+const publicApi = axios.create({
   baseURL: process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api",
   headers: {
     "Content-Type": "application/json",
@@ -1048,6 +1056,30 @@ export const eventsApi = {
           ...(params?.event ? { event: params.event } : {}),
         },
       }
+    ),
+};
+
+export const publicSelfCheckInApi = {
+  session: (params?: { event?: number | string }) =>
+    publicApi.get<PublicSelfCheckInSessionResponse>(
+      "/events/self-check-in/public/session/",
+      {
+        params: params?.event ? { event: params.event } : undefined,
+      }
+    ),
+  identify: (payload: { member_id: string; event_id?: number | string }) =>
+    publicApi.post<PublicSelfCheckInSessionResponse>(
+      "/events/self-check-in/public/identify/",
+      payload
+    ),
+  checkIn: (payload: {
+    member_id: string;
+    attendance_venue: string;
+    event_id?: number | string;
+  }) =>
+    publicApi.post<PublicSelfCheckInSessionResponse>(
+      "/events/self-check-in/public/",
+      payload
     ),
 };
 

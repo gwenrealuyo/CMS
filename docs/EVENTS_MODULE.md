@@ -16,7 +16,7 @@
 - Staff can **correct** mode/venue afterward via `PATCH /api/events/{id}/attendance/{attendance_id}/` with `attendance_mode` and (when Online) `attendance_venue`. UI: **Edit mode** on the Event attendance list and on Check-In Recent Check-Ins. Switching to Onsite clears venue; Online requires an active venue.
 - Staff check-in station: **Onsite** (default, QR + manual) or **Online** (manual only + required venue picker).
 - Event detail **Add attendee** also accepts Onsite/Online (+ venue when Online).
-- Self-check-in is always **Online** and requires `attendance_venue` on every POST (household and visitor flows). Session payloads include `attendance_venues` for the picker.
+- Self-check-in is always **Online** and requires `attendance_venue` on every POST (public LAMP ID, household, and visitor flows). Session payloads include `attendance_venues` for the picker.
 - Manage venues in **Admin Settings → Events → Manage venues**.
 
 ## Recurrence Pattern Format
@@ -122,25 +122,38 @@ The Event form shows these toggles only when the type is Sunday Service. Other e
 
 ### Self Check-In (Sunday Service)
 
-Mobile-first page at `/events/self-check-in` (authenticated, no sidebar). **Online attendance only** — onsite guests and members use the staff station at `/events/check-in`. Both write the same `AttendanceRecord` + `EVENT_ATTENDANCE` journey.
+Mobile-first page at `/events/self-check-in` (no sidebar). **Online attendance only** — onsite guests and members use the staff station at `/events/check-in`. Both write the same `AttendanceRecord` + `EVENT_ATTENDANCE` journey.
 
-- **Availability:** church-local today (`CHURCH_TIME_ZONE`) must have an **approved** `SUNDAY_SERVICE` occurrence. Pending room bookings do not open check-in. If none, the page is unavailable (no last-week fallback). Prefer the user’s branch; admins / HQ pastors get a picker when more than one branch or time matches.
-- **Who can use it:** **Member self-check-in** in Admin Settings → Module controls is off by default. While off, only admins and Events coordinators (coordinator / senior coordinator) see the banner and page. Turn the switch on to open **online** self-check-in to all logged-in members. Do not use this flow if they are onsite.
-- **Members:** any allowed authenticated non-visitor attending **online** can check in themselves and household members on the same `Family` record(s). Deceased and other admin accounts are skipped. Does **not** require Events write.
-- **Online guests:** any allowed member can search first (existing `VISITOR` records **and Invited prospects** in the event branch), then check them in or add a new guest. Inviter is always the logged-in host (not editable). Duplicate first+last name in the branch returns 409 with matches instead of creating a second person. This does **not** grant People-module visitor create rights.
+There are two UIs on the same URL:
+
+- **Not logged in (public link):** identify **one person** with LAMP ID (typed, camera scan of the member QR, or a QR **photo decoded in the browser** — the image is never uploaded). Confirm name/photo, pick an online venue, check in. No household list, no visitor search, no undo.
+- **Logged in:** existing household + guest encoding for admins, Events coordinators, and members who have a CMS account.
+
+The member QR payload stays the LAMP ID (`member_id`), for example `LAMP00001`. The shared page URL is not encoded in that QR.
+
+- **Availability:** church-local today (`CHURCH_TIME_ZONE`) must have an **approved** `SUNDAY_SERVICE` occurrence. Pending room bookings do not open check-in. If none, the page is unavailable (no last-week fallback). Public identify prefers the person’s branch (and includes church-wide services). Logged-in users still prefer their branch; admins / HQ pastors get a picker when more than one branch or time matches.
+- **Who can use the public link:** **Member self-check-in** in Admin Settings → Module controls is off by default. Turn the switch on to open the public LAMP ID page. While off, the public APIs return `available: false`, `reason: restricted`; admins and Events coordinators still use the logged-in household/guest page.
+- **Public identify:** `POST` with `{ member_id }` (also accepts digits-only, e.g. `10001` for `LAMP10001`). Unknown / admin / deceased → generic 404. Duplicate LAMP IDs → 409 asking staff. Check-in re-resolves from `member_id` (does not trust a client `person_id`).
+- **Logged-in members:** any allowed authenticated non-visitor attending **online** can check in themselves and household members on the same `Family` record(s). Deceased and other admin accounts are skipped. Does **not** require Events write.
+- **Online guests (logged-in only):** any allowed member can search first (existing `VISITOR` records **and Invited prospects** in the event branch), then check them in or add a new guest. Inviter is always the logged-in host (not editable). Duplicate first+last name in the branch returns 409 with matches instead of creating a second person. This does **not** grant People-module visitor create rights.
 - Checking in an Invited prospect uses the same `mark_prospect_attended` path as Evangelism / cluster reports: creates a `VISITOR` / `ONGOING` Person, sets first activity to Sunday Service, then marks Present. Undo still only removes attendance.
 - New guests: `VISITOR` / `ONGOING`, `date_first_attended` today, `first_activity_attended=SUNDAY_SERVICE`, event branch, age group stored as a visitor note. First and last names use the same title-case rules as Add Person.
-- Dashboard and My record show a Sunday-aware **Check in online** banner when a session is open, labelled as online-only.
-- After a successful check-in, **I made a mistake** undoes that attendance for this service (household or guests you invited). Admins and Events coordinators can also undo other visitors in the event branch. It does not delete the person record.
+- Dashboard and My record show a Sunday-aware **Check in online** banner when a logged-in session is open, labelled as online-only. The unauthenticated home page shows **Sunday online check-in** when the public session is available.
+- After a successful logged-in check-in, **I made a mistake** undoes that attendance for this service (household or guests you invited). Admins and Events coordinators can also undo other visitors in the event branch. It does not delete the person record. The public page has no undo.
 
-API (all authenticated, non-visitor):
+API:
 
-- `GET|PATCH /api/events/settings/` — ADMIN. `member_self_checkin_enabled` opens self-check-in to all members (default off).
+- `GET|PATCH /api/events/settings/` — ADMIN. `member_self_checkin_enabled` opens the **public** Sunday link (default off). Logged-in staff keep household/guest check-in either way.
 - `GET|POST|PATCH|DELETE /api/attendance-venues/` — list/manage online venues (`?active=true` for pickers). Write/delete is ADMIN.
-- `GET /api/events/self-check-in/session/` — today’s session, household, `can_encode_visitors`, `attendance_venues`. `?event=` selects among options. Members get `available: false`, `reason: restricted` while the setting is off.
-- `POST /api/events/self-check-in/` — `{ person_ids, attendance_venue, event_id? }` household Present upsert as **Online**.
-- `POST /api/events/self-check-in/undo/` — `{ person_ids, event_id? }` remove today’s Present records you are allowed to undo (household, guests you invited; staff may undo any visitor in the event branch).
-- `GET|POST /api/events/self-check-in/visitors/` — name search (visitors + Invited prospects) / check in existing person, check in prospect (`prospect_id`), or add a guest. POSTs require `attendance_venue`. Inviter is the logged-in user.
+- Public (`AllowAny`, no JWT; identify/check-in throttled):
+  - `GET /api/events/self-check-in/public/session/` — whether today is open, service options, `attendance_venues`. No household.
+  - `POST /api/events/self-check-in/public/identify/` — `{ member_id, event_id? }` slim confirm payload (name, nickname, photo, LAMP ID, already checked in).
+  - `POST /api/events/self-check-in/public/` — `{ member_id, attendance_venue, event_id? }` Present upsert as **Online**. Same first-check-in-is-final 409.
+- Authenticated, non-visitor:
+  - `GET /api/events/self-check-in/session/` — today’s session, household, `can_encode_visitors`, `attendance_venues`. `?event=` selects among options. Members get `available: false`, `reason: restricted` while the setting is off.
+  - `POST /api/events/self-check-in/` — `{ person_ids, attendance_venue, event_id? }` household Present upsert as **Online**.
+  - `POST /api/events/self-check-in/undo/` — `{ person_ids, event_id? }` remove today’s Present records you are allowed to undo (household, guests you invited; staff may undo any visitor in the event branch).
+  - `GET|POST /api/events/self-check-in/visitors/` — name search (visitors + Invited prospects) / check in existing person, check in prospect (`prospect_id`), or add a guest. POSTs require `attendance_venue`. Inviter is the logged-in user.
 
 ### Attendance Report (today and past occurrences)
 

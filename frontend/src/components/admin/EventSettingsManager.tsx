@@ -48,7 +48,7 @@ export default function EventSettingsManager() {
       setSetting(response.data);
       toast.success(
         enabled
-          ? "Online self-check-in is now open to all members."
+          ? "Online self-check-in is now open from the public Sunday link."
           : "Online self-check-in is limited to admins and Events coordinators.",
       );
     } catch (error: any) {
@@ -138,14 +138,15 @@ export default function EventSettingsManager() {
               Member online self-check-in
             </h3>
             <p className="text-xs text-gray-500 mt-1 max-w-xl">
-              For members attending Sunday Service online only (home altar,
-              cluster house, or another online venue). Onsite check-in stays on
-              the staff station. When off, only admins and Events coordinators
-              see the banner and page.
+              Opens the public Sunday link at /events/self-check-in so members
+              can check in online with their LAMP ID or member QR, without
+              logging in. Onsite check-in stays on the staff station. When off,
+              only admins and Events coordinators can use logged-in household
+              and guest check-in.
             </p>
             <p className="text-xs text-gray-500 mt-1">
               {isEnabled
-                ? "Open to all members."
+                ? "Public LAMP ID check-in is open."
                 : "Limited to admins and Events coordinators."}
               {setting.updated_by_name
                 ? ` Last updated by ${setting.updated_by_name}.`
@@ -177,7 +178,7 @@ export default function EventSettingsManager() {
         onClose={closeToggleConfirmation}
         title={
           pendingToggle
-            ? "Open online self-check-in to members"
+            ? "Open the public Sunday check-in link"
             : "Limit online self-check-in to staff"
         }
       >
@@ -186,13 +187,13 @@ export default function EventSettingsManager() {
             <div className="space-y-2">
               <p className="text-sm text-gray-700">
                 {pendingToggle
-                  ? "Let all logged-in members use Sunday online self-check-in?"
+                  ? "Let members check in online from the public Sunday link using their LAMP ID or member QR, without logging in?"
                   : "Hide Sunday online self-check-in from members?"}
               </p>
               <p className="text-sm text-gray-500">
                 {pendingToggle
-                  ? "Members attending online will see the check-in banner on the dashboard and My record when a Sunday Service is open. Do not use this if they are onsite."
-                  : "Only admins and Events coordinators will still see and use online self-check-in."}
+                  ? "The shared /events/self-check-in page will accept LAMP ID, camera scan, or a QR photo (decoded in the browser, not saved). Logged-in admins and Events coordinators keep household and guest check-in. Do not use this if they are onsite."
+                  : "Only admins and Events coordinators will still see and use logged-in household and guest self-check-in."}
               </p>
             </div>
 
@@ -218,7 +219,7 @@ export default function EventSettingsManager() {
                 {updating
                   ? "Saving..."
                   : pendingToggle
-                    ? "Open to members"
+                    ? "Open public link"
                     : "Limit to staff"}
               </button>
             </div>

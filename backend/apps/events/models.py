@@ -176,8 +176,10 @@ class EventSetting(models.Model):
     member_self_checkin_enabled = models.BooleanField(
         default=False,
         help_text=(
-            "When enabled, all logged-in members can use Sunday self-check-in. "
-            "When disabled, only admins and Events coordinators see it."
+            "When enabled, members can check in online from the public Sunday "
+            "link (LAMP ID / member QR) without logging in. When disabled, only "
+            "admins and Events coordinators can use logged-in household and "
+            "guest self-check-in."
         ),
     )
     updated_at = models.DateTimeField(auto_now=True)

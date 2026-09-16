@@ -4,8 +4,9 @@ from __future__ import annotations
 
 from django.db.models import Count
 from rest_framework import status
-from rest_framework.permissions import BasePermission
+from rest_framework.permissions import AllowAny, BasePermission
 from rest_framework.response import Response
+from rest_framework.throttling import AnonRateThrottle
 from rest_framework.views import APIView
 
 from apps.attendance.models import AttendanceRecord
@@ -26,24 +27,29 @@ from apps.events.services.self_checkin import (
     checked_in_person_ids,
     exact_name_matches,
     exact_prospect_name_matches,
+    find_people_by_member_id,
     household_person_ids,
     household_queryset,
     invited_prospect_scope_for_event,
+    member_self_checkin_enabled,
     parse_event_id,
     parse_person_ids,
     people_scope_for_event,
     person_full_name,
-    visitor_scope_for_event,
+    resolve_person_public_session,
+    resolve_public_session,
     resolve_session,
     search_people_by_name,
     search_prospects_by_name,
     serialize_event_option,
     serialize_person_slim,
     serialize_prospect_match,
+    serialize_public_person,
     serialize_session_event,
     undoable_person_ids,
     user_can_encode_self_checkin_visitors,
     user_can_use_self_checkin,
+    visitor_scope_for_event,
 )
 from apps.people.models import Journey, Person
 from apps.people.name_formatting import title_case_name
@@ -705,3 +711,203 @@ class EventSettingView(APIView):
         serializer.is_valid(raise_exception=True)
         serializer.save(updated_by=request.user)
         return Response(serializer.data)
+
+
+class PublicSelfCheckInThrottle(AnonRateThrottle):
+    rate = "30/min"
+
+
+PUBLIC_MEMBER_NOT_FOUND = "No member found for this LAMP ID."
+PUBLIC_MEMBER_AMBIGUOUS = (
+    "This LAMP ID matches more than one person. Please ask an Events coordinator for help."
+)
+
+
+def _public_payload(resolved, extra=None) -> dict:
+    payload = {
+        "available": resolved.available,
+        "reason": resolved.reason,
+        "occurrence_date": (
+            resolved.occurrence_date.isoformat() if resolved.occurrence_date else None
+        ),
+        "needs_selection": resolved.needs_selection,
+        "can_encode_visitors": False,
+        "session": None,
+        "options": [
+            serialize_event_option(event, occ) for event, occ in resolved.options
+        ],
+    }
+    if (
+        resolved.available
+        and resolved.event
+        and resolved.occurrence
+        and resolved.occurrence_date
+        and not resolved.needs_selection
+    ):
+        payload["session"] = {
+            "event": serialize_session_event(resolved.event, resolved.occurrence),
+            "occurrence_date": resolved.occurrence_date.isoformat(),
+            "start": resolved.occurrence.start.isoformat(),
+            "end": resolved.occurrence.end.isoformat(),
+        }
+    if extra:
+        payload.update(extra)
+    return _with_venues(payload)
+
+
+def _public_restricted_payload() -> dict:
+    return _with_venues(
+        {
+            "available": False,
+            "reason": REASON_RESTRICTED,
+            "occurrence_date": None,
+            "needs_selection": False,
+            "can_encode_visitors": False,
+            "session": None,
+            "options": [],
+            "detail": "Online self-check-in is not open to members yet.",
+        }
+    )
+
+
+def _lookup_public_person(request):
+    raw = ""
+    if hasattr(request, "data"):
+        raw = request.data.get("member_id") or ""
+    raw = str(raw).strip()
+    if not raw:
+        return None, Response(
+            {"member_id": ["Enter your LAMP ID."]},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+    people = list(find_people_by_member_id(raw)[:8])
+    if not people:
+        return None, Response(
+            {"detail": PUBLIC_MEMBER_NOT_FOUND},
+            status=status.HTTP_404_NOT_FOUND,
+        )
+    if len(people) > 1:
+        return None, Response(
+            {"detail": PUBLIC_MEMBER_AMBIGUOUS},
+            status=status.HTTP_409_CONFLICT,
+        )
+    return people[0], None
+
+
+def _identify_public_person(request):
+    if not member_self_checkin_enabled():
+        return None, None, Response(
+            _public_restricted_payload(),
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+    person, error = _lookup_public_person(request)
+    if error is not None:
+        return None, None, error
+    resolved = resolve_person_public_session(
+        person, event_id=_event_id_from_request(request)
+    )
+    if not resolved.available:
+        payload = _public_payload(resolved)
+        payload["detail"] = "Online self-check-in is not available right now."
+        payload["person"] = None
+        return None, None, Response(payload, status=status.HTTP_400_BAD_REQUEST)
+    return person, resolved, None
+
+
+class PublicSelfCheckInSessionView(APIView):
+    authentication_classes = []
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        if not member_self_checkin_enabled():
+            return Response(_public_restricted_payload())
+        resolved = resolve_public_session(event_id=_event_id_from_request(request))
+        if not resolved.available:
+            status_code = (
+                status.HTTP_400_BAD_REQUEST
+                if resolved.reason == "invalid_event"
+                else status.HTTP_200_OK
+            )
+            return Response(_public_payload(resolved), status=status_code)
+        return Response(_public_payload(resolved))
+
+
+class PublicSelfCheckInIdentifyView(APIView):
+    authentication_classes = []
+    permission_classes = [AllowAny]
+    throttle_classes = [PublicSelfCheckInThrottle]
+
+    def post(self, request):
+        person, resolved, error = _identify_public_person(request)
+        if error is not None:
+            return error
+        already = False
+        if resolved.event and resolved.occurrence_date:
+            already = person.pk in checked_in_person_ids(
+                resolved.event, resolved.occurrence_date
+            )
+        return Response(
+            _public_payload(
+                resolved,
+                {
+                    "person": serialize_public_person(
+                        person,
+                        already_checked_in=already,
+                        request=request,
+                    ),
+                    "already_checked_in": already,
+                },
+            )
+        )
+
+
+class PublicSelfCheckInView(APIView):
+    authentication_classes = []
+    permission_classes = [AllowAny]
+    throttle_classes = [PublicSelfCheckInThrottle]
+
+    def post(self, request):
+        person, resolved, error = _identify_public_person(request)
+        if error is not None:
+            return error
+        if resolved.needs_selection or not resolved.event:
+            payload = _public_payload(
+                resolved,
+                {
+                    "detail": "Select a Sunday Service to check in online.",
+                    "person": serialize_public_person(
+                        person,
+                        already_checked_in=False,
+                        request=request,
+                    ),
+                },
+            )
+            return Response(payload, status=status.HTTP_400_BAD_REQUEST)
+
+        venue, venue_errors = _resolve_online_venue(request)
+        if venue_errors:
+            return Response(venue_errors, status=status.HTTP_400_BAD_REQUEST)
+
+        record, _created, already = _upsert_present(
+            resolved.event, person, resolved.occurrence_date, request, venue
+        )
+        payload = _public_payload(
+            resolved,
+            {
+                "person": serialize_public_person(
+                    person,
+                    already_checked_in=True,
+                    request=request,
+                ),
+                "already_checked_in": already,
+                "attendance_record": AttendanceRecordSerializer(
+                    record, context={"request": request}
+                ).data,
+            },
+        )
+        if already:
+            payload["detail"] = (
+                "Already checked in. Mode and venue cannot be changed."
+            )
+            return Response(payload, status=status.HTTP_409_CONFLICT)
+        return Response(payload, status=status.HTTP_200_OK)

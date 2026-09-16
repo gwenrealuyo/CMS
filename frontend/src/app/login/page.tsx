@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { useAuth } from "@/src/contexts/AuthContext";
 import Button from "@/src/components/ui/Button";
 import PasswordInput from "@/src/components/ui/PasswordInput";
@@ -77,7 +78,8 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background px-4">
-      <div className="w-full max-w-md p-6 md:p-8 bg-white rounded-lg shadow-md">
+      <div className="w-full max-w-md">
+        <div className="p-6 md:p-8 bg-white rounded-lg shadow-md">
         <div className="mb-6 md:mb-8 text-center">
           <div className="flex justify-center mb-4">
             <AppLogo imageClassName="h-24 w-auto object-contain" />
@@ -167,6 +169,12 @@ export default function LoginPage() {
             Forgot your password?
           </a>
         </div>
+        </div>
+        <p className="mt-4 text-center text-xs text-muted-foreground">
+          <Link href="/" className="text-lighthouse-gold hover:underline">
+            Back to home
+          </Link>
+        </p>
       </div>
     </div>
   );

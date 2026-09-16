@@ -122,6 +122,88 @@ def _is_visible_to_user(event: Event, user) -> bool:
     return event.branch_id == getattr(user, "branch_id", None)
 
 
+def member_id_lookup_values(raw: str) -> List[str]:
+    """Return distinct trimmed values to match against Person.member_id."""
+    trimmed = (raw or "").strip()
+    if not trimmed:
+        return []
+    values: List[str] = [trimmed]
+    upper = trimmed.upper()
+    if trimmed.isdigit():
+        values.append(f"LAMP{trimmed}")
+        values.append(f"GUEST{trimmed}")
+    elif upper.startswith("LAMP"):
+        rest = trimmed[4:]
+        if rest.isdigit():
+            values.append(rest)
+            values.append(f"LAMP{rest}")
+    elif upper.startswith("GUEST"):
+        rest = trimmed[5:]
+        if rest.isdigit():
+            values.append(rest)
+            values.append(f"GUEST{rest}")
+    seen = set()
+    unique: List[str] = []
+    for value in values:
+        key = value.lower()
+        if key not in seen:
+            seen.add(key)
+            unique.append(value)
+    return unique
+
+
+def find_people_by_member_id(raw: str) -> QuerySet[Person]:
+    values = member_id_lookup_values(raw)
+    if not values:
+        return Person.objects.none()
+    query = Q()
+    for value in values:
+        query |= Q(member_id__iexact=value)
+    return (
+        Person.objects.filter(query)
+        .exclude(member_id="")
+        .exclude(role="ADMIN")
+        .exclude(status="DECEASED")
+        .distinct()
+        .order_by("id")
+    )
+
+
+def _is_visible_to_person(event: Event, person: Person) -> bool:
+    if event.branch_id is None:
+        return True
+    return event.branch_id == getattr(person, "branch_id", None)
+
+
+def select_matches_for_person(
+    matches: Sequence[Tuple[Event, Occurrence]],
+    person: Person,
+    event_id: Optional[int] = None,
+) -> Tuple[List[Tuple[Event, Occurrence]], Optional[str]]:
+    """Prefer the person's branch; include church-wide Sunday services."""
+    if not matches:
+        return [], REASON_NO_SERVICE
+
+    visible = [
+        (event, occ) for event, occ in matches if _is_visible_to_person(event, person)
+    ]
+    if not visible:
+        return [], REASON_NOT_FOR_BRANCH
+
+    if event_id is not None:
+        chosen = [(event, occ) for event, occ in visible if event.pk == event_id]
+        return chosen, None if chosen else "invalid_event"
+
+    branch_id = getattr(person, "branch_id", None)
+    if branch_id:
+        at_branch = [
+            (event, occ) for event, occ in visible if event.branch_id == branch_id
+        ]
+        if at_branch:
+            return at_branch, None
+    return list(visible), None
+
+
 def select_matches_for_user(
     matches: Sequence[Tuple[Event, Occurrence]],
     user,
@@ -216,6 +298,136 @@ def resolve_session(
         occurrence_date=today,
         options=list(selected),
         can_encode_visitors=can_encode,
+    )
+
+
+def resolve_public_session(
+    event_id: Optional[int] = None,
+    today: Optional[date] = None,
+) -> ResolvedSession:
+    """Today's approved Sunday services with no user or branch filter."""
+    today = today or church_today()
+    matches = find_todays_sunday_services(today)
+
+    if event_id is not None:
+        chosen = [(event, occ) for event, occ in matches if event.pk == event_id]
+        if not chosen:
+            return ResolvedSession(
+                available=False,
+                reason="invalid_event" if matches else REASON_NO_SERVICE,
+                needs_selection=False,
+                event=None,
+                occurrence=None,
+                occurrence_date=today,
+                options=[],
+                can_encode_visitors=False,
+            )
+        event, occ = chosen[0]
+        return ResolvedSession(
+            available=True,
+            reason=None,
+            needs_selection=False,
+            event=event,
+            occurrence=occ,
+            occurrence_date=today,
+            options=list(chosen),
+            can_encode_visitors=False,
+        )
+
+    if not matches:
+        return ResolvedSession(
+            available=False,
+            reason=REASON_NO_SERVICE,
+            needs_selection=False,
+            event=None,
+            occurrence=None,
+            occurrence_date=today,
+            options=[],
+            can_encode_visitors=False,
+        )
+
+    if len(matches) == 1:
+        event, occ = matches[0]
+        return ResolvedSession(
+            available=True,
+            reason=None,
+            needs_selection=False,
+            event=event,
+            occurrence=occ,
+            occurrence_date=today,
+            options=list(matches),
+            can_encode_visitors=False,
+        )
+
+    return ResolvedSession(
+        available=True,
+        reason=None,
+        needs_selection=False,
+        event=None,
+        occurrence=None,
+        occurrence_date=today,
+        options=list(matches),
+        can_encode_visitors=False,
+    )
+
+
+def resolve_person_public_session(
+    person: Person,
+    event_id: Optional[int] = None,
+    today: Optional[date] = None,
+) -> ResolvedSession:
+    today = today or church_today()
+    matches = find_todays_sunday_services(today)
+    selected, reason = select_matches_for_person(
+        matches, person, event_id=event_id
+    )
+
+    if reason == "invalid_event":
+        return ResolvedSession(
+            available=False,
+            reason="invalid_event",
+            needs_selection=False,
+            event=None,
+            occurrence=None,
+            occurrence_date=today,
+            options=[],
+            can_encode_visitors=False,
+        )
+
+    if not selected:
+        return ResolvedSession(
+            available=False,
+            reason=reason or REASON_NO_SERVICE,
+            needs_selection=False,
+            event=None,
+            occurrence=None,
+            occurrence_date=today,
+            options=[],
+            can_encode_visitors=False,
+        )
+
+    if event_id is None and len(selected) > 1:
+        return ResolvedSession(
+            available=True,
+            reason=None,
+            needs_selection=True,
+            event=None,
+            occurrence=None,
+            occurrence_date=today,
+            options=list(selected),
+            can_encode_visitors=False,
+        )
+
+    event, occ = selected[0]
+    return ResolvedSession(
+        available=True,
+        reason=None,
+        needs_selection=False,
+        event=event,
+        occurrence=occ,
+        occurrence_date=today,
+        options=list(selected),
+        can_encode_visitors=False,
     )
 
 
@@ -413,6 +625,28 @@ def serialize_person_slim(
         "is_self": is_self,
         "already_checked_in": already_checked_in,
         "kind": "visitor",
+    }
+
+
+def serialize_public_person(
+    person: Person,
+    *,
+    already_checked_in: bool,
+    request=None,
+) -> dict:
+    photo = None
+    if person.photo:
+        url = person.photo.url
+        photo = request.build_absolute_uri(url) if request else url
+    return {
+        "id": person.pk,
+        "first_name": person.first_name or "",
+        "last_name": person.last_name or "",
+        "nickname": person.nickname or "",
+        "full_name": person_full_name(person),
+        "member_id": person.member_id or "",
+        "photo": photo,
+        "already_checked_in": already_checked_in,
     }
 
 

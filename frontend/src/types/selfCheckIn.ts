@@ -92,3 +92,36 @@ export interface SelfCheckInVisitorWrite {
   event_id?: number;
   attendance_venue: string;
 }
+
+export interface PublicSelfCheckInPerson {
+  id: number;
+  first_name: string;
+  last_name: string;
+  nickname: string;
+  full_name: string;
+  member_id: string;
+  photo: string | null;
+  already_checked_in: boolean;
+}
+
+export interface PublicSelfCheckInSessionDetails {
+  event: SelfCheckInEventOption;
+  occurrence_date: string;
+  start: string;
+  end: string;
+}
+
+export interface PublicSelfCheckInSessionResponse {
+  available: boolean;
+  reason: string | null;
+  occurrence_date: string | null;
+  needs_selection: boolean;
+  can_encode_visitors?: boolean;
+  session: PublicSelfCheckInSessionDetails | null;
+  options: SelfCheckInEventOption[];
+  attendance_venues?: AttendanceVenueOption[];
+  detail?: string;
+  person?: PublicSelfCheckInPerson | null;
+  already_checked_in?: boolean;
+  attendance_record?: unknown;
+}

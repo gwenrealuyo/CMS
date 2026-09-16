@@ -2,6 +2,9 @@ from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from .self_checkin_views import (
     EventSettingView,
+    PublicSelfCheckInIdentifyView,
+    PublicSelfCheckInSessionView,
+    PublicSelfCheckInView,
     SelfCheckInInvitersView,
     SelfCheckInSessionView,
     SelfCheckInUndoView,
@@ -20,6 +23,21 @@ urlpatterns = [
         "settings/",
         EventSettingView.as_view(),
         name="event-settings",
+    ),
+    path(
+        "self-check-in/public/session/",
+        PublicSelfCheckInSessionView.as_view(),
+        name="self-check-in-public-session",
+    ),
+    path(
+        "self-check-in/public/identify/",
+        PublicSelfCheckInIdentifyView.as_view(),
+        name="self-check-in-public-identify",
+    ),
+    path(
+        "self-check-in/public/",
+        PublicSelfCheckInView.as_view(),
+        name="self-check-in-public",
     ),
     path(
         "self-check-in/session/",

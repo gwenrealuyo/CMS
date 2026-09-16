@@ -349,3 +349,38 @@ class AttendanceModeVenueAPITests(APITestCase):
             )
             self.assertEqual(record.attendance_mode, "ONLINE")
             self.assertEqual(record.attendance_venue_id, "CLUSTER_HOUSE")
+
+    def test_public_self_checkin_requires_online_venue_and_stores_online(self):
+        from apps.events.models import EventSetting
+        from unittest.mock import patch
+
+        EventSetting.get_solo()
+        EventSetting.objects.filter(pk=EventSetting.SOLO_PK).update(
+            member_self_checkin_enabled=True
+        )
+        with patch(
+            "apps.events.services.self_checkin.church_today",
+            return_value=TODAY,
+        ):
+            missing = self.client.post(
+                "/api/events/self-check-in/public/",
+                {"member_id": "LAMP20001"},
+                format="json",
+            )
+            self.assertEqual(missing.status_code, 400, missing.data)
+
+            ok = self.client.post(
+                "/api/events/self-check-in/public/",
+                {
+                    "member_id": "LAMP20001",
+                    "attendance_venue": "CLUSTER_HOUSE",
+                },
+                format="json",
+            )
+            self.assertEqual(ok.status_code, 200, ok.data)
+            self.assertNotIn("household", ok.data)
+            record = AttendanceRecord.objects.get(
+                event=self.event, person=self.member, occurrence_date=TODAY
+            )
+            self.assertEqual(record.attendance_mode, "ONLINE")
+            self.assertEqual(record.attendance_venue_id, "CLUSTER_HOUSE")

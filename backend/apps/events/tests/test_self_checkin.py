@@ -802,3 +802,159 @@ class SelfCheckInAPITests(APITestCase):
         self.assertTrue(
             Person.objects.get(pk=visitor_id).journeys.filter(type="NOTE").exists()
         )
+
+    def test_public_session_allows_anonymous(self):
+        response = self.client.get("/api/events/self-check-in/public/session/")
+        self.assertEqual(response.status_code, 200, response.data)
+        self.assertTrue(response.data["available"])
+        self.assertNotIn("household", response.data)
+        self.assertFalse(response.data["can_encode_visitors"])
+        self.assertGreaterEqual(len(response.data["options"]), 1)
+        self.assertIn("attendance_venues", response.data)
+
+    def test_public_session_restricted_when_setting_off(self):
+        EventSetting.objects.filter(pk=EventSetting.SOLO_PK).update(
+            member_self_checkin_enabled=False
+        )
+        session = self.client.get("/api/events/self-check-in/public/session/")
+        self.assertEqual(session.status_code, 200, session.data)
+        self.assertFalse(session.data["available"])
+        self.assertEqual(session.data["reason"], "restricted")
+        blocked = self.client.post(
+            "/api/events/self-check-in/public/",
+            {"member_id": "LAMP10001", "attendance_venue": "HOME_ALTAR"},
+            format="json",
+        )
+        self.assertEqual(blocked.status_code, 400, blocked.data)
+        self.client.force_authenticate(self.coordinator)
+        staff = self.client.get("/api/events/self-check-in/session/")
+        self.assertEqual(staff.status_code, 200, staff.data)
+        self.assertTrue(staff.data["available"])
+
+    def test_public_identify_by_lamp_id_and_numeric(self):
+        full = self.client.post(
+            "/api/events/self-check-in/public/identify/",
+            {"member_id": "LAMP10001"},
+            format="json",
+        )
+        self.assertEqual(full.status_code, 200, full.data)
+        self.assertEqual(full.data["person"]["member_id"], "LAMP10001")
+        self.assertEqual(full.data["person"]["first_name"], "Mina")
+        self.assertNotIn("household", full.data)
+        self.assertNotIn("status", full.data["person"])
+        self.assertFalse(full.data["already_checked_in"])
+
+        numeric = self.client.post(
+            "/api/events/self-check-in/public/identify/",
+            {"member_id": "10001"},
+            format="json",
+        )
+        self.assertEqual(numeric.status_code, 200, numeric.data)
+        self.assertEqual(numeric.data["person"]["member_id"], "LAMP10001")
+
+    def test_public_identify_by_guest_id_and_numeric(self):
+        guest = Person.objects.create_user(
+            username="sciguestid",
+            password="pass12345",
+            first_name="Gina",
+            last_name="Guest",
+            role="VISITOR",
+            status="ONGOING",
+            branch=self.hq,
+            member_id="GUEST20001",
+        )
+        full = self.client.post(
+            "/api/events/self-check-in/public/identify/",
+            {"member_id": "GUEST20001"},
+            format="json",
+        )
+        self.assertEqual(full.status_code, 200, full.data)
+        self.assertEqual(full.data["person"]["member_id"], "GUEST20001")
+        self.assertEqual(full.data["person"]["id"], guest.id)
+
+        numeric = self.client.post(
+            "/api/events/self-check-in/public/identify/",
+            {"member_id": "20001"},
+            format="json",
+        )
+        self.assertEqual(numeric.status_code, 200, numeric.data)
+        self.assertEqual(numeric.data["person"]["member_id"], "GUEST20001")
+
+    def test_public_identify_unknown_and_ineligible(self):
+        unknown = self.client.post(
+            "/api/events/self-check-in/public/identify/",
+            {"member_id": "LAMP99999"},
+            format="json",
+        )
+        self.assertEqual(unknown.status_code, 404, unknown.data)
+        self.assertEqual(unknown.data["detail"], "No member found for this LAMP ID.")
+
+        self.admin.member_id = "LAMPADMIN1"
+        self.admin.save(update_fields=["member_id"])
+        admin = self.client.post(
+            "/api/events/self-check-in/public/identify/",
+            {"member_id": "LAMPADMIN1"},
+            format="json",
+        )
+        self.assertEqual(admin.status_code, 404, admin.data)
+
+        self.deceased.member_id = "LAMPDEAD1"
+        self.deceased.save(update_fields=["member_id"])
+        deceased = self.client.post(
+            "/api/events/self-check-in/public/identify/",
+            {"member_id": "LAMPDEAD1"},
+            format="json",
+        )
+        self.assertEqual(deceased.status_code, 404, deceased.data)
+
+    def test_public_identify_duplicate_member_id(self):
+        Person.objects.create_user(
+            username="scidup",
+            password="pass12345",
+            first_name="Dup",
+            last_name="Member",
+            role="MEMBER",
+            status="ACTIVE",
+            branch=self.hq,
+            member_id="LAMP10001",
+        )
+        response = self.client.post(
+            "/api/events/self-check-in/public/identify/",
+            {"member_id": "LAMP10001"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, 409, response.data)
+        self.assertIn("more than one person", response.data["detail"])
+
+    def test_public_checkin_writes_online_and_second_post_conflicts(self):
+        missing = self.client.post(
+            "/api/events/self-check-in/public/",
+            {"member_id": "LAMP10001"},
+            format="json",
+        )
+        self.assertEqual(missing.status_code, 400, missing.data)
+        self.assertIn("attendance_venue", missing.data)
+
+        first = self.client.post(
+            "/api/events/self-check-in/public/",
+            {"member_id": "LAMP10001", "attendance_venue": "HOME_ALTAR"},
+            format="json",
+        )
+        self.assertEqual(first.status_code, 200, first.data)
+        self.assertNotIn("household", first.data)
+        self.assertTrue(first.data["person"]["already_checked_in"])
+        record = AttendanceRecord.objects.get(
+            event=self.event, person=self.member, occurrence_date=TODAY
+        )
+        self.assertEqual(record.attendance_mode, "ONLINE")
+        self.assertEqual(record.attendance_venue_id, "HOME_ALTAR")
+        self.assertEqual(Person.objects.filter(role="VISITOR").count(), 0)
+
+        second = self.client.post(
+            "/api/events/self-check-in/public/",
+            {"member_id": "LAMP10001", "attendance_venue": "CLUSTER_HOUSE"},
+            format="json",
+        )
+        self.assertEqual(second.status_code, 409, second.data)
+        record.refresh_from_db()
+        self.assertEqual(record.attendance_venue_id, "HOME_ALTAR")

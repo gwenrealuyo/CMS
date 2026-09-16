@@ -15,6 +15,7 @@ import ProspectsTable from "@/src/components/evangelism/ProspectsTable";
 import ProspectProgressForm from "@/src/components/evangelism/ProspectProgressForm";
 import { useProspects } from "@/src/hooks/useEvangelism";
 import { useAuth } from "@/src/contexts/AuthContext";
+import { canHardDelete } from "@/src/lib/canHardDelete";
 import { canWriteEvangelismRecords } from "@/src/lib/evangelism/evangelismPermissions";
 import { useModuleSettings } from "@/src/hooks/useModuleSettings";
 import {
@@ -59,6 +60,7 @@ export default function ProspectsBrowse({
   const { user, isSeniorCoordinator } = useAuth();
   const { moduleEnabled } = useModuleSettings();
   const canWrite = canWriteEvangelismRecords({ user, moduleEnabled });
+  const userCanHardDelete = canHardDelete(user);
   const canChangeBranch = canChangeProspectsBranchFilter(
     user,
     isSeniorCoordinator,
@@ -147,6 +149,7 @@ export default function ProspectsBrowse({
     loading,
     error,
     fetchProspects,
+    deleteProspect,
   } = useProspects(apiFilters, {
     page: currentPage,
     pageSize: itemsPerPage,
@@ -338,6 +341,14 @@ export default function ProspectsBrowse({
             mobileCardView={effectiveViewMode === "cards"}
             onUpdateProgress={
               canWrite ? (prospect) => setProgressProspect(prospect) : undefined
+            }
+            onDelete={
+              userCanHardDelete
+                ? async (prospect) => {
+                    await deleteProspect(prospect.id);
+                    await fetchProspects();
+                  }
+                : undefined
             }
           />
           {totalCount > 0 && (

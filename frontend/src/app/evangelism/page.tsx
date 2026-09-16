@@ -327,6 +327,7 @@ export default function EvangelismPage() {
     fetchProspects,
     createProspect,
     updateProspect,
+    deleteProspect,
   } = useProspects(prospectsFilters, {
     fetchAll: true,
     enabled: Boolean(viewEditGroup),
@@ -1382,6 +1383,14 @@ export default function EvangelismPage() {
           setSelectedProspect(prospect);
           setIsUpdateProgressModalOpen(true);
         }}
+        onDeleteProspect={
+          userCanHardDelete
+            ? async (prospect) => {
+                await deleteProspect(prospect.id);
+                await fetchProspects();
+              }
+            : undefined
+        }
         onAddConversion={() => {
           setEditingConversion(null);
           setIsConversionModalOpen(true);

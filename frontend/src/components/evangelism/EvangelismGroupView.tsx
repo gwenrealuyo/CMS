@@ -77,6 +77,7 @@ interface EvangelismGroupViewProps {
   onEditReport: (report: EvangelismWeeklyReport) => void;
   onAddProspect: () => void;
   onUpdateProgress: (prospect: Prospect) => void;
+  onDeleteProspect?: (prospect: Prospect) => Promise<void> | void;
   onAddConversion: () => void;
   onEditConversion: (conversion: Conversion) => void;
   onEdit: () => void;
@@ -108,6 +109,7 @@ export default function EvangelismGroupView({
   onEditReport,
   onAddProspect,
   onUpdateProgress,
+  onDeleteProspect,
   onAddConversion,
   onEditConversion,
   onDelete,
@@ -401,6 +403,7 @@ export default function EvangelismGroupView({
               prospects={prospects}
               onAddProspect={onAddProspect}
               onUpdateProgress={onUpdateProgress}
+              onDelete={onDeleteProspect}
               loading={prospectsLoading}
             />
 

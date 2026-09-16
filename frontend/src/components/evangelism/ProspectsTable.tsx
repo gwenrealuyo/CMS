@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import Table from "@/src/components/ui/Table";
 import Button from "@/src/components/ui/Button";
+import ProspectDeleteButton from "@/src/components/evangelism/ProspectDeleteButton";
 import ProspectPipelineChips from "@/src/components/evangelism/ProspectPipelineChips";
 import { Prospect } from "@/src/types/evangelism";
 import { formatPersonName } from "@/src/lib/name";
@@ -41,6 +42,7 @@ interface ProspectsTableProps {
   /** When true, mobile uses stacked cards; when false, the table scrolls horizontally. */
   mobileCardView?: boolean;
   onUpdateProgress?: (prospect: Prospect) => void;
+  onDelete?: (prospect: Prospect) => Promise<void> | void;
   onViewPerson?: (prospect: Prospect) => void;
 }
 
@@ -50,6 +52,7 @@ export default function ProspectsTable({
   compact = false,
   mobileCardView = true,
   onUpdateProgress,
+  onDelete,
   onViewPerson,
 }: ProspectsTableProps) {
   const [nameSort, setNameSort] = useState<"asc" | "desc" | null>(null);
@@ -174,22 +177,38 @@ export default function ProspectsTable({
           accessor: "pipeline_stage" as keyof Prospect,
           render: (_value, row) => <ProspectPipelineChips prospect={row} />,
         },
-        ...(onUpdateProgress
+        ...(onUpdateProgress || onDelete
           ? [
               {
                 header: "Actions",
                 desktopHeader: "",
                 accessor: "updated_at" as keyof Prospect,
-                render: (_value: unknown, row: Prospect) =>
-                  row.pipeline_stage === "INVITED" && !row.is_dropped_off ? (
-                    <Button
-                      variant="primary"
-                      className="min-h-[40px] px-3 text-xs"
-                      onClick={() => onUpdateProgress(row)}
-                    >
-                      Update
-                    </Button>
-                  ) : null,
+                render: (_value: unknown, row: Prospect) => {
+                  const showUpdate =
+                    Boolean(onUpdateProgress) &&
+                    row.pipeline_stage === "INVITED" &&
+                    !row.is_dropped_off;
+                  if (!showUpdate && !onDelete) return null;
+                  return (
+                    <div className="flex flex-wrap items-center gap-2">
+                      {showUpdate && onUpdateProgress ? (
+                        <Button
+                          variant="primary"
+                          className="min-h-[40px] px-3 text-xs"
+                          onClick={() => onUpdateProgress(row)}
+                        >
+                          Update
+                        </Button>
+                      ) : null}
+                      {onDelete ? (
+                        <ProspectDeleteButton
+                          prospect={row}
+                          onDelete={onDelete}
+                        />
+                      ) : null}
+                    </div>
+                  );
+                },
               },
             ]
           : []),

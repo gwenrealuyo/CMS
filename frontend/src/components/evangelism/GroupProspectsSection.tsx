@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Button from "@/src/components/ui/Button";
 import Table from "@/src/components/ui/Table";
+import ProspectDeleteButton from "@/src/components/evangelism/ProspectDeleteButton";
 import { Prospect } from "@/src/types/evangelism";
 import { formatLocaleDate } from "@/src/lib/date";
 
@@ -20,6 +21,7 @@ interface GroupProspectsSectionProps {
   prospects: Prospect[];
   onAddProspect: () => void;
   onUpdateProgress: (prospect: Prospect) => void;
+  onDelete?: (prospect: Prospect) => Promise<void> | void;
   loading?: boolean;
 }
 
@@ -27,6 +29,7 @@ export default function GroupProspectsSection({
   prospects,
   onAddProspect,
   onUpdateProgress,
+  onDelete,
   loading = false,
 }: GroupProspectsSectionProps) {
   const [showAll, setShowAll] = useState(false);
@@ -115,16 +118,31 @@ export default function GroupProspectsSection({
               {
                 header: "Actions",
                 accessor: "id" as keyof Prospect,
-                render: (_value, row) =>
-                  row.pipeline_stage === "INVITED" && !row.is_dropped_off ? (
-                    <Button
-                      variant="secondary"
-                      onClick={() => onUpdateProgress(row)}
-                      className="min-h-[44px] border border-amber-200 bg-white px-2 py-1 text-xs !text-amber-600 hover:border-amber-300 hover:bg-amber-50 md:min-h-0"
-                    >
-                      Update
-                    </Button>
-                  ) : null,
+                render: (_value, row) => {
+                  const showUpdate =
+                    row.pipeline_stage === "INVITED" && !row.is_dropped_off;
+                  if (!showUpdate && !onDelete) return null;
+                  return (
+                    <div className="flex flex-wrap items-center gap-2">
+                      {showUpdate ? (
+                        <Button
+                          variant="secondary"
+                          onClick={() => onUpdateProgress(row)}
+                          className="min-h-[44px] border border-amber-200 bg-white px-2 py-1 text-xs !text-amber-600 hover:border-amber-300 hover:bg-amber-50 md:min-h-0"
+                        >
+                          Update
+                        </Button>
+                      ) : null}
+                      {onDelete ? (
+                        <ProspectDeleteButton
+                          prospect={row}
+                          onDelete={onDelete}
+                          compact
+                        />
+                      ) : null}
+                    </div>
+                  );
+                },
               },
             ]}
             data={displayedProspects}

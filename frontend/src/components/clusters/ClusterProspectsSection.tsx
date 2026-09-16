@@ -12,6 +12,7 @@ import ProspectProgressForm from "@/src/components/evangelism/ProspectProgressFo
 import { useProspects } from "@/src/hooks/useEvangelism";
 import { useAuth } from "@/src/contexts/AuthContext";
 import { useModuleSettings } from "@/src/hooks/useModuleSettings";
+import { canHardDelete } from "@/src/lib/canHardDelete";
 import {
   canBrowseProspects,
   canWriteEvangelismRecords,
@@ -31,6 +32,7 @@ export default function ClusterProspectsSection({
   const { user, isSeniorCoordinator } = useAuth();
   const { moduleEnabled } = useModuleSettings();
   const canWrite = canWriteEvangelismRecords({ user, moduleEnabled });
+  const userCanHardDelete = canHardDelete(user);
   const showEvangelismLink = canBrowseProspects({ user, isSeniorCoordinator });
   const [progressProspect, setProgressProspect] = useState<Prospect | null>(
     null,
@@ -47,7 +49,8 @@ export default function ClusterProspectsSection({
     }),
     [clusterId],
   );
-  const { prospects, loading, fetchProspects } = useProspects(filters);
+  const { prospects, loading, fetchProspects, deleteProspect } =
+    useProspects(filters);
 
   return (
     <div>
@@ -101,6 +104,14 @@ export default function ClusterProspectsSection({
           mobileCardView={effectiveViewMode === "cards"}
           onUpdateProgress={
             canWrite ? (prospect) => setProgressProspect(prospect) : undefined
+          }
+          onDelete={
+            userCanHardDelete
+              ? async (prospect) => {
+                  await deleteProspect(prospect.id);
+                  await fetchProspects();
+                }
+              : undefined
           }
           onViewPerson={
             onViewPerson

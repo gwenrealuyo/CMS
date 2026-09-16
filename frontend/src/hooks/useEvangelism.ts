@@ -480,7 +480,10 @@ export const useProspects = (
 
   const deleteProspect = async (id: number | string) => {
     await evangelismApi.deleteProspect(id);
-    setProspects((prev) => prev.filter((prospect) => prospect.id !== String(id)));
+    setProspects((prev) =>
+      prev.filter((prospect) => String(prospect.id) !== String(id)),
+    );
+    setTotalCount((prev) => Math.max(0, prev - 1));
   };
 
   const markAttended = async (

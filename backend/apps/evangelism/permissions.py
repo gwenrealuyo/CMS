@@ -14,6 +14,10 @@ COORDINATOR = ModuleCoordinator.CoordinatorLevel.COORDINATOR
 SENIOR = ModuleCoordinator.CoordinatorLevel.SENIOR_COORDINATOR
 REPORTER = ModuleCoordinator.CoordinatorLevel.REPORTER
 BIBLE_SHARER = ModuleCoordinator.CoordinatorLevel.BIBLE_SHARER
+APPROVED = EvangelismGroup.ApprovalStatus.APPROVED
+PENDING = EvangelismGroup.ApprovalStatus.PENDING
+REJECTED = EvangelismGroup.ApprovalStatus.REJECTED
+DRAFT_STATUSES = (PENDING, REJECTED)
 
 
 def _assignment_resource_ids(user, level: str) -> list[int]:
@@ -55,24 +59,21 @@ def managed_group_ids_for_reports(user) -> list[int]:
     )
 
 
-def accessible_evangelism_group_ids(user) -> list[int] | None:
-    """
-    Group PKs the user may list/retrieve, or None for unrestricted
-    (admin, pastor, senior evangelism coordinator).
-    """
-    if not getattr(user, "is_authenticated", False):
-        return []
-    if getattr(user, "role", None) in ("ADMIN", "PASTOR"):
-        return None
-    if user.is_senior_coordinator(EVANGELISM):
-        return None
+def is_group_approved(group) -> bool:
+    if group is None:
+        return False
+    status = getattr(group, "approval_status", APPROVED)
+    return status == APPROVED
 
-    ids = set(managed_group_ids_for_reports(user))
-    member_ids = EvangelismGroup.objects.filter(members=user).values_list(
-        "id", flat=True
+
+def _approved_ids(ids) -> list[int]:
+    if not ids:
+        return []
+    return list(
+        EvangelismGroup.objects.filter(id__in=ids, approval_status=APPROVED).values_list(
+            "id", flat=True
+        )
     )
-    ids.update(member_ids)
-    return list(ids)
 
 
 def is_evangelism_senior_or_privileged(user) -> bool:
@@ -81,6 +82,66 @@ def is_evangelism_senior_or_privileged(user) -> bool:
     if getattr(user, "role", None) in ("ADMIN", "PASTOR"):
         return True
     return user.is_senior_coordinator(EVANGELISM)
+
+
+def is_non_senior_evangelism_coordinator(user) -> bool:
+    if not getattr(user, "is_authenticated", False):
+        return False
+    if is_evangelism_senior_or_privileged(user):
+        return False
+    if user.module_coordinator_assignments.filter(
+        module=EVANGELISM,
+        level=COORDINATOR,
+    ).exists():
+        return True
+    return EvangelismGroup.objects.filter(coordinator=user).exists()
+
+
+def user_created_draft_group_ids(user) -> list[int]:
+    if not getattr(user, "is_authenticated", False):
+        return []
+    return list(
+        EvangelismGroup.objects.filter(
+            created_by=user,
+            approval_status__in=DRAFT_STATUSES,
+        ).values_list("id", flat=True)
+    )
+
+
+def accessible_evangelism_group_ids(user) -> list[int] | None:
+    """
+    Group PKs the user may list/retrieve, or None for unrestricted
+    (admin, pastor, senior evangelism coordinator).
+    """
+    if not getattr(user, "is_authenticated", False):
+        return []
+    if is_evangelism_senior_or_privileged(user):
+        return None
+
+    if is_non_senior_evangelism_coordinator(user):
+        ids = set(user_created_draft_group_ids(user))
+        branch_id = getattr(user, "branch_id", None)
+        if branch_id:
+            ids.update(
+                EvangelismGroup.objects.filter(
+                    approval_status=APPROVED,
+                    branch_id=branch_id,
+                ).values_list("id", flat=True)
+            )
+        else:
+            ids.update(_approved_ids(managed_group_ids_for_reports(user)))
+            member_ids = EvangelismGroup.objects.filter(
+                members=user, approval_status=APPROVED
+            ).values_list("id", flat=True)
+            ids.update(member_ids)
+        return list(ids)
+
+    ids = set(managed_group_ids_for_reports(user))
+    member_ids = EvangelismGroup.objects.filter(members=user).values_list(
+        "id", flat=True
+    )
+    ids.update(member_ids)
+    return _approved_ids(ids)
 
 
 def user_manages_evangelism_group(user, group) -> bool:
@@ -96,8 +157,18 @@ def user_manages_evangelism_group(user, group) -> bool:
     ).exists()
 
 
+def user_created_unapproved_group(user, group) -> bool:
+    if group is None or not getattr(user, "is_authenticated", False):
+        return False
+    if getattr(group, "created_by_id", None) != user.id:
+        return False
+    return getattr(group, "approval_status", APPROVED) in DRAFT_STATUSES
+
+
 def user_can_submit_evangelism_report(user, group) -> bool:
     if group is None:
+        return False
+    if not is_group_approved(group):
         return False
     if is_evangelism_senior_or_privileged(user):
         return True
@@ -154,12 +225,13 @@ def allows_evangelism_report_mutation_attempt(user) -> bool:
 
 def filter_weekly_reports_for_user(user, queryset):
     if is_evangelism_senior_or_privileged(user):
-        return queryset
+        return queryset.filter(evangelism_group__approval_status=APPROVED)
     ids = set(managed_group_ids_for_reports(user))
     member_ids = EvangelismGroup.objects.filter(members=user).values_list(
         "id", flat=True
     )
     ids.update(member_ids)
+    ids = set(_approved_ids(ids))
     if not ids:
         return queryset.none()
     return queryset.filter(evangelism_group_id__in=ids)
@@ -178,7 +250,17 @@ def ensure_user_manages_evangelism_group_or_privileged(user, group) -> None:
         return
     if user_manages_evangelism_group(user, group):
         return
+    if user_created_unapproved_group(user, group):
+        return
     raise PermissionDenied("You do not have access to manage this evangelism group.")
+
+
+def ensure_group_is_approved_for_operations(group) -> None:
+    if is_group_approved(group):
+        return
+    raise PermissionDenied(
+        "This evangelism group is pending approval and cannot be used yet."
+    )
 
 
 class HasEvangelismGroupWrite(permissions.BasePermission):
@@ -189,3 +271,8 @@ class HasEvangelismGroupWrite(permissions.BasePermission):
 class HasEvangelismReportWrite(permissions.BasePermission):
     def has_permission(self, request, view):
         return allows_evangelism_report_mutation_attempt(request.user)
+
+
+class CanApproveEvangelismGroup(permissions.BasePermission):
+    def has_permission(self, request, view):
+        return is_evangelism_senior_or_privileged(request.user)

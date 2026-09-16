@@ -31,6 +31,9 @@ Key features include:
   - `meeting_time` (TimeField, nullable) – regular meeting time
   - `meeting_day` (CharField, choices: MONDAY-SUNDAY, blank) – day of week
   - `meeting_frequency` (CharField, choices: WEEKLY, BIWEEKLY, MONTHLY, IRREGULAR, default WEEKLY) – how often the group meets; drives report due reminders
+  - `approval_status` (`pending` | `approved` | `rejected`, default `approved`) – coordinator-created groups start pending until an Evangelism Senior Coordinator, Pastor, or Admin approves
+  - `created_by` (nullable FK) – who submitted the group
+  - `reviewed_by`, `reviewed_at`, `review_note` – approval decision
   - `is_active` (BooleanField, default True) – whether the group is active
   - `is_bible_sharers_group` (BooleanField, default False) – unused for coverage; kept for compatibility. Bible Sharers are **people** with an `EVANGELISM` + `BIBLE_SHARER` assignment.
   - `members` (ManyToManyField to `people.Person`, blank) – people enrolled in the group; reverse accessor on Person is `person.evangelism_groups`
@@ -260,17 +263,22 @@ All routes live under `/api/evangelism/` (namespaced in `core.urls`):
 ### Groups
 
 - `/api/evangelism/groups/` – EvangelismGroupViewSet CRUD
+  - Permissions: list/retrieve = member+ (scoped); create/update/enroll = Evangelism Coordinator+ (`HasEvangelismGroupWrite`); approve/reject = Admin, Pastor, or Evangelism Senior; destroy = admin
+  - Non-senior coordinators list **approved** groups in their branch plus their own pending/rejected drafts. Create sets `approval_status=pending` unless the creator is Admin, Pastor, or Evangelism Senior (those create as `approved`). Reports, sessions, enroll, and due reminders require `approved`.
   - `GET` – List all groups
     - Query params: `?cluster={cluster_id}` – filter by cluster
     - Query params: `?branch={branch_id}` – filter to groups whose assigned cluster belongs to that branch
     - Query params: `?is_active=true` – filter by active status
+    - Query params: `?approval_status=pending|approved|rejected`
     - Query params: `?search={term}` – search by name or description
-  - `POST` – Create a new group (requires `name`, optional `leader_id`, `cluster_id`, `location`, `meeting_time`, `meeting_day`)
+  - `POST` – Create a new group (requires `name`, optional `coordinator_id`, `cluster_id`, `location`, `meeting_time`, `meeting_day`). Omitting `coordinator_id` defaults to the creator.
   - `GET /{id}/` – Retrieve a specific group with nested members and cluster
   - `PUT /{id}/` – Update a group (full update)
-  - `PATCH /{id}/` – Partial update
+  - `PATCH /{id}/` – Partial update (managed groups, or creator of a pending/rejected draft)
   - `DELETE /{id}/` – Delete a group (cascades to members, sessions, prospects)
-  - `POST /{id}/enroll/` – Append members by person id (VISITORs rejected)
+  - `POST /{id}/approve/` – Approve a pending group (senior+)
+  - `POST /{id}/reject/` – Reject a pending group (senior+); optional `{ "review_note": "..." }`
+  - `POST /{id}/enroll/` – Append members by person id (VISITORs rejected; group must be approved)
     - Payload: `{ "person_ids": [1, 2, 3] }`
   - `GET /{id}/sessions/` – List sessions for a group
     - Query params: `?start_date={date}`, `?end_date={date}` – filter by date range

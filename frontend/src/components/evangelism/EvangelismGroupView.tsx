@@ -19,6 +19,7 @@ import {
   getEvangelismGroupMemberCount,
   isClusterBibleStudy,
   resolveEvangelismGroupClusterMeta,
+  evangelismGroupApprovalChip,
 } from "@/src/lib/evangelismGroupDisplay";
 import {
   STATUS_CHIP_CLASSNAME,
@@ -86,6 +87,11 @@ interface EvangelismGroupViewProps {
   onClose: () => void;
   canManageGroup?: boolean;
   canSubmitReport?: boolean;
+  canOperateGroup?: boolean;
+  canApproveGroup?: boolean;
+  reviewLoading?: boolean;
+  onApprove?: () => void;
+  onReject?: () => void;
   showTopHeader?: boolean;
 }
 
@@ -118,6 +124,11 @@ export default function EvangelismGroupView({
   onEdit,
   canManageGroup = true,
   canSubmitReport = true,
+  canOperateGroup = true,
+  canApproveGroup = false,
+  reviewLoading = false,
+  onApprove,
+  onReject,
   showTopHeader = true,
 }: EvangelismGroupViewProps) {
   const isPanelMode = !showTopHeader;
@@ -130,6 +141,7 @@ export default function EvangelismGroupView({
     ? getEvangelismGroupCoordinatorName(displayGroup)
     : null;
   const scheduleLine = formatGroupScheduleLine(displayGroup);
+  const approvalChip = evangelismGroupApprovalChip(displayGroup);
 
   return (
     <div className="flex h-full min-h-0 min-w-0 flex-col overflow-x-hidden">
@@ -218,6 +230,14 @@ export default function EvangelismGroupView({
                       style={getStatusChipStyle("primary")}
                     >
                       Bible Sharers
+                    </span>
+                  )}
+                  {approvalChip && (
+                    <span
+                      className={`${STATUS_CHIP_CLASSNAME} flex-shrink-0`}
+                      style={getStatusChipStyle(approvalChip.variant)}
+                    >
+                      {approvalChip.label}
                     </span>
                   )}
                   {!displayGroup.is_active && (
@@ -387,7 +407,7 @@ export default function EvangelismGroupView({
               onBulkEnroll={onBulkEnroll}
               onRemoveMember={onRemoveMember}
               loading={groupLoading}
-              canManage={canManageGroup}
+              canManage={canManageGroup && canOperateGroup}
             />
 
             <GroupReportsSection
@@ -405,19 +425,20 @@ export default function EvangelismGroupView({
               onUpdateProgress={onUpdateProgress}
               onDelete={onDeleteProspect}
               loading={prospectsLoading}
+              canAdd={canOperateGroup}
             />
 
             <GroupConversionsSection
               conversions={conversions}
-              onAddConversion={onAddConversion}
-              onEditConversion={onEditConversion}
+              onAddConversion={canOperateGroup ? onAddConversion : undefined}
+              onEditConversion={canOperateGroup ? onEditConversion : undefined}
               loading={conversionsLoading}
             />
           </div>
         )}
       </div>
 
-      {canManageGroup && (
+      {(canManageGroup || canApproveGroup) && (
         <div
           className={`flex-shrink-0 border-t border-gray-200 ${
             isPanelMode ? "bg-white p-3" : "bg-gray-50 p-3 md:p-4"
@@ -471,7 +492,27 @@ export default function EvangelismGroupView({
                 </Button>
               )}
             </div>
-            <div className="flex min-w-0 sm:ml-auto sm:shrink-0">
+            <div className="flex min-w-0 sm:ml-auto sm:shrink-0 gap-2">
+              {canApproveGroup && onReject && (
+                <Button
+                  onClick={onReject}
+                  variant="secondary"
+                  disabled={reviewLoading}
+                  className="flex h-10 min-h-[44px] flex-1 items-center justify-center border border-red-200 bg-white px-4 text-sm font-medium !text-red-600 hover:border-red-300 hover:bg-red-50 sm:flex-none"
+                >
+                  Reject
+                </Button>
+              )}
+              {canApproveGroup && onApprove && (
+                <Button
+                  onClick={onApprove}
+                  disabled={reviewLoading}
+                  className="flex h-10 min-h-[44px] flex-1 items-center justify-center px-4 text-sm font-medium sm:flex-none"
+                >
+                  {reviewLoading ? "Saving..." : "Approve"}
+                </Button>
+              )}
+              {canManageGroup && (
               <Button
                 onClick={onEdit}
                 variant="secondary"
@@ -492,6 +533,7 @@ export default function EvangelismGroupView({
                 </svg>
                 <span>Edit</span>
               </Button>
+              )}
             </div>
           </div>
         </div>

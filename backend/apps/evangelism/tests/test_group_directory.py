@@ -97,6 +97,7 @@ class EvangelismGroupDirectoryAPITests(APITestCase):
         self.assertEqual(row["visitors_count"], 2)
         self.assertEqual(row["conversions_count"], 1)
         self.assertTrue(row["has_bible_sharers"])
+        self.assertEqual(row["approval_status"], "approved")
         self.assertEqual(row["cluster"]["code"], "EVG-DIR")
         self.assertEqual(row["cluster"]["branch"], self.branch.id)
         self.assertEqual(row["branch"], self.branch.id)

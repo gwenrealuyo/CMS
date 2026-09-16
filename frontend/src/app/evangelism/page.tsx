@@ -105,7 +105,7 @@ import { requestNotificationsRefetch } from "@/src/lib/notificationsEvents";
 import { useAuth } from "@/src/contexts/AuthContext";
 import { useModuleSettings } from "@/src/hooks/useModuleSettings";
 import { canHardDelete } from "@/src/lib/canHardDelete";
-import { canBrowseProspects, canWriteEvangelism, canSubmitEvangelismReport, assignedEvangelismGroupIds } from "@/src/lib/evangelism/evangelismPermissions";
+import { canBrowseProspects, canWriteEvangelism, canSubmitEvangelismReport, assignedEvangelismGroupIds, canApproveEvangelismGroup, canManageEvangelismGroup, canSubmitEvangelismReportForGroup, isEvangelismGroupApproved } from "@/src/lib/evangelism/evangelismPermissions";
 import ProspectsBrowse from "@/src/components/evangelism/ProspectsBrowse";
 import {
   canChangeEvangelismBranchFilter,
@@ -161,6 +161,10 @@ export default function EvangelismPage() {
     () => canChangeEvangelismBranchFilter(user, isSeniorCoordinator),
     [user, isSeniorCoordinator],
   );
+  const canApproveEvangelismGroups = useMemo(
+    () => canApproveEvangelismGroup({ user, isSeniorCoordinator }),
+    [user, isSeniorCoordinator],
+  );
   const evangelismTallyUserIdRef = useRef<number | undefined>(undefined);
 
   const [groupSearchQuery, setGroupSearchQuery] = useState("");
@@ -194,6 +198,7 @@ export default function EvangelismPage() {
   const [groupSortBy, setGroupSortBy] = useState("name");
   const [groupSortOrder, setGroupSortOrder] = useState<"asc" | "desc">("asc");
   const [showInactiveGroups, setShowInactiveGroups] = useState(false);
+  const [groupReviewLoading, setGroupReviewLoading] = useState(false);
 
   const currentYear = new Date().getFullYear();
   const {
@@ -480,6 +485,31 @@ export default function EvangelismPage() {
     }
   }, [searchParams, canBrowseProspectsTab]);
 
+  useEffect(() => {
+    const approval = searchParams.get("approval");
+    if (
+      approval !== "pending" &&
+      approval !== "approved" &&
+      approval !== "rejected"
+    ) {
+      return;
+    }
+    setActiveTab("groups");
+    setGroupActiveFilters((prev) => {
+      const without = prev.filter((filter) => filter.field !== "approval_status");
+      return [
+        ...without,
+        {
+          id: "approval-url",
+          field: "approval_status",
+          operator: "is",
+          value: approval,
+          label: "Approval",
+        },
+      ];
+    });
+  }, [searchParams]);
+
   const action = searchParams.get("action");
 
   useEffect(() => {
@@ -683,6 +713,58 @@ export default function EvangelismPage() {
     };
   }, [activeTab, reportsFormOpen, isProspectModalOpen, groupListBranch]);
 
+  const approvedPickerGroups = useMemo(
+    () =>
+      pickerGroups.filter((group) => isEvangelismGroupApproved(group)),
+    [pickerGroups],
+  );
+
+  const reportablePickerGroups = useMemo(() => {
+    if (evangelismPrivileged) return approvedPickerGroups;
+    const assignedIds = new Set(assignedEvangelismGroupIds(user));
+    return approvedPickerGroups.filter(
+      (group) =>
+        assignedIds.has(Number(group.id)) ||
+        Number(group.coordinator?.id) === Number(user?.id),
+    );
+  }, [approvedPickerGroups, evangelismPrivileged, user]);
+
+  const handleApproveGroup = async () => {
+    if (!viewEditGroup) return;
+    try {
+      setGroupReviewLoading(true);
+      const response = await evangelismApi.approveGroup(viewEditGroup.id);
+      setViewEditGroup(response.data);
+      await fetchGroups();
+      setSuccessMessage(`Group "${response.data.name}" has been approved.`);
+      setTimeout(() => setSuccessMessage(null), 5000);
+    } catch (err: any) {
+      setFormError(
+        err.response?.data?.detail || "Failed to approve group",
+      );
+    } finally {
+      setGroupReviewLoading(false);
+    }
+  };
+
+  const handleRejectGroup = async () => {
+    if (!viewEditGroup) return;
+    try {
+      setGroupReviewLoading(true);
+      const response = await evangelismApi.rejectGroup(viewEditGroup.id);
+      setViewEditGroup(response.data);
+      await fetchGroups();
+      setSuccessMessage(`Group "${response.data.name}" has been rejected.`);
+      setTimeout(() => setSuccessMessage(null), 5000);
+    } catch (err: any) {
+      setFormError(
+        err.response?.data?.detail || "Failed to reject group",
+      );
+    } finally {
+      setGroupReviewLoading(false);
+    }
+  };
+
   useEffect(() => {
     if (!user) {
       evangelismTallyUserIdRef.current = undefined;
@@ -722,7 +804,7 @@ export default function EvangelismPage() {
       const memberIds =
         values.initial_member_ids?.map((id) => Number(id)).filter(Number.isFinite) ??
         [];
-      await evangelismApi.createGroup({
+      const created = await evangelismApi.createGroup({
         name: values.name,
         description: values.description,
         ...(values.coordinator_id
@@ -742,7 +824,13 @@ export default function EvangelismPage() {
         bible_sharer_ids: (values.bible_sharer_ids || []).map(Number),
       });
       await fetchGroups();
-      setSuccessMessage(`Group "${values.name}" has been created.`);
+      const pending =
+        (created.data?.approval_status ?? "approved") === "pending";
+      setSuccessMessage(
+        pending
+          ? `Group "${values.name}" submitted for senior coordinator approval.`
+          : `Group "${values.name}" has been created.`,
+      );
       setIsCreateOpen(false);
       setTimeout(() => setSuccessMessage(null), 5000);
     } catch (err: any) {
@@ -1404,18 +1492,28 @@ export default function EvangelismPage() {
         }}
         canManageGroup={
           canWriteEvangelismAccess &&
-          (evangelismPrivileged ||
-            Number(viewEditGroup.coordinator?.id) === Number(user?.id) ||
-            assignedEvangelismGroupIds(user, ["COORDINATOR"]).includes(
-              Number(viewEditGroup.id),
-            ))
+          canManageEvangelismGroup({
+            user,
+            group: viewEditGroup,
+            isSeniorCoordinator,
+          })
         }
         canSubmitReport={
           canSubmitEvangelismReportAccess &&
-          (evangelismPrivileged ||
-            Number(viewEditGroup.coordinator?.id) === Number(user?.id) ||
-            assignedEvangelismGroupIds(user).includes(Number(viewEditGroup.id)))
+          canSubmitEvangelismReportForGroup({
+            user,
+            group: viewEditGroup,
+            isSeniorCoordinator,
+          })
         }
+        canOperateGroup={isEvangelismGroupApproved(viewEditGroup)}
+        canApproveGroup={
+          canApproveEvangelismGroups &&
+          viewEditGroup.approval_status === "pending"
+        }
+        reviewLoading={groupReviewLoading}
+        onApprove={handleApproveGroup}
+        onReject={handleRejectGroup}
         onDelete={() =>
           setDeleteConfirmation({
             isOpen: true,
@@ -2214,7 +2312,7 @@ export default function EvangelismPage() {
             aria-hidden={activeTab !== "reports"}
           >
             <EvangelismReportsDashboard
-              groups={pickerGroups}
+              groups={reportablePickerGroups}
               clusters={clusters}
               branches={branches}
               openSubmitNonce={reportsSubmitNonce}
@@ -2361,7 +2459,11 @@ export default function EvangelismPage() {
               inviters={(people.length > 0 ? people : coordinators).filter(
                 isSelectablePerson
               )}
-              groups={pickerGroups.length > 0 ? pickerGroups : groups}
+              groups={
+                reportablePickerGroups.length > 0
+                  ? reportablePickerGroups
+                  : approvedPickerGroups
+              }
               prospectOptions={prospects}
               selectedBibleStudyGroup={
                 groupData ?? viewEditGroup ?? undefined

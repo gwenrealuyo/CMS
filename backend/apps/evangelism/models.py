@@ -59,6 +59,36 @@ class EvangelismGroup(models.Model):
         default=MeetingFrequency.WEEKLY,
         help_text="How often this group meets. Drives report due reminders.",
     )
+
+    class ApprovalStatus(models.TextChoices):
+        PENDING = "pending", "Pending"
+        APPROVED = "approved", "Approved"
+        REJECTED = "rejected", "Rejected"
+
+    approval_status = models.CharField(
+        max_length=20,
+        choices=ApprovalStatus.choices,
+        default=ApprovalStatus.APPROVED,
+        db_index=True,
+        help_text="Coordinator-created groups start pending until a senior "
+        "coordinator, pastor, or admin approves them.",
+    )
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="created_evangelism_groups",
+    )
+    reviewed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="reviewed_evangelism_groups",
+    )
+    reviewed_at = models.DateTimeField(null=True, blank=True)
+    review_note = models.TextField(blank=True)
     is_active = models.BooleanField(default=True)
     is_bible_sharers_group = models.BooleanField(
         default=False,

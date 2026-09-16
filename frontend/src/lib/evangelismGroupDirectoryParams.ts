@@ -111,6 +111,11 @@ export function filtersToEvangelismGroupsListParams(
       } else {
         params.is_active = wantsActive;
       }
+    } else if (field === "approval_status") {
+      params.approval_status = scalar as
+        | "pending"
+        | "approved"
+        | "rejected";
     } else if (field === "bible_sharers") {
       const wantsYes = scalar.toLowerCase() === "yes";
       if (filter.operator === "is_not") {

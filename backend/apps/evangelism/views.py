@@ -29,12 +29,19 @@ from apps.authentication.permissions import (
 from .filters import ConversionFilter, EvangelismGroupFilter, ProspectFilter
 from .group_counts import annotate_evangelism_group_counts
 from .permissions import (
+    CanApproveEvangelismGroup,
     HasEvangelismGroupWrite,
     HasEvangelismReportWrite,
     accessible_evangelism_group_ids,
+    ensure_group_is_approved_for_operations,
     ensure_user_can_submit_evangelism_report_or_privileged,
     ensure_user_manages_evangelism_group_or_privileged,
     filter_weekly_reports_for_user,
+)
+from .approval import (
+    initial_group_approval_status,
+    mark_group_approved,
+    mark_group_rejected,
 )
 from .models import (
     EvangelismGroup,
@@ -118,7 +125,7 @@ class EvangelismRelatedPagination(PageNumberPagination):
 class EvangelismGroupViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticatedAndNotVisitor]
     queryset = EvangelismGroup.objects.select_related(
-        "coordinator", "cluster", "cluster__branch", "branch"
+        "coordinator", "cluster", "cluster__branch", "branch", "created_by", "reviewed_by"
     ).all()
     serializer_class = EvangelismGroupSerializer
     pagination_class = EvangelismGroupPagination
@@ -229,9 +236,21 @@ class EvangelismGroupViewSet(viewsets.ModelViewSet):
             return [IsAuthenticatedAndNotVisitor(), IsMemberOrAbove()]
         elif self.action in ["create", "update", "partial_update", "enroll"]:
             return [IsAuthenticatedAndNotVisitor(), HasEvangelismGroupWrite()]
+        elif self.action in ["approve", "reject"]:
+            return [IsAuthenticatedAndNotVisitor(), CanApproveEvangelismGroup()]
         elif self.action == "destroy":
             return [IsAuthenticatedAndNotVisitor(), IsAdmin()]
         return [IsAuthenticatedAndNotVisitor(), IsMemberOrAbove()]
+
+    def perform_create(self, serializer):
+        user = self.request.user
+        extra = {
+            "created_by": user,
+            "approval_status": initial_group_approval_status(user),
+        }
+        if not serializer.validated_data.get("coordinator"):
+            extra["coordinator"] = user
+        serializer.save(**extra)
 
     def get_object(self):
         obj = super().get_object()
@@ -245,6 +264,7 @@ class EvangelismGroupViewSet(viewsets.ModelViewSet):
     def enroll(self, request, pk=None):
         """Bulk enroll members into a group."""
         evangelism_group = self.get_object()
+        ensure_group_is_approved_for_operations(evangelism_group)
         serializer = EvangelismBulkEnrollSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
@@ -256,6 +276,38 @@ class EvangelismGroupViewSet(viewsets.ModelViewSet):
             {"created": created_count, "message": f"Enrolled {created_count} people"},
             status=status.HTTP_201_CREATED if created_count else status.HTTP_200_OK,
         )
+
+    @action(detail=True, methods=["post"], url_path="approve")
+    def approve(self, request, pk=None):
+        group = self.get_object()
+        if group.approval_status != EvangelismGroup.ApprovalStatus.PENDING:
+            return Response(
+                {"detail": "Only pending groups can be approved."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        mark_group_approved(
+            group,
+            request.user,
+            note=request.data.get("review_note") or request.data.get("note") or "",
+        )
+        group.refresh_from_db()
+        return Response(self.get_serializer(group).data)
+
+    @action(detail=True, methods=["post"], url_path="reject")
+    def reject(self, request, pk=None):
+        group = self.get_object()
+        if group.approval_status != EvangelismGroup.ApprovalStatus.PENDING:
+            return Response(
+                {"detail": "Only pending groups can be rejected."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        mark_group_rejected(
+            group,
+            request.user,
+            note=request.data.get("review_note") or request.data.get("note") or "",
+        )
+        group.refresh_from_db()
+        return Response(self.get_serializer(group).data)
 
     @action(detail=False, methods=["get"], url_path="dashboard-stats")
     def dashboard_stats(self, request):
@@ -498,6 +550,7 @@ class EvangelismSessionViewSet(viewsets.ModelViewSet):
 
         group_id = serializer.validated_data["evangelism_group_id"]
         evangelism_group = EvangelismGroup.objects.get(id=group_id)
+        ensure_group_is_approved_for_operations(evangelism_group)
 
         start_date = serializer.validated_data["start_date"]
         end_date = serializer.validated_data.get("end_date")

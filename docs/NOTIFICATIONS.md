@@ -121,11 +121,12 @@ Returns the same shape as `GET` (typically empty `items`).
 | `password_reset_pending` | `ADMIN` | `PasswordResetRequest` with `status=PENDING` |
 | `account_locked` | `ADMIN` | `AccountLockout` indicating an active lock |
 | `cluster_report_due` | Users who **manage** at least one cluster; CLUSTER module enabled | No `ClusterWeeklyReport` for managed cluster for **current ISO week** |
-| `evangelism_report_due` | Users who **manage** at least one evangelism group; EVANGELISM module enabled | Cadence from `EvangelismGroup.meeting_frequency`: **WEEKLY** — no report whose ISO week is the current week; **BIWEEKLY** — no report with `meeting_date` in the last 14 days (inclusive); **MONTHLY** — no report with `meeting_date` in the current church calendar month; **IRREGULAR** — never. Inactive groups are skipped. |
+| `evangelism_report_due` | Users who **manage** at least one evangelism group; EVANGELISM module enabled | Cadence from `EvangelismGroup.meeting_frequency`: **WEEKLY** — no report whose ISO week is the current week; **BIWEEKLY** — no report with `meeting_date` in the last 14 days (inclusive); **MONTHLY** — no report with `meeting_date` in the current church calendar month; **IRREGULAR** — never. Inactive and **pending/rejected** groups are skipped. |
 | `cluster_report_overdue` | `ADMIN`, `PASTOR`, or cluster **senior coordinator** | Clusters in oversight scope missing this week’s report (excludes clusters the user already gets as `cluster_report_due`) |
 | `follow_up_overdue` | User assigned on `FollowUpTask` | `due_date` before today; status `PENDING` or `IN_PROGRESS` |
 | `follow_up_due_soon` | Same | Due within the next **3 days**; same statuses |
 | `event_booking_pending` | Admin, Pastor, Events Coordinator, Events Senior Coordinator; EVENTS module enabled | `Event.booking_status=pending` (up to 10 newest). Href `/events?booking=pending` |
+| `evangelism_group_pending` | Admin, Pastor, Evangelism Senior Coordinator; EVANGELISM module enabled | `EvangelismGroup.approval_status=pending` (up to 10 newest, branch-scoped unless HQ). Href `/evangelism?tab=groups&approval=pending` |
 
 **Coordinator applicability:** Cluster and evangelism due reminders are **independent**. A user who coordinates both a cluster and an evangelism group can receive **both** due alerts when neither report is filed.
 
@@ -138,8 +139,10 @@ Returns the same shape as `GET` (typically empty `items`).
 - `evangelism_report_due:{group_id}:biweekly:{year}:{week_number}` (biweekly)
 - `evangelism_report_due:{group_id}:{year}:{month}` (monthly)
 - `event_booking_pending:{event_id}`
+- `evangelism_group_pending:{group_id}`
 - `activity:cluster_report_submitted:{report_id}`
 - `activity:event_booking_approved:{event_id}` / `activity:event_booking_rejected:{event_id}`
+- `activity:evangelism_group_approved:{group_id}` / `activity:evangelism_group_rejected:{group_id}`
 
 ### Activity (`category: "activity"`)
 
@@ -149,6 +152,8 @@ Returns the same shape as `GET` (typically empty `items`).
 | `evangelism_report_submitted` | `EvangelismWeeklyReport` where `submitted_by` = current user | Same |
 | `event_booking_approved` | `Event` the current user created, now `approved` | `reviewed_at` within last 7 days |
 | `event_booking_rejected` | Same, now `rejected` | Same |
+| `evangelism_group_approved` | `EvangelismGroup` the current user created, now `approved` | `reviewed_at` within last 7 days |
+| `evangelism_group_rejected` | Same, now `rejected` | Same |
 
 These items use `severity: "success"` and do not increment the bell badge.
 
@@ -165,7 +170,7 @@ Uses [`managed_cluster_ids_for_coordinator`](../backend/apps/clusters/permission
 
 Uses [`managed_evangelism_group_ids_for_coordinator`](../backend/apps/notifications/scoping.py):
 
-- `EvangelismGroup.coordinator` FK (active groups only)
+- `EvangelismGroup.coordinator` FK (active **approved** groups only)
 - `ModuleCoordinator` rows: module `EVANGELISM`, level `COORDINATOR`, non-null `resource_id`
 
 Broad senior-coordinator assignments (`resource_id` NULL) do **not** expand due reminders to every group; only FK and explicitly scoped group IDs apply.

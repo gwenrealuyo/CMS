@@ -16,7 +16,10 @@ from apps.authentication.permissions import is_module_enabled
 from apps.clusters.models import Cluster, ClusterWeeklyReport
 from apps.clusters.permissions import managed_cluster_ids_for_reports
 from apps.evangelism.models import EvangelismGroup, EvangelismWeeklyReport, FollowUpTask
-from apps.evangelism.permissions import managed_group_ids_for_reports
+from apps.evangelism.permissions import (
+    is_evangelism_senior_or_privileged,
+    managed_group_ids_for_reports,
+)
 from apps.notifications.scoping import (
     clusters_oversight_queryset_for_user,
 )
@@ -69,6 +72,7 @@ def build_notification_feed(user) -> List[NotificationItem]:
     items: List[NotificationItem] = []
     items.extend(_build_admin_alerts(user))
     items.extend(_build_event_booking_pending(user))
+    items.extend(_build_evangelism_group_pending(user))
     items.extend(_build_cluster_report_due(user))
     items.extend(_build_evangelism_report_due(user))
     items.extend(_build_cluster_report_overdue_oversight(user))
@@ -177,6 +181,47 @@ def _build_event_booking_pending(user) -> List[NotificationItem]:
     return items
 
 
+def _build_evangelism_group_pending(user) -> List[NotificationItem]:
+    if not is_evangelism_senior_or_privileged(user):
+        return []
+    if not is_module_enabled(ModuleCoordinator.ModuleType.EVANGELISM):
+        return []
+
+    pending = EvangelismGroup.objects.filter(
+        approval_status=EvangelismGroup.ApprovalStatus.PENDING
+    ).select_related("created_by", "coordinator")
+    if not user.can_see_all_branches():
+        branch_id = getattr(user, "branch_id", None)
+        if branch_id:
+            pending = pending.filter(branch_id=branch_id)
+        else:
+            pending = pending.none()
+    pending = pending.order_by("-created_at")[:10]
+
+    items: List[NotificationItem] = []
+    for group in pending:
+        requester = ""
+        creator = group.created_by
+        if creator:
+            requester = creator.get_full_name() or creator.username
+        body = group.name
+        if requester:
+            body = f"{group.name} — requested by {requester}"
+        items.append(
+            NotificationItem(
+                key=f"evangelism_group_pending:{group.id}",
+                category="alert",
+                type="evangelism_group_pending",
+                severity="warning",
+                title="Evangelism group pending",
+                body=body,
+                href="/evangelism?tab=groups&approval=pending",
+                occurred_at=_aware_dt(group.created_at),
+            )
+        )
+    return items
+
+
 def _build_cluster_report_due(user) -> List[NotificationItem]:
     if not is_module_enabled(ModuleCoordinator.ModuleType.CLUSTER):
         return []
@@ -221,7 +266,11 @@ def _build_evangelism_report_due(user) -> List[NotificationItem]:
     if not managed:
         return []
 
-    groups = EvangelismGroup.objects.filter(id__in=managed, is_active=True)
+    groups = EvangelismGroup.objects.filter(
+        id__in=managed,
+        is_active=True,
+        approval_status=EvangelismGroup.ApprovalStatus.APPROVED,
+    )
     group_ids = list(groups.values_list("id", flat=True))
     if not group_ids:
         return []
@@ -484,6 +533,41 @@ def _build_activity_items(user) -> List[NotificationItem]:
                     body=event.title,
                     href="/events",
                     occurred_at=_aware_dt(event.reviewed_at),
+                )
+            )
+
+    if is_module_enabled(ModuleCoordinator.ModuleType.EVANGELISM):
+        reviewed_groups = (
+            EvangelismGroup.objects.filter(
+                created_by=user,
+                reviewed_at__gte=since,
+                approval_status__in=(
+                    EvangelismGroup.ApprovalStatus.APPROVED,
+                    EvangelismGroup.ApprovalStatus.REJECTED,
+                ),
+            )
+            .order_by("-reviewed_at")[:10]
+        )
+        for group in reviewed_groups:
+            approved = group.approval_status == EvangelismGroup.ApprovalStatus.APPROVED
+            items.append(
+                NotificationItem(
+                    key=f"activity:evangelism_group_{group.approval_status}:{group.id}",
+                    category="activity",
+                    type=(
+                        "evangelism_group_approved"
+                        if approved
+                        else "evangelism_group_rejected"
+                    ),
+                    severity="success" if approved else "warning",
+                    title=(
+                        "Evangelism group approved"
+                        if approved
+                        else "Evangelism group rejected"
+                    ),
+                    body=group.name,
+                    href="/evangelism?tab=groups",
+                    occurred_at=_aware_dt(group.reviewed_at),
                 )
             )
 

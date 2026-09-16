@@ -1735,8 +1735,13 @@ def get_evangelism_dashboard_stats(year: int) -> Dict:
     - total_reached: distinct non-admin people with both baptism dates in `year`.
     - completed_conversions: Conversion records with is_complete for `year`.
     """
-    total_groups = EvangelismGroup.objects.count()
-    active_groups = EvangelismGroup.objects.filter(is_active=True).count()
+    total_groups = EvangelismGroup.objects.filter(
+        approval_status=EvangelismGroup.ApprovalStatus.APPROVED
+    ).count()
+    active_groups = EvangelismGroup.objects.filter(
+        is_active=True,
+        approval_status=EvangelismGroup.ApprovalStatus.APPROVED,
+    ).count()
 
     attended_prospect_person_ids = set(
         Prospect.objects.filter(

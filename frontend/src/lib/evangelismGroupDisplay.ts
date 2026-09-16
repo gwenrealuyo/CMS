@@ -66,3 +66,15 @@ export function isClusterBibleStudy(group: EvangelismGroup): boolean {
   const id = group.cluster?.id ?? group.cluster_id;
   return id != null && String(id).trim() !== "";
 }
+
+export function evangelismGroupApprovalChip(
+  group: EvangelismGroup,
+): { label: string; variant: "pending" | "rejected" } | null {
+  if (group.approval_status === "pending") {
+    return { label: "Pending", variant: "pending" };
+  }
+  if (group.approval_status === "rejected") {
+    return { label: "Rejected", variant: "rejected" };
+  }
+  return null;
+}

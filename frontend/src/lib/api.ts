@@ -1674,6 +1674,8 @@ export const sundaySchoolApi = {
     ),
 };
 
+export type EvangelismGroupApprovalStatus = "pending" | "approved" | "rejected";
+
 export type EvangelismGroupsListParams = {
   search?: string;
   page?: number;
@@ -1706,6 +1708,7 @@ export type EvangelismGroupsListParams = {
   visitor_count_min?: number | string;
   visitor_count_max?: number | string;
   has_bible_sharers?: boolean;
+  approval_status?: EvangelismGroupApprovalStatus;
 };
 
 export type EvangelismProspectsListParams = {
@@ -1772,6 +1775,10 @@ export const evangelismApi = {
   updateGroup: (id: number | string, data: EvangelismGroupWrite) =>
     api.patch<EvangelismGroup>(`/evangelism/groups/${id}/`, data),
   deleteGroup: (id: number | string) => api.delete(`/evangelism/groups/${id}/`),
+  approveGroup: (id: number | string, data?: { review_note?: string; note?: string }) =>
+    api.post<EvangelismGroup>(`/evangelism/groups/${id}/approve/`, data || {}),
+  rejectGroup: (id: number | string, data?: { review_note?: string; note?: string }) =>
+    api.post<EvangelismGroup>(`/evangelism/groups/${id}/reject/`, data || {}),
   enroll: (groupId: number | string, payload: BulkEnrollData) =>
     api.post<{ created: number; message: string }>(
       `/evangelism/groups/${groupId}/enroll/`,

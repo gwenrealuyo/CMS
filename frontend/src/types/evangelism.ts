@@ -16,6 +16,11 @@ export interface EvangelismGroup {
   meeting_day?: string;
   meeting_frequency?: "WEEKLY" | "BIWEEKLY" | "MONTHLY" | "IRREGULAR";
   is_active: boolean;
+  approval_status?: "pending" | "approved" | "rejected";
+  created_by?: number | null;
+  reviewed_by?: number | null;
+  reviewed_at?: string | null;
+  review_note?: string;
   is_bible_sharers_group?: boolean;
   reporter_ids?: number[];
   bible_sharer_ids?: number[];
@@ -28,7 +33,9 @@ export interface EvangelismGroup {
   has_bible_sharers?: boolean;
 }
 
-export type EvangelismGroupWrite = Partial<Omit<EvangelismGroup, "members">> & {
+export type EvangelismGroupWrite = Partial<
+  Omit<EvangelismGroup, "members" | "cluster_id" | "branch_id">
+> & {
   members?: number[];
   cluster_id?: number | string | null;
   branch_id?: number | string | null;

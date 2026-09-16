@@ -145,7 +145,7 @@ Open **Evangelism** for Bible study groups, visitor follow-up, and conversion tr
 
 ### Common tasks
 
-- **Create or update a group** — coordinators add leaders, members, and meeting details.
+- **Create or update a group** — coordinators add leaders, members, and meeting details. Coordinators may create more than one group; new groups wait for senior coordinator approval before reports can be filed. Assigned groups can be edited immediately.
 - **Track prospects** — invited visitors until they attend; mark **Attended** when they come.
 - **Record conversions** — water baptism and Holy Ghost reception dates update the person's profile and Journey.
 - **Submit a report** — evangelism coordinators use **Reports** or **+ → Submit Evangelism Report**. Due reminders follow the group's meeting frequency (weekly, biweekly, monthly, or never for irregular).

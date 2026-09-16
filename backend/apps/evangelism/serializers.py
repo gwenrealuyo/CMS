@@ -31,6 +31,7 @@ from .coordinator_assignments import (
     sync_evangelism_coordinator_module_assignment,
     sync_evangelism_reporter_assignments,
 )
+from .permissions import is_group_approved
 from .models import (
     EvangelismGroup,
     EvangelismSession,
@@ -127,6 +128,12 @@ class EvangelismGroupListSerializer(serializers.ModelSerializer):
     cluster = ClusterSummarySerializer(read_only=True)
     cluster_id = serializers.IntegerField(read_only=True)
     branch = serializers.IntegerField(source="branch_id", read_only=True, allow_null=True)
+    created_by = serializers.IntegerField(
+        source="created_by_id", read_only=True, allow_null=True
+    )
+    reviewed_by = serializers.IntegerField(
+        source="reviewed_by_id", read_only=True, allow_null=True
+    )
     members_count = serializers.IntegerField(read_only=True, default=0)
     visitors_count = serializers.IntegerField(read_only=True, default=0)
     conversions_count = serializers.IntegerField(read_only=True, default=0)
@@ -148,6 +155,11 @@ class EvangelismGroupListSerializer(serializers.ModelSerializer):
             "meeting_day",
             "meeting_frequency",
             "is_active",
+            "approval_status",
+            "created_by",
+            "reviewed_by",
+            "reviewed_at",
+            "review_note",
             "is_bible_sharers_group",
             "created_at",
             "updated_at",
@@ -156,6 +168,15 @@ class EvangelismGroupListSerializer(serializers.ModelSerializer):
             "conversions_count",
             "bible_sharer_ids",
             "has_bible_sharers",
+        )
+        read_only_fields = (
+            "approval_status",
+            "created_by",
+            "reviewed_by",
+            "reviewed_at",
+            "review_note",
+            "created_at",
+            "updated_at",
         )
 
     def get_coordinator(self, obj):
@@ -220,6 +241,12 @@ class EvangelismGroupSerializer(serializers.ModelSerializer):
     conversions_count = serializers.SerializerMethodField()
     reporter_ids = serializers.SerializerMethodField()
     bible_sharer_ids = serializers.SerializerMethodField()
+    created_by = serializers.IntegerField(
+        source="created_by_id", read_only=True, allow_null=True
+    )
+    reviewed_by = serializers.IntegerField(
+        source="reviewed_by_id", read_only=True, allow_null=True
+    )
 
     class Meta:
         model = EvangelismGroup
@@ -238,6 +265,11 @@ class EvangelismGroupSerializer(serializers.ModelSerializer):
             "meeting_day",
             "meeting_frequency",
             "is_active",
+            "approval_status",
+            "created_by",
+            "reviewed_by",
+            "reviewed_at",
+            "review_note",
             "is_bible_sharers_group",
             "created_at",
             "updated_at",
@@ -249,6 +281,11 @@ class EvangelismGroupSerializer(serializers.ModelSerializer):
             "bible_sharer_ids",
         )
         read_only_fields = (
+            "approval_status",
+            "created_by",
+            "reviewed_by",
+            "reviewed_at",
+            "review_note",
             "created_at",
             "updated_at",
             "reporter_ids",
@@ -588,6 +625,21 @@ class EvangelismSessionSerializer(serializers.ModelSerializer):
         )
         read_only_fields = ("event", "created_at", "updated_at")
 
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        group = attrs.get("evangelism_group")
+        if group is None and self.instance is not None:
+            group = self.instance.evangelism_group
+        if group is not None and not is_group_approved(group):
+            raise serializers.ValidationError(
+                {
+                    "evangelism_group_id": (
+                        "Sessions cannot be scheduled until this group is approved."
+                    )
+                }
+            )
+        return attrs
+
 
 class EvangelismRecurringSessionSerializer(serializers.Serializer):
     evangelism_group_id = serializers.IntegerField()
@@ -709,6 +761,14 @@ class EvangelismWeeklyReportSerializer(serializers.ModelSerializer):
         group = attrs.get("evangelism_group")
         if group is None and self.instance:
             group = self.instance.evangelism_group
+        if group is not None and not is_group_approved(group):
+            raise serializers.ValidationError(
+                {
+                    "evangelism_group_id": (
+                        "Reports cannot be submitted until this group is approved."
+                    )
+                }
+            )
         meeting_date = attrs.get("meeting_date") or getattr(
             self.instance, "meeting_date", None
         )

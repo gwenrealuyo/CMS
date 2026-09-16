@@ -36,6 +36,16 @@ const EVANGELISM_GROUP_FILTER_FIELDS: EvangelismGroupFilterField[] = [
     ],
   },
   {
+    key: "approval_status",
+    label: "Approval",
+    type: "select",
+    options: [
+      { value: "pending", label: "Pending" },
+      { value: "approved", label: "Approved" },
+      { value: "rejected", label: "Rejected" },
+    ],
+  },
+  {
     key: "bible_sharers",
     label: "Bible Sharers",
     type: "select",

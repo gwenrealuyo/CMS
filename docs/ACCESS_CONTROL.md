@@ -50,6 +50,8 @@ Branch filtering applies to:
 | **Bible Sharer**          | Members of assigned evangelism groups                                                          | Families of those members                                                                      | N/A                      | Limited to assigned groups; can submit weekly reports; **Add Visitor** only |
 | **Evangelism Reporter**   | No expanded People list | No expanded Families list | N/A | Weekly reports for assigned evangelism groups only; cannot add people |
 
+**Evangelism Coordinator** (non-senior): **read** all approved groups in their branch; **create** extra groups (pending until Evangelism Senior / Pastor / Admin approve); **edit** only managed groups and their own pending drafts; **reports** only for managed **approved** groups.
+
 ## Frontend Module Access
 
 | Role/Assignment           | Sunday School Module                    | Lessons Module            | Notes                       |

@@ -167,6 +167,7 @@ Coordinators and pastors should **mark records inactive** or update status inste
 **Evangelism**
 
 - **Bible Sharers** can submit reports for assigned groups; they cannot manage group members. Coordinators manage assigned groups (and that Coordinator assignment replaces Bible Sharer or Reporter on the same group).
+- Non-senior **Evangelism Coordinators** can browse all **approved** groups in their branch (read-only for groups they do not manage) and can **create additional groups**. New groups they create start **pending** until an Evangelism Senior Coordinator, Pastor, or Admin approves. Assigned groups stay immediately editable. They cannot submit reports for groups they do not manage, and pending groups cannot receive reports, sessions, or due reminders until approved.
 - A **module-wide** Bible Sharer grant (HQ Ministries roster checkbox, default on) lets them open Evangelism **read-only**. It does not unlock group edits or reports.
 - Evangelism reports can be submitted by Evangelism Coordinators, Bible Sharers, and Evangelism Reporters for their assigned groups. Plain group members cannot file reports. Groups have a meeting frequency (weekly, biweekly, monthly, or irregular) that controls due reminders; uniqueness is one report per meeting date.
 

@@ -1,4 +1,10 @@
-export type StatusChipVariant = "active" | "inactive" | "primary" | "clusterBs";
+export type StatusChipVariant =
+  | "active"
+  | "inactive"
+  | "primary"
+  | "clusterBs"
+  | "pending"
+  | "rejected";
 
 export type StatusChipStyle = {
   borderColor: string;
@@ -10,6 +16,8 @@ const STATUS_CHIP_STYLES: Record<StatusChipVariant, StatusChipStyle> = {
   inactive: { borderColor: "#9ca3af", color: "#4b5563" },
   primary: { borderColor: "#2563eb", color: "#1d4ed8" },
   clusterBs: { borderColor: "#d97706", color: "#b45309" },
+  pending: { borderColor: "#d97706", color: "#b45309" },
+  rejected: { borderColor: "#dc2626", color: "#b91c1c" },
 };
 
 export const STATUS_CHIP_CLASSNAME =

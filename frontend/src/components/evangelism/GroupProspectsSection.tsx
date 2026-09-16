@@ -23,6 +23,7 @@ interface GroupProspectsSectionProps {
   onUpdateProgress: (prospect: Prospect) => void;
   onDelete?: (prospect: Prospect) => Promise<void> | void;
   loading?: boolean;
+  canAdd?: boolean;
 }
 
 export default function GroupProspectsSection({
@@ -31,6 +32,7 @@ export default function GroupProspectsSection({
   onUpdateProgress,
   onDelete,
   loading = false,
+  canAdd = true,
 }: GroupProspectsSectionProps) {
   const [showAll, setShowAll] = useState(false);
   const DEFAULT_LIMIT = 5;
@@ -61,12 +63,14 @@ export default function GroupProspectsSection({
         <h3 className="text-base font-semibold text-gray-900 md:text-lg">
           Visitors
         </h3>
+        {canAdd && (
         <Button
           onClick={onAddProspect}
           className="!text-white !bg-orange-600 hover:!text-white hover:!bg-orange-700 w-full sm:w-auto min-h-[44px]"
         >
           + Add New Visitor
         </Button>
+        )}
       </div>
 
       {loading ? (

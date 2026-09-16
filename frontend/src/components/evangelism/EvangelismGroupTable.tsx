@@ -13,6 +13,7 @@ import {
   getEvangelismGroupMemberCount,
   isClusterBibleStudy,
   resolveEvangelismGroupClusterMeta,
+  evangelismGroupApprovalChip,
 } from "@/src/lib/evangelismGroupDisplay";
 import {
   STATUS_CHIP_CLASSNAME,
@@ -152,6 +153,16 @@ const EvangelismGroupTable = memo(
                           style={getStatusChipStyle("primary")}
                         >
                           Bible Sharers
+                        </span>
+                      )}
+                      {evangelismGroupApprovalChip(group) && (
+                        <span
+                          className={STATUS_CHIP_CLASSNAME}
+                          style={getStatusChipStyle(
+                            evangelismGroupApprovalChip(group)!.variant,
+                          )}
+                        >
+                          {evangelismGroupApprovalChip(group)!.label}
                         </span>
                       )}
                       {!group.is_active && (

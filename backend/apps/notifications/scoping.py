@@ -22,7 +22,9 @@ def managed_evangelism_group_ids_for_coordinator(user) -> List[int]:
 
     fk_ids = list(
         EvangelismGroup.objects.filter(
-            coordinator=user, is_active=True
+            coordinator=user,
+            is_active=True,
+            approval_status=EvangelismGroup.ApprovalStatus.APPROVED,
         ).values_list("id", flat=True)
     )
 
@@ -39,7 +41,10 @@ def managed_evangelism_group_ids_for_coordinator(user) -> List[int]:
 
 def evangelism_groups_queryset_for_user(user):
     """Active evangelism groups visible for oversight notification logic."""
-    qs = EvangelismGroup.objects.filter(is_active=True)
+    qs = EvangelismGroup.objects.filter(
+        is_active=True,
+        approval_status=EvangelismGroup.ApprovalStatus.APPROVED,
+    )
     if getattr(user, "role", None) in ("ADMIN", "PASTOR"):
         return qs
     if user.is_senior_coordinator(ModuleCoordinator.ModuleType.EVANGELISM):

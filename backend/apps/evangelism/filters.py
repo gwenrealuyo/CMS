@@ -53,6 +53,7 @@ class EvangelismGroupFilter(django_filters.FilterSet):
     cluster = django_filters.NumberFilter(field_name="cluster_id")
     branch = django_filters.NumberFilter(field_name="branch_id")
     is_active = django_filters.BooleanFilter(field_name="is_active")
+    approval_status = django_filters.CharFilter(field_name="approval_status")
 
     name = django_filters.CharFilter(field_name="name", lookup_expr="iexact")
     name__icontains = django_filters.CharFilter(

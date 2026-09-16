@@ -13,6 +13,7 @@ import {
   getEvangelismGroupMemberCount,
   isClusterBibleStudy,
   resolveEvangelismGroupClusterMeta,
+  evangelismGroupApprovalChip,
 } from "@/src/lib/evangelismGroupDisplay";
 import {
   STATUS_CHIP_CLASSNAME,
@@ -55,6 +56,7 @@ const EvangelismGroupCard = memo(
     const visitorCount = group.visitors_count ?? 0;
 
     const coordinatorName = getEvangelismGroupCoordinatorName(group);
+    const approvalChip = evangelismGroupApprovalChip(group);
 
     return (
       <div
@@ -121,6 +123,14 @@ const EvangelismGroupCard = memo(
               )}
               {((group.bible_sharer_ids?.length ?? 0) > 0) && (
                 <BibleSharersChip />
+              )}
+              {approvalChip && (
+                <span
+                  className={STATUS_CHIP_CLASSNAME}
+                  style={getStatusChipStyle(approvalChip.variant)}
+                >
+                  {approvalChip.label}
+                </span>
               )}
               {!group.is_active && (
                 <span

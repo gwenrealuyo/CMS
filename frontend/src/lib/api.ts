@@ -2177,6 +2177,7 @@ export interface User {
   module_coordinator_assignments?: ModuleCoordinator[];
   ncc_lessons_role?: "PRIMARY" | "SUPPORT" | null;
   ncc_primary_at_headquarters?: boolean;
+  on_bible_sharers_roster?: boolean;
 }
 
 export interface PasswordResetRequest {

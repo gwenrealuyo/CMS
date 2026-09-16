@@ -97,6 +97,36 @@ def is_non_senior_evangelism_coordinator(user) -> bool:
     return EvangelismGroup.objects.filter(coordinator=user).exists()
 
 
+def reportable_tally_group_ids_for_coordinator(user) -> list[int] | None:
+    """Approved reportable group PKs for non-senior coordinators, else None (unrestricted)."""
+    if not is_non_senior_evangelism_coordinator(user):
+        return None
+    return _approved_ids(managed_group_ids_for_reports(user))
+
+
+def reportable_cluster_ids_for_coordinator(user) -> list[int] | None:
+    """Cluster PKs of reportable groups for non-senior coordinators, else None."""
+    group_ids = reportable_tally_group_ids_for_coordinator(user)
+    if group_ids is None:
+        return None
+    if not group_ids:
+        return []
+    return list(
+        EvangelismGroup.objects.filter(id__in=group_ids, cluster_id__isnull=False)
+        .values_list("cluster_id", flat=True)
+        .distinct()
+    )
+
+
+def user_can_manage_each1reach1_cluster(user, cluster_id) -> bool:
+    if is_evangelism_senior_or_privileged(user):
+        return True
+    if cluster_id is None or not is_non_senior_evangelism_coordinator(user):
+        return False
+    allowed = reportable_cluster_ids_for_coordinator(user) or []
+    return cluster_id in allowed
+
+
 def user_created_draft_group_ids(user) -> list[int]:
     if not getattr(user, "is_authenticated", False):
         return []
@@ -226,6 +256,11 @@ def allows_evangelism_report_mutation_attempt(user) -> bool:
 def filter_weekly_reports_for_user(user, queryset):
     if is_evangelism_senior_or_privileged(user):
         return queryset.filter(evangelism_group__approval_status=APPROVED)
+    if is_non_senior_evangelism_coordinator(user):
+        ids = set(_approved_ids(managed_group_ids_for_reports(user)))
+        if not ids:
+            return queryset.none()
+        return queryset.filter(evangelism_group_id__in=ids)
     ids = set(managed_group_ids_for_reports(user))
     member_ids = EvangelismGroup.objects.filter(members=user).values_list(
         "id", flat=True
@@ -255,6 +290,14 @@ def ensure_user_manages_evangelism_group_or_privileged(user, group) -> None:
     raise PermissionDenied("You do not have access to manage this evangelism group.")
 
 
+def ensure_user_can_mutate_evangelism_group_records(user, group) -> None:
+    """Add or update visitors and conversions on a group."""
+    if group is None:
+        return
+    ensure_user_manages_evangelism_group_or_privileged(user, group)
+    ensure_group_is_approved_for_operations(group)
+
+
 def ensure_group_is_approved_for_operations(group) -> None:
     if is_group_approved(group):
         return
@@ -276,3 +319,15 @@ class HasEvangelismReportWrite(permissions.BasePermission):
 class CanApproveEvangelismGroup(permissions.BasePermission):
     def has_permission(self, request, view):
         return is_evangelism_senior_or_privileged(request.user)
+
+
+class CanManageEach1Reach1Goals(permissions.BasePermission):
+    def has_permission(self, request, view):
+        if is_evangelism_senior_or_privileged(request.user):
+            return True
+        return is_non_senior_evangelism_coordinator(request.user)
+
+    def has_object_permission(self, request, view, obj):
+        return user_can_manage_each1reach1_cluster(
+            request.user, getattr(obj, "cluster_id", None)
+        )

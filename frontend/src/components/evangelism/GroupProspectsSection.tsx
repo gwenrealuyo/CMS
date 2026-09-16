@@ -124,7 +124,9 @@ export default function GroupProspectsSection({
                 accessor: "id" as keyof Prospect,
                 render: (_value, row) => {
                   const showUpdate =
-                    row.pipeline_stage === "INVITED" && !row.is_dropped_off;
+                    canAdd &&
+                    row.pipeline_stage === "INVITED" &&
+                    !row.is_dropped_off;
                   if (!showUpdate && !onDelete) return null;
                   return (
                     <div className="flex flex-wrap items-center gap-2">

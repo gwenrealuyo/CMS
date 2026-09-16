@@ -425,13 +425,17 @@ export default function EvangelismGroupView({
               onUpdateProgress={onUpdateProgress}
               onDelete={onDeleteProspect}
               loading={prospectsLoading}
-              canAdd={canOperateGroup}
+              canAdd={Boolean(canManageGroup && canOperateGroup)}
             />
 
             <GroupConversionsSection
               conversions={conversions}
-              onAddConversion={canOperateGroup ? onAddConversion : undefined}
-              onEditConversion={canOperateGroup ? onEditConversion : undefined}
+              onAddConversion={
+                canManageGroup && canOperateGroup ? onAddConversion : undefined
+              }
+              onEditConversion={
+                canManageGroup && canOperateGroup ? onEditConversion : undefined
+              }
               loading={conversionsLoading}
             />
           </div>

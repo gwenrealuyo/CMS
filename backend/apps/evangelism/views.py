@@ -8,7 +8,7 @@ from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.pagination import PageNumberPagination
 from rest_framework import filters, status, viewsets
 from rest_framework.decorators import action
-from rest_framework.exceptions import ValidationError
+from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.response import Response
 
 from apps.attendance.models import AttendanceRecord
@@ -30,13 +30,17 @@ from .filters import ConversionFilter, EvangelismGroupFilter, ProspectFilter
 from .group_counts import annotate_evangelism_group_counts
 from .permissions import (
     CanApproveEvangelismGroup,
+    CanManageEach1Reach1Goals,
     HasEvangelismGroupWrite,
     HasEvangelismReportWrite,
     accessible_evangelism_group_ids,
     ensure_group_is_approved_for_operations,
+    ensure_user_can_mutate_evangelism_group_records,
     ensure_user_can_submit_evangelism_report_or_privileged,
     ensure_user_manages_evangelism_group_or_privileged,
     filter_weekly_reports_for_user,
+    reportable_tally_group_ids_for_coordinator,
+    user_can_manage_each1reach1_cluster,
 )
 from .approval import (
     initial_group_approval_status,
@@ -89,6 +93,8 @@ from .services import (
     build_people_tally_cluster_rows,
     people_tally_id_sets,
     PEOPLE_TALLY_GROUP_BY_CLUSTER,
+    PEOPLE_TALLY_ROW_CLUSTER,
+    PEOPLE_TALLY_ROW_TOTAL,
     check_conversion_completion,
     endorse_visitor_to_cluster,
     get_cluster_visitors,
@@ -794,6 +800,76 @@ class EvangelismWeeklyReportViewSet(viewsets.ModelViewSet):
         return eg_id
 
     @staticmethod
+    def _person_ids_for_evangelism_groups(group_ids) -> frozenset:
+        ids = [gid for gid in (group_ids or []) if gid is not None]
+        if not ids:
+            return frozenset()
+        member_ids = EvangelismGroup.objects.filter(pk__in=ids).values_list(
+            "members__id", flat=True
+        )
+        prospect_person_ids = Prospect.objects.filter(
+            evangelism_group_id__in=ids,
+            person_id__isnull=False,
+        ).values_list("person_id", flat=True)
+        return frozenset(member_ids) | frozenset(prospect_person_ids)
+
+    def _coordinator_tally_restriction(self):
+        allowed_groups = reportable_tally_group_ids_for_coordinator(self.request.user)
+        if allowed_groups is None:
+            return None
+        cluster_ids = set(
+            EvangelismGroup.objects.filter(
+                id__in=allowed_groups, cluster_id__isnull=False
+            ).values_list("cluster_id", flat=True)
+        )
+        return {
+            "group_ids": set(allowed_groups),
+            "cluster_ids": cluster_ids,
+            "person_ids": self._person_ids_for_evangelism_groups(allowed_groups),
+        }
+
+    def _apply_coordinator_people_tally_scope(
+        self, branch_id, cluster_id, eg_id, group_person_ids, unclustered
+    ):
+        restriction = self._coordinator_tally_restriction()
+        if restriction is None:
+            return branch_id, cluster_id, eg_id, group_person_ids, unclustered, None
+        allowed_groups = restriction["group_ids"]
+        allowed_clusters = restriction["cluster_ids"]
+        if eg_id is not None and eg_id not in allowed_groups:
+            raise PermissionDenied(
+                "You do not have access to tally this evangelism group."
+            )
+        if cluster_id is not None and cluster_id not in allowed_clusters:
+            raise PermissionDenied("You do not have access to tally this cluster.")
+        if unclustered:
+            return branch_id, None, None, frozenset(), False, allowed_clusters
+        if eg_id is not None:
+            return (
+                branch_id,
+                cluster_id,
+                eg_id,
+                group_person_ids,
+                False,
+                allowed_clusters,
+            )
+        group_ids = allowed_groups
+        if cluster_id is not None:
+            group_ids = set(
+                EvangelismGroup.objects.filter(
+                    id__in=allowed_groups, cluster_id=cluster_id
+                ).values_list("id", flat=True)
+            )
+        return (
+            branch_id,
+            cluster_id,
+            None,
+            self._person_ids_for_evangelism_groups(group_ids),
+            False,
+            allowed_clusters,
+        )
+
+    @staticmethod
     def _person_ids_for_evangelism_group(evangelism_group_id: int) -> frozenset:
         member_ids = (
             EvangelismGroup.objects.filter(pk=evangelism_group_id).values_list(
@@ -1222,6 +1298,22 @@ class EvangelismWeeklyReportViewSet(viewsets.ModelViewSet):
             evangelism_qs = evangelism_qs.filter(evangelism_group__cluster=cluster)
             cluster_qs = cluster_qs.filter(cluster=cluster)
 
+        restriction = self._coordinator_tally_restriction()
+        if restriction is not None:
+            allowed_groups = restriction["group_ids"]
+            allowed_clusters = restriction["cluster_ids"]
+            if cluster is not None and cluster.id not in allowed_clusters:
+                evangelism_qs = evangelism_qs.none()
+                cluster_qs = cluster_qs.none()
+            else:
+                evangelism_qs = evangelism_qs.filter(
+                    evangelism_group_id__in=allowed_groups or [-1]
+                )
+                if allowed_clusters:
+                    cluster_qs = cluster_qs.filter(cluster_id__in=allowed_clusters)
+                else:
+                    cluster_qs = cluster_qs.none()
+
         rows = self._build_weekly_tally_rows(evangelism_qs, cluster_qs)
         serializer = EvangelismTallySerializer(rows, many=True)
         return Response(serializer.data)
@@ -1242,6 +1334,16 @@ class EvangelismWeeklyReportViewSet(viewsets.ModelViewSet):
         branch_id, cluster_id, eg_id, group_person_ids, unclustered = (
             self._people_tally_scope()
         )
+        (
+            branch_id,
+            cluster_id,
+            eg_id,
+            group_person_ids,
+            unclustered,
+            allowed_clusters,
+        ) = self._apply_coordinator_people_tally_scope(
+            branch_id, cluster_id, eg_id, group_person_ids, unclustered
+        )
 
         if group_by == PEOPLE_TALLY_GROUP_BY_CLUSTER:
             if eg_id is not None:
@@ -1258,12 +1360,27 @@ class EvangelismWeeklyReportViewSet(viewsets.ModelViewSet):
                 )
             months = self._parse_people_tally_months()
             base_qs = Person.objects.exclude(role="ADMIN").filter(branch_id=branch_id)
+            if group_person_ids is not None and eg_id is None:
+                gp_ids = group_person_ids or frozenset()
+                base_qs = (
+                    base_qs.filter(id__in=gp_ids) if gp_ids else base_qs.none()
+                )
             rows = build_people_tally_cluster_rows(
                 year=year_int,
                 months=months,
                 branch_id=branch_id,
                 base_qs=base_qs,
             )
+            if allowed_clusters is not None:
+                rows = [
+                    row
+                    for row in rows
+                    if row.get("row_kind") == PEOPLE_TALLY_ROW_TOTAL
+                    or (
+                        row.get("row_kind") == PEOPLE_TALLY_ROW_CLUSTER
+                        and row.get("cluster_id") in allowed_clusters
+                    )
+                ]
             serializer = EvangelismPeopleTallySerializer(rows, many=True)
             return Response(serializer.data)
 
@@ -1274,7 +1391,12 @@ class EvangelismWeeklyReportViewSet(viewsets.ModelViewSet):
             base_qs = base_qs.filter(clusters__isnull=True).distinct()
         elif cluster_id is not None:
             base_qs = base_qs.filter(clusters__id=cluster_id)
-        elif eg_id is not None:
+            if group_person_ids is not None and eg_id is None:
+                gp_ids = group_person_ids or frozenset()
+                base_qs = (
+                    base_qs.filter(id__in=gp_ids) if gp_ids else base_qs.none()
+                )
+        elif eg_id is not None or group_person_ids is not None:
             gp_ids = group_person_ids or frozenset()
             base_qs = base_qs.filter(id__in=gp_ids) if gp_ids else base_qs.none()
 
@@ -1293,6 +1415,16 @@ class EvangelismWeeklyReportViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=["get"], url_path="people_tally_years")
     def people_tally_years(self, request):
         branch_id, cluster_id, eg_id, group_person_ids = self._branch_cluster_group_scope()
+        (
+            branch_id,
+            cluster_id,
+            eg_id,
+            group_person_ids,
+            _unclustered,
+            _allowed_clusters,
+        ) = self._apply_coordinator_people_tally_scope(
+            branch_id, cluster_id, eg_id, group_person_ids, False
+        )
         years = set()
 
         people_qs = Person.objects.exclude(role="ADMIN")
@@ -1300,9 +1432,16 @@ class EvangelismWeeklyReportViewSet(viewsets.ModelViewSet):
             people_qs = people_qs.filter(branch_id=branch_id)
         if cluster_id is not None:
             people_qs = people_qs.filter(clusters__id=cluster_id)
-        elif eg_id is not None:
+            if group_person_ids is not None and eg_id is None:
+                gp_ids = group_person_ids or frozenset()
+                people_qs = (
+                    people_qs.filter(id__in=gp_ids) if gp_ids else people_qs.none()
+                )
+        elif eg_id is not None or group_person_ids is not None:
             gp_ids = group_person_ids or frozenset()
-            people_qs = people_qs.filter(id__in=gp_ids) if gp_ids else people_qs.none()
+            people_qs = (
+                people_qs.filter(id__in=gp_ids) if gp_ids else people_qs.none()
+            )
 
         years.update(
             people_qs.filter(
@@ -1349,6 +1488,16 @@ class EvangelismWeeklyReportViewSet(viewsets.ModelViewSet):
         metric = request.query_params.get("metric")
         branch_id, cluster_id, eg_id, group_person_ids, unclustered = (
             self._people_tally_scope()
+        )
+        (
+            branch_id,
+            cluster_id,
+            eg_id,
+            group_person_ids,
+            unclustered,
+            _allowed_clusters,
+        ) = self._apply_coordinator_people_tally_scope(
+            branch_id, cluster_id, eg_id, group_person_ids, unclustered
         )
 
         valid_metrics = {
@@ -1397,7 +1546,12 @@ class EvangelismWeeklyReportViewSet(viewsets.ModelViewSet):
             base_people = base_people.filter(clusters__isnull=True).distinct()
         elif cluster_id is not None:
             base_people = base_people.filter(clusters__id=cluster_id)
-        elif eg_id is not None:
+            if group_person_ids is not None and eg_id is None:
+                gp_ids = group_person_ids or frozenset()
+                base_people = (
+                    base_people.filter(id__in=gp_ids) if gp_ids else base_people.none()
+                )
+        elif eg_id is not None or group_person_ids is not None:
             gp_ids = group_person_ids or frozenset()
             base_people = (
                 base_people.filter(id__in=gp_ids) if gp_ids else base_people.none()
@@ -1641,17 +1795,32 @@ class ProspectViewSet(viewsets.ModelViewSet):
             return [IsAuthenticatedAndNotVisitor(), IsAdmin()]
         return [IsAuthenticatedAndNotVisitor(), HasModuleAccess("EVANGELISM", "write")]
 
+    def _group_from_serializer(self, serializer):
+        group = serializer.validated_data.get("evangelism_group")
+        if group is None and serializer.instance is not None:
+            group = serializer.instance.evangelism_group
+        return group
+
+    def _ensure_group_record_write(self, group):
+        ensure_user_can_mutate_evangelism_group_records(self.request.user, group)
+
     def perform_create(self, serializer):
         """Create an invited prospect. Do not copy the inviter's cluster."""
+        self._ensure_group_record_write(serializer.validated_data.get("evangelism_group"))
         extra = {"pipeline_stage": Prospect.PipelineStage.INVITED}
         if not serializer.validated_data.get("date_first_invited"):
             extra["date_first_invited"] = church_today()
         serializer.save(**extra)
 
+    def perform_update(self, serializer):
+        self._ensure_group_record_write(self._group_from_serializer(serializer))
+        serializer.save()
+
     @action(detail=True, methods=["post"])
     def endorse_to_cluster(self, request, pk=None):
         """Endorse visitor to a different cluster."""
         prospect = self.get_object()
+        self._ensure_group_record_write(prospect.evangelism_group)
         cluster_id = request.data.get("cluster_id")
 
         if not cluster_id:
@@ -1674,6 +1843,7 @@ class ProspectViewSet(viewsets.ModelViewSet):
     def update_progress(self, request, pk=None):
         """Update visitor's pipeline stage and last activity."""
         prospect = self.get_object()
+        self._ensure_group_record_write(prospect.evangelism_group)
         pipeline_stage = request.data.get("pipeline_stage")
         last_activity_date = request.data.get("last_activity_date")
 
@@ -1736,6 +1906,7 @@ class ProspectViewSet(viewsets.ModelViewSet):
     def mark_attended(self, request, pk=None):
         """Mark prospect as attended (auto-creates/links Person, updates monthly tracking)."""
         prospect = self.get_object()
+        self._ensure_group_record_write(prospect.evangelism_group)
         last_activity_date = request.data.get("last_activity_date")
         activity_date = None
         if last_activity_date:
@@ -1789,6 +1960,7 @@ class ProspectViewSet(viewsets.ModelViewSet):
     def create_person(self, request, pk=None):
         """Manual action to create Person record from prospect."""
         prospect = self.get_object()
+        self._ensure_group_record_write(prospect.evangelism_group)
 
         if prospect.person:
             return Response(
@@ -1991,8 +2163,17 @@ class ConversionViewSet(viewsets.ModelViewSet):
     ordering_fields = ("conversion_date", "created_at")
     ordering = ("-conversion_date",)
 
+    def _group_from_serializer(self, serializer):
+        group = serializer.validated_data.get("evangelism_group")
+        if group is None and serializer.instance is not None:
+            group = serializer.instance.evangelism_group
+        return group
+
     def perform_create(self, serializer):
         """Auto-update person milestones, prospect pipeline, and conversion completion."""
+        ensure_user_can_mutate_evangelism_group_records(
+            self.request.user, serializer.validated_data.get("evangelism_group")
+        )
         date_first_invited = serializer.validated_data.pop("date_first_invited", None)
         date_first_attended = serializer.validated_data.pop("date_first_attended", None)
         conversion = serializer.save()
@@ -2029,6 +2210,9 @@ class ConversionViewSet(viewsets.ModelViewSet):
 
     def perform_update(self, serializer):
         """Update person milestones, prospect pipeline, and conversion completion."""
+        ensure_user_can_mutate_evangelism_group_records(
+            self.request.user, self._group_from_serializer(serializer)
+        )
         date_first_invited = serializer.validated_data.pop("date_first_invited", None)
         date_first_attended = serializer.validated_data.pop("date_first_attended", None)
         serializer.validated_data.pop("lesson_start_date", None)
@@ -2100,6 +2284,28 @@ class Each1Reach1GoalViewSet(viewsets.ModelViewSet):
     search_fields = ("cluster__name", "cluster__evangelism_groups__name")
     ordering_fields = ("year", "achieved_conversions")
     ordering = ("-year", "cluster__name")
+
+    def get_permissions(self):
+        if self.action in ("create", "update", "partial_update", "destroy"):
+            return [IsAuthenticatedAndNotVisitor(), CanManageEach1Reach1Goals()]
+        return [IsAuthenticatedAndNotVisitor(), IsMemberOrAbove()]
+
+    def _ensure_goal_cluster_allowed(self, cluster):
+        cluster_id = getattr(cluster, "id", cluster)
+        if user_can_manage_each1reach1_cluster(self.request.user, cluster_id):
+            return
+        raise PermissionDenied(
+            "You can only create or edit Each 1 Reach 1 goals for your groups."
+        )
+
+    def perform_create(self, serializer):
+        self._ensure_goal_cluster_allowed(serializer.validated_data.get("cluster"))
+        serializer.save()
+
+    def perform_update(self, serializer):
+        cluster = serializer.validated_data.get("cluster", serializer.instance.cluster)
+        self._ensure_goal_cluster_allowed(cluster)
+        serializer.save()
 
     def get_queryset(self):
         qs = super().get_queryset()

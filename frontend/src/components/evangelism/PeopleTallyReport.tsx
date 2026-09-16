@@ -65,6 +65,8 @@ interface PeopleTallyReportProps {
   hideBranchFilter?: boolean;
   /** Slightly bolder count cells (analytics E1R1 tab). */
   emphasizeCountCells?: boolean;
+  /** When set, only these evangelism groups (and their clusters) appear in scope. */
+  allowedGroupIds?: number[];
 }
 
 type PeopleTallyMetric = Extract<
@@ -93,6 +95,7 @@ export default function PeopleTallyReport({
   defaultLockedBranch = "",
   hideBranchFilter = false,
   emphasizeCountCells = false,
+  allowedGroupIds,
 }: PeopleTallyReportProps) {
   const selectedYear = year || new Date().getFullYear();
   const selectedBranch = branch === "" ? "" : Number(branch);
@@ -159,11 +162,29 @@ export default function PeopleTallyReport({
     };
   }, [selectedBranch]);
 
+  const scopedEvangelismGroups = useMemo(() => {
+    if (allowedGroupIds == null) return evangelismGroups;
+    const allowed = new Set(allowedGroupIds.map(Number));
+    return evangelismGroups.filter((group) => allowed.has(Number(group.id)));
+  }, [evangelismGroups, allowedGroupIds]);
+
+  const scopedClusters = useMemo(() => {
+    if (allowedGroupIds == null) return clusters;
+    const clusterIds = new Set<number>();
+    for (const group of scopedEvangelismGroups) {
+      const clusterId = group.cluster?.id ?? group.cluster_id;
+      if (clusterId != null && clusterId !== "") {
+        clusterIds.add(Number(clusterId));
+      }
+    }
+    return clusters.filter((cluster) => clusterIds.has(Number(cluster.id)));
+  }, [clusters, scopedEvangelismGroups, allowedGroupIds]);
+
   const scopeSelectOptions = useMemo(() => {
     const clustersScoped =
       selectedBranch === ""
-        ? clusters
-        : clusters.filter((c) => c.branch === selectedBranch);
+        ? scopedClusters
+        : scopedClusters.filter((c) => c.branch === selectedBranch);
 
     const clusterOpts = clustersScoped.map((c) => ({
       value: `cluster:${c.id}`,
@@ -171,7 +192,7 @@ export default function PeopleTallyReport({
       typeLabel: "cluster" as const,
     }));
 
-    const groupOpts = evangelismGroups.map((g) => ({
+    const groupOpts = scopedEvangelismGroups.map((g) => ({
       value: `group:${g.id}`,
       label: g.name || `Group ${g.id}`,
       typeLabel: "group" as const,
@@ -182,7 +203,15 @@ export default function PeopleTallyReport({
       a.label.localeCompare(b.label, undefined, { sensitivity: "base" }),
     );
     return combined;
-  }, [clusters, evangelismGroups, selectedBranch]);
+  }, [scopedClusters, scopedEvangelismGroups, selectedBranch]);
+
+  useEffect(() => {
+    if (!tallyScope || !onTallyScopeChange) return;
+    const allowedValues = new Set(scopeSelectOptions.map((opt) => opt.value));
+    if (!allowedValues.has(tallyScope)) {
+      onTallyScopeChange("");
+    }
+  }, [tallyScope, onTallyScopeChange, scopeSelectOptions]);
 
   const { rows, loading, error } = useEvangelismPeopleTally({
     year: selectedYear,

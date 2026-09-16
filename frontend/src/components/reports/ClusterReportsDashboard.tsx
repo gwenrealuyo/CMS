@@ -1720,14 +1720,9 @@ export default function ClusterReportsDashboard({
               ].map((label, idx) => {
                 const monthNum = idx + 1;
                 const value = String(monthNum).padStart(2, "0");
-                const today = new Date();
-                const isCurrentMonth =
-                  selectedYear === today.getFullYear() &&
-                  monthNum === today.getMonth() + 1;
                 return (
                   <option key={value} value={value}>
                     {label}
-                    {isCurrentMonth ? " - Current" : ""}
                   </option>
                 );
               })}
@@ -1799,14 +1794,10 @@ export default function ClusterReportsDashboard({
               <option value="">All Weeks</option>
               {Array.from({ length: 53 }, (_, i) => {
                 const weekNum = i + 1;
-                const currentWeek = getLocalISOWeekNumber(new Date());
-                const isCurrentWeek =
-                  weekNum === currentWeek &&
-                  selectedYear === new Date().getFullYear();
                 const dateRange = formatWeekDateRange(selectedYear, weekNum);
                 return (
                   <option key={weekNum} value={weekNum.toString()}>
-                    W{weekNum} ({dateRange}){isCurrentWeek ? " - Current" : ""}
+                    W{weekNum} ({dateRange})
                   </option>
                 );
               })}

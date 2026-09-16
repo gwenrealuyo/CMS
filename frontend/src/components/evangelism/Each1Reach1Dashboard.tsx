@@ -42,12 +42,17 @@ import {
 
 interface Each1Reach1DashboardProps {
   year?: number;
+  canManageGoals?: boolean;
+  /** When set, create/edit is limited to these cluster IDs. Omit for all clusters. */
+  manageableClusterIds?: number[];
 }
 
 const DUPLICATE_GOAL_ERROR = "A goal already exists for this cluster and year.";
 
 export default function Each1Reach1Dashboard({
   year,
+  canManageGoals = true,
+  manageableClusterIds,
 }: Each1Reach1DashboardProps) {
   const { user, isSeniorCoordinator } = useAuth();
   const canChangeBranchFilter = useMemo(
@@ -73,6 +78,22 @@ export default function Each1Reach1Dashboard({
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [clusters, setClusters] = useState<Cluster[]>([]);
   const [clustersLoading, setClustersLoading] = useState(false);
+  const goalClusters = useMemo(() => {
+    if (manageableClusterIds == null) return clusters;
+    const allowed = new Set(manageableClusterIds.map(Number));
+    return clusters.filter((cluster) => allowed.has(Number(cluster.id)));
+  }, [clusters, manageableClusterIds]);
+  const canManageClusterGoal = (
+    clusterId: number | string | null | undefined,
+  ) => {
+    if (!canManageGoals) return false;
+    if (manageableClusterIds == null) return true;
+    if (clusterId == null || clusterId === "") return false;
+    return manageableClusterIds.some((id) => Number(id) === Number(clusterId));
+  };
+  const showCreateGoal =
+    canManageGoals &&
+    (manageableClusterIds == null || goalClusters.length > 0);
   const [showGoalModal, setShowGoalModal] = useState(false);
   const [modalMode, setModalMode] = useState<"create" | "edit">("create");
   const [viewMode, setViewMode] = useState<"table" | "cards">(() =>
@@ -517,6 +538,7 @@ export default function Each1Reach1Dashboard({
             >
               Reset
             </button>
+            {showCreateGoal ? (
             <Button
               variant="primary"
               className="min-h-[44px] w-full"
@@ -524,6 +546,7 @@ export default function Each1Reach1Dashboard({
             >
               Create Goal
             </Button>
+            ) : null}
           </div>
         </div>
 
@@ -574,9 +597,11 @@ export default function Each1Reach1Dashboard({
             >
               Reset
             </button>
+            {showCreateGoal ? (
             <Button variant="primary" className="text-sm" onClick={openCreateGoalModal}>
               Create Goal
             </Button>
+            ) : null}
           </div>
         </div>
       </div>
@@ -642,9 +667,11 @@ export default function Each1Reach1Dashboard({
                       <SortIcon field="status" />
                     </div>
                   </th>
+                  {canManageGoals ? (
                   <th className="px-3 py-2 text-right text-xs font-semibold uppercase tracking-wider text-gray-500">
                     Actions
                   </th>
+                  ) : null}
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-100">
@@ -683,7 +710,9 @@ export default function Each1Reach1Dashboard({
                           {goal.status?.replace("_", " ") || "Not Started"}
                         </span>
                       </td>
+                      {canManageGoals ? (
                       <td className="px-3 py-2 text-right text-sm">
+                        {canManageClusterGoal(goal.cluster?.id) ? (
                         <Button
                           variant="tertiary"
                           className="min-h-[32px] px-2 py-1 text-xs"
@@ -691,7 +720,9 @@ export default function Each1Reach1Dashboard({
                         >
                           Edit
                         </Button>
+                        ) : null}
                       </td>
+                      ) : null}
                     </tr>
                   );
                 })}
@@ -734,6 +765,7 @@ export default function Each1Reach1Dashboard({
                 >
                   {goal.status?.replace("_", " ") || "Not Started"}
                 </span>
+                {canManageClusterGoal(goal.cluster?.id) ? (
                 <Button
                   variant="tertiary"
                   className="ml-auto min-h-[28px] px-2 py-1 text-xs"
@@ -741,6 +773,7 @@ export default function Each1Reach1Dashboard({
                 >
                   Edit
                 </Button>
+                ) : null}
               </div>
             </div>
           ))}
@@ -785,7 +818,7 @@ export default function Each1Reach1Dashboard({
               disabled={clustersLoading}
             >
               <option value="">Select a cluster</option>
-              {clusters.map((cluster) => (
+              {goalClusters.map((cluster) => (
                 <option key={cluster.id} value={cluster.id}>
                   {cluster.name || `Cluster ${cluster.id}`}
                 </option>

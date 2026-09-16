@@ -96,6 +96,7 @@ class UserSerializer(serializers.ModelSerializer):
     )
     ncc_lessons_role = serializers.SerializerMethodField()
     ncc_primary_at_headquarters = serializers.SerializerMethodField()
+    on_bible_sharers_roster = serializers.SerializerMethodField()
 
     class Meta:
         model = User
@@ -118,6 +119,7 @@ class UserSerializer(serializers.ModelSerializer):
             "module_coordinator_assignments",
             "ncc_lessons_role",
             "ncc_primary_at_headquarters",
+            "on_bible_sharers_roster",
         )
         read_only_fields = (
             "id",
@@ -133,6 +135,7 @@ class UserSerializer(serializers.ModelSerializer):
             "module_coordinator_assignments",
             "ncc_lessons_role",
             "ncc_primary_at_headquarters",
+            "on_bible_sharers_roster",
         )
 
     def get_full_name(self, obj):
@@ -160,6 +163,11 @@ class UserSerializer(serializers.ModelSerializer):
         from apps.lessons.coordinator_access import is_ncc_primary_at_headquarters
 
         return is_ncc_primary_at_headquarters(obj)
+
+    def get_on_bible_sharers_roster(self, obj):
+        from apps.ministries.bible_sharers import person_on_bible_sharers_roster
+
+        return person_on_bible_sharers_roster(obj)
 
 
 class TokenResponseSerializer(serializers.Serializer):

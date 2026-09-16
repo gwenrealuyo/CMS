@@ -187,3 +187,17 @@ export function canBrowseProspects({
     isSeniorCoordinator("CLUSTER") || isSeniorCoordinator("EVANGELISM")
   );
 }
+
+/** Bible Sharers tab: privileged users, or people on the HQ Bible Sharers roster. */
+export function canBrowseBibleSharers({
+  user,
+  isSeniorCoordinator,
+}: {
+  user: User | null;
+  isSeniorCoordinator: (module?: ModuleCoordinator["module"]) => boolean;
+}): boolean {
+  if (!user) return false;
+  if (isAdminPerson(user) || user.role === "PASTOR") return true;
+  if (isSeniorCoordinator("EVANGELISM")) return true;
+  return Boolean(user.on_bible_sharers_roster);
+}

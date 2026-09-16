@@ -24,14 +24,27 @@ import { getInitialListViewMode, useIsMdUp } from "@/src/lib/listViewMode";
 interface TallyReportProps {
   year?: number;
   clusterId?: number | string;
+  allowedClusterIds?: number[];
 }
 
-export default function TallyReport({ year, clusterId }: TallyReportProps) {
+export default function TallyReport({
+  year,
+  clusterId,
+  allowedClusterIds,
+}: TallyReportProps) {
   const selectedYear = year || new Date().getFullYear();
   const { rows, loading, error } = useEvangelismTally({
     year: selectedYear,
     cluster: clusterId,
   });
+  const visibleRows = useMemo(() => {
+    if (allowedClusterIds == null) return rows;
+    const allowed = new Set(allowedClusterIds.map(Number));
+    return rows.filter(
+      (row) =>
+        row.cluster_id != null && allowed.has(Number(row.cluster_id)),
+    );
+  }, [rows, allowedClusterIds]);
   const [drilldown, setDrilldown] = useState<{
     year: number;
     weekNumber: number;
@@ -166,7 +179,7 @@ export default function TallyReport({ year, clusterId }: TallyReportProps) {
         <div className="text-center py-8 text-gray-500">Loading tally...</div>
       ) : error ? (
         <div className="text-center py-8 text-red-500">Error: {error}</div>
-      ) : rows.length === 0 ? (
+      ) : visibleRows.length === 0 ? (
         <div className="text-center py-8 text-gray-500">
           No tally data available
         </div>
@@ -259,7 +272,7 @@ export default function TallyReport({ year, clusterId }: TallyReportProps) {
                 ),
               },
             ]}
-            data={rows}
+            data={visibleRows}
           />
         </>
       )}

@@ -105,7 +105,7 @@ import { requestNotificationsRefetch } from "@/src/lib/notificationsEvents";
 import { useAuth } from "@/src/contexts/AuthContext";
 import { useModuleSettings } from "@/src/hooks/useModuleSettings";
 import { canHardDelete } from "@/src/lib/canHardDelete";
-import { canBrowseProspects, canWriteEvangelism, canSubmitEvangelismReport, assignedEvangelismGroupIds, canApproveEvangelismGroup, canManageEvangelismGroup, canSubmitEvangelismReportForGroup, isEvangelismGroupApproved } from "@/src/lib/evangelism/evangelismPermissions";
+import { canBrowseProspects, canBrowseBibleSharers, canWriteEvangelism, canSubmitEvangelismReport, assignedEvangelismGroupIds, canApproveEvangelismGroup, canManageEvangelismGroup, canSubmitEvangelismReportForGroup, isEvangelismGroupApproved } from "@/src/lib/evangelism/evangelismPermissions";
 import ProspectsBrowse from "@/src/components/evangelism/ProspectsBrowse";
 import {
   canChangeEvangelismBranchFilter,
@@ -155,6 +155,10 @@ export default function EvangelismPage() {
   );
   const canBrowseProspectsTab = useMemo(
     () => canBrowseProspects({ user, isSeniorCoordinator }),
+    [user, isSeniorCoordinator],
+  );
+  const canBrowseBibleSharersTab = useMemo(
+    () => canBrowseBibleSharers({ user, isSeniorCoordinator }),
     [user, isSeniorCoordinator],
   );
   const canChangeEvangelismBranch = useMemo(
@@ -480,10 +484,14 @@ export default function EvangelismPage() {
       setActiveTab("groups");
       return;
     }
+    if (tabParam === "bible_sharers" && !canBrowseBibleSharersTab) {
+      setActiveTab("groups");
+      return;
+    }
     if (isEvangelismPageTab(tabParam)) {
       setActiveTab(tabParam);
     }
-  }, [searchParams, canBrowseProspectsTab]);
+  }, [searchParams, canBrowseProspectsTab, canBrowseBibleSharersTab]);
 
   useEffect(() => {
     const approval = searchParams.get("approval");
@@ -728,6 +736,20 @@ export default function EvangelismPage() {
         Number(group.coordinator?.id) === Number(user?.id),
     );
   }, [approvedPickerGroups, evangelismPrivileged, user]);
+
+  const reportableClusterIds = useMemo(() => {
+    const ids = new Set<number>();
+    for (const group of reportablePickerGroups) {
+      const clusterId = group.cluster?.id ?? group.cluster_id;
+      if (clusterId != null && clusterId !== "") {
+        ids.add(Number(clusterId));
+      }
+    }
+    return Array.from(ids);
+  }, [reportablePickerGroups]);
+
+  const isNonSeniorEvangelismCoordinator =
+    canWriteEvangelismAccess && !evangelismPrivileged;
 
   const handleApproveGroup = async () => {
     if (!viewEditGroup) return;
@@ -1659,6 +1681,7 @@ export default function EvangelismPage() {
               >
                 Reports
               </button>
+              {canBrowseBibleSharersTab && (
               <button
                 onClick={() => selectTab("bible_sharers")}
                 className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors whitespace-nowrap min-w-[110px] ${
@@ -1669,6 +1692,7 @@ export default function EvangelismPage() {
               >
                 Bible Sharers
               </button>
+              )}
             </nav>
           </div>
         </div>
@@ -2269,7 +2293,15 @@ export default function EvangelismPage() {
         {/* Each 1 Reach 1 Tab */}
         {activeTab === "each1reach1" && (
           <div className="space-y-6">
-            <Each1Reach1Dashboard year={new Date().getFullYear()} />
+            <Each1Reach1Dashboard
+              year={new Date().getFullYear()}
+              canManageGoals={
+                evangelismPrivileged || canWriteEvangelismAccess
+              }
+              manageableClusterIds={
+                evangelismPrivileged ? undefined : reportableClusterIds
+              }
+            />
           </div>
         )}
 
@@ -2294,6 +2326,11 @@ export default function EvangelismPage() {
                   ? user.branch
                   : ""
               }
+              allowedGroupIds={
+                isNonSeniorEvangelismCoordinator
+                  ? reportablePickerGroups.map((group) => Number(group.id))
+                  : undefined
+              }
             />
             <Card>
               <h3 className="text-lg font-semibold text-gray-900 mb-2">
@@ -2303,7 +2340,14 @@ export default function EvangelismPage() {
                 Unified weekly tally by cluster and ISO week (evangelism plus
                 cluster reports). Click a cell for attendance drill-down.
               </p>
-              <TallyReport year={new Date().getFullYear()} />
+              <TallyReport
+                year={new Date().getFullYear()}
+                allowedClusterIds={
+                  isNonSeniorEvangelismCoordinator
+                    ? reportableClusterIds
+                    : undefined
+                }
+              />
             </Card>
           </div>
         )}
@@ -2329,7 +2373,7 @@ export default function EvangelismPage() {
         )}
 
         {/* Bible Sharers Tab */}
-        {activeTab === "bible_sharers" && (
+        {activeTab === "bible_sharers" && canBrowseBibleSharersTab && (
           <div className="space-y-6">
             <BibleSharersCoverage />
           </div>

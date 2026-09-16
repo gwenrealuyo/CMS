@@ -99,6 +99,7 @@ class EvangelismGroupDirectoryAPITests(APITestCase):
         self.assertTrue(row["has_bible_sharers"])
         self.assertEqual(row["cluster"]["code"], "EVG-DIR")
         self.assertEqual(row["cluster"]["branch"], self.branch.id)
+        self.assertEqual(row["branch"], self.branch.id)
         self.assertNotIn("reporter_ids", row)
 
     def test_list_filters_and_orders_on_server(self):
@@ -130,6 +131,7 @@ class EvangelismGroupDirectoryAPITests(APITestCase):
         self.assertIn("members", response.data)
         self.assertIn("reporter_ids", response.data)
         self.assertEqual(response.data["members_count"], 2)
+        self.assertEqual(response.data["branch"], self.branch.id)
 
     def test_dashboard_stats_include_each1reach1_totals(self):
         from apps.evangelism.models import Each1Reach1Goal
@@ -158,3 +160,93 @@ class EvangelismGroupDirectoryAPITests(APITestCase):
         self.assertEqual(reports.status_code, 200, reports.data)
         self.assertIn("results", reports.data)
         self.assertIn("count", reports.data)
+
+    def test_branch_filter_includes_unclustered_groups(self):
+        other_branch = Branch.objects.create(
+            name="Satellite",
+            code="SATEVGDIR",
+            is_active=True,
+        )
+        EvangelismGroup.objects.create(
+            name="Open Study",
+            coordinator=self.coordinator,
+            branch=self.branch,
+            is_active=True,
+        )
+        EvangelismGroup.objects.create(
+            name="Other Branch Study",
+            coordinator=self.coordinator,
+            branch=other_branch,
+            is_active=True,
+        )
+        response = self.client.get(
+            "/api/evangelism/groups/",
+            {"branch": self.branch.id},
+        )
+        self.assertEqual(response.status_code, 200, response.data)
+        names = [row["name"] for row in response.data["results"]]
+        self.assertIn("North Bible Study", names)
+        self.assertIn("Open Study", names)
+        self.assertNotIn("Other Branch Study", names)
+
+    def test_create_without_cluster_requires_branch(self):
+        response = self.client.post(
+            "/api/evangelism/groups/",
+            {"name": "No Branch Study", "is_active": True},
+            format="json",
+        )
+        self.assertEqual(response.status_code, 400, response.data)
+        self.assertIn("branch_id", response.data.get("details", response.data))
+
+    def test_create_unclustered_with_branch_lists_under_that_branch(self):
+        response = self.client.post(
+            "/api/evangelism/groups/",
+            {
+                "name": "Citywide Study",
+                "cluster_id": None,
+                "branch_id": self.branch.id,
+                "is_active": True,
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, 201, response.data)
+        self.assertEqual(response.data["branch"], self.branch.id)
+        self.assertIsNone(response.data["cluster"])
+        listed = self.client.get(
+            "/api/evangelism/groups/",
+            {"branch": self.branch.id},
+        )
+        names = [row["name"] for row in listed.data["results"]]
+        self.assertIn("Citywide Study", names)
+
+    def test_create_with_cluster_infers_branch(self):
+        response = self.client.post(
+            "/api/evangelism/groups/",
+            {
+                "name": "Inferred Branch Study",
+                "cluster_id": self.cluster.id,
+                "is_active": True,
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, 201, response.data)
+        self.assertEqual(response.data["branch"], self.branch.id)
+
+    def test_create_rejects_mismatched_cluster_branch(self):
+        other_branch = Branch.objects.create(
+            name="Other",
+            code="OTHEVGDIR",
+            is_active=True,
+        )
+        response = self.client.post(
+            "/api/evangelism/groups/",
+            {
+                "name": "Mismatch Study",
+                "cluster_id": self.cluster.id,
+                "branch_id": other_branch.id,
+                "is_active": True,
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, 400, response.data)
+        self.assertIn("branch_id", response.data.get("details", response.data))

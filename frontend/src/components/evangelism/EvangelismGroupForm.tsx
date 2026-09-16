@@ -30,6 +30,8 @@ interface EvangelismGroupFormProps {
   submitLabel?: string;
   initialData?: EvangelismGroup;
   panelLayout?: boolean;
+  defaultBranchId?: string;
+  canChangeBranch?: boolean;
 }
 
 const MEETING_FREQUENCY_OPTIONS: {
@@ -47,6 +49,7 @@ const DEFAULT_VALUES: EvangelismGroupFormValues = {
   description: "",
   coordinator_id: "",
   cluster_id: "",
+  branch_id: "",
   location: "",
   meeting_time: "",
   meeting_day: "",
@@ -71,6 +74,21 @@ function clusterBibleStudyName(cluster: Cluster | undefined): string {
 function clusterCoordinatorId(cluster: Cluster | undefined): string {
   const id = cluster?.coordinator?.id ?? cluster?.coordinator_id;
   return id != null && String(id).trim() !== "" ? String(id) : "";
+}
+
+function clusterBranchId(cluster: Cluster | undefined): string {
+  const id = cluster?.branch;
+  return id != null && String(id).trim() !== "" ? String(id) : "";
+}
+
+function groupBranchIdFromRecord(group: EvangelismGroup): string {
+  if (group.branch != null && String(group.branch).trim() !== "") {
+    return String(group.branch);
+  }
+  if (group.branch_id != null && String(group.branch_id).trim() !== "") {
+    return String(group.branch_id);
+  }
+  return clusterBranchId(group.cluster);
 }
 
 function personBelongsToCluster(
@@ -98,6 +116,7 @@ function formValuesFromGroup(group: EvangelismGroup): EvangelismGroupFormValues 
     description: group.description || "",
     coordinator_id: group.coordinator?.id ? String(group.coordinator.id) : "",
     cluster_id: group.cluster?.id ? String(group.cluster.id) : "",
+    branch_id: groupBranchIdFromRecord(group),
     location: group.location || "",
     meeting_time: toTimeInputValue(group.meeting_time),
     meeting_day: group.meeting_day || "",
@@ -121,13 +140,18 @@ export default function EvangelismGroupForm({
   submitLabel = "Create Group",
   initialData,
   panelLayout = false,
+  defaultBranchId = "",
+  canChangeBranch = true,
 }: EvangelismGroupFormProps) {
   const isCreate = !initialData;
   const [values, setValues] = useState<EvangelismGroupFormValues>(
-    initialData ? formValuesFromGroup(initialData) : DEFAULT_VALUES,
+    initialData
+      ? formValuesFromGroup(initialData)
+      : { ...DEFAULT_VALUES, branch_id: defaultBranchId },
   );
   const syncedGroupIdRef = useRef<string | null>(null);
   const syncedRosterRef = useRef(false);
+  const [localError, setLocalError] = useState<string | null>(null);
 
   const [initialPickerValue, setInitialPickerValue] = useState("");
   const { branches } = useBranches();
@@ -185,6 +209,11 @@ export default function EvangelismGroupForm({
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
+    if (!values.branch_id) {
+      setLocalError("Branch is required.");
+      return;
+    }
+    setLocalError(null);
     await onSubmit(values);
   };
 
@@ -243,6 +272,11 @@ export default function EvangelismGroupForm({
     () => [
       { label: "No cluster", value: "" },
       ...clusters
+        .filter((cluster) => {
+          if (!values.branch_id) return true;
+          const clusterBranch = clusterBranchId(cluster);
+          return !clusterBranch || clusterBranch === String(values.branch_id);
+        })
         .map((cluster) => {
           const name = cluster.name?.trim();
           const code = cluster.code?.trim();
@@ -255,7 +289,7 @@ export default function EvangelismGroupForm({
         })
         .sort((a, b) => a.label.localeCompare(b.label)),
     ],
-    [clusters],
+    [clusters, values.branch_id],
   );
 
   const selectedCluster = useMemo(
@@ -263,6 +297,21 @@ export default function EvangelismGroupForm({
       clusters.find((cluster) => String(cluster.id) === values.cluster_id),
     [clusters, values.cluster_id],
   );
+
+  const branchOptions = useMemo(
+    () =>
+      branches
+        .filter((branch) => branch.is_active || String(branch.id) === values.branch_id)
+        .map((branch) => ({
+          label: branch.code?.trim()
+            ? `${branch.name} (${branch.code})`
+            : branch.name,
+          value: String(branch.id),
+        }))
+        .sort((a, b) => a.label.localeCompare(b.label)),
+    [branches, values.branch_id],
+  );
+  const branchLocked = Boolean(values.cluster_id) || !canChangeBranch;
 
   const coordinatorOptions = useMemo(() => {
     const base = people.length > 0 ? people : coordinators;
@@ -300,11 +349,11 @@ export default function EvangelismGroupForm({
     selectedCluster,
   ]);
   const isHqGroup = useMemo(() => {
-    const branchId = selectedCluster?.branch;
-    if (branchId == null) return false;
+    const branchId = selectedCluster?.branch ?? values.branch_id;
+    if (branchId == null || branchId === "") return false;
     const branch = branches.find((b) => Number(b.id) === Number(branchId));
     return Boolean(branch?.is_headquarters);
-  }, [selectedCluster, branches]);
+  }, [selectedCluster, values.branch_id, branches]);
 
   useEffect(() => {
     if (!isHqGroup) {
@@ -464,6 +513,7 @@ export default function EvangelismGroupForm({
       onSubmit={handleSubmit}
     >
       {error && <ErrorMessage message={error} />}
+      {!error && localError && <ErrorMessage message={localError} />}
 
       <div className="space-y-1">
         <label className="block text-sm font-medium text-gray-700">
@@ -499,30 +549,48 @@ export default function EvangelismGroupForm({
       >
         <div className="space-y-1">
           <label className="block text-sm font-medium text-gray-700">
-            Coordinator
+            Branch <span className="text-red-500">*</span>
           </label>
           <ScalableSelect
-            options={[{ label: "Not set", value: "" }, ...coordinatorOptions]}
-            value={values.coordinator_id || ""}
+            options={[
+              { label: "Select branch", value: "" },
+              ...branchOptions,
+            ]}
+            value={values.branch_id || ""}
             onChange={(value) =>
-              setValues((prev) => ({
-                ...prev,
-                coordinator_id: value,
-                reporter_ids: (prev.reporter_ids || []).filter((id) => id !== value),
-                bible_sharer_ids: (prev.bible_sharer_ids || []).filter(
-                  (id) => id !== value,
-                ),
-              }))
+              setValues((prev) => {
+                const currentCluster = clusters.find(
+                  (cluster) => String(cluster.id) === String(prev.cluster_id),
+                );
+                const clusterStillValid =
+                  Boolean(prev.cluster_id) &&
+                  (!clusterBranchId(currentCluster) ||
+                    clusterBranchId(currentCluster) === String(value));
+                return {
+                  ...prev,
+                  branch_id: value,
+                  cluster_id: clusterStillValid ? prev.cluster_id : "",
+                };
+              })
             }
-            placeholder="Select coordinator"
+            placeholder="Select branch"
             className="w-full"
             showSearch
+            disabled={branchLocked}
           />
           {values.cluster_id ? (
             <p className="text-xs text-gray-500">
-              Limited to members of this cluster.
+              Branch is set from the selected cluster.
             </p>
-          ) : null}
+          ) : !canChangeBranch ? (
+            <p className="text-xs text-gray-500">
+              Branch is limited to your assignment.
+            </p>
+          ) : (
+            <p className="text-xs text-gray-500">
+              Required even when the group has no cluster.
+            </p>
+          )}
         </div>
 
         <div className="space-y-1">
@@ -568,10 +636,14 @@ export default function EvangelismGroupForm({
                 const nextCoordinatorId = shouldPrefillCoordinator
                   ? suggestedCoordinator
                   : prev.coordinator_id;
+                const nextBranchId = value
+                  ? clusterBranchId(nextCluster) || prev.branch_id
+                  : prev.branch_id;
 
                 return {
                   ...prev,
                   cluster_id: value,
+                  branch_id: nextBranchId,
                   meeting_frequency: value
                     ? "WEEKLY"
                     : prev.meeting_frequency,
@@ -594,6 +666,34 @@ export default function EvangelismGroupForm({
             className="w-full"
             showSearch
           />
+        </div>
+
+        <div className="space-y-1">
+          <label className="block text-sm font-medium text-gray-700">
+            Coordinator
+          </label>
+          <ScalableSelect
+            options={[{ label: "Not set", value: "" }, ...coordinatorOptions]}
+            value={values.coordinator_id || ""}
+            onChange={(value) =>
+              setValues((prev) => ({
+                ...prev,
+                coordinator_id: value,
+                reporter_ids: (prev.reporter_ids || []).filter((id) => id !== value),
+                bible_sharer_ids: (prev.bible_sharer_ids || []).filter(
+                  (id) => id !== value,
+                ),
+              }))
+            }
+            placeholder="Select coordinator"
+            className="w-full"
+            showSearch
+          />
+          {values.cluster_id ? (
+            <p className="text-xs text-gray-500">
+              Limited to members of this cluster.
+            </p>
+          ) : null}
         </div>
       </div>
 

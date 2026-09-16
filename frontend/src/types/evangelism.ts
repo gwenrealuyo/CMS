@@ -9,6 +9,8 @@ export interface EvangelismGroup {
   coordinator_id?: string;
   cluster?: Cluster;
   cluster_id?: string;
+  branch?: number | null;
+  branch_id?: number | null;
   location?: string;
   meeting_time?: string | null;
   meeting_day?: string;
@@ -28,6 +30,8 @@ export interface EvangelismGroup {
 
 export type EvangelismGroupWrite = Partial<Omit<EvangelismGroup, "members">> & {
   members?: number[];
+  cluster_id?: number | string | null;
+  branch_id?: number | string | null;
 };
 
 export interface EvangelismSession {
@@ -412,6 +416,7 @@ export interface EvangelismGroupFormValues {
   description: string;
   coordinator_id?: string;
   cluster_id?: string;
+  branch_id?: string;
   location: string;
   meeting_time: string;
   meeting_day: string;

@@ -46,6 +46,8 @@ def _include_hq_roster(branch_id: Optional[int]) -> bool:
 def _assignment_in_scope(group: EvangelismGroup, person: Person, branch_id: Optional[int]) -> bool:
     if branch_id is None:
         return True
+    if group.branch_id:
+        return group.branch_id == branch_id
     if group.cluster_id:
         return group.cluster.branch_id == branch_id
     return person.branch_id == branch_id
@@ -69,7 +71,7 @@ def build_bible_sharers_coverage(*, user, branch_id: Optional[int]) -> dict:
         g.id: g
         for g in EvangelismGroup.objects.filter(
             id__in=group_ids, is_active=True
-        ).select_related("cluster", "cluster__branch", "coordinator")
+        ).select_related("cluster", "cluster__branch", "branch", "coordinator")
     }
 
     people_by_cluster = defaultdict(dict)

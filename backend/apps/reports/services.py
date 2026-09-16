@@ -882,17 +882,17 @@ def _build_engagement_by_branch(
             evangelismweeklyreport__in=evangelism_reports
         )
         .values(
-            "evangelismweeklyreport__evangelism_group__cluster__branch_id",
-            "evangelismweeklyreport__evangelism_group__cluster__branch__name",
+            "evangelismweeklyreport__evangelism_group__branch_id",
+            "evangelismweeklyreport__evangelism_group__branch__name",
         )
         .annotate(count=Count("id"))
     )
     for row in ev_member_links:
-        bid = row["evangelismweeklyreport__evangelism_group__cluster__branch_id"]
+        bid = row["evangelismweeklyreport__evangelism_group__branch_id"]
         if bid:
             ensure_branch(
                 bid,
-                row["evangelismweeklyreport__evangelism_group__cluster__branch__name"],
+                row["evangelismweeklyreport__evangelism_group__branch__name"],
             )
             branch_data[bid]["evangelism_members"] = row["count"]
 

@@ -19,15 +19,16 @@ class EvangelismGroupAdmin(admin.ModelAdmin):
         "name",
         "coordinator",
         "cluster",
+        "branch",
         "location",
         "meeting_time",
         "is_active",
         "meeting_frequency",
         "created_at",
     )
-    list_filter = ("cluster", "is_active", "meeting_frequency")
+    list_filter = ("cluster", "branch", "is_active", "meeting_frequency")
     search_fields = ("name", "description", "location", "coordinator__username")
-    raw_id_fields = ("coordinator", "cluster")
+    raw_id_fields = ("coordinator", "cluster", "branch")
     filter_horizontal = ("members",)
 
 

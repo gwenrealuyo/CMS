@@ -130,11 +130,18 @@ class Command(BaseCommand):
             # Select a random cluster (or None)
             cluster = random.choice(clusters) if clusters and random.random() > 0.3 else None
 
+            group_branch = None
+            if cluster is not None:
+                group_branch = cluster.branch
+            elif coordinator is not None:
+                group_branch = coordinator.branch
+
             group = EvangelismGroup(
                 name=group_name,
                 description=f"{group_name} focuses on evangelism and discipleship",
                 coordinator=coordinator,
                 cluster=cluster,
+                branch=group_branch,
                 location=f"{group_name} Location" if cluster else f"Community Center {i+1}",
                 meeting_time=datetime.strptime(
                     f"{random.randint(6, 8)}:00 PM", "%I:00 %p"

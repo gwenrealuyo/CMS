@@ -51,7 +51,7 @@ class EvangelismGroupFilter(django_filters.FilterSet):
     """Server-side filters for the evangelism groups directory."""
 
     cluster = django_filters.NumberFilter(field_name="cluster_id")
-    branch = django_filters.NumberFilter(field_name="cluster__branch_id")
+    branch = django_filters.NumberFilter(field_name="branch_id")
     is_active = django_filters.BooleanFilter(field_name="is_active")
 
     name = django_filters.CharFilter(field_name="name", lookup_expr="iexact")

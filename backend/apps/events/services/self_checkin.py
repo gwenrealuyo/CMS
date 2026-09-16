@@ -279,7 +279,7 @@ def invited_prospect_branch_q(branch_id: int) -> Q:
         | Q(endorsed_cluster__branch_id=branch_id)
         | Q(person__branch_id=branch_id)
         | Q(invited_by__branch_id=branch_id)
-        | Q(evangelism_group__cluster__branch_id=branch_id)
+        | Q(evangelism_group__branch_id=branch_id)
     )
 
 

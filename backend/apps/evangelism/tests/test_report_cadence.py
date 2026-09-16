@@ -45,6 +45,7 @@ class EvangelismReportCadenceTests(APITestCase):
             "name": "Cadence Bible Study",
             "coordinator_id": self.member.id,
             "cluster_id": self.cluster.id,
+            "branch_id": self.branch.id,
             "is_active": True,
         }
         payload.update(overrides)

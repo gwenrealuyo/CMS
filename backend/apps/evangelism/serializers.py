@@ -4,7 +4,7 @@ from django.contrib.auth import get_user_model
 from django.db import transaction
 from rest_framework import serializers
 
-from apps.people.models import ModuleCoordinator, Person
+from apps.people.models import Branch, ModuleCoordinator, Person
 from apps.people.baptism_verifiers import (
     BAPTISM_JOURNEY_TYPE,
     SPIRIT_JOURNEY_TYPE,
@@ -126,6 +126,7 @@ class EvangelismGroupListSerializer(serializers.ModelSerializer):
     coordinator = serializers.SerializerMethodField()
     cluster = ClusterSummarySerializer(read_only=True)
     cluster_id = serializers.IntegerField(read_only=True)
+    branch = serializers.IntegerField(source="branch_id", read_only=True, allow_null=True)
     members_count = serializers.IntegerField(read_only=True, default=0)
     visitors_count = serializers.IntegerField(read_only=True, default=0)
     conversions_count = serializers.IntegerField(read_only=True, default=0)
@@ -141,6 +142,7 @@ class EvangelismGroupListSerializer(serializers.ModelSerializer):
             "coordinator",
             "cluster",
             "cluster_id",
+            "branch",
             "location",
             "meeting_time",
             "meeting_day",
@@ -199,6 +201,14 @@ class EvangelismGroupSerializer(serializers.ModelSerializer):
         required=False,
         allow_null=True,
     )
+    branch = serializers.PrimaryKeyRelatedField(read_only=True)
+    branch_id = serializers.PrimaryKeyRelatedField(
+        source="branch",
+        queryset=Branch.objects.all(),
+        write_only=True,
+        required=False,
+        allow_null=True,
+    )
     members = serializers.PrimaryKeyRelatedField(
         many=True,
         queryset=Person.objects.exclude(role__in=["ADMIN", "VISITOR"]),
@@ -221,6 +231,8 @@ class EvangelismGroupSerializer(serializers.ModelSerializer):
             "coordinator_id",
             "cluster",
             "cluster_id",
+            "branch",
+            "branch_id",
             "location",
             "meeting_time",
             "meeting_day",
@@ -348,19 +360,68 @@ class EvangelismGroupSerializer(serializers.ModelSerializer):
                 {field_name: f"Unknown person IDs: {missing}"}
             )
 
-    def _group_cluster_is_headquarters(self, attrs) -> bool:
+    def _resolved_cluster(self, attrs):
         cluster = attrs.get("cluster", serializers.empty)
         if cluster is serializers.empty:
-            cluster = self.instance.cluster if self.instance else None
-        if cluster is None:
-            return False
-        branch = getattr(cluster, "branch", None)
+            return self.instance.cluster if self.instance else None
+        return cluster
+
+    def _resolved_branch(self, attrs):
+        branch = attrs.get("branch", serializers.empty)
+        if branch is serializers.empty:
+            return self.instance.branch if self.instance else None
+        return branch
+
+    def _group_cluster_is_headquarters(self, attrs) -> bool:
+        cluster = self._resolved_cluster(attrs)
+        if cluster is not None:
+            branch = getattr(cluster, "branch", None)
+            if branch is not None:
+                return bool(getattr(branch, "is_headquarters", False))
+        branch = self._resolved_branch(attrs)
         if branch is None:
             return False
         return bool(getattr(branch, "is_headquarters", False))
 
+    def _apply_branch_from_cluster(self, attrs):
+        cluster = self._resolved_cluster(attrs)
+        cluster_branch = (
+            getattr(cluster, "branch", None) if cluster is not None else None
+        )
+        provided = attrs.get("branch", serializers.empty)
+
+        if cluster_branch is not None:
+            if provided is not serializers.empty and provided is not None:
+                provided_id = provided.id if hasattr(provided, "id") else provided
+                if provided_id != cluster_branch.id:
+                    raise serializers.ValidationError(
+                        {
+                            "branch_id": (
+                                "Branch must match the selected cluster's branch."
+                            )
+                        }
+                    )
+            attrs["branch"] = cluster_branch
+            return attrs
+
+        resolved = (
+            provided
+            if provided is not serializers.empty
+            else (self.instance.branch if self.instance else None)
+        )
+        if provided is None:
+            raise serializers.ValidationError(
+                {"branch_id": "This field is required."}
+            )
+        if resolved is None and self.instance is None:
+            raise serializers.ValidationError(
+                {"branch_id": "This field is required."}
+            )
+        return attrs
+
     def validate(self, attrs):
         attrs = super().validate(attrs)
+        attrs = self._apply_branch_from_cluster(attrs)
         coordinator_id = self._resolved_coordinator_id(attrs)
         member_ids = self._resolved_member_ids(attrs, coordinator_id)
 

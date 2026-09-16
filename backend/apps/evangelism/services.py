@@ -1530,11 +1530,12 @@ def generate_each1reach1_report(cluster: Optional[Cluster] = None, year: Optiona
 
 
 def _prospect_branch_q(branch_id: int) -> Q:
-    """Filter prospects tied to a branch via cluster or linked person."""
+    """Filter prospects tied to a branch via cluster, group, or linked person."""
     return (
         Q(inviter_cluster__branch_id=branch_id)
         | Q(endorsed_cluster__branch_id=branch_id)
         | Q(person__branch_id=branch_id)
+        | Q(evangelism_group__branch_id=branch_id)
     )
 
 

@@ -27,11 +27,14 @@ def resource_branch_id(module: str, resource_id: int) -> int | None:
     if module == ModuleCoordinator.ModuleType.EVANGELISM:
         from apps.evangelism.models import EvangelismGroup
 
-        return (
+        row = (
             EvangelismGroup.objects.filter(pk=resource_id)
-            .values_list("cluster__branch_id", flat=True)
+            .values_list("branch_id", "cluster__branch_id")
             .first()
         )
+        if not row:
+            return None
+        return row[0] or row[1]
     if module == ModuleCoordinator.ModuleType.SUNDAY_SCHOOL:
         from apps.sunday_school.models import SundaySchoolClassMember
 

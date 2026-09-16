@@ -78,6 +78,7 @@ import {
   TOOLBAR_PANEL_COMPACT_CONTROLS_CLASS,
   TOOLBAR_STACKED_ACTION_BUTTON_CLASS,
   TOOLBAR_STACKED_ACTIONS_ROW_CLASS,
+  TOOLBAR_STACKED_CONTROLS_CLASS,
 } from "@/src/lib/toolbarStyles";
 import {
   effectiveListViewMode,
@@ -192,6 +193,7 @@ export default function EvangelismPage() {
   >([]);
   const [groupSortBy, setGroupSortBy] = useState("name");
   const [groupSortOrder, setGroupSortOrder] = useState<"asc" | "desc">("asc");
+  const [showInactiveGroups, setShowInactiveGroups] = useState(false);
 
   const currentYear = new Date().getFullYear();
   const {
@@ -206,11 +208,11 @@ export default function EvangelismPage() {
     if (groupListBranch !== "all" && groupListBranch !== "") {
       params.branch = groupListBranch;
     }
-    if (params.is_active === undefined) {
+    if (params.is_active === undefined && !showInactiveGroups) {
       params.is_active = true;
     }
     return params;
-  }, [groupActiveFilters, groupListBranch]);
+  }, [groupActiveFilters, groupListBranch, showInactiveGroups]);
 
   const directoryOrdering = useMemo(
     () => evangelismGroupOrdering(groupSortBy, groupSortOrder),
@@ -651,6 +653,7 @@ export default function EvangelismPage() {
     groupSortOrder,
     groupListBranch,
     groupItemsPerPage,
+    showInactiveGroups,
   ]);
 
   useEffect(() => {
@@ -725,6 +728,7 @@ export default function EvangelismPage() {
           ? { coordinator_id: values.coordinator_id }
           : {}),
         ...(values.cluster_id ? { cluster_id: values.cluster_id } : {}),
+        ...(values.branch_id ? { branch_id: Number(values.branch_id) } : {}),
         location: values.location,
         ...(values.meeting_time
           ? { meeting_time: values.meeting_time }
@@ -764,7 +768,8 @@ export default function EvangelismPage() {
         ...(values.coordinator_id
           ? { coordinator_id: values.coordinator_id }
           : {}),
-        ...(values.cluster_id ? { cluster_id: values.cluster_id } : {}),
+        cluster_id: values.cluster_id ? values.cluster_id : null,
+        branch_id: values.branch_id ? Number(values.branch_id) : null,
         location: values.location,
         ...(values.meeting_time
           ? { meeting_time: values.meeting_time }
@@ -1292,6 +1297,18 @@ export default function EvangelismPage() {
     );
   };
 
+  const renderShowInactiveGroupsCheckbox = () => (
+    <label className="flex shrink-0 items-center gap-2 text-sm text-gray-600 whitespace-nowrap">
+      <input
+        type="checkbox"
+        checked={showInactiveGroups}
+        onChange={(e) => setShowInactiveGroups(e.target.checked)}
+        className="rounded border-gray-300 text-primary focus:ring-ring"
+      />
+      Show inactive
+    </label>
+  );
+
   const groupPanelOpen = Boolean(
     isDesktop && viewEditGroup && activeTab === "groups" && !isGroupDetailExpanded,
   );
@@ -1318,6 +1335,14 @@ export default function EvangelismPage() {
           submitLabel="Update Group"
           initialData={groupData || viewEditGroup}
           panelLayout={isPanel}
+          defaultBranchId={
+            groupListBranch !== "all" && groupListBranch !== ""
+              ? String(groupListBranch)
+              : user?.branch != null
+                ? String(user.branch)
+                : ""
+          }
+          canChangeBranch={canChangeEvangelismBranch}
         />
       );
     }
@@ -1568,7 +1593,10 @@ export default function EvangelismPage() {
 
                 {useStackedToolbar && (
                   <div className={TOOLBAR_PANEL_COMPACT_BRANCH_CLASS}>
-                    {renderEvangelismGroupsBranchSelect()}
+                    <div className="min-w-0 flex-1">
+                      {renderEvangelismGroupsBranchSelect()}
+                    </div>
+                    {renderShowInactiveGroupsCheckbox()}
                   </div>
                 )}
 
@@ -1576,24 +1604,22 @@ export default function EvangelismPage() {
                   className={
                     useStackedToolbar
                       ? TOOLBAR_PANEL_COMPACT_CONTROLS_CLASS
-                      : "grid grid-cols-2 items-stretch gap-3"
+                      : TOOLBAR_STACKED_CONTROLS_CLASS
                   }
                 >
                   {!useStackedToolbar && (
-                    <div className="min-w-0">
-                      {renderEvangelismGroupsBranchSelect(true)}
+                    <div className="flex w-full items-center gap-3">
+                      <div className="min-w-0 flex-1">
+                        {renderEvangelismGroupsBranchSelect(true)}
+                      </div>
+                      {renderShowInactiveGroupsCheckbox()}
                     </div>
                   )}
-                  <div className={useStackedToolbar ? undefined : "min-w-0"}>
-                    <ViewModeToggle
-                      fullWidth
-                      className={
-                        useStackedToolbar ? undefined : "h-full items-stretch"
-                      }
-                      viewMode={groupListViewMode}
-                      onViewModeChange={setGroupListViewMode}
-                    />
-                  </div>
+                  <ViewModeToggle
+                    fullWidth
+                    viewMode={groupListViewMode}
+                    onViewModeChange={setGroupListViewMode}
+                  />
                 </div>
 
                 <div
@@ -1797,6 +1823,7 @@ export default function EvangelismPage() {
                     ariaLabel="Search groups"
                   />
                   {renderEvangelismGroupsBranchSelect()}
+                  {renderShowInactiveGroupsCheckbox()}
                   <ViewModeToggle
                     compact
                     viewMode={groupListViewMode}
@@ -2219,6 +2246,14 @@ export default function EvangelismPage() {
               }}
               isSubmitting={isSubmitting}
               error={formError}
+              defaultBranchId={
+                groupListBranch !== "all" && groupListBranch !== ""
+                  ? String(groupListBranch)
+                  : user?.branch != null
+                    ? String(user.branch)
+                    : ""
+              }
+              canChangeBranch={canChangeEvangelismBranch}
             />
           </Modal>
         )}

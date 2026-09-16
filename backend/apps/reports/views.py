@@ -67,7 +67,7 @@ def _scoped_evangelism_reports(request):
         EvangelismWeeklyReport.objects.all(),
         request.user,
         request,
-        branch_lookup="evangelism_group__cluster__branch_id",
+        branch_lookup="evangelism_group__branch_id",
     )
 
 

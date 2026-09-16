@@ -7,8 +7,14 @@ export function resolveEvangelismGroupClusterMeta(
   clusters: Cluster[],
   branches: Branch[]
 ): { clusterBranch: Branch | null; clusterDisplayCode: string | null } {
+  const groupBranchIdRaw = group.branch ?? group.branch_id ?? null;
   if (!group.cluster?.id) {
-    return { clusterBranch: null, clusterDisplayCode: null };
+    if (groupBranchIdRaw == null) {
+      return { clusterBranch: null, clusterDisplayCode: null };
+    }
+    const clusterBranch =
+      branches.find((b) => Number(b.id) === Number(groupBranchIdRaw)) || null;
+    return { clusterBranch, clusterDisplayCode: null };
   }
   const fullCluster = clusters.find(
     (c) => String(c.id) === String(group.cluster!.id)
@@ -21,7 +27,7 @@ export function resolveEvangelismGroupClusterMeta(
 
   const nestedBranch = (group.cluster as Cluster & { branch?: number | null })
     .branch;
-  const branchIdRaw = fullCluster?.branch ?? nestedBranch;
+  const branchIdRaw = fullCluster?.branch ?? nestedBranch ?? groupBranchIdRaw;
   if (branchIdRaw == null) {
     return { clusterBranch: null, clusterDisplayCode };
   }

@@ -22,6 +22,15 @@ class EvangelismGroup(models.Model):
         blank=True,
         related_name="evangelism_groups",
     )
+    branch = models.ForeignKey(
+        "people.Branch",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="evangelism_groups",
+        help_text="Church branch this group belongs to. Required for directory "
+        "filtering; copied from the cluster when one is linked.",
+    )
     location = models.CharField(max_length=200, blank=True)
     meeting_time = models.TimeField(null=True, blank=True)
     meeting_day = models.CharField(
@@ -74,6 +83,9 @@ class EvangelismGroup(models.Model):
     def save(self, *args, **kwargs):
         if self.cluster_id:
             self.meeting_frequency = self.MeetingFrequency.WEEKLY
+            cluster_branch_id = getattr(self.cluster, "branch_id", None)
+            if cluster_branch_id:
+                self.branch_id = cluster_branch_id
         super().save(*args, **kwargs)
 
 

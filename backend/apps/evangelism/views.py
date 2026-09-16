@@ -118,7 +118,7 @@ class EvangelismRelatedPagination(PageNumberPagination):
 class EvangelismGroupViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticatedAndNotVisitor]
     queryset = EvangelismGroup.objects.select_related(
-        "coordinator", "cluster", "cluster__branch"
+        "coordinator", "cluster", "cluster__branch", "branch"
     ).all()
     serializer_class = EvangelismGroupSerializer
     pagination_class = EvangelismGroupPagination
@@ -201,7 +201,7 @@ class EvangelismGroupViewSet(viewsets.ModelViewSet):
         queryset = annotate_evangelism_group_counts(super().get_queryset())
         branch_id = self.request.query_params.get("branch")
         if branch_id:
-            queryset = queryset.filter(cluster__branch=branch_id)
+            queryset = queryset.filter(branch_id=branch_id)
 
         accessible = accessible_evangelism_group_ids(user)
         if accessible is None:
@@ -595,7 +595,7 @@ class EvangelismWeeklyReportViewSet(viewsets.ModelViewSet):
             try:
                 branch_int = int(branch)
                 queryset = queryset.filter(
-                    evangelism_group__cluster__branch_id=branch_int
+                    evangelism_group__branch_id=branch_int
                 )
             except (TypeError, ValueError):
                 pass
@@ -635,7 +635,7 @@ class EvangelismWeeklyReportViewSet(viewsets.ModelViewSet):
         if branch:
             try:
                 queryset = queryset.filter(
-                    evangelism_group__cluster__branch_id=int(branch)
+                    evangelism_group__branch_id=int(branch)
                 )
             except (TypeError, ValueError):
                 pass
@@ -729,9 +729,14 @@ class EvangelismWeeklyReportViewSet(viewsets.ModelViewSet):
 
         group_person_ids = None
         if eg_id is not None:
-            eg_obj = EvangelismGroup.objects.select_related("cluster").get(pk=eg_id)
-            if branch_id is not None and getattr(eg_obj, "cluster_id", None):
-                if eg_obj.cluster.branch_id != branch_id:
+            eg_obj = EvangelismGroup.objects.select_related(
+                "cluster", "branch"
+            ).get(pk=eg_id)
+            if branch_id is not None:
+                group_branch_id = eg_obj.branch_id
+                if group_branch_id is None and getattr(eg_obj, "cluster_id", None):
+                    group_branch_id = eg_obj.cluster.branch_id
+                if group_branch_id is not None and group_branch_id != branch_id:
                     raise ValidationError(
                         {
                             "evangelism_group": (

@@ -64,6 +64,15 @@ class EvangelismGroupApprovalAPITests(APITestCase):
             status="ACTIVE",
             branch=self.branch,
         )
+        self.member = Person.objects.create_user(
+            username="evgappmember",
+            password="pass12345",
+            first_name="Mina",
+            last_name="Member",
+            role="MEMBER",
+            status="ACTIVE",
+            branch=self.branch,
+        )
         self.cluster = Cluster.objects.create(
             name="Approval Cluster",
             code="EVG-APP",
@@ -329,3 +338,120 @@ class EvangelismGroupApprovalAPITests(APITestCase):
             _build_evangelism_group_pending(self.coordinator),
             [],
         )
+
+    def _member_ids(self, payload):
+        return {row["id"] for row in payload.get("members", [])}
+
+    def test_coordinator_can_create_pending_group_with_members(self):
+        self.client.force_authenticate(self.coordinator)
+        created = self.client.post(
+            "/api/evangelism/groups/",
+            self._group_payload(
+                name="Pending With Members",
+                members=[self.member.id],
+            ),
+            format="json",
+        )
+        self.assertEqual(created.status_code, 201, created.data)
+        self.assertEqual(created.data["approval_status"], "pending")
+        self.assertIn(self.member.id, self._member_ids(created.data))
+
+    def test_coordinator_can_enroll_and_patch_members_on_own_pending(self):
+        extra = Person.objects.create_user(
+            username="evgapppatch",
+            password="pass12345",
+            first_name="Pia",
+            last_name="Patch",
+            role="MEMBER",
+            status="ACTIVE",
+            branch=self.branch,
+        )
+        own_pending = EvangelismGroup.objects.create(
+            name="Draft Members",
+            coordinator=self.coordinator,
+            cluster=self.cluster,
+            branch=self.branch,
+            is_active=True,
+            approval_status=EvangelismGroup.ApprovalStatus.PENDING,
+            created_by=self.coordinator,
+        )
+        self.client.force_authenticate(self.coordinator)
+        enrolled = self.client.post(
+            f"/api/evangelism/groups/{own_pending.id}/enroll/",
+            {"person_ids": [self.member.id]},
+            format="json",
+        )
+        self.assertIn(enrolled.status_code, (200, 201), enrolled.data)
+
+        patched = self.client.patch(
+            f"/api/evangelism/groups/{own_pending.id}/",
+            {"members": [self.member.id, extra.id]},
+            format="json",
+        )
+        self.assertEqual(patched.status_code, 200, patched.data)
+        ids = self._member_ids(patched.data)
+        self.assertIn(self.member.id, ids)
+        self.assertIn(extra.id, ids)
+
+        session = self.client.post(
+            "/api/evangelism/sessions/",
+            {
+                "evangelism_group_id": own_pending.id,
+                "session_date": "2026-09-16",
+                "topic": "Too soon",
+            },
+            format="json",
+        )
+        self.assertIn(session.status_code, (400, 403), session.data)
+
+        denied = self.client.post(
+            f"/api/evangelism/groups/{self.other_group.id}/enroll/",
+            {"person_ids": [self.member.id]},
+            format="json",
+        )
+        self.assertEqual(denied.status_code, 403, denied.data)
+
+    def test_coordinator_can_enroll_after_approval(self):
+        extra = Person.objects.create_user(
+            username="evgappafter",
+            password="pass12345",
+            first_name="Ava",
+            last_name="After",
+            role="MEMBER",
+            status="ACTIVE",
+            branch=self.branch,
+        )
+        self.client.force_authenticate(self.coordinator)
+        created = self.client.post(
+            "/api/evangelism/groups/",
+            self._group_payload(name="Approve Then Enroll", members=[self.member.id]),
+            format="json",
+        )
+        self.assertEqual(created.status_code, 201, created.data)
+        group_id = created.data["id"]
+
+        self.client.force_authenticate(self.senior)
+        approved = self.client.post(
+            f"/api/evangelism/groups/{group_id}/approve/",
+            {},
+            format="json",
+        )
+        self.assertEqual(approved.status_code, 200, approved.data)
+
+        self.client.force_authenticate(self.coordinator)
+        enrolled = self.client.post(
+            f"/api/evangelism/groups/{group_id}/enroll/",
+            {"person_ids": [extra.id]},
+            format="json",
+        )
+        self.assertIn(enrolled.status_code, (200, 201), enrolled.data)
+
+        patched = self.client.patch(
+            f"/api/evangelism/groups/{group_id}/",
+            {"members": [self.member.id, extra.id]},
+            format="json",
+        )
+        self.assertEqual(patched.status_code, 200, patched.data)
+        ids = self._member_ids(patched.data)
+        self.assertIn(self.member.id, ids)
+        self.assertIn(extra.id, ids)

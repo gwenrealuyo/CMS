@@ -137,13 +137,18 @@ class PersonViewSet(viewsets.ModelViewSet):
             return PersonListSerializer
         return PersonSerializer
 
-    def _scoped_people_queryset(self, *, for_profile=False):
+    def _scoped_people_queryset(self, *, for_profile=False, for_report=False):
         """
         Scope people for list/search vs profile/mutation access.
 
         Cluster coordinators may list/search same-branch people (to find and
         assign members), but profile retrieve/update stays limited to people in
         their managed cluster(s) (plus other module scopes).
+
+        Bible Sharers (and other non-privileged evangelism report writers) keep
+        the narrow directory list (group members), but `for_report=True` widens
+        list/search to same-branch people so weekly-report attendee pickers can
+        include existing visitor Person profiles. Profile access stays narrow.
         """
         user = self.request.user
         queryset = super().get_queryset()
@@ -222,6 +227,13 @@ class PersonViewSet(viewsets.ModelViewSet):
                 # List/search: all same-branch people (branch filter applied below)
                 people_querysets.append(queryset)
 
+        # 1b. Evangelism Coordinator: list/search same-branch people for member picking.
+        # Profile retrieve/update stays unexpanded (self + family, plus other modules).
+        from apps.evangelism.permissions import is_non_senior_evangelism_coordinator
+
+        if is_non_senior_evangelism_coordinator(user) and not for_profile:
+            people_querysets.append(queryset)
+
         # 2. Sunday School Teacher: Students in classes where they are teacher/assistant
         sunday_school_assignments = user.module_coordinator_assignments.filter(
             module=ModuleCoordinator.ModuleType.SUNDAY_SCHOOL,
@@ -284,12 +296,15 @@ class PersonViewSet(viewsets.ModelViewSet):
             if student_ids:
                 people_querysets.append(queryset.filter(id__in=student_ids))
 
-        # 4. Bible Sharer: Members of assigned evangelism groups
+        # 4. Bible Sharer: Members of assigned evangelism groups (directory).
+        # Weekly-report pickers use for_report (same-branch, below) instead.
         bible_sharer_assignments = user.module_coordinator_assignments.filter(
             module=ModuleCoordinator.ModuleType.EVANGELISM,
             level=ModuleCoordinator.CoordinatorLevel.BIBLE_SHARER,
         )
-        if bible_sharer_assignments.exists():
+        if bible_sharer_assignments.exists() and not (
+            for_report and not for_profile
+        ):
             from apps.evangelism.models import EvangelismGroup
 
             group_ids = [
@@ -305,6 +320,26 @@ class PersonViewSet(viewsets.ModelViewSet):
                 )
                 if member_ids:
                     people_querysets.append(queryset.filter(id__in=member_ids))
+
+        # 5. Evangelism report writers: same-branch people for attendee pickers
+        # only (for_report=1). Directory and profile stay on the scopes above.
+        if for_report and not for_profile:
+            from apps.evangelism.models import EvangelismGroup
+
+            evangelism_report_levels = (
+                ModuleCoordinator.CoordinatorLevel.BIBLE_SHARER,
+                ModuleCoordinator.CoordinatorLevel.COORDINATOR,
+                ModuleCoordinator.CoordinatorLevel.REPORTER,
+            )
+            can_submit_evangelism_report = (
+                user.module_coordinator_assignments.filter(
+                    module=ModuleCoordinator.ModuleType.EVANGELISM,
+                    level__in=evangelism_report_levels,
+                ).exists()
+                or EvangelismGroup.objects.filter(coordinator=user).exists()
+            )
+            if can_submit_evangelism_report:
+                people_querysets.append(queryset)
 
         # Combine all querysets using union
         if people_querysets:
@@ -341,7 +376,12 @@ class PersonViewSet(viewsets.ModelViewSet):
             "partial_update",
             "destroy",
         )
-        qs = self._scoped_people_queryset(for_profile=for_profile)
+        for_report = getattr(self, "action", None) == "list" and str(
+            self.request.query_params.get("for_report", "")
+        ).lower() in ("1", "true", "yes")
+        qs = self._scoped_people_queryset(
+            for_profile=for_profile, for_report=for_report
+        )
         if getattr(self, "action", None) == "retrieve":
             user_pk = self.request.user.pk
             return (

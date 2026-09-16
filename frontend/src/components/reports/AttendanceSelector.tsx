@@ -72,6 +72,8 @@ interface AttendanceSelectorProps {
   allowedIds?: string[];
   previouslyAttendedIds?: string[]; // All visitors who have attended this cluster (for list filtering)
   mostRecentAttendedIds?: string[]; // Visitors from most recent report only (for auto-selection)
+  /** Scope key for visitor auto-select (evangelism group). Empty = do not auto-select. */
+  autoSelectScopeId?: string | number | null;
   /** True while the selected cluster roster is being fetched. */
   isLoadingRoster?: boolean;
   /** Cluster Visitors Attended: group returning / first-visit prospects / new walk-ins. */
@@ -91,6 +93,7 @@ export default function AttendanceSelector({
   allowedIds = [],
   previouslyAttendedIds = [],
   mostRecentAttendedIds = [],
+  autoSelectScopeId,
   isLoadingRoster = false,
   groupByVisitorKind = false,
   noMatchHint = "No match. If they came, use Add New Visitor. If they were invited and did not come, use Prospects Invited.",
@@ -357,11 +360,14 @@ export default function AttendanceSelector({
     }
   };
 
-  // Auto-select active members/visitors when cluster is selected
+  // Auto-select active members/visitors when cluster/group is selected
   useEffect(() => {
-    const clusterKey = `${selectedCluster?.id}-${filterRole}`;
+    const hasAutoSelectScope =
+      (autoSelectScopeId != null && String(autoSelectScopeId) !== "") ||
+      selectedCluster?.id != null;
+    const clusterKey = `${autoSelectScopeId ?? selectedCluster?.id}-${filterRole}`;
 
-    // Only auto-select if cluster changed and we haven't auto-selected for this cluster/role combo yet
+    // Only auto-select if cluster/group changed and we haven't auto-selected for this scope/role combo yet
     // For MEMBER role, also require selectedCluster to be present
     if (
       selectedIds.length === 0 &&
@@ -369,7 +375,9 @@ export default function AttendanceSelector({
       hasAutoSelectedRef.current !== clusterKey &&
       (filterRole === "VISITOR" || hasMemberSource)
     ) {
-      if (filterRole === "MEMBER") {
+      if (filterRole === "VISITOR" && !hasAutoSelectScope) {
+        hasAutoSelectedRef.current = null;
+      } else if (filterRole === "MEMBER") {
         // For members: select all active members from the cluster (peopleByRole is already filtered)
         const active = peopleByRole.filter(
           (person) => person.status === "ACTIVE"
@@ -381,12 +389,14 @@ export default function AttendanceSelector({
           hasAutoSelectedRef.current = clusterKey;
         }
       } else {
-        // For visitors: only select visitors from the most recent report
-        // Use mostRecentAttendedIds if available, otherwise fall back to previouslyAttendedIds
+        // For visitors: only select visitors from the most recent report.
+        // Evangelism (autoSelectScopeId) never falls back to the full returning set.
         const idsToSelect = (
           mostRecentAttendedIds.length > 0
             ? mostRecentAttendedIds
-            : previouslyAttendedIds
+            : autoSelectScopeId
+              ? []
+              : previouslyAttendedIds
         ).map(normalizePersonId);
 
         if (idsToSelect.length > 0) {
@@ -402,7 +412,11 @@ export default function AttendanceSelector({
     if (filterRole === "MEMBER" && !hasMemberSource) {
       hasAutoSelectedRef.current = null;
     }
+    if (filterRole === "VISITOR" && !hasAutoSelectScope) {
+      hasAutoSelectedRef.current = null;
+    }
   }, [
+    autoSelectScopeId,
     selectedCluster?.id,
     filterRole,
     availablePeople.length,

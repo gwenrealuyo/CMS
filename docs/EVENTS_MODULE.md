@@ -49,11 +49,21 @@ The recurrence service expands this pattern on demand in `apps.events.services.r
 
 ## Event Types and Colors
 
-- Event types are stored in `EventType` (`code`, `label`, `color`, `sort_order`, `is_system`).
-- `GET /api/event-types/` and legacy `GET /api/events/types/` return type metadata including hex colors.
-- Coordinators with Events write access can manage types from the Events page (**Manage Types**): add custom types, edit labels/colors/sort order, and delete unused non-system types.
+- Event types are stored in `EventType` (`code`, `label`, `color`, `sort_order`, `is_system`, `counts_as_activity`).
+- `GET /api/event-types/` and legacy `GET /api/events/types/` return type metadata including hex colors and `counts_as_activity`.
+- Coordinators with Events write access can manage types from the Events page (**Manage Types**): add custom types, edit labels/colors/sort order, and delete unused non-system types. `counts_as_activity` is read-only (custom types always count as an activity).
 - Calendar dots, agenda chips, cards, and the event detail view use each type's `color` from the API (not hardcoded frontend maps).
 - Seeded system types (`is_system=true`) cannot be deleted; types referenced by events are protected.
+
+### Meeting (room hold)
+
+**Meeting** (`MEETING`) is a room reservation in the church building (any branch), not a ministry activity:
+
+- `counts_as_activity=false` — it never appears as First Activity Attended (People, Add Visitor, Mark attended). `PersonSerializer` and other write endpoints reject that code.
+- Requires a real `EventRoom` on the selected branch. Other / off-site is not allowed.
+- Follows the same publish-vs-pending booking rules and room overlap checks as other events. Sunday Service uniqueness does **not** apply, so a Meeting can run at the same time as Sunday Service in a different room.
+- Shown on the Events agenda/calendar (and **Manage Pending** when pending) so the room looks booked.
+- Event detail hides Open Check-In, add-attendee, and the attendance report. Self-check-in already ignores non-Sunday Service types.
 
 ## Frontend Behavior
 
@@ -148,7 +158,7 @@ Sunday Service uses expected-attendee flags for Expected/Remaining/Surprises; ot
 Rooms are bookable resources. Create, update, approve, and split-edit all run two hard checks (approved **and** pending bookings occupy the slot; rejected does not):
 
 1. **Sunday Service uniqueness** — a branch cannot have two overlapping Sunday Services, even in different rooms or offsite. Evening services that do not overlap are still allowed. Other branches can run at the same time.
-2. **Room booking** — an `EventRoom` cannot be double-booked. Any overlapping event in the same room is rejected. Offsite events (`room` is null) do not occupy a room. Back-to-back times (`11:00` end vs `11:00` start) are allowed.
+2. **Room booking** — an `EventRoom` cannot be double-booked. Any overlapping event in the same room is rejected. Offsite events (`room` is null) do not occupy a room, except **Meeting**, which cannot be offsite. Back-to-back times (`11:00` end vs `11:00` start) are allowed.
 
 Recurring series use `generate_occurrences` (including `excluded_dates`). Split-edit still ignores the parent series dates being vacated.
 
@@ -173,7 +183,7 @@ Existing rows migrated as `approved`. Duplicate historical Sunday Services are n
 
 ## Testing
 
-Recurring frequencies, skip/end/split, and series `DELETE` are covered by `apps.events.tests.test_recurrence` and `apps.events.tests.test_recurrence_delete`. Self check-in is covered by `apps.events.tests.test_self_checkin`. Attendance mode/venues are covered by `apps.events.tests.test_attendance_mode_venues`. Sunday Service uniqueness is covered by `apps.events.tests.test_sunday_service_uniqueness`. Room booking, requester permissions, and approve/reject are covered by `apps.events.tests.test_room_booking`.
+Recurring frequencies, skip/end/split, and series `DELETE` are covered by `apps.events.tests.test_recurrence` and `apps.events.tests.test_recurrence_delete`. Self check-in is covered by `apps.events.tests.test_self_checkin`. Attendance mode/venues are covered by `apps.events.tests.test_attendance_mode_venues`. Sunday Service uniqueness is covered by `apps.events.tests.test_sunday_service_uniqueness`. Room booking, requester permissions, and approve/reject are covered by `apps.events.tests.test_room_booking`. Meeting room holds and First Activity exclusion are covered by `apps.events.tests.test_meeting_type`.
 
 Run them (uses SQLite to avoid Postgres permissions):
 

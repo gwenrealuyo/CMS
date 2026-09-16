@@ -304,7 +304,7 @@ export default function ClusterWeeklyReportForm({
     const fetchPeople = async () => {
       try {
         setLoadingPeople(true);
-        const response = await peopleApi.getAll();
+        const response = await peopleApi.getAll({ for_report: true });
         const peopleUI: PersonUI[] = response.data
           .filter(isSelectablePerson)
           .map((p) => {
@@ -1420,6 +1420,7 @@ export default function ClusterWeeklyReportForm({
         onAdd={handleCreateVisitor}
         defaultDateFirstAttended={formData.meeting_date}
         defaultFirstActivityAttended="CLUSTERING"
+        forReport
       />
 
       <Modal

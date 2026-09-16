@@ -9,13 +9,14 @@ from apps.people.models import Person, Journey
 from apps.people.baptism_verifiers import UNSET, stash_baptism_verifiers
 from apps.people.name_formatting import title_case_name
 from apps.people.usernames import generate_unique_username
-from apps.clusters.models import Cluster, member_attendance_rate_q
+from apps.clusters.models import Cluster, ClusterWeeklyReport, member_attendance_rate_q
 from apps.events.models import EventType
 from core.datetime_utils import church_today
 
 from .models import (
     EvangelismGroup,
     EvangelismSession,
+    EvangelismWeeklyReport,
     Prospect,
     Conversion,
     MonthlyConversionTracking,
@@ -918,6 +919,63 @@ def get_cluster_visitors(cluster: Cluster) -> List[Prospect]:
         Q(inviter_cluster=cluster) | Q(endorsed_cluster=cluster),
         is_dropped_off=False
     ).distinct()
+
+
+def _prior_year_week_q(year: int, week_number: int) -> Q:
+    return Q(year__lt=year) | Q(year=year, week_number__lt=week_number)
+
+
+def previous_report_visitors_for_group(
+    group: EvangelismGroup,
+    *,
+    year: int,
+    week_number: int,
+    exclude_report_id: Optional[int] = None,
+) -> Dict[str, List[int]]:
+    """
+    Visitor Person IDs from earlier weekly reports for this group.
+
+    Returning: unique visitors_attended on prior evangelism reports, plus
+    prior cluster weekly reports when the group has a linked cluster.
+    Auto-select: union of visitors on the latest prior evangelism report and
+    (if linked) the latest prior cluster report.
+    """
+    ev_qs = EvangelismWeeklyReport.objects.filter(
+        evangelism_group=group,
+    ).filter(_prior_year_week_q(year, week_number))
+    if exclude_report_id is not None:
+        ev_qs = ev_qs.exclude(pk=exclude_report_id)
+
+    previously: Set[int] = set(
+        Person.objects.filter(evangelism_reports_as_visitor__in=ev_qs)
+        .values_list("id", flat=True)
+        .distinct()
+    )
+    most_recent: Set[int] = set()
+
+    latest_ev = ev_qs.order_by("-year", "-week_number", "-id").first()
+    if latest_ev is not None:
+        most_recent.update(latest_ev.visitors_attended.values_list("id", flat=True))
+
+    if group.cluster_id:
+        cluster_qs = ClusterWeeklyReport.objects.filter(
+            cluster_id=group.cluster_id,
+        ).filter(_prior_year_week_q(year, week_number))
+        previously.update(
+            Person.objects.filter(cluster_reports_as_visitor__in=cluster_qs)
+            .values_list("id", flat=True)
+            .distinct()
+        )
+        latest_cluster = cluster_qs.order_by("-year", "-week_number", "-id").first()
+        if latest_cluster is not None:
+            most_recent.update(
+                latest_cluster.visitors_attended.values_list("id", flat=True)
+            )
+
+    return {
+        "previously_attended_visitor_ids": sorted(previously),
+        "most_recent_visitor_ids": sorted(most_recent),
+    }
 
 
 def detect_drop_offs(inactivity_days: int = 30) -> List[Prospect]:

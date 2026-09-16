@@ -17,4 +17,8 @@ EVENT_TYPE_SEED = [
     ("CONFERENCE", "Conference", 120, "#ea580c"),
     ("SUNDAY_SCHOOL", "Sunday School", 130, "#2563eb"),
     ("CONCERT_CRUSADE", "Concert/Crusade", 150, "#7c2d12"),
+    ("MEETING", "Meeting", 160, "#64748b"),
 ]
+
+# Room holds in the church building — not ministry activities.
+NON_ACTIVITY_EVENT_TYPE_CODES = frozenset({"MEETING"})

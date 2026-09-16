@@ -5,9 +5,9 @@ from .models import AttendanceVenue, Event, EventRoom, EventType
 
 @admin.register(EventType)
 class EventTypeAdmin(admin.ModelAdmin):
-    list_display = ["code", "label", "color", "sort_order", "is_system"]
+    list_display = ["code", "label", "color", "sort_order", "is_system", "counts_as_activity"]
     ordering = ["sort_order", "code"]
-    readonly_fields = ["is_system"]
+    readonly_fields = ["is_system", "counts_as_activity"]
 
 
 @admin.register(AttendanceVenue)

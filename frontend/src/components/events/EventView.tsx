@@ -15,6 +15,7 @@ import { useAuth } from "@/src/contexts/AuthContext";
 import { useEventTypeStyles } from "@/src/contexts/EventTypeStylesContext";
 import EventRecurringChip from "@/src/components/events/EventRecurringChip";
 import { formatRecurrenceSummary } from "@/src/lib/events/recurrenceLabel";
+import { isActivityEventType } from "@/src/lib/events/activityTypes";
 import {
   occurrenceDateKey,
   viewerAttendanceForOccurrence,
@@ -75,7 +76,11 @@ export default function EventView({
   removeAttendance,
 }: EventViewProps) {
   const { user } = useAuth();
-  const { getChipStyle } = useEventTypeStyles();
+  const { types, getChipStyle } = useEventTypeStyles();
+  const typeMeta = types.find((type) => type.code === event.type);
+  const isActivityEvent = typeMeta
+    ? isActivityEventType(typeMeta)
+    : event.type !== "MEETING";
 
   const formatDateTime = (dateString: string) => {
     const date = new Date(dateString);
@@ -219,7 +224,7 @@ export default function EventView({
                   Pending approval
                 </span>
               )}
-              {viewerAttendance.count > 0 && (
+              {isActivityEvent && viewerAttendance.count > 0 && (
                 <span className="inline-flex items-center gap-1 px-3 py-1 text-sm text-gray-600 bg-gray-50 rounded-full border border-gray-200">
                   <svg
                     className="w-4 h-4"
@@ -240,7 +245,7 @@ export default function EventView({
                   </span>
                 </span>
               )}
-              {viewerAttendance.present && (
+              {isActivityEvent && viewerAttendance.present && (
                 <YouWerePresentChip mode={viewerAttendance.mode} />
               )}
             </div>
@@ -381,7 +386,7 @@ export default function EventView({
             </div>
           </div>
 
-          {canManageAttendance && selectedOccurrenceDate ? (
+          {isActivityEvent && canManageAttendance && selectedOccurrenceDate ? (
             <EventAttendancePanel
               event={event}
               selectedOccurrenceDate={selectedOccurrenceDate}

@@ -22,12 +22,23 @@ class EventType(models.Model):
         validators=[hex_color_validator],
     )
     is_system = models.BooleanField(default=False)
+    counts_as_activity = models.BooleanField(
+        default=True,
+        help_text=(
+            "If false, this type is a room hold only and is not a person's "
+            "first activity attended."
+        ),
+    )
 
     class Meta:
         ordering = ["sort_order", "code"]
 
     def __str__(self):
         return self.label
+
+    @classmethod
+    def activity_queryset(cls):
+        return cls.objects.filter(counts_as_activity=True)
 
 
 class AttendanceVenue(models.Model):

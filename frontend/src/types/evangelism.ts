@@ -429,7 +429,7 @@ export interface EvangelismGroupFormValues {
   meeting_day: string;
   meeting_frequency: "WEEKLY" | "BIWEEKLY" | "MONTHLY" | "IRREGULAR";
   is_active: boolean;
-  /** Person IDs to add on create (optional) */
+  /** Person IDs enrolled on create/update (optional) */
   initial_member_ids?: string[];
   reporter_ids?: string[];
   bible_sharer_ids?: string[];

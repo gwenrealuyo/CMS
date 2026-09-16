@@ -34,9 +34,10 @@ class EventTypeSerializer(serializers.ModelSerializer):
             "color",
             "sort_order",
             "is_system",
+            "counts_as_activity",
             "event_count",
         ]
-        read_only_fields = ["is_system", "event_count"]
+        read_only_fields = ["is_system", "counts_as_activity", "event_count"]
 
     def validate_code(self, value):
         if not EVENT_TYPE_CODE_PATTERN.match(value):
@@ -371,6 +372,18 @@ class EventSerializer(serializers.ModelSerializer):
         location = attrs["location"] if "location" in attrs else getattr(
             instance, "location", ""
         )
+        event_type = attrs.get("event_type", getattr(instance, "event_type", None))
+        if event_type is not None and not getattr(
+            event_type, "counts_as_activity", True
+        ):
+            if room is None:
+                raise ValidationError(
+                    {
+                        "room": (
+                            "Meeting events must use a room in the church building."
+                        )
+                    }
+                )
 
         if room is not None:
             room_branch_id = room.branch_id
@@ -404,9 +417,7 @@ class EventSerializer(serializers.ModelSerializer):
             ignore_dates_gte=context.get("schedule_ignore_dates_gte"),
         )
         validate_sunday_service_uniqueness(
-            event_type=attrs.get(
-                "event_type", getattr(instance, "event_type", None)
-            ),
+            event_type=event_type,
             branch=attrs.get("branch"),
             **conflict_kwargs,
         )

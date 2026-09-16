@@ -240,6 +240,10 @@ export default function EvangelismWeeklyReportForm({
   const [loadingRoster, setLoadingRoster] = useState(false);
   const [groupProspects, setGroupProspects] = useState<Prospect[]>(prospects);
   const [groupFieldError, setGroupFieldError] = useState<string | null>(null);
+  const [previouslyAttendedVisitorIds, setPreviouslyAttendedVisitorIds] =
+    useState<string[]>([]);
+  const [mostRecentAttendedVisitorIds, setMostRecentAttendedVisitorIds] =
+    useState<string[]>([]);
   const rosterCacheRef = useRef<Record<string, EvangelismGroup>>({});
   const skipAttendanceResetRef = useRef(true);
 
@@ -410,10 +414,50 @@ export default function EvangelismWeeklyReportForm({
   }, [selectedGroupId]);
 
   useEffect(() => {
+    if (!selectedGroupId) {
+      setPreviouslyAttendedVisitorIds([]);
+      setMostRecentAttendedVisitorIds([]);
+      return;
+    }
+    let cancelled = false;
+    const params: {
+      year: number;
+      week_number: number;
+      exclude_report?: string;
+    } = {
+      year: formData.year,
+      week_number: formData.week_number,
+    };
+    if (initialData?.id != null) {
+      params.exclude_report = String(initialData.id);
+    }
+    evangelismApi
+      .getGroupPreviousVisitors(selectedGroupId, params)
+      .then((res) => {
+        if (cancelled) return;
+        setPreviouslyAttendedVisitorIds(
+          (res.data.previously_attended_visitor_ids || []).map(String),
+        );
+        setMostRecentAttendedVisitorIds(
+          (res.data.most_recent_visitor_ids || []).map(String),
+        );
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setPreviouslyAttendedVisitorIds([]);
+          setMostRecentAttendedVisitorIds([]);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedGroupId, formData.year, formData.week_number, initialData?.id]);
+
+  useEffect(() => {
     const fetchPeople = async () => {
       try {
         setLoadingPeople(true);
-        const response = await peopleApi.getAll();
+        const response = await peopleApi.getAll({ for_report: true });
         const peopleUI: PersonUI[] = response.data
           .filter(isSelectablePerson)
           .map((p) => {
@@ -497,17 +541,6 @@ export default function EvangelismWeeklyReportForm({
     [groupProspects, selectedGroupId],
   );
 
-  const previouslyAttendedVisitorIds = useMemo(
-    () =>
-      groupProspects
-        .filter(
-          (prospect) =>
-            prospect.person && Boolean(prospect.person.date_first_attended),
-        )
-        .map((prospect) => String(prospect.person!.id)),
-    [groupProspects],
-  );
-
   const visitorOptions = useMemo(() => {
     const attendedById = new Map<string, PersonUI>();
     const stampInviter = (person: PersonUI): PersonUI => {
@@ -516,21 +549,27 @@ export default function EvangelismWeeklyReportForm({
       return name ? { ...person, inviter_display_name: name } : person;
     };
 
-    const addAttendedPerson = (person: Person) => {
-      if (person.role !== "VISITOR" || !person.date_first_attended) return;
+    const addAttendedPerson = (person: Person | PersonUI) => {
+      if (person.role !== "VISITOR") return;
       const id = person.id?.toString() || "";
       if (!id || attendedById.has(id)) return;
+      const firstAttended =
+        person.date_first_attended ??
+        ("dateFirstAttended" in person ? person.dateFirstAttended : null);
       attendedById.set(
         id,
         stampInviter({
           ...person,
           name: formatPersonName(person),
-          dateFirstAttended: person.date_first_attended,
+          dateFirstAttended: firstAttended,
           id,
         } as PersonUI),
       );
     };
 
+    for (const person of people) {
+      addAttendedPerson(person);
+    }
     for (const prospect of groupProspects) {
       if (prospect.person) addAttendedPerson(prospect.person as Person);
     }
@@ -578,11 +617,11 @@ export default function EvangelismWeeklyReportForm({
       ...pendingVisitorOptions,
     ];
   }, [
+    people,
     groupProspects,
     groupInvitedProspects,
     invitedProspectIdsSelected,
     pendingNewVisitors,
-    people,
     initialData?.visitors_attended_details,
   ]);
 
@@ -1025,6 +1064,8 @@ export default function EvangelismWeeklyReportForm({
               onSelectionChange={handleVisitorsChange}
               className="mt-0"
               previouslyAttendedIds={previouslyAttendedVisitorIds}
+              mostRecentAttendedIds={mostRecentAttendedVisitorIds}
+              autoSelectScopeId={selectedGroupId || undefined}
               groupByVisitorKind
             />
           </div>
@@ -1166,6 +1207,7 @@ export default function EvangelismWeeklyReportForm({
           onAdd={handleAddVisitor}
           defaultDateFirstAttended={formData.meeting_date}
           defaultFirstActivityAttended="BS/CLUSTER_EVANGELISM"
+          forReport
         />
 
         <Modal

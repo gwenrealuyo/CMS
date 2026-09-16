@@ -135,7 +135,7 @@ class ClusterReportNewVisitorSerializer(serializers.Serializer):
     date_first_attended = serializers.DateField(required=False, allow_null=True)
     first_activity_attended = serializers.SlugRelatedField(
         slug_field="code",
-        queryset=EventType.objects.all(),
+        queryset=EventType.activity_queryset(),
         required=False,
         allow_null=True,
     )

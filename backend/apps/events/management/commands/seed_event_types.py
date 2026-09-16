@@ -1,6 +1,6 @@
 from django.core.management.base import BaseCommand
 
-from apps.events.event_type_seed import EVENT_TYPE_SEED
+from apps.events.event_type_seed import EVENT_TYPE_SEED, NON_ACTIVITY_EVENT_TYPE_CODES
 from apps.events.models import EventType
 
 
@@ -15,13 +15,20 @@ class Command(BaseCommand):
                 code=code,
                 defaults={"label": label, "sort_order": sort_order},
             )
+            counts_as_activity = code not in NON_ACTIVITY_EVENT_TYPE_CODES
+            extra_fields = []
             if was_created:
                 event_type.color = color
                 event_type.is_system = True
-                event_type.save(update_fields=["color", "is_system"])
+                extra_fields.extend(["color", "is_system"])
             elif not event_type.is_system:
                 event_type.is_system = True
-                event_type.save(update_fields=["is_system"])
+                extra_fields.append("is_system")
+            if event_type.counts_as_activity != counts_as_activity:
+                event_type.counts_as_activity = counts_as_activity
+                extra_fields.append("counts_as_activity")
+            if extra_fields:
+                event_type.save(update_fields=extra_fields)
             action = "created" if was_created else "updated"
             self.stdout.write(f"{action}: {code}")
 

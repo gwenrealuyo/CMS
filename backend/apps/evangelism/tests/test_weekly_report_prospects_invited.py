@@ -4,7 +4,7 @@ from rest_framework.test import APITestCase
 
 from apps.clusters.models import Cluster
 from apps.evangelism.models import EvangelismGroup, EvangelismWeeklyReport, Prospect
-from apps.people.models import Branch, Person
+from apps.people.models import Branch, ModuleCoordinator, Person
 
 
 class EvangelismWeeklyReportProspectsInvitedTests(APITestCase):
@@ -160,3 +160,71 @@ class EvangelismWeeklyReportProspectsInvitedTests(APITestCase):
         self.assertEqual(update.status_code, 200, update.data)
         self.assertEqual(update.data["new_prospects"], 0)
         self.assertTrue(Prospect.objects.filter(pk=prospect.id).exists())
+
+
+class EvangelismWeeklyReportExistingVisitorTests(APITestCase):
+    def setUp(self):
+        self.branch = Branch.objects.create(
+            name="Muntinlupa",
+            code="MUNTEVREXIST",
+            is_active=True,
+        )
+        self.sharer = Person.objects.create_user(
+            username="evrexistsharer",
+            password="pass12345",
+            first_name="Bea",
+            last_name="Sharer",
+            role="MEMBER",
+            status="ACTIVE",
+            branch=self.branch,
+        )
+        self.existing_visitor = Person.objects.create_user(
+            username="evrexistvisitor",
+            password="pass12345",
+            first_name="Vic",
+            last_name="Visitor",
+            role="VISITOR",
+            status="ONGOING",
+            branch=self.branch,
+        )
+        cluster = Cluster.objects.create(
+            name="Existing Visitor Cluster",
+            code="EVR-EXIST",
+            branch=self.branch,
+            is_active=True,
+        )
+        self.group = EvangelismGroup.objects.create(
+            name="Existing Visitor Group",
+            cluster=cluster,
+            coordinator=self.sharer,
+            is_active=True,
+        )
+        self.group.members.add(self.sharer)
+        ModuleCoordinator.objects.create(
+            person=self.sharer,
+            module=ModuleCoordinator.ModuleType.EVANGELISM,
+            level=ModuleCoordinator.CoordinatorLevel.BIBLE_SHARER,
+            resource_id=self.group.id,
+        )
+        self.client.force_authenticate(self.sharer)
+
+    def test_bible_sharer_can_record_existing_visitor_person(self):
+        response = self.client.post(
+            "/api/evangelism/weekly-reports/",
+            {
+                "evangelism_group_id": self.group.id,
+                "year": 2026,
+                "week_number": 38,
+                "meeting_date": "2026-09-16",
+                "gathering_type": "PHYSICAL",
+                "visitors_attended": [self.existing_visitor.id],
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, 201, response.data)
+        self.assertEqual(response.data["visitors_attended"], [self.existing_visitor.id])
+        report = EvangelismWeeklyReport.objects.get(pk=response.data["id"])
+        self.assertEqual(
+            list(report.visitors_attended.values_list("id", flat=True)),
+            [self.existing_visitor.id],
+        )

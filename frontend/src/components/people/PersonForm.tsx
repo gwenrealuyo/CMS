@@ -25,6 +25,7 @@ import { useVirtualizer } from "@tanstack/react-virtual";
 import { useAuth } from "@/src/contexts/AuthContext";
 import { useBranches } from "@/src/hooks/useBranches";
 import { useEventTypeOptions } from "@/src/hooks/useEventTypeOptions";
+import { activityEventTypes } from "@/src/lib/events/activityTypes";
 import { getCreatableRoles } from "@/src/lib/personRolePermissions";
 import { getPeopleCreateAccess } from "@/src/lib/peopleCreateAccess";
 import { isValidUsername, suggestedUsername } from "@/src/lib/usernames";
@@ -226,6 +227,10 @@ export default function PersonForm({
     isModuleCoordinator,
   } = useAuth();
   const { eventTypes } = useEventTypeOptions();
+  const activityTypes = useMemo(
+    () => activityEventTypes(eventTypes),
+    [eventTypes]
+  );
   const plainMember = isPlainMember();
   const peopleCreateAccess = getPeopleCreateAccess(user);
   const visitorOnlyCreate =
@@ -2439,7 +2444,7 @@ export default function PersonForm({
                         }`}
                       >
                         <option value="">Select activity</option>
-                        {eventTypes.map((type) => (
+                        {activityTypes.map((type) => (
                           <option key={type.code} value={type.code}>
                             {type.label}
                           </option>

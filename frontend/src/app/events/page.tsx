@@ -751,7 +751,12 @@ export default function EventsPage() {
   );
 
   const eventFormTypeOptions = useMemo(
-    () => eventTypes.map((t) => ({ value: t.code, label: t.label })),
+    () =>
+      eventTypes.map((t) => ({
+        value: t.code,
+        label: t.label,
+        counts_as_activity: t.counts_as_activity,
+      })),
     [eventTypes]
   );
 

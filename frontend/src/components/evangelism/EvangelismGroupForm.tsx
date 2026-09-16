@@ -110,6 +110,12 @@ function personRecordId(value: unknown): string | null {
   return String(value);
 }
 
+function groupMemberIds(group: EvangelismGroup): string[] {
+  return (group.members || [])
+    .map((member) => personRecordId(member))
+    .filter((id): id is string => Boolean(id));
+}
+
 function formValuesFromGroup(group: EvangelismGroup): EvangelismGroupFormValues {
   return {
     name: group.name,
@@ -124,6 +130,7 @@ function formValuesFromGroup(group: EvangelismGroup): EvangelismGroupFormValues 
       ? "WEEKLY"
       : group.meeting_frequency || "WEEKLY",
     is_active: group.is_active,
+    initial_member_ids: groupMemberIds(group),
     reporter_ids: (group.reporter_ids || []).map(String),
     bible_sharer_ids: (group.bible_sharer_ids || []).map(String),
   };
@@ -181,6 +188,7 @@ export default function EvangelismGroupForm({
       syncedRosterRef.current = true;
       setValues((prev) => ({
         ...prev,
+        initial_member_ids: groupMemberIds(initialData),
         reporter_ids: (initialData.reporter_ids || []).map(String),
         bible_sharer_ids: (initialData.bible_sharer_ids || []).map(String),
         coordinator_id: initialData.coordinator?.id
@@ -409,20 +417,12 @@ export default function EvangelismGroupForm({
   const groupMembersKnown = isCreate || Array.isArray(initialData?.members);
 
   const roleCandidateIds = useMemo(() => {
-    if (isCreate) {
-      return new Set(
-        (values.initial_member_ids || [])
-          .map((id) => personRecordId(id))
-          .filter((id): id is string => Boolean(id)),
-      );
-    }
-    const ids = new Set<string>();
-    for (const member of initialData?.members || []) {
-      const id = personRecordId(member);
-      if (id) ids.add(id);
-    }
-    return ids;
-  }, [isCreate, values.initial_member_ids, initialData?.members]);
+    return new Set(
+      (values.initial_member_ids || [])
+        .map((id) => personRecordId(id))
+        .filter((id): id is string => Boolean(id)),
+    );
+  }, [values.initial_member_ids]);
 
   const peopleById = useMemo(() => {
     const map = new Map<string, Person>();
@@ -773,10 +773,9 @@ export default function EvangelismGroupForm({
         Leave meeting time empty if the group does not have a fixed time.
       </p>
 
-      {isCreate && (
-        <div className="space-y-2 rounded-lg border border-gray-100 bg-gray-50/80 p-3">
+      <div className="space-y-2 rounded-lg border border-gray-100 bg-gray-50/80 p-3">
           <p className="text-sm font-medium text-gray-800">
-            Initial members (optional)
+            {isCreate ? "Initial members (optional)" : "Members"}
           </p>
           <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
             <div className="flex-1">
@@ -805,7 +804,7 @@ export default function EvangelismGroupForm({
           {(values.initial_member_ids?.length ?? 0) > 0 ? (
             <ul className="flex flex-wrap gap-2 mt-2">
               {(values.initial_member_ids ?? []).map((id) => {
-                const personObj = memberPool.find((p) => String(p.id) === id);
+                const personObj = peopleById.get(id);
                 const label = personObj ? formatPersonName(personObj) : id;
                 return (
                   <li key={id}>
@@ -830,7 +829,6 @@ export default function EvangelismGroupForm({
             </p>
           )}
         </div>
-      )}
 
       <div className="space-y-2">
         <div className="flex items-start">
@@ -856,8 +854,7 @@ export default function EvangelismGroupForm({
         </p>
         <p className="text-xs text-gray-500">
           Bible Sharers and reporters must already be members of this
-          evangelism group
-          {isCreate ? " (add them above first)" : ""}. The coordinator
+          evangelism group (add them above first). The coordinator
           cannot hold either role on this group.
           {isHqGroup
             ? " HQ groups can only assign Bible Sharers from the headquarters Bible Sharers ministry roster."

@@ -866,6 +866,9 @@ export default function EvangelismPage() {
         ...(values.meeting_day ? { meeting_day: values.meeting_day } : {}),
         meeting_frequency: values.meeting_frequency || "WEEKLY",
         is_active: values.is_active,
+        members: (values.initial_member_ids || [])
+          .map((id) => Number(id))
+          .filter(Number.isFinite),
         reporter_ids: (values.reporter_ids || []).map(Number),
         bible_sharer_ids: (values.bible_sharer_ids || []).map(Number),
       });

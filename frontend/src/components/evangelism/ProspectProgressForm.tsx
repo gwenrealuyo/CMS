@@ -7,6 +7,7 @@ import ErrorMessage from "@/src/components/ui/ErrorMessage";
 import { evangelismApi } from "@/src/lib/api";
 import { getLocalTodayDateString } from "@/src/lib/date";
 import { useEventTypeOptions } from "@/src/hooks/useEventTypeOptions";
+import { activityEventTypes } from "@/src/lib/events/activityTypes";
 import {
   isClusterReportFirstActivity,
   isEvangelismReportFirstActivity,
@@ -25,6 +26,7 @@ export default function ProspectProgressForm({
 }) {
   const todayDateMax = getLocalTodayDateString();
   const { eventTypes, loading: eventTypesLoading } = useEventTypeOptions();
+  const activityTypes = activityEventTypes(eventTypes);
   const [activityCode, setActivityCode] = useState("");
   const [activityDate, setActivityDate] = useState<string>(
     prospect.last_activity_date || todayDateMax,
@@ -103,7 +105,7 @@ export default function ProspectProgressForm({
           <option value="">
             {eventTypesLoading ? "Loading activities…" : "Select activity"}
           </option>
-          {eventTypes.map((type) => (
+          {activityTypes.map((type) => (
             <option key={type.code} value={type.code}>
               {type.label}
             </option>

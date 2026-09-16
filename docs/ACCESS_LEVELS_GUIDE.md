@@ -132,6 +132,7 @@ When you have module assignments, you may see more people and families than a pl
 | **Sunday School Teacher** | Students in your class(es) | Families of those students (view only; cannot create/edit families) |
 | **Lessons Teacher** | Your lesson students | Families of those students (view only; cannot create/edit families) |
 | **Bible Sharer** | Members of assigned evangelism groups | Families of those members (view only; cannot create/edit families) |
+| **Evangelism Coordinator** (non-senior) | **Search/list:** same-branch people (to pick group members). **Profile:** self and family only (plus any other module scopes) | No extra families. Cannot create/edit families |
 | **Multiple assignments** | Union of all the above | Union of all the above |
 
 ### People and families editing
@@ -167,7 +168,7 @@ Coordinators and pastors should **mark records inactive** or update status inste
 **Evangelism**
 
 - **Bible Sharers** can submit reports for assigned groups; they cannot manage group members. Coordinators manage assigned groups (and that Coordinator assignment replaces Bible Sharer or Reporter on the same group).
-- Non-senior **Evangelism Coordinators** can browse all **approved** groups in their branch (read-only for groups they do not manage) and can **create additional groups**. New groups they create start **pending** until an Evangelism Senior Coordinator, Pastor, or Admin approves. Assigned groups stay immediately editable. They cannot submit reports for groups they do not manage, and pending groups cannot receive reports, sessions, or due reminders until approved.
+- Non-senior **Evangelism Coordinators** can browse all **approved** groups in their branch (read-only for groups they do not manage) and can **create additional groups**. New groups they create start **pending** until an Evangelism Senior Coordinator, Pastor, or Admin approves. Assigned groups stay immediately editable. They can add and remove members on create, on Edit Group, and from the group view for groups they manage, whether pending or approved — without needing a Cluster assignment or a prior evangelism-group resource. They cannot submit reports for groups they do not manage, and pending groups cannot receive reports, sessions, or due reminders until approved.
 - A **module-wide** Bible Sharer grant (HQ Ministries roster checkbox, default on) lets them open Evangelism **read-only**. It does not unlock group edits or reports.
 - Evangelism reports can be submitted by Evangelism Coordinators, Bible Sharers, and Evangelism Reporters for their assigned groups. Plain group members cannot file reports. Groups have a meeting frequency (weekly, biweekly, monthly, or irregular) that controls due reminders; uniqueness is one report per meeting date.
 

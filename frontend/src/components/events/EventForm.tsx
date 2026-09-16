@@ -19,12 +19,18 @@ import {
 
 const OFFSITE_ROOM = "other";
 
+type EventTypeFormOption = {
+  value: string;
+  label: string;
+  counts_as_activity?: boolean;
+};
+
 interface EventFormProps {
   onSubmit: (event: Partial<Event>) => Promise<Event | void>;
   initialData?: Partial<Event>;
   presetDate?: Date | null;
   onClose?: () => void;
-  eventTypeOptions?: { value: string; label: string }[];
+  eventTypeOptions?: EventTypeFormOption[];
   lockRecurrence?: boolean;
   scopeHint?: string;
   existingEvents?: Event[];
@@ -245,7 +251,7 @@ function buildSundayTemplateDefaults(): FormDefaults {
 
 function buildDefaultsFromDate(
   date: Date,
-  eventTypeOptions: { value: string; label: string }[]
+  eventTypeOptions: EventTypeFormOption[]
 ): FormDefaults {
   const start = new Date(date);
   start.setHours(9, 0, 0, 0);
@@ -357,6 +363,12 @@ export default function EventForm({
         (initialData?.room != null && Number(initialData.room) === room.id)
     );
   }, [rooms, initialData?.room]);
+  const isRoomHold = useMemo(
+    () =>
+      eventTypeOptions.find((option) => option.value === formData.type)
+        ?.counts_as_activity === false,
+    [eventTypeOptions, formData.type]
+  );
 
   const initialRecurrence = useMemo<RecurrencePattern | null>(
     () =>
@@ -467,6 +479,13 @@ export default function EventForm({
           eventTypeOptions.find((option) => option.value === value)?.label ||
           value;
         nextState.title = optionLabel;
+        const nextIsRoomHold =
+          eventTypeOptions.find((option) => option.value === value)
+            ?.counts_as_activity === false;
+        if (nextIsRoomHold && prev.room === OFFSITE_ROOM) {
+          nextState.room = "";
+          nextState.location = "";
+        }
       }
 
       nextStartDate = nextState.start_date;
@@ -518,6 +537,12 @@ export default function EventForm({
       return;
     }
     const isOffsite = formData.room === OFFSITE_ROOM;
+    if (isRoomHold && isOffsite) {
+      setConflictError(
+        "Meeting events must use a room in the church building."
+      );
+      return;
+    }
     const selectedRoom = roomChoices.find(
       (room) => room.id === Number(formData.room)
     );
@@ -767,10 +792,12 @@ export default function EventForm({
                         {room.capacity != null ? ` (${room.capacity})` : ""}
                       </option>
                     ))}
-                    <option value={OFFSITE_ROOM}>Other / off-site</option>
+                    {!isRoomHold && (
+                      <option value={OFFSITE_ROOM}>Other / off-site</option>
+                    )}
                   </select>
                 </div>
-                {formData.room === OFFSITE_ROOM && (
+                {formData.room === OFFSITE_ROOM && !isRoomHold && (
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       Location *
@@ -787,6 +814,12 @@ export default function EventForm({
                   </div>
                 )}
               </div>
+              {isRoomHold && (
+                <p className="text-xs text-gray-600 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
+                  This books a room in the church building. It is not recorded
+                  as a person&apos;s first activity attended.
+                </p>
+              )}
 
               {/* Description */}
               <div>

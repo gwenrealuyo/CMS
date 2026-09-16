@@ -407,7 +407,7 @@ export default function EvangelismGroupView({
               onBulkEnroll={onBulkEnroll}
               onRemoveMember={onRemoveMember}
               loading={groupLoading}
-              canManage={canManageGroup && canOperateGroup}
+              canManage={canManageGroup}
             />
 
             <GroupReportsSection

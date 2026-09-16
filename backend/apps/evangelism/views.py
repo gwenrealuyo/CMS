@@ -92,6 +92,7 @@ from .services import (
     check_conversion_completion,
     endorse_visitor_to_cluster,
     get_cluster_visitors,
+    previous_report_visitors_for_group,
     detect_drop_offs,
     check_lesson_completion,
     update_person_baptism_dates,
@@ -229,6 +230,7 @@ class EvangelismGroupViewSet(viewsets.ModelViewSet):
             "sessions",
             "conversions",
             "visitors",
+            "previous_visitors",
             "summary",
             "dashboard_stats",
             "bible_sharers_coverage",
@@ -264,7 +266,6 @@ class EvangelismGroupViewSet(viewsets.ModelViewSet):
     def enroll(self, request, pk=None):
         """Bulk enroll members into a group."""
         evangelism_group = self.get_object()
-        ensure_group_is_approved_for_operations(evangelism_group)
         serializer = EvangelismBulkEnrollSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
@@ -376,6 +377,42 @@ class EvangelismGroupViewSet(viewsets.ModelViewSet):
         visitors = get_cluster_visitors(cluster)
         serializer = ProspectSerializer(visitors, many=True)
         return Response(serializer.data)
+
+    @action(detail=True, methods=["get"], url_path="previous_visitors")
+    def previous_visitors(self, request, pk=None):
+        """Visitor IDs from prior evangelism (and linked cluster) weekly reports."""
+        evangelism_group = self.get_object()
+        try:
+            year = int(request.query_params.get("year"))
+            week_number = int(request.query_params.get("week_number"))
+        except (TypeError, ValueError):
+            return Response(
+                {"detail": "year and week_number must be integers."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if not (1 <= week_number <= 53):
+            return Response(
+                {"detail": "week_number must be between 1 and 53."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        exclude_raw = request.query_params.get("exclude_report")
+        exclude_report_id = None
+        if exclude_raw not in (None, ""):
+            try:
+                exclude_report_id = int(exclude_raw)
+            except (TypeError, ValueError):
+                return Response(
+                    {"detail": "exclude_report must be an integer."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+        return Response(
+            previous_report_visitors_for_group(
+                evangelism_group,
+                year=year,
+                week_number=week_number,
+                exclude_report_id=exclude_report_id,
+            )
+        )
 
     @action(detail=True, methods=["get"])
     def summary(self, request):
@@ -1727,7 +1764,7 @@ class ProspectViewSet(viewsets.ModelViewSet):
                     status=status.HTTP_400_BAD_REQUEST,
                 )
             try:
-                first_activity = EventType.objects.get(pk=activity_code)
+                first_activity = EventType.activity_queryset().get(pk=activity_code)
             except EventType.DoesNotExist:
                 return Response(
                     {"detail": "Invalid first_activity_attended."},

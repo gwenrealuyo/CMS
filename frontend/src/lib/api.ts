@@ -347,6 +347,8 @@ export type PeopleListParams = {
   date_of_birth_max?: string;
   has_name?: boolean;
   exclude_username?: string;
+  /** Same-branch people for weekly-report attendee pickers (Bible Sharers). */
+  for_report?: boolean | string;
 };
 
 export type PeopleListResponse = PaginatedResponse<Person> | Person[];
@@ -376,8 +378,8 @@ async function fetchAllPeoplePages(
 
 export const peopleApi = {
   /** Pages through the people list and returns every row (picker / legacy callers). */
-  getAll: async (): Promise<{ data: Person[] }> => {
-    const data = await fetchAllPeoplePages();
+  getAll: async (params?: PeopleListParams): Promise<{ data: Person[] }> => {
+    const data = await fetchAllPeoplePages(params ?? {});
     return { data };
   },
   /** ADMIN-only: every ADMIN role account (hidden from the people directory). */
@@ -1795,6 +1797,18 @@ export const evangelismApi = {
     api.get<Conversion[]>(`/evangelism/groups/${groupId}/conversions/`),
   getGroupVisitors: (groupId: number | string) =>
     api.get<Prospect[]>(`/evangelism/groups/${groupId}/visitors/`),
+  getGroupPreviousVisitors: (
+    groupId: number | string,
+    params: {
+      year: number;
+      week_number: number;
+      exclude_report?: number | string;
+    }
+  ) =>
+    api.get<{
+      previously_attended_visitor_ids: number[];
+      most_recent_visitor_ids: number[];
+    }>(`/evangelism/groups/${groupId}/previous_visitors/`, { params }),
   getGroupSummary: (groupId: number | string) =>
     api.get<any>(`/evangelism/groups/${groupId}/summary/`),
   getBibleSharersCoverage: (params?: { branch?: number | string }) =>

@@ -8,6 +8,7 @@ import Button from "@/src/components/ui/Button";
 import Modal from "@/src/components/ui/Modal";
 import SearchableSelect from "@/src/components/ui/SearchableSelect";
 import { EventTypeOption } from "@/src/types/event";
+import { activityEventTypes } from "@/src/lib/events/activityTypes";
 
 /** Local calendar date as YYYY-MM-DD (avoids UTC off-by-one from toISOString). */
 const getLocalTodayDateString = (): string => {
@@ -26,6 +27,8 @@ interface AddVisitorModalProps {
   ) => Promise<Pick<Person, "first_name" | "last_name"> & Partial<Person>>;
   defaultDateFirstAttended?: string;
   defaultFirstActivityAttended?: string;
+  /** Widen people list for inviter search when used from weekly reports. */
+  forReport?: boolean;
 }
 
 export default function AddVisitorModal({
@@ -34,6 +37,7 @@ export default function AddVisitorModal({
   onAdd,
   defaultDateFirstAttended,
   defaultFirstActivityAttended,
+  forReport = false,
 }: AddVisitorModalProps) {
   const todayDateMax = getLocalTodayDateString();
   const [formData, setFormData] = useState({
@@ -50,22 +54,23 @@ export default function AddVisitorModal({
     note: "",
   });
   const [eventTypes, setEventTypes] = useState<EventTypeOption[]>([]);
+  const activityTypes = activityEventTypes(eventTypes);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [people, setPeople] = useState<PersonUI[]>([]);
 
   const defaultActivityValue =
     defaultFirstActivityAttended ||
-    eventTypes.find((type) => type.code === "CLUSTERING")?.code ||
-    eventTypes[0]?.code ||
+    activityTypes.find((type) => type.code === "CLUSTERING")?.code ||
+    activityTypes[0]?.code ||
     "";
 
   useEffect(() => {
     if (!isOpen) return;
     const defaultActivity =
       defaultFirstActivityAttended ||
-      eventTypes.find((type) => type.code === "CLUSTERING")?.code ||
-      eventTypes[0]?.code ||
+      activityTypes.find((type) => type.code === "CLUSTERING")?.code ||
+      activityTypes[0]?.code ||
       "";
     setFormData((prev) => ({
       ...prev,
@@ -96,7 +101,9 @@ export default function AddVisitorModal({
   useEffect(() => {
     const fetchPeople = async () => {
       try {
-        const response = await peopleApi.getAll();
+        const response = await peopleApi.getAll(
+          forReport ? { for_report: true } : undefined
+        );
         const peopleUI: PersonUI[] = response.data
           .filter(isSelectablePerson)
           .map((p) => {
@@ -120,7 +127,7 @@ export default function AddVisitorModal({
       }
     };
     fetchPeople();
-  }, []);
+  }, [forReport]);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -361,7 +368,7 @@ export default function AddVisitorModal({
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent"
             >
               <option value="">Select...</option>
-              {eventTypes.map((type) => (
+              {activityTypes.map((type) => (
                 <option key={type.code} value={type.code}>
                   {type.label}
                 </option>

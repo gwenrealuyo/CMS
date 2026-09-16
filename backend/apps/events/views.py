@@ -469,6 +469,13 @@ class EventViewSet(viewsets.ModelViewSet):
     @attendance.mapping.post
     def add_attendance(self, request, pk=None):
         event = self.get_object()
+        if event.event_type_id and not event.event_type.counts_as_activity:
+            return Response(
+                {
+                    "detail": "Attendance is not recorded for this event type."
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
         payload = request.data.copy()
         payload["event_id"] = str(event.pk)
 

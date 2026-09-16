@@ -75,6 +75,7 @@ export interface EventTypeOption {
   color: string;
   sort_order: number;
   is_system?: boolean;
+  counts_as_activity?: boolean;
   event_count?: number;
 }
 

@@ -729,7 +729,7 @@ class PersonSerializer(serializers.ModelSerializer):
     temporary_password = serializers.CharField(read_only=True, required=False)
     first_activity_attended = serializers.SlugRelatedField(
         slug_field="code",
-        queryset=EventType.objects.all(),
+        queryset=EventType.activity_queryset(),
         allow_null=True,
         required=False,
     )

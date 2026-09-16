@@ -354,7 +354,7 @@ def build_compliance_csv(payload):
                 if row["days_since_last_report"] is not None
                 else "",
                 row["consecutive_missing_weeks"],
-                row["trend"],
+                row["trend"] or "",
             ]
         )
 

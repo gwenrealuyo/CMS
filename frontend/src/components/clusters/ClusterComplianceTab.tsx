@@ -76,14 +76,16 @@ export default function ClusterComplianceTab() {
     }
   };
 
-  const getTrendIcon = (trend: string) => {
+  const getTrendIcon = (trend: string | null) => {
     switch (trend) {
       case "IMPROVING":
         return "↑";
       case "DECLINING":
         return "↓";
-      default:
+      case "STABLE":
         return "→";
+      default:
+        return null;
     }
   };
 
@@ -279,7 +281,11 @@ export default function ClusterComplianceTab() {
                       : "N/A"}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    <span className="text-lg">{getTrendIcon(item.trend)}</span>
+                    {item.trend ? (
+                      <span className="text-lg">{getTrendIcon(item.trend)}</span>
+                    ) : (
+                      "N/A"
+                    )}
                   </td>
                 </tr>
               ))}

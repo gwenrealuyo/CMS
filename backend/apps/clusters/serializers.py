@@ -1117,7 +1117,7 @@ class ClusterComplianceSerializer(serializers.Serializer):
     last_report_date = serializers.DateField(allow_null=True)
     days_since_last_report = serializers.IntegerField(allow_null=True)
     consecutive_missing_weeks = serializers.IntegerField()
-    trend = serializers.CharField()
+    trend = serializers.CharField(allow_null=True)
     compliance_notes = ClusterComplianceNoteSerializer(many=True, read_only=True)
 
 

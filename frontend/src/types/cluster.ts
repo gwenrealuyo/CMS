@@ -329,7 +329,7 @@ export interface ClusterCompliance {
   last_report_date: string | null;
   days_since_last_report: number | null;
   consecutive_missing_weeks: number;
-  trend: ComplianceTrend;
+  trend: ComplianceTrend | null;
   compliance_notes: ComplianceNote[];
 }
 

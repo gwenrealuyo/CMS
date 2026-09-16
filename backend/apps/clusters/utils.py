@@ -106,8 +106,14 @@ def calculate_trend(current_period_data, previous_period_data):
     """
     Calculate trend by comparing current period compliance with previous period.
 
-    Returns: "IMPROVING", "STABLE", or "DECLINING"
+    Returns: "IMPROVING", "STABLE", "DECLINING", or None when neither period
+    has any submitted reports (there is no trend to report).
     """
+    current_submitted = current_period_data.get("reports_submitted", 0) or 0
+    previous_submitted = previous_period_data.get("reports_submitted", 0) or 0
+    if current_submitted == 0 and previous_submitted == 0:
+        return None
+
     current_rate = current_period_data.get("compliance_rate", 0)
     previous_rate = previous_period_data.get("compliance_rate", 0)
 

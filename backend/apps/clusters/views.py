@@ -1230,7 +1230,7 @@ class ClusterWeeklyReportViewSet(viewsets.ModelViewSet):
                 cluster_data['last_report_date'] or '',
                 cluster_data['days_since_last_report'] or '',
                 cluster_data['consecutive_missing_weeks'],
-                cluster_data['trend'],
+                cluster_data['trend'] or '',
             ])
         
         # Create HTTP response

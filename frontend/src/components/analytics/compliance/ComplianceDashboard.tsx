@@ -60,10 +60,11 @@ function statusBadgeColor(status: ComplianceStatus) {
   }
 }
 
-function trendIcon(trend: string) {
+function trendIcon(trend: string | null) {
   if (trend === "IMPROVING") return "\u2191";
   if (trend === "DECLINING") return "\u2193";
-  return "\u2192";
+  if (trend === "STABLE") return "\u2192";
+  return null;
 }
 
 export default function ComplianceDashboard({
@@ -363,7 +364,11 @@ export default function ComplianceDashboard({
                       : "N/A"}
                   </td>
                   <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-900">
-                    <span className="text-lg">{trendIcon(item.trend)}</span>
+                    {item.trend ? (
+                      <span className="text-lg">{trendIcon(item.trend)}</span>
+                    ) : (
+                      "N/A"
+                    )}
                   </td>
                 </tr>
               ))}

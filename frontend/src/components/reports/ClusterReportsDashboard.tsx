@@ -671,6 +671,8 @@ export default function ClusterReportsDashboard({
       ...clustersForFilters.map((cluster) => ({
         value: String(cluster.id),
         label: cluster.name || "Unnamed Cluster",
+        clusterCode: cluster.code || undefined,
+        clusterBranchId: cluster.branch != null ? Number(cluster.branch) : null,
       })),
     ],
     [clustersForFilters],
@@ -1604,8 +1606,8 @@ export default function ClusterReportsDashboard({
 
       {/* Filters */}
       <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3">
-          <div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 lg:flex lg:flex-nowrap">
+          <div className="lg:w-36 lg:shrink-0">
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Branch
             </label>
@@ -1621,7 +1623,7 @@ export default function ClusterReportsDashboard({
             )}
           </div>
 
-          <div>
+          <div className="min-w-0 lg:flex-1">
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Cluster
             </label>
@@ -1639,7 +1641,7 @@ export default function ClusterReportsDashboard({
             />
           </div>
 
-          <div>
+          <div className="lg:w-40 lg:shrink-0">
             <div className="flex items-center justify-between mb-1">
               <label className="text-sm font-medium text-gray-700">Month</label>
               <button
@@ -1732,7 +1734,7 @@ export default function ClusterReportsDashboard({
             </select>
           </div>
 
-          <div>
+          <div className="lg:w-52 lg:shrink-0">
             <div className="flex items-center justify-between mb-1">
               <label className="text-sm font-medium text-gray-700">Week</label>
               <button
@@ -1811,7 +1813,7 @@ export default function ClusterReportsDashboard({
             </select>
           </div>
 
-          <div>
+          <div className="lg:w-24 lg:shrink-0">
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Year
             </label>
@@ -1841,7 +1843,7 @@ export default function ClusterReportsDashboard({
             </select>
           </div>
 
-          <div>
+          <div className="lg:w-32 lg:shrink-0">
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Gathering Type
             </label>

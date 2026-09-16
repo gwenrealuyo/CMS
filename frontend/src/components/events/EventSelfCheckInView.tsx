@@ -172,9 +172,8 @@ function OnlineVenuePicker({
         value={value}
         onChange={onChange}
         placeholder="Select where you are joining from…"
-        searchPlaceholder="Search venues…"
         emptyMessage="No active online venues"
-        showSearch
+        showSearch={false}
         disabled={disabled}
         className="w-full"
       />

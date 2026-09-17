@@ -183,6 +183,10 @@ export default function EvangelismReportsDashboard({
       setSelectedGroupForForm(group ?? null);
       return;
     }
+    if (groups.length === 1) {
+      setSelectedGroupForForm(groups[0]);
+      return;
+    }
     setSelectedGroupForForm(null);
   }, [isFormOpen, presetGroupId, groups, editingReport]);
 
@@ -242,17 +246,37 @@ export default function EvangelismReportsDashboard({
   }, [user, canChangeBranchFilter, selectedBranch]);
 
   const evangelismGroupsScoped = useMemo(() => {
-    let g = groups;
-    if (selectedBranch) {
-      g = g.filter((eg) => {
-        const cid = eg.cluster_id;
-        if (!cid) return false;
-        const cl = clusters.find((c) => String(c.id) === String(cid));
-        return cl?.branch != null && String(cl.branch) === selectedBranch;
-      });
-    }
-    return g;
-  }, [groups, selectedBranch, clusters]);
+    if (!selectedBranch) return groups;
+    return groups.filter((eg) => {
+      const groupBranch = eg.branch ?? eg.branch_id;
+      if (
+        groupBranch != null &&
+        String(groupBranch) === String(selectedBranch)
+      ) {
+        return true;
+      }
+      const { clusterBranch } = resolveEvangelismGroupClusterMeta(
+        eg,
+        clusters,
+        branches,
+      );
+      if (
+        clusterBranch?.id != null &&
+        String(clusterBranch.id) === String(selectedBranch)
+      ) {
+        return true;
+      }
+      const clusterId = eg.cluster?.id ?? eg.cluster_id;
+      if (clusterId == null || clusterId === "") return false;
+      const cl = clusters.find((c) => String(c.id) === String(clusterId));
+      const raw = cl?.branch ?? eg.cluster?.branch;
+      const branchId =
+        raw != null && typeof raw === "object" && "id" in raw
+          ? (raw as { id: number }).id
+          : raw;
+      return branchId != null && String(branchId) === String(selectedBranch);
+    });
+  }, [groups, selectedBranch, clusters, branches]);
 
   const scopeSelectOptions = useMemo(() => {
     const opts = evangelismGroupsScoped.map((g) => {

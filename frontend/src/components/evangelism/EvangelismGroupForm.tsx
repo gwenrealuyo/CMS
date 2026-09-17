@@ -88,11 +88,6 @@ function clusterBibleStudyName(cluster: Cluster | undefined): string {
   return code ? `${code} BS` : "";
 }
 
-function clusterCoordinatorId(cluster: Cluster | undefined): string {
-  const id = cluster?.coordinator?.id ?? cluster?.coordinator_id;
-  return id != null && String(id).trim() !== "" ? String(id) : "";
-}
-
 function clusterBranchId(cluster: Cluster | undefined): string {
   const id = cluster?.branch;
   return id != null && String(id).trim() !== "" ? String(id) : "";
@@ -391,10 +386,7 @@ export default function EvangelismGroupForm({
       !isCreate && memberIds.size > 0
         ? fromMembers
         : base.filter(isSelectablePerson);
-    const ensureIds = [
-      clusterCoordinatorId(selectedCluster),
-      values.coordinator_id,
-    ].filter(Boolean);
+    const ensureIds = [values.coordinator_id].filter(Boolean);
     let options = filtered;
     for (const id of ensureIds) {
       if (options.some((person) => String(person.id) === String(id))) {
@@ -416,7 +408,6 @@ export default function EvangelismGroupForm({
     coordinators,
     values.coordinator_id,
     values.initial_member_ids,
-    selectedCluster,
     isCreate,
   ]);
   const isHqGroup = useMemo(() => {
@@ -707,18 +698,6 @@ export default function EvangelismGroupForm({
                     Boolean(suggested) &&
                     (!currentName || currentName === previousSuggested);
 
-                  const suggestedCoordinator =
-                    clusterCoordinatorId(nextCluster);
-                  const previousSuggestedCoordinator =
-                    clusterCoordinatorId(prevCluster);
-                  const shouldPrefillCoordinator =
-                    Boolean(value) &&
-                    Boolean(suggestedCoordinator) &&
-                    (!prev.coordinator_id ||
-                      prev.coordinator_id === previousSuggestedCoordinator);
-                  const nextCoordinatorId = shouldPrefillCoordinator
-                    ? suggestedCoordinator
-                    : prev.coordinator_id;
                   const nextBranchId = value
                     ? clusterBranchId(nextCluster) || prev.branch_id
                     : prev.branch_id;
@@ -731,15 +710,15 @@ export default function EvangelismGroupForm({
                       ? "WEEKLY"
                       : prev.meeting_frequency,
                     name: shouldPrefillName ? suggested : prev.name,
-                    coordinator_id: nextCoordinatorId,
-                    reporter_ids: nextCoordinatorId
+                    coordinator_id: prev.coordinator_id,
+                    reporter_ids: prev.coordinator_id
                       ? (prev.reporter_ids || []).filter(
-                          (id) => id !== nextCoordinatorId,
+                          (id) => id !== prev.coordinator_id,
                         )
                       : prev.reporter_ids,
-                    bible_sharer_ids: nextCoordinatorId
+                    bible_sharer_ids: prev.coordinator_id
                       ? (prev.bible_sharer_ids || []).filter(
-                          (id) => id !== nextCoordinatorId,
+                          (id) => id !== prev.coordinator_id,
                         )
                       : prev.bible_sharer_ids,
                   };

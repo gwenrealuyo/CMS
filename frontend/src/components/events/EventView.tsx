@@ -180,6 +180,9 @@ export default function EventView({
     [event, eventDateKey, selectedOccurrenceDate, user?.id],
   );
 
+  const actionBtnSize =
+    "!min-h-[32px] sm:!min-h-[44px] !py-1 sm:!py-2 !px-2.5 sm:!px-6 !text-xs sm:!text-sm font-normal flex items-center justify-center w-auto whitespace-nowrap";
+
   return (
     <div className="flex flex-col h-full space-y-0">
       <div className="flex items-center justify-between p-3 border-b border-gray-200">
@@ -402,7 +405,7 @@ export default function EventView({
         </div>
       </div>
 
-      <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3 p-6 border-t border-gray-200 bg-gray-50">
+      <div className="flex flex-row flex-wrap justify-between items-center gap-2 sm:gap-3 px-3 py-2.5 sm:p-6 border-t border-gray-200 bg-gray-50">
         {onDelete ? (
         <Button
           onClick={() =>
@@ -414,10 +417,10 @@ export default function EventView({
             })
           }
           variant="secondary"
-          className="!text-red-600 min-h-[44px] px-4 text-sm font-normal bg-white border border-red-200 hover:bg-red-50 hover:border-red-300 flex items-center justify-center w-full sm:w-auto"
+          className={`!text-red-600 ${actionBtnSize} sm:!px-4 bg-white border border-red-200 hover:bg-red-50 hover:border-red-300`}
         >
           <svg
-            className="w-4 h-4"
+            className="w-3.5 h-3.5 sm:w-4 sm:h-4"
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"
@@ -429,18 +432,18 @@ export default function EventView({
               d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
             />
           </svg>
-          <span className="ml-2 sm:ml-0 md:ml-2">Delete</span>
+          <span className="ml-1.5 sm:ml-2">Delete</span>
         </Button>
         ) : (
           <div className="hidden sm:block" />
         )}
-        <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+        <div className="flex flex-row gap-2 sm:gap-3 w-auto">
           {event.booking_status === "pending" && onReject && (
             <Button
               onClick={onReject}
               variant="secondary"
               disabled={reviewLoading}
-              className="!text-red-600 min-h-[44px] px-6 text-sm font-normal bg-white border border-red-200 hover:bg-red-50 flex items-center justify-center w-full sm:w-auto"
+              className={`!text-red-600 ${actionBtnSize} bg-white border border-red-200 hover:bg-red-50`}
             >
               Reject
             </Button>
@@ -449,7 +452,7 @@ export default function EventView({
             <Button
               onClick={onApprove}
               disabled={reviewLoading}
-              className="min-h-[44px] px-6 text-sm font-normal flex items-center justify-center w-full sm:w-auto"
+              className={actionBtnSize}
             >
               {reviewLoading ? "Saving..." : "Approve"}
             </Button>
@@ -457,10 +460,10 @@ export default function EventView({
           <Button
             onClick={onCancel ? onCancel : onClose}
             variant="secondary"
-            className="!text-black min-h-[44px] px-6 text-sm font-normal bg-white border border-gray-200 hover:bg-gray-50 hover:border-gray-300 flex items-center justify-center space-x-2 w-full sm:w-auto"
+            className={`!text-black ${actionBtnSize} bg-white border border-gray-200 hover:bg-gray-50 hover:border-gray-300 space-x-1.5 sm:space-x-2`}
           >
             <svg
-              className="w-4 h-4"
+              className="w-3.5 h-3.5 sm:w-4 sm:h-4"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -485,10 +488,10 @@ export default function EventView({
               })
             }
             variant="secondary"
-            className="!text-primary min-h-[44px] px-6 text-sm font-normal bg-white border border-primary/20 hover:bg-primary/10 hover:border-primary/30 flex items-center justify-center space-x-2 w-full sm:w-auto"
+            className={`!text-primary ${actionBtnSize} bg-white border border-primary/20 hover:bg-primary/10 hover:border-primary/30 space-x-1.5 sm:space-x-2`}
           >
             <svg
-              className="w-4 h-4"
+              className="w-3.5 h-3.5 sm:w-4 sm:h-4"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"

@@ -4,6 +4,45 @@ export function groupKey(a: ModuleCoordinator): string {
   return `${a.person}-${a.module}-${a.level}`;
 }
 
+export function assignmentResourceId(a: ModuleCoordinator): number | null {
+  if (a.resource_id == null) return null;
+  return Number(a.resource_id);
+}
+
+/** Diff checked resources against a grouped edit so unchecking deletes, not retargets. */
+export function planGroupedResourceAssignmentSync(args: {
+  editGroup: ModuleCoordinator[];
+  selectedResourceIds: number[];
+  person: number;
+  module: ModuleCoordinator["module"];
+  existingAssignments: ModuleCoordinator[];
+}): {
+  toDelete: ModuleCoordinator[];
+  toKeep: ModuleCoordinator[];
+  toCreate: number[];
+} {
+  const selected = new Set(args.selectedResourceIds);
+  const toDelete = args.editGroup.filter((a) => {
+    const rid = assignmentResourceId(a);
+    return rid != null && !selected.has(rid);
+  });
+  const toKeep = args.editGroup.filter((a) => {
+    const rid = assignmentResourceId(a);
+    return rid != null && selected.has(rid);
+  });
+  const deleteIds = new Set(toDelete.map((a) => a.id));
+  const occupied = new Set<number>();
+  for (const a of args.existingAssignments) {
+    if (deleteIds.has(a.id)) continue;
+    if (Number(a.person) !== Number(args.person)) continue;
+    if (a.module !== args.module) continue;
+    const rid = assignmentResourceId(a);
+    if (rid != null) occupied.add(rid);
+  }
+  const toCreate = args.selectedResourceIds.filter((rid) => !occupied.has(rid));
+  return { toDelete, toKeep, toCreate };
+}
+
 /** Scope cell text: prefer API label (oversight, cluster codes), else resource_id fallback. */
 export function scopeLabelForAssignment(a: ModuleCoordinator): string | null {
   if (

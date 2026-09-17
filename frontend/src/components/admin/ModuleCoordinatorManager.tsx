@@ -17,7 +17,11 @@ import ScalableSelect from "@/src/components/ui/ScalableSelect";
 import ResourceAssignmentMultiPicker from "@/src/components/admin/ResourceAssignmentMultiPicker";
 import ConfirmationModal from "@/src/components/ui/ConfirmationModal";
 import { formatPersonName } from "@/src/lib/name";
-import { groupModuleCoordinatorAssignments } from "@/src/lib/moduleCoordinatorDisplay";
+import {
+  groupModuleCoordinatorAssignments,
+  planGroupedResourceAssignmentSync,
+} from "@/src/lib/moduleCoordinatorDisplay";
+import { formatApiErrorMessage } from "@/src/lib/apiErrors";
 import { formatLocaleDate } from "@/src/lib/date";
 import {
   PencilIcon,
@@ -631,103 +635,67 @@ export default function ModuleCoordinatorManager() {
         return;
       }
 
-      const original =
-        editingAssignment.resource_id !== null &&
-        editingAssignment.resource_id !== undefined
-          ? Number(editingAssignment.resource_id)
-          : null;
-
       const editGroup =
         editingGroupAssignments.length > 0
           ? editingGroupAssignments
           : [editingAssignment];
 
-      const selectedIdSet = new Set(ids);
-      const toDelete = editGroup.filter(
-        (a) =>
-          a.resource_id != null &&
-          !selectedIdSet.has(Number(a.resource_id)) &&
-          a.id !== editingAssignment.id,
-      );
+      const { toDelete, toKeep, toCreate } = planGroupedResourceAssignmentSync({
+        editGroup,
+        selectedResourceIds: ids,
+        person,
+        module: assignmentModule,
+        existingAssignments: assignments,
+      });
+
       if (toDelete.length > 0) {
         await Promise.all(
           toDelete.map((a) => moduleCoordinatorsApi.delete(a.id)),
         );
       }
 
-      const existingKeys = new Set(
-        assignments
-          .filter(
-            (a) =>
-              a.person === person &&
-              a.module === assignmentModule &&
-              a.level === level &&
-              !toDelete.some((d) => d.id === a.id),
-          )
-          .map((a) =>
-            a.resource_id != null ? `${a.module}-${a.resource_id}` : "",
-          ),
-      );
+      const metadataChanged = (a: ModuleCoordinator) =>
+        Number(a.person) !== person ||
+        a.module !== assignmentModule ||
+        a.level !== level;
 
-      const filterNew = (candidates: number[]) =>
-        candidates.filter(
-          (rid) => !existingKeys.has(`${assignmentModule}-${rid}`),
+      for (const kept of toKeep) {
+        if (!metadataChanged(kept)) continue;
+        await moduleCoordinatorsApi.update(kept.id, {
+          person,
+          module: assignmentModule,
+          level,
+          resource_id: Number(kept.resource_id),
+          resource_type: resourceType,
+        });
+      }
+
+      if (toCreate.length === 1) {
+        await moduleCoordinatorsApi.create({
+          person,
+          module: assignmentModule,
+          level,
+          resource_id: toCreate[0],
+          resource_type: resourceType,
+        });
+      } else if (toCreate.length > 1) {
+        await moduleCoordinatorsApi.bulkCreate(
+          toCreate.map((resource_id) => ({
+            person,
+            module: assignmentModule,
+            level,
+            resource_id,
+            resource_type: resourceType,
+          })),
         );
-
-      if (original !== null && ids.includes(original)) {
-        await moduleCoordinatorsApi.update(editingAssignment.id, {
-          person,
-          module: assignmentModule,
-          level,
-          resource_id: original,
-          resource_type: resourceType,
-        });
-        const extras = filterNew(ids.filter((id) => id !== original));
-        if (extras.length > 0) {
-          await moduleCoordinatorsApi.bulkCreate(
-            extras.map((resource_id) => ({
-              person,
-              module: assignmentModule,
-              level,
-              resource_id,
-              resource_type: resourceType,
-            })),
-          );
-        }
-      } else {
-        const primary = ids[0];
-        await moduleCoordinatorsApi.update(editingAssignment.id, {
-          person,
-          module: assignmentModule,
-          level,
-          resource_id: primary,
-          resource_type: resourceType,
-        });
-        const extras = filterNew(ids.slice(1));
-        if (extras.length > 0) {
-          await moduleCoordinatorsApi.bulkCreate(
-            extras.map((resource_id) => ({
-              person,
-              module: assignmentModule,
-              level,
-              resource_id,
-              resource_type: resourceType,
-            })),
-          );
-        }
       }
 
       setIsModalOpen(false);
       setEditingAssignment(null);
       setEditingGroupAssignments([]);
       await fetchData();
-    } catch (err: any) {
-      const errorMessage =
-        err.response?.data?.message ||
-        err.response?.data?.detail ||
-        err.message ||
-        "Failed to save assignment.";
-      setError(errorMessage);
+    } catch (err: unknown) {
+      setError(formatApiErrorMessage(err, "Failed to save assignment."));
     } finally {
       setSubmitting(false);
     }
@@ -1743,10 +1711,8 @@ export default function ModuleCoordinatorManager() {
                   {editingAssignment &&
                     editingAssignment.resource_id != null && (
                       <p className="text-xs text-gray-600 mb-3">
-                        Additional checked resources create new assignments for
-                        the same person and module. Uncheck the original
-                        resource to move this assignment to a different primary
-                        resource.
+                        Extra checked resources add assignments. Uncheck a
+                        resource to remove that assignment.
                       </p>
                     )}
                   <ResourceAssignmentMultiPicker

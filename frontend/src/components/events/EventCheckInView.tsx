@@ -906,7 +906,7 @@ export default function EventCheckInView({
           </h2>
           <p className="mt-1 text-sm text-muted-foreground">
             {entryTab === "camera"
-              ? "Point the camera at a member QR code. It should contain the LAMP ID, for example LAMP00001."
+              ? "Point the camera at a member QR code. It should contain the LAMP ID, for example LAMP12345."
               : "Enter a name or LAMP ID."}
           </p>
 

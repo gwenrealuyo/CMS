@@ -116,7 +116,7 @@ The Event form shows these toggles only when the type is Sunday Service. Other e
   - **Remaining** — expected people not yet checked in (not `Total − Checked In` when extras are present).
 - Manual Entry and Camera Scan look up anyone in the broader check-in candidate pool (non-admin, branch-scoped), so people outside Total can still check in.
 - **Manual Entry** tab accepts name or LAMP ID; Enter key submits.
-- **Camera Scan** tab (Onsite station only) uses the device camera (`@zxing/browser`) to read a QR code whose payload is the LAMP ID (`member_id`), for example `LAMP00001`. A match auto-checks the person in. Success, already-checked-in, and unknown IDs show a large status banner on the page (green / amber / red) **and** a larger toast. Camera access requires HTTPS or localhost.
+- **Camera Scan** tab (Onsite station only) uses the device camera (`@zxing/browser`) to read a QR code whose payload is the LAMP ID (`member_id`), for example `LAMP12345`. A match auto-checks the person in. Success, already-checked-in, and unknown IDs show a large status banner on the page (green / amber / red) **and** a larger toast. Camera access requires HTTPS or localhost.
 - Station toggle: **Onsite** (default) posts `attendance_mode: ONSITE`; **Online** requires a venue and posts `ONLINE` + venue. Switching the station also sets the Recent Check-Ins mode filter to Onsite or Online. Recent Check-Ins show mode/venue chips, **Edit mode** (PATCH correction), and can still filter by mode and cluster.
 - Reuses `POST /api/events/{id}/attendance/` with `status: PRESENT` and refreshes the recent check-ins list after each success.
 - For **today or past** occurrences, **Generate Report** opens the same client-side attendance report as Event Details.
@@ -130,7 +130,7 @@ There are two UIs on the same URL:
 - **Not logged in (public link):** identify **one person** with LAMP ID (typed, camera scan of the member QR, or a QR **photo decoded in the browser** — the image is never uploaded). Confirm name/photo, pick an online venue, check in. No household list, no visitor search, no undo.
 - **Logged in:** existing household + guest encoding for admins, Events coordinators, and members who have a CMS account.
 
-The member QR payload stays the LAMP ID (`member_id`), for example `LAMP00001`. The shared page URL is not encoded in that QR.
+The member QR payload stays the LAMP ID (`member_id`), for example `LAMP12345`. The shared page URL is not encoded in that QR.
 
 - **Availability:** church-local today (`CHURCH_TIME_ZONE`) must have an **approved** `SUNDAY_SERVICE` occurrence. Pending room bookings do not open check-in. If none, the page is unavailable (no last-week fallback). Public identify prefers the person’s branch (and includes church-wide services). Logged-in users still prefer their branch; admins / HQ pastors get a picker when more than one branch or time matches.
 - **Who can use the public link:** **Member self-check-in** in Admin Settings → Module controls is off by default. Turn the switch on to open the public LAMP ID page. While off, the public APIs return `available: false`, `reason: restricted`; admins and Events coordinators still use the logged-in household/guest page.

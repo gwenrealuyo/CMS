@@ -601,7 +601,7 @@ export default function PublicSelfCheckInView() {
               autoComplete="off"
               value={idNumber}
               onChange={(event) => setIdNumber(event.target.value)}
-              placeholder="00001"
+              placeholder="12345"
               className="min-w-0 flex-1 border-0 px-3 py-2.5 text-lg font-medium tracking-wide text-lighthouse-navy outline-none focus:ring-0"
             />
           </div>

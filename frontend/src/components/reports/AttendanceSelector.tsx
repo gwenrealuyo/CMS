@@ -841,7 +841,7 @@ export default function AttendanceSelector({
 
           {/* Other Members Section */}
           {filterRole === "MEMBER" &&
-            selectedCluster &&
+            hasMemberSource &&
             !isLoadingRoster &&
             otherPeople.length > 0 && (
             <>
@@ -1006,18 +1006,11 @@ export default function AttendanceSelector({
           {filterRole === "MEMBER" &&
             hasMemberSource &&
             !isLoadingRoster &&
-            !selectedCluster &&
             peopleByRole.length === 0 && (
               <div className="px-3 py-4 text-center text-gray-500 text-sm">
-                No members found
-              </div>
-            )}
-          {filterRole === "MEMBER" &&
-            selectedCluster &&
-            !isLoadingRoster &&
-            peopleByRole.length === 0 && (
-              <div className="px-3 py-4 text-center text-gray-500 text-sm">
-                No members found in this cluster
+                {selectedCluster
+                  ? "No members found in this cluster"
+                  : "No members found"}
               </div>
             )}
           {filterRole === "VISITOR" && peopleByRole.length === 0 && (

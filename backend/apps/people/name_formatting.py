@@ -144,20 +144,25 @@ def title_cased_name_kwargs(data: Mapping, fields: Iterable[str]) -> dict:
     return out
 
 
+def nickname_matches_first_name(first_name, nickname) -> bool:
+    """True when nickname is the same as first name (trimmed, case-insensitive)."""
+    first = (first_name or "").strip().lower()
+    nick = (nickname or "").strip().lower()
+    return bool(first and nick and first == nick)
+
+
 def format_person_display_name(person) -> str:
     """
-    Format a person name like the UI: first, nickname in quotes,
+    Format a person name like the UI: nickname (or first name),
     middle initial, last name, suffix. Falls back to username.
     """
     pieces: list[str] = []
 
-    first = (getattr(person, "first_name", None) or "").strip()
-    if first:
-        pieces.append(first)
-
     nickname = (getattr(person, "nickname", None) or "").strip()
-    if nickname:
-        pieces.append(f'"{nickname}"')
+    first = (getattr(person, "first_name", None) or "").strip()
+    given = nickname or first
+    if given:
+        pieces.append(given)
 
     middle = (getattr(person, "middle_name", None) or "").strip()
     if middle:

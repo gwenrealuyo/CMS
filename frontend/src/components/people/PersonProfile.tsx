@@ -29,6 +29,7 @@ import {
   personIdString,
 } from "@/src/lib/baptismVerifiers";
 import { memberCareActionLabel } from "@/src/lib/memberCare";
+import { formatPersonName } from "@/src/lib/name";
 
 function TrashIcon({ className = "w-4 h-4" }: { className?: string }) {
   return (
@@ -560,15 +561,7 @@ export default function PersonProfile({
               Person Details
             </h2>
             <p className="text-xs text-gray-600 mt-0.5 truncate">
-              {person.first_name}
-              {(person as any).nickname
-                ? ` "${(person as any).nickname}"`
-                : ""}{" "}
-              {person.middle_name
-                ? `${person.middle_name[0].toUpperCase()}. `
-                : ""}
-              {person.last_name}
-              {person.suffix ? ` ${person.suffix}` : ""}
+              {formatPersonName(person)}
             </p>
           </div>
           <button
@@ -601,15 +594,7 @@ export default function PersonProfile({
               <PersonAvatar person={person} size="lg" />
               <div className="flex-1 w-full sm:w-auto text-center sm:text-left">
                 <h2 className="text-lg font-semibold text-gray-900 break-words">
-                  {person.first_name}
-                  {(person as any).nickname
-                    ? ` "${(person as any).nickname}"`
-                    : ""}{" "}
-                  {person.middle_name
-                    ? `${person.middle_name[0].toUpperCase()}. `
-                    : ""}
-                  {person.last_name}
-                  {person.suffix ? ` ${person.suffix}` : ""}
+                  {formatPersonName(person)}
                 </h2>
                 <p className="text-gray-500 text-sm">@{person.username}</p>
                 <div className="flex flex-wrap items-center justify-center sm:justify-start gap-1.5 mt-2">

@@ -458,9 +458,7 @@ export default function ViewWeeklyReportModal({
                     {report.prospects_invited_details.map((prospect) => {
                       const inviter = prospect.invited_by;
                       const inviterName = inviter
-                        ? `${inviter.first_name ?? ""} ${
-                            inviter.last_name ?? ""
-                          }`.trim() || inviter.username
+                        ? formatPersonName(inviter) || inviter.username
                         : null;
                       const prospectName =
                         prospect.display_name ||

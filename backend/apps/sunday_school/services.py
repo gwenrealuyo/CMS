@@ -8,6 +8,7 @@ from django.utils import timezone
 from core.datetime_utils import church_today
 
 from apps.people.models import Person
+from apps.people.name_formatting import format_person_display_name
 
 from .models import (
     SundaySchoolCategory,
@@ -174,21 +175,7 @@ def get_unenrolled_by_category(
                 matches = False
 
             if matches:
-                # Format name with middle initial, nickname, and suffix
-                name_parts = []
-                if person.first_name:
-                    name_parts.append(person.first_name.strip())
-                if person.nickname:
-                    name_parts.append(f'"{person.nickname.strip()}"')
-                if person.middle_name:
-                    middle_initial = person.middle_name.strip()[0].upper() if person.middle_name.strip() else ""
-                    if middle_initial:
-                        name_parts.append(f"{middle_initial}.")
-                if person.last_name:
-                    name_parts.append(person.last_name.strip())
-                if person.suffix:
-                    name_parts.append(person.suffix.strip())
-                full_name = " ".join(name_parts).strip() or person.username
+                full_name = format_person_display_name(person) or person.username
                 
                 # Get cluster information
                 clusters = person.clusters.all()

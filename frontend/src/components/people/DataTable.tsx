@@ -27,6 +27,7 @@ import { TABLE_ENTITY_LINK_CLASS } from "@/src/lib/tableEntityLink";
 import { getPersonRoleColor } from "@/src/lib/personRole";
 import { useEventTypeOptions } from "@/src/hooks/useEventTypeOptions";
 import PersonAvatar from "@/src/components/people/PersonAvatar";
+import { formatPersonName } from "@/src/lib/name";
 import { LockedControlTooltip } from "@/src/components/ui/LockedControlTooltip";
 import ViewModeToggle from "@/src/components/ui/ViewModeToggle";
 
@@ -101,7 +102,7 @@ export default function DataTable({
 
   const toDisplayPerson = (p: Person): DisplayPerson => ({
     ...p,
-    name: `${p.first_name ?? ""} ${p.last_name ?? ""}`.trim(),
+    name: formatPersonName(p),
     dateFirstAttended: p.date_first_attended,
     waterBaptismDate: (p as Person & { water_baptism_date?: string })
       .water_baptism_date,
@@ -1031,7 +1032,7 @@ export default function DataTable({
                         }
                       >
                         <div className="text-sm font-semibold text-primary hover:underline truncate">
-                          {person.first_name} {person.last_name}
+                          {formatPersonName(person)}
                         </div>
                       </button>
                     </div>

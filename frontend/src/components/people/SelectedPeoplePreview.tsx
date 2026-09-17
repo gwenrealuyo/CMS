@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from "react";
 import { Person } from "@/src/types/person";
+import { formatPersonName } from "@/src/lib/name";
 import PersonAvatar from "@/src/components/people/PersonAvatar";
 import { getPersonRoleColor } from "@/src/lib/personRole";
 
@@ -199,7 +200,7 @@ export default function SelectedPeoplePreview({
               <PersonAvatar person={person} size="md" />
               <div className="flex-1 min-w-0">
                 <h4 className="text-xs font-medium text-gray-900 truncate">
-                  {person.first_name} {person.last_name}
+                  {formatPersonName(person)}
                 </h4>
                 {/* <p className="text-xs text-gray-500 truncate">{person.email || "-"}</p> */}
                 <div className="flex flex-nowrap items-center gap-0.5 md:gap-1 mt-1">

@@ -106,21 +106,11 @@ export default function AddVisitorModal({
         );
         const peopleUI: PersonUI[] = response.data
           .filter(isSelectablePerson)
-          .map((p) => {
-          const middleInitial = p.middle_name
-            ? ` ${p.middle_name.trim().charAt(0)}.`
-            : "";
-          const suffixPart =
-            p.suffix && p.suffix.trim().length > 0 ? ` ${p.suffix.trim()}` : "";
-          const name = `${p.first_name ?? ""}${middleInitial} ${
-            p.last_name ?? ""
-          }${suffixPart}`.trim();
-            return {
-              ...p,
-              name,
-              dateFirstAttended: p.date_first_attended,
-            };
-          });
+          .map((p) => ({
+            ...p,
+            name: formatPersonName(p),
+            dateFirstAttended: p.date_first_attended,
+          }));
         setPeople(peopleUI);
       } catch (error) {
         console.error("Error fetching people:", error);

@@ -8,7 +8,7 @@ import Modal from "@/src/components/ui/Modal";
 import ScalableSelect from "@/src/components/ui/ScalableSelect";
 import { Lesson, LessonStudentEnrollment } from "@/src/types/lesson";
 import { Person } from "@/src/types/person";
-import { formatPersonName } from "@/src/lib/name";
+import { formatPersonName, personNameSearchText } from "@/src/lib/name";
 import {
   enrollmentTeacherLabel,
   LessonPersonLike,
@@ -108,14 +108,9 @@ export default function AssignLessonsDropdown({
     }
     const query = searchQuery.toLowerCase();
     return eligiblePeople.filter((person) => {
-      const name = formatPersonName(person).toLowerCase();
-      const nickname = (person.nickname || "").toLowerCase();
+      const haystack = personNameSearchText(person);
       const memberId = (person.member_id || "").toLowerCase();
-      return (
-        name.includes(query) ||
-        nickname.includes(query) ||
-        memberId.includes(query)
-      );
+      return haystack.includes(query) || memberId.includes(query);
     });
   }, [eligiblePeople, searchQuery]);
 
@@ -144,6 +139,8 @@ export default function AssignLessonsDropdown({
         .map((person) => ({
           value: person.id?.toString() ?? "",
           label: formatPersonName(person),
+          nickname: person.nickname?.trim() || null,
+          firstName: person.first_name?.trim() || null,
         })),
     [selectedPersonId, studentBranchId, teacherChoices]
   );

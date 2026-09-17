@@ -1,4 +1,5 @@
 import type { Prospect } from "@/src/types/evangelism";
+import { formatPersonName } from "@/src/lib/name";
 
 function normalizeText(value?: string | null): string {
   return (value || "").trim().toLowerCase();
@@ -63,10 +64,17 @@ export function describeDuplicateProspect(prospect: Prospect): string {
 function personDisplayName(person: {
   first_name?: string | null;
   last_name?: string | null;
+  middle_name?: string | null;
+  nickname?: string | null;
+  suffix?: string | null;
+  username?: string | null;
   display_name?: string | null;
 }): string {
-  const named = `${person.first_name ?? ""} ${person.last_name ?? ""}`.trim();
-  return person.display_name?.trim() || named;
+  return (
+    person.display_name?.trim() ||
+    formatPersonName(person) ||
+    ""
+  );
 }
 
 export function findEncodedVisitorNameMatches(

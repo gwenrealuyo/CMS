@@ -49,6 +49,7 @@ from apps.people.name_formatting import (
     PERSON_NAME_FIELDS,
     apply_title_case_name_fields,
     format_person_display_name,
+    nickname_matches_first_name,
 )
 from apps.people.photo_validators import validate_person_photo
 from apps.people.usernames import (
@@ -1139,6 +1140,19 @@ class PersonSerializer(serializers.ModelSerializer):
                 "hg_witnessed_by_last_name",
             ),
         )
+        if "nickname" in attrs:
+            first_name = attrs.get(
+                "first_name",
+                getattr(instance, "first_name", None) if instance else None,
+            )
+            if nickname_matches_first_name(first_name, attrs.get("nickname")):
+                raise serializers.ValidationError(
+                    {
+                        "nickname": (
+                            "Leave nickname blank if they go by their first name."
+                        )
+                    }
+                )
         if "baptized_by_first_name" in attrs or "baptized_by_last_name" in attrs:
             validate_historical_name_pair(
                 attrs.get("baptized_by_first_name"),

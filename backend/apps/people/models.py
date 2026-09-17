@@ -132,6 +132,11 @@ class Person(AbstractUser):
     def __str__(self):
         return self.username  # or full name if you prefer
 
+    def get_full_name(self):
+        from apps.people.name_formatting import format_person_display_name
+
+        return format_person_display_name(self) or self.username
+
     def can_see_all_branches(self):
         """
         Check if this user can see all branches.

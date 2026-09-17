@@ -8,6 +8,7 @@ import StatusBadge from "./StatusBadge";
 import BulkEnrollModal from "./BulkEnrollModal";
 import { SundaySchoolClass, SundaySchoolClassMember, ClassMemberRole } from "@/src/types/sundaySchool";
 import { formatLocaleDate } from "@/src/lib/date";
+import { formatPersonName } from "@/src/lib/name";
 
 interface ClassMembersSectionProps {
   classData: SundaySchoolClass;
@@ -60,7 +61,9 @@ export default function ClassMembersSection({
       render: (_value: any, row: SundaySchoolClassMember) => (
         <div>
           <p className="font-medium text-gray-900">
-            {row.person.full_name || `${row.person.first_name || ""} ${row.person.last_name || ""}`.trim() || row.person.username}
+            {row.person.full_name ||
+              formatPersonName(row.person) ||
+              row.person.username}
           </p>
           {(row.person as any).email && (
             <p className="text-xs text-gray-500">{(row.person as any).email}</p>

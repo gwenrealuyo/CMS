@@ -73,7 +73,7 @@ import {
   findMemberIdConflict,
   findPossibleNameDuplicates,
 } from "@/src/lib/personDuplicates";
-import { formatPersonName } from "@/src/lib/name";
+import { formatPersonName, nicknameMatchesFirstName } from "@/src/lib/name";
 import {
   formatPersonStatusLabel,
   statusRequiresChangeReason,
@@ -229,7 +229,7 @@ export default function PersonForm({
   const { eventTypes } = useEventTypeOptions();
   const activityTypes = useMemo(
     () => activityEventTypes(eventTypes),
-    [eventTypes]
+    [eventTypes],
   );
   const plainMember = isPlainMember();
   const peopleCreateAccess = getPeopleCreateAccess(user);
@@ -1411,6 +1411,16 @@ export default function PersonForm({
       }
     }
 
+    if (
+      nicknameMatchesFirstName(
+        formData.first_name,
+        (formData as { nickname?: string }).nickname,
+      )
+    ) {
+      toast.error("Leave nickname blank if they go by their first name.");
+      return;
+    }
+
     if (showLoginAccess && !autoGeneratePassword) {
       if (!manualPassword) {
         toast.error("Please enter a temporary password.");
@@ -1654,7 +1664,7 @@ export default function PersonForm({
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent"
                       />
                       <p className="text-xs text-gray-500 mt-1">
-                        Only if they go by a name other than their first name.
+                        Leave blank if they go by their first name.
                       </p>
                     </div>
                     <div>

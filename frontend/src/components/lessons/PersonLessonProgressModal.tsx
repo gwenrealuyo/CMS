@@ -101,6 +101,8 @@ export default function PersonLessonProgressModal({
         .map((choice) => ({
           value: choice.id?.toString() ?? "",
           label: formatPersonName(choice),
+          nickname: choice.nickname?.trim() || null,
+          firstName: choice.first_name?.trim() || null,
         })),
     [person?.id, teacher?.id, transferRoster]
   );

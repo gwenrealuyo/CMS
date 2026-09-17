@@ -31,6 +31,7 @@ import ComplianceHistoryChart from "./ComplianceHistoryChart";
 import ComplianceRiskPanels from "./ComplianceRiskPanels";
 import ComplianceNotes from "./ComplianceNotes";
 import { formatLocaleDate } from "@/src/lib/date";
+import { formatPersonName } from "@/src/lib/name";
 
 interface ComplianceDashboardProps {
   /** "" means all branches; otherwise a branch id string. */
@@ -317,7 +318,7 @@ export default function ComplianceDashboard({
                   </td>
                   <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-900">
                     {item.cluster.coordinator
-                      ? `${item.cluster.coordinator.first_name} ${item.cluster.coordinator.last_name}`
+                      ? formatPersonName(item.cluster.coordinator)
                       : "N/A"}
                   </td>
                   <td className="whitespace-nowrap px-6 py-4">

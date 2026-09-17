@@ -197,9 +197,7 @@ function prospectToPersonUI(
     typeof prospect.invited_by === "object" &&
     "first_name" in prospect.invited_by
   ) {
-    invitedBy = `${prospect.invited_by.first_name ?? ""} ${
-      prospect.invited_by.last_name ?? ""
-    }`.trim();
+    invitedBy = formatPersonName(prospect.invited_by);
   }
   if (!invitedBy) {
     invitedBy = inviterDisplayNameFromPeople(
@@ -867,9 +865,7 @@ export default function ClusterWeeklyReportForm({
       if (byId.has(attendanceId)) continue;
       const nestedInviterName =
         detail.invited_by != null
-          ? `${detail.invited_by.first_name ?? ""} ${
-              detail.invited_by.last_name ?? ""
-            }`.trim()
+          ? formatPersonName(detail.invited_by)
           : "";
       const invitedBy =
         nestedInviterName ||

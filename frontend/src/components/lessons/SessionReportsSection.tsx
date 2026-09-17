@@ -41,6 +41,7 @@ export type LessonPersonLike = {
   middle_name?: string;
   last_name?: string;
   suffix?: string;
+  nickname?: string;
   username: string;
 };
 

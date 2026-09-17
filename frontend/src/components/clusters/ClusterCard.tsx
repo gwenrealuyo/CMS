@@ -11,6 +11,7 @@ import {
   getBranchDisplayCode,
 } from "@/src/lib/branchChipColor";
 import { countClusterMembersFromDetails } from "@/src/lib/clusterRoster";
+import { formatPersonName } from "@/src/lib/name";
 
 interface ClusterCardProps {
   cluster: Cluster;
@@ -64,15 +65,10 @@ const ClusterCard = memo(
 
     const coordinatorName = React.useMemo(() => {
       if (coordinator) {
-        return `${coordinator.first_name} ${coordinator.last_name}`;
+        return formatPersonName(coordinator);
       }
-      if (
-        (cluster as any).coordinator?.first_name &&
-        (cluster as any).coordinator?.last_name
-      ) {
-        return `${(cluster as any).coordinator.first_name} ${
-          (cluster as any).coordinator.last_name
-        }`;
+      if ((cluster as any).coordinator) {
+        return formatPersonName((cluster as any).coordinator);
       }
       return "Unknown Coordinator";
     }, [coordinator, cluster]);

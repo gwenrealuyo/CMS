@@ -8,6 +8,7 @@ from rest_framework import serializers
 
 from apps.events.models import Event
 from apps.people.models import Person
+from apps.people.name_formatting import format_person_display_name
 
 from .models import (
     SundaySchoolCategory,
@@ -38,33 +39,7 @@ class PersonSummarySerializer(serializers.ModelSerializer):
         )
 
     def get_full_name(self, obj):
-        """Format name with middle initial, nickname, and suffix."""
-        parts = []
-        
-        # First name
-        if obj.first_name:
-            parts.append(obj.first_name.strip())
-        
-        # Nickname in quotes
-        if obj.nickname:
-            parts.append(f'"{obj.nickname.strip()}"')
-        
-        # Middle initial
-        if obj.middle_name:
-            middle_initial = obj.middle_name.strip()[0].upper() if obj.middle_name.strip() else ""
-            if middle_initial:
-                parts.append(f"{middle_initial}.")
-        
-        # Last name
-        if obj.last_name:
-            parts.append(obj.last_name.strip())
-        
-        # Suffix
-        if obj.suffix:
-            parts.append(obj.suffix.strip())
-        
-        name = " ".join(parts).strip()
-        return name or obj.username
+        return format_person_display_name(obj) or obj.username
 
 
 class SundaySchoolCategorySerializer(serializers.ModelSerializer):

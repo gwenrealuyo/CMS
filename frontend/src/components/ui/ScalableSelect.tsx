@@ -23,6 +23,8 @@ interface SelectOption {
   branchCode?: string | null;
   memberId?: string | null;
   nickname?: string | null;
+  /** Legal first name — kept searchable when the label shows nickname. */
+  firstName?: string | null;
   /** When set, renders a small Cluster vs Group badge (distinct styling). */
   typeLabel?: "cluster" | "group";
   /** Compact Bible Sharers marker (icon-only chip). */
@@ -113,6 +115,7 @@ export default function ScalableSelect({
         String(option.value).toLowerCase().includes(query) ||
         (option.memberId?.toLowerCase().includes(query) ?? false) ||
         (option.nickname?.toLowerCase().includes(query) ?? false) ||
+        (option.firstName?.toLowerCase().includes(query) ?? false) ||
         (option.clusterCode?.toLowerCase().includes(query) ?? false) ||
         (option.branchCode?.toLowerCase().includes(query) ?? false) ||
         (option.roleLabel?.toLowerCase().includes(query) ?? false) ||

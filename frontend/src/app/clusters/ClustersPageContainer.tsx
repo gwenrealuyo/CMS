@@ -34,6 +34,7 @@ import {
   userCanExportClusterData,
 } from "@/src/lib/clusterPermissions";
 import { countClusterMembersFromDetails } from "@/src/lib/clusterRoster";
+import { formatPersonName } from "@/src/lib/name";
 
 type PanelEntity = "cluster" | "person" | "family" | "care";
 type PanelMode = "view" | "edit" | "create";
@@ -711,9 +712,9 @@ export default function ClustersPageContainer() {
           p.id === (cluster as any).coordinator_id?.toString()
       );
       const coordinatorName = coordinator
-        ? `${coordinator.first_name} ${coordinator.last_name}`
+        ? formatPersonName(coordinator)
         : cluster.coordinator
-          ? `${cluster.coordinator.first_name} ${cluster.coordinator.last_name}`
+          ? formatPersonName(cluster.coordinator)
           : "N/A";
 
       const { memberCount, visitorCount } = countClusterMembersFromDetails(

@@ -1016,13 +1016,16 @@ export default function ModuleCoordinatorManager() {
         (person) => person.role !== "ADMIN" && person.username !== "admin",
       )
       .map((person) => {
-        const name = `${person.first_name ?? ""} ${
-          person.last_name ?? ""
-        }`.trim();
-        const label = name || person.email || person.username;
+        const name = formatPersonName(person);
+        const label =
+          name && name !== "Unknown person"
+            ? name
+            : person.email || person.username || "Unknown";
         return {
-          label: label,
+          label,
           value: String(person.id),
+          nickname: person.nickname?.trim() || null,
+          firstName: person.first_name?.trim() || null,
         };
       })
       .sort((a, b) => a.label.localeCompare(b.label));

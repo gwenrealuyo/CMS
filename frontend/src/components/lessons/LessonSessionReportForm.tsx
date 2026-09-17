@@ -336,6 +336,8 @@ export default function LessonSessionReportForm({
         .map((person) => ({
           value: person.id?.toString() ?? "",
           label: formatPersonName(person),
+          nickname: person.nickname?.trim() || null,
+          firstName: person.first_name?.trim() || null,
         }))
         .filter(
           (option) => option.value && option.value !== formState.studentId,

@@ -5,42 +5,15 @@ from apps.people.serializers import (
     ModuleCoordinatorSerializer,
     delete_person_photo_if_cleared,
 )
-from apps.people.name_formatting import apply_title_case_name_fields
+from apps.people.name_formatting import (
+    apply_title_case_name_fields,
+    format_person_display_name,
+)
 from apps.people.photo_validators import validate_person_photo
 from .models import PasswordResetRequest, AccountLockout, AuditLog
 from .password_validators import PasswordStrengthValidator
 
 User = get_user_model()
-
-
-def format_person_name(user):
-    """
-    Formats a person's name with first name, nickname (in quotes),
-    middle initial, last name, and suffix.
-    """
-    pieces = []
-
-    if user.first_name:
-        pieces.append(user.first_name.strip())
-
-    # Nickname in quotes (after first name)
-    if user.nickname:
-        pieces.append(f'"{user.nickname.strip()}"')
-
-    # Middle initial
-    if user.middle_name:
-        middle_initial = user.middle_name.strip()
-        if middle_initial:
-            pieces.append(f"{middle_initial[0].upper()}.")
-
-    if user.last_name:
-        pieces.append(user.last_name.strip())
-
-    if user.suffix:
-        pieces.append(user.suffix.strip())
-
-    name = " ".join(pieces).strip()
-    return name if name else user.username
 
 
 class LoginSerializer(serializers.Serializer):
@@ -139,7 +112,7 @@ class UserSerializer(serializers.ModelSerializer):
         )
 
     def get_full_name(self, obj):
-        return format_person_name(obj)
+        return format_person_display_name(obj)
 
     def get_branch_name(self, obj):
         if obj.branch_id and getattr(obj, "branch", None):
@@ -280,16 +253,16 @@ class PasswordResetRequestListSerializer(serializers.ModelSerializer):
         )
 
     def get_full_name(self, obj):
-        return format_person_name(obj.user)
+        return format_person_display_name(obj.user)
 
     def get_approved_by_name(self, obj):
         if obj.approved_by:
-            return format_person_name(obj.approved_by)
+            return format_person_display_name(obj.approved_by)
         return None
 
     def get_rejected_by_name(self, obj):
         if obj.rejected_by:
-            return format_person_name(obj.rejected_by)
+            return format_person_display_name(obj.rejected_by)
         return None
 
 
@@ -313,7 +286,7 @@ class AccountLockoutSerializer(serializers.ModelSerializer):
         )
 
     def get_full_name(self, obj):
-        return format_person_name(obj.user)
+        return format_person_display_name(obj.user)
 
 
 class AuditLogSerializer(serializers.ModelSerializer):
@@ -341,5 +314,5 @@ class AuditLogSerializer(serializers.ModelSerializer):
 
     def get_full_name(self, obj):
         if obj.user:
-            return format_person_name(obj.user)
+            return format_person_display_name(obj.user)
         return None

@@ -66,6 +66,7 @@ import {
 } from "@/src/lib/clusterRoster";
 import { resolveFamilyMembers } from "@/src/lib/familyRoster";
 import { TABLE_ENTITY_LINK_CLASS } from "@/src/lib/tableEntityLink";
+import { formatPersonName } from "@/src/lib/name";
 import { useBranches } from "@/src/hooks/useBranches";
 import {
   getBranchChipStyle,
@@ -1548,7 +1549,7 @@ export default function ClustersPageView({
                         <tbody className="divide-y divide-gray-100">
                           {clusterPaginatedData.map((c) => {
                             const coordinatorName = c.coordinator
-                              ? `${c.coordinator.first_name} ${c.coordinator.last_name}`.trim()
+                              ? formatPersonName(c.coordinator)
                               : null;
                             const { memberCount, visitorCount } =
                               countClusterMembersFromDetails(c, peopleUI);

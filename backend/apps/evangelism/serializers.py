@@ -18,6 +18,7 @@ from apps.people.baptism_verifiers import (
 from apps.people.name_formatting import (
     PROSPECT_NAME_FIELDS,
     apply_title_case_name_fields,
+    format_person_display_name,
 )
 from apps.clusters.models import Cluster
 
@@ -73,28 +74,7 @@ class PersonSummarySerializer(serializers.ModelSerializer):
         )
 
     def get_full_name(self, obj):
-        """Format name with middle initial, nickname, and suffix."""
-        parts = []
-        
-        if obj.first_name:
-            parts.append(obj.first_name.strip())
-        
-        if obj.nickname:
-            parts.append(f'"{obj.nickname.strip()}"')
-        
-        if obj.middle_name:
-            middle_initial = obj.middle_name.strip()[0].upper() if obj.middle_name.strip() else ""
-            if middle_initial:
-                parts.append(f"{middle_initial}.")
-        
-        if obj.last_name:
-            parts.append(obj.last_name.strip())
-        
-        if obj.suffix:
-            parts.append(obj.suffix.strip())
-        
-        name = " ".join(parts).strip()
-        return name or obj.username
+        return format_person_display_name(obj) or obj.username
 
 
 class PersonConversionNestedSerializer(PersonSummarySerializer):

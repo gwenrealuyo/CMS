@@ -17,6 +17,7 @@ export type LessonPersonLike = {
   middle_name?: string;
   last_name?: string;
   suffix?: string;
+  nickname?: string;
   username: string;
   role?: string | null;
   branch?: number | string | null;
@@ -453,10 +454,11 @@ export function enrollmentTeacherLabel(
       >
     | null
     | undefined,
-  formatName: (person: LessonPersonSummary) => string = (p) =>
-    [p.first_name, p.last_name].filter(Boolean).join(" ").trim() ||
-    p.username ||
-    "Teacher",
+  formatName: (person: LessonPersonSummary) => string = (p) => {
+    const name = formatPersonName(p);
+    if (name && name !== "Unknown person") return name;
+    return p.username || "Teacher";
+  },
 ): string {
   if (!enrollment) return "No teacher";
   if (enrollment.teacher) {

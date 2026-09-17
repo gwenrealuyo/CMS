@@ -29,6 +29,7 @@ import ClusterFilterCard from "../clusters/ClusterFilterCard";
 import { FilterCondition } from "../people/FilterBar";
 import { TABLE_ENTITY_LINK_CLASS } from "@/src/lib/tableEntityLink";
 import { getPersonRoleColor } from "@/src/lib/personRole";
+import { formatPersonName } from "@/src/lib/name";
 import PersonAvatar from "@/src/components/people/PersonAvatar";
 import { useAuth } from "@/src/contexts/AuthContext";
 import { branchesApi } from "@/src/lib/api";
@@ -488,7 +489,7 @@ export default function FamilyManagementDashboard({
         last_name: m.last_name ?? "",
         role: (m.role as PersonUI["role"]) ?? "MEMBER",
         photo: m.photo ?? undefined,
-        name: `${m.first_name ?? ""} ${m.last_name ?? ""}`.trim(),
+        name: formatPersonName(m),
       })) as PersonUI[];
     }
     return (family.members ?? [])
@@ -1353,7 +1354,7 @@ export default function FamilyManagementDashboard({
                               <PersonAvatar person={member} size="sm" />
                               <div className="flex-1 min-w-0">
                                 <p className="font-medium text-gray-900 text-sm truncate">
-                                  {member.first_name} {member.last_name}
+                                  {formatPersonName(member)}
                                 </p>
                                 <p className="text-xs text-gray-500 truncate">
                                   {member.role}

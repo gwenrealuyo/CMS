@@ -62,6 +62,7 @@ import ClusterView from "@/src/components/clusters/ClusterView";
 import AddFamilyMemberModal from "@/src/components/families/AddFamilyMemberModal";
 import ClusterReportsDashboard from "@/src/components/reports/ClusterReportsDashboard";
 import ClusterWeeklyReportForm from "@/src/components/reports/ClusterWeeklyReportForm";
+import { formatPersonName } from "@/src/lib/name";
 
 function getApiErrorMessage(error: unknown, fallback: string) {
   const data = (
@@ -876,7 +877,7 @@ export default function PeoplePage() {
                 (person) => person.id === (cluster as any).coordinator,
               );
               const coordinatorName = coordinator
-                ? `${coordinator.first_name} ${coordinator.last_name}`.toLowerCase()
+                ? formatPersonName(coordinator).toLowerCase()
                 : "";
               return coordinatorName.includes(
                 (filter.value as string).toLowerCase(),
@@ -2854,7 +2855,11 @@ export default function PeoplePage() {
         onClose={closePersonDeleteConfirmation}
         onConfirm={handleDeletePerson}
         title="Delete Person"
-        message={`Are you sure you want to delete "${personDeleteConfirmation.person?.first_name} ${personDeleteConfirmation.person?.last_name}"? This action cannot be undone and will permanently remove this person from the system.`}
+        message={`Are you sure you want to delete "${
+          personDeleteConfirmation.person
+            ? formatPersonName(personDeleteConfirmation.person)
+            : ""
+        }"? This action cannot be undone and will permanently remove this person from the system.`}
         confirmText="Delete Person"
         cancelText="Cancel"
         variant="danger"
@@ -3542,7 +3547,7 @@ export default function PeoplePage() {
             setLoginCredentialsModal({ isOpen: false, person: null })
           }
           fullName={
-            `${loginCredentialsModal.person.first_name ?? ""} ${loginCredentialsModal.person.last_name ?? ""}`.trim() ||
+            formatPersonName(loginCredentialsModal.person) ||
             loginCredentialsModal.person.username
           }
           username={loginCredentialsModal.person.username}

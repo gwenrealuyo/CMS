@@ -71,9 +71,7 @@ function prospectToPersonUI(
   ) {
     invitedBy =
       prospect.invited_by.full_name?.trim() ||
-      `${prospect.invited_by.first_name ?? ""} ${
-        prospect.invited_by.last_name ?? ""
-      }`.trim();
+      formatPersonName(prospect.invited_by);
   }
   if (!invitedBy) {
     invitedBy = inviterDisplayNameFromPeople(
@@ -205,19 +203,9 @@ interface EvangelismWeeklyReportFormProps {
 
 /** Display list for members attended; includes coordinator alongside enrolled members. */
 function personToMemberOption(person: Person): PersonUI {
-  const middleInitial = person.middle_name
-    ? ` ${person.middle_name.trim().charAt(0)}.`
-    : "";
-  const suffixPart =
-    person.suffix && person.suffix.trim().length > 0
-      ? ` ${person.suffix.trim()}`
-      : "";
-  const name = `${person.first_name ?? ""}${middleInitial} ${
-    person.last_name ?? ""
-  }${suffixPart}`.trim();
   return {
     ...person,
-    name,
+    name: formatPersonName(person),
     dateFirstAttended: person.date_first_attended,
     id: person.id?.toString() || "",
   };
@@ -483,24 +471,12 @@ export default function EvangelismWeeklyReportForm({
         const response = await peopleApi.getAll({ for_report: true });
         const peopleUI: PersonUI[] = response.data
           .filter(isSelectablePerson)
-          .map((p) => {
-            const middleInitial = p.middle_name
-              ? ` ${p.middle_name.trim().charAt(0)}.`
-              : "";
-            const suffixPart =
-              p.suffix && p.suffix.trim().length > 0
-                ? ` ${p.suffix.trim()}`
-                : "";
-            const name = `${p.first_name ?? ""}${middleInitial} ${
-              p.last_name ?? ""
-            }${suffixPart}`.trim();
-            return {
-              ...p,
-              name,
-              dateFirstAttended: p.date_first_attended,
-              id: p.id?.toString() || "",
-            };
-          });
+          .map((p) => ({
+            ...p,
+            name: formatPersonName(p),
+            dateFirstAttended: p.date_first_attended,
+            id: p.id?.toString() || "",
+          }));
         setPeople(peopleUI);
       } catch (err) {
         console.error("Error loading people:", err);
@@ -625,16 +601,7 @@ export default function EvangelismWeeklyReportForm({
     const pendingVisitorOptions: PersonUI[] = Object.entries(
       pendingNewVisitors,
     ).map(([tempId, payload]) => {
-      const middleInitial = payload.middle_name
-        ? ` ${payload.middle_name.trim().charAt(0)}.`
-        : "";
-      const suffixPart =
-        payload.suffix && payload.suffix.trim().length > 0
-          ? ` ${payload.suffix.trim()}`
-          : "";
-      const name = `${payload.first_name ?? ""}${middleInitial} ${
-        payload.last_name ?? ""
-      }${suffixPart} (new)`.trim();
+      const name = `${formatPersonName(payload)} (new)`.trim();
       return {
         id: `newvisitor:${tempId}`,
         name,
@@ -686,9 +653,7 @@ export default function EvangelismWeeklyReportForm({
       if (byId.has(attendanceId)) continue;
       const nestedInviterName =
         detail.invited_by != null
-          ? `${detail.invited_by.first_name ?? ""} ${
-              detail.invited_by.last_name ?? ""
-            }`.trim()
+          ? formatPersonName(detail.invited_by)
           : "";
       const invitedBy =
         nestedInviterName ||
@@ -869,21 +834,11 @@ export default function EvangelismWeeklyReportForm({
         const created = await peopleApi.create(payload);
         const realId = String(created.data.id);
         idMap.set(`newvisitor:${tempId}`, realId);
-        const middleInitial = created.data.middle_name
-          ? ` ${created.data.middle_name.trim().charAt(0)}.`
-          : "";
-        const suffixPart =
-          created.data.suffix && created.data.suffix.trim().length > 0
-            ? ` ${created.data.suffix.trim()}`
-            : "";
-        const name = `${created.data.first_name ?? ""}${middleInitial} ${
-          created.data.last_name ?? ""
-        }${suffixPart}`.trim();
         setPeople((prev) => [
           ...prev,
           {
             ...created.data,
-            name,
+            name: formatPersonName(created.data),
             dateFirstAttended: created.data.date_first_attended,
             id: realId,
           },

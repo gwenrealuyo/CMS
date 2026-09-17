@@ -282,6 +282,8 @@ export default function EvangelismGroupForm({
           return {
             label: formatPersonName(person),
             value: String(person.id),
+            nickname: person.nickname?.trim() || null,
+            firstName: person.first_name?.trim() || null,
             statusLabel,
             statusClassName,
             clusterCode,
@@ -407,6 +409,8 @@ export default function EvangelismGroupForm({
       .map((person) => ({
         label: formatPersonName(person),
         value: String(person.id),
+        nickname: person.nickname?.trim() || null,
+        firstName: person.first_name?.trim() || null,
       }))
       .sort((a, b) => a.label.localeCompare(b.label));
   }, [
@@ -511,6 +515,8 @@ export default function EvangelismGroupForm({
         return {
           label: person ? formatPersonName(person) : id,
           value: id,
+          nickname: person?.nickname?.trim() || null,
+          firstName: person?.first_name?.trim() || null,
         };
       })
       .sort((a, b) => a.label.localeCompare(b.label));

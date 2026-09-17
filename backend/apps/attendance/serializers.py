@@ -3,6 +3,7 @@ from rest_framework.exceptions import ValidationError
 
 from apps.events.models import AttendanceVenue, Event
 from apps.people.models import Person
+from apps.people.name_formatting import format_person_display_name
 from core.datetime_utils import church_calendar_date
 
 from .models import AttendanceRecord
@@ -35,11 +36,7 @@ class AttendancePersonSerializer(serializers.ModelSerializer):
         read_only_fields = fields
 
     def get_full_name(self, obj: Person) -> str:
-        parts = [obj.first_name]
-        if obj.nickname:
-            parts.append(f'"{obj.nickname}"')
-        parts.extend([obj.middle_name, obj.last_name, obj.suffix])
-        return " ".join(filter(None, parts)).strip()
+        return format_person_display_name(obj) or obj.username
 
     def get_cluster_codes(self, obj: Person):
         return [code for code in obj.clusters.values_list("code", flat=True) if code]

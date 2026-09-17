@@ -8,6 +8,7 @@ import Button from "@/src/components/ui/Button";
 import LoadingSpinner from "@/src/components/ui/LoadingSpinner";
 import ErrorMessage from "@/src/components/ui/ErrorMessage";
 import { formatLocaleDate } from "@/src/lib/date";
+import { formatPersonName } from "@/src/lib/name";
 
 export default function ClusterComplianceTab() {
   const [loading, setLoading] = useState(true);
@@ -236,7 +237,7 @@ export default function ClusterComplianceTab() {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                     {item.cluster.coordinator
-                      ? `${item.cluster.coordinator.first_name} ${item.cluster.coordinator.last_name}`
+                      ? formatPersonName(item.cluster.coordinator)
                       : "N/A"}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">

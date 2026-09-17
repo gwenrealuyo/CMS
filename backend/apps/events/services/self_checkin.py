@@ -588,17 +588,11 @@ def serialize_session_event(event: Event, occ: Occurrence) -> dict:
 
 
 def person_full_name(person: Person) -> str:
-    parts = [person.first_name or ""]
-    if person.nickname:
-        parts.append(f'"{person.nickname}"')
-    if person.middle_name:
-        parts.append(person.middle_name)
-    if person.last_name:
-        parts.append(person.last_name)
-    if person.suffix:
-        parts.append(person.suffix)
-    name = " ".join(p for p in parts if p).strip()
-    return name or person.username or f"Person #{person.pk}"
+    return (
+        format_person_display_name(person)
+        or person.username
+        or f"Person #{person.pk}"
+    )
 
 
 def serialize_person_slim(

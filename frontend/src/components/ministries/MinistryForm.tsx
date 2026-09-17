@@ -302,6 +302,8 @@ export default function MinistryForm({
         ? person.branch_code?.trim() || null
         : null,
       memberId: person.member_id?.trim() || null,
+      nickname: person.nickname?.trim() || null,
+      firstName: person.first_name?.trim() || null,
     };
   };
 
@@ -379,7 +381,6 @@ export default function MinistryForm({
       setValues({
         ...values,
         members: [
-          ...values.members,
           {
             member_id: memberId,
             role: selectedMemberRole,
@@ -391,6 +392,7 @@ export default function MinistryForm({
               ? true
               : undefined,
           },
+          ...values.members,
         ],
       });
     }

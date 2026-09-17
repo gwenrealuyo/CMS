@@ -37,6 +37,7 @@ import Modal from "@/src/components/ui/Modal";
 import ClusterWeeklyReportForm from "@/src/components/reports/ClusterWeeklyReportForm";
 import SundaySelfCheckInBanner from "@/src/components/events/SundaySelfCheckInBanner";
 import { Cluster, ClusterWeeklyReport } from "@/src/types/cluster";
+import { formatPersonName } from "@/src/lib/name";
 
 type UpcomingEvent = {
   id: string;
@@ -841,7 +842,7 @@ export default function Dashboard() {
 
       recentPeople.forEach(({ person, date }) => {
         const name =
-          person.full_name || `${person.first_name} ${person.last_name}`.trim();
+          person.full_name || formatPersonName(person);
         items.push({
           id: `person-${person.id}`,
           type: "people",

@@ -24,6 +24,7 @@ import { financeApi, peopleApi } from "@/src/lib/api";
 import { useAuth } from "@/src/contexts/AuthContext";
 import { canHardDelete } from "@/src/lib/canHardDelete";
 import { isSelectablePerson } from "@/src/lib/peopleSelectors";
+import { formatPersonName } from "@/src/lib/name";
 import { Person } from "@/src/types/person";
 import { formatLocaleDate } from "@/src/lib/date";
 import {
@@ -313,16 +314,9 @@ export default function FinancePage() {
 
   // Format person name for contributor dropdown (matches serializer format)
   const formatPersonLabel = useCallback((person: Person) => {
-    // Format: First Name Middle Name Last Name Suffix
-    const parts = [
-      person.first_name,
-      person.middle_name,
-      person.last_name,
-      person.suffix,
-    ].filter(Boolean);
-    const fullName = parts.join(" ").trim();
-    // Fallback to email or username if no name parts exist
-    return fullName || person.email || person.username || "Unknown";
+    const name = formatPersonName(person);
+    if (name && name !== "Unknown person") return name;
+    return person.email || person.username || "Unknown";
   }, []);
 
   // Options for contributor dropdown
@@ -336,6 +330,8 @@ export default function FinancePage() {
       .map((person) => ({
         label: formatPersonLabel(person),
         value: String(person.id),
+        nickname: person.nickname?.trim() || null,
+        firstName: person.first_name?.trim() || null,
       }))
       .sort((a, b) => a.label.localeCompare(b.label));
   }, [people, formatPersonLabel]);

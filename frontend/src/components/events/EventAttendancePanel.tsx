@@ -146,6 +146,7 @@ export default function EventAttendancePanel({
           label: formatPersonName(person),
           memberId: person.member_id,
           nickname: nickname || null,
+          firstName: person.first_name?.trim() || null,
           disabled: attendanceRecords.some(
             (record) => String(record.person.id) === String(person.id)
           ),

@@ -3003,11 +3003,6 @@ function AddMemberModalContent({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const formatPersonLabel = (person: Person) => {
-    const name = `${person.first_name ?? ""} ${person.last_name ?? ""}`.trim();
-    return name || person.email || person.username;
-  };
-
   const availablePeople = useMemo(
     () =>
       people.filter(
@@ -3022,8 +3017,10 @@ function AddMemberModalContent({
     () =>
       availablePeople
         .map((person) => ({
-          label: formatPersonLabel(person),
+          label: formatPersonName(person),
           value: String(person.id),
+          nickname: person.nickname?.trim() || null,
+          firstName: person.first_name?.trim() || null,
         }))
         .sort((a, b) => a.label.localeCompare(b.label)),
     [availablePeople]
@@ -3104,11 +3101,6 @@ function BulkEnrollModalContent({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const formatPersonLabel = (person: Person) => {
-    const name = `${person.first_name ?? ""} ${person.last_name ?? ""}`.trim();
-    return name || person.email || person.username;
-  };
-
   const availablePeople = useMemo(
     () =>
       people.filter(
@@ -3123,7 +3115,7 @@ function BulkEnrollModalContent({
     () =>
       availablePeople
         .map((person) => ({
-          label: formatPersonLabel(person),
+          label: formatPersonName(person),
           value: String(person.id),
           disabled: selectedPersonIds.includes(String(person.id)),
           ...personDropdownChips(person),

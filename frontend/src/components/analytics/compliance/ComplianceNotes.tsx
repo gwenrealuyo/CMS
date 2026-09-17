@@ -6,6 +6,7 @@ import Card from "@/src/components/ui/Card";
 import Button from "@/src/components/ui/Button";
 import { reportsApi } from "@/src/lib/api";
 import type { ComplianceNote } from "@/src/types/cluster";
+import { formatPersonName } from "@/src/lib/name";
 
 interface ComplianceNotesProps {
   notes: ComplianceNote[];
@@ -97,7 +98,7 @@ export default function ComplianceNotes({
                 <p className="text-sm text-foreground">{note.note}</p>
                 <p className="mt-1 text-xs text-muted-foreground">
                   {note.created_by
-                    ? `${note.created_by.first_name} ${note.created_by.last_name}`
+                    ? formatPersonName(note.created_by)
                     : "Unknown"}
                   {" - "}
                   {new Date(note.created_at).toLocaleDateString()}

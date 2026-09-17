@@ -2,7 +2,16 @@ from decimal import Decimal
 
 from django.core.validators import MinValueValidator
 from rest_framework import serializers
+
+from apps.people.name_formatting import format_person_display_name
+
 from .models import Donation, Offering, Pledge, PledgeContribution
+
+
+def _person_display_name(person):
+    if not person:
+        return None
+    return format_person_display_name(person) or person.username
 
 
 class DonationSerializer(serializers.ModelSerializer):
@@ -32,14 +41,7 @@ class DonationSerializer(serializers.ModelSerializer):
         read_only_fields = ["id", "created_at", "recorded_by_name"]
 
     def get_recorded_by_name(self, obj):
-        user = obj.recorded_by
-        if not user:
-            return None
-        # Format: First Name, Middle Name, Last Name, Suffix
-        parts = [user.first_name, user.middle_name, user.last_name, user.suffix]
-        full_name = " ".join(filter(None, parts)).strip()
-        # Fallback to username if no name parts exist
-        return full_name or user.username
+        return _person_display_name(obj.recorded_by)
 
 
 class OfferingSerializer(serializers.ModelSerializer):
@@ -66,14 +68,7 @@ class OfferingSerializer(serializers.ModelSerializer):
         read_only_fields = ["id", "created_at", "recorded_by_name"]
 
     def get_recorded_by_name(self, obj):
-        user = obj.recorded_by
-        if not user:
-            return None
-        # Format: First Name, Middle Name, Last Name, Suffix
-        parts = [user.first_name, user.middle_name, user.last_name, user.suffix]
-        full_name = " ".join(filter(None, parts)).strip()
-        # Fallback to username if no name parts exist
-        return full_name or user.username
+        return _person_display_name(obj.recorded_by)
 
 
 class PledgeContributionSerializer(serializers.ModelSerializer):
@@ -111,29 +106,10 @@ class PledgeContributionSerializer(serializers.ModelSerializer):
         ]
 
     def get_recorded_by_name(self, obj):
-        user = obj.recorded_by
-        if not user:
-            return None
-        # Format: First Name, Middle Name, Last Name, Suffix
-        parts = [user.first_name, user.middle_name, user.last_name, user.suffix]
-        full_name = " ".join(filter(None, parts)).strip()
-        # Fallback to username if no name parts exist
-        return full_name or user.username
+        return _person_display_name(obj.recorded_by)
 
     def get_contributor_name(self, obj):
-        contributor = obj.contributor
-        if not contributor:
-            return None
-        # Format: First Name, Middle Name, Last Name, Suffix
-        parts = [
-            contributor.first_name,
-            contributor.middle_name,
-            contributor.last_name,
-            contributor.suffix,
-        ]
-        full_name = " ".join(filter(None, parts)).strip()
-        # Fallback to username if no name parts exist
-        return full_name or contributor.username
+        return _person_display_name(obj.contributor)
 
 
 class PledgeSerializer(serializers.ModelSerializer):
@@ -187,14 +163,7 @@ class PledgeSerializer(serializers.ModelSerializer):
         ]
 
     def get_recorded_by_name(self, obj):
-        user = obj.recorded_by
-        if not user:
-            return None
-        # Format: First Name, Middle Name, Last Name, Suffix
-        parts = [user.first_name, user.middle_name, user.last_name, user.suffix]
-        full_name = " ".join(filter(None, parts)).strip()
-        # Fallback to username if no name parts exist
-        return full_name or user.username
+        return _person_display_name(obj.recorded_by)
 
     def get_contributions_total(self, obj):
         return obj.effective_amount_received()

@@ -7,6 +7,7 @@ import ScalableSelect from "@/src/components/ui/ScalableSelect";
 import BaptismVerifierPicker from "@/src/components/people/BaptismVerifierPicker";
 import { Conversion } from "@/src/types/evangelism";
 import { Person } from "@/src/types/person";
+import { formatPersonName } from "@/src/lib/name";
 import {
   BAPTIZED_BY_HINT,
   BAPTIZED_BY_LABEL,
@@ -221,17 +222,14 @@ export default function ConversionForm({
     values.person_id,
   ]);
 
-  const formatPersonLabel = (person: Person) => {
-    const name = `${person.first_name ?? ""} ${person.last_name ?? ""}`.trim();
-    return name || person.email || person.username;
-  };
-
   const personOptions = useMemo(
     () =>
       selectablePeople
         .map((person) => ({
-          label: formatPersonLabel(person),
+          label: formatPersonName(person),
           value: String(person.id),
+          nickname: person.nickname?.trim() || null,
+          firstName: person.first_name?.trim() || null,
         }))
         .sort((a, b) => a.label.localeCompare(b.label)),
     [selectablePeople],

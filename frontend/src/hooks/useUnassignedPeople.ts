@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { Person, PersonUI } from "@/src/types/person";
 import { familiesApi } from "@/src/lib/api";
+import { formatPersonName } from "@/src/lib/name";
 
 export interface UseUnassignedPeopleOptions {
   search?: string;
@@ -78,7 +79,7 @@ export function useUnassignedPeople(options: UseUnassignedPeopleOptions = {}) {
 
   const peopleUI: PersonUI[] = people.map((p) => ({
     ...p,
-    name: `${p.first_name ?? ""} ${p.last_name ?? ""}`.trim(),
+    name: formatPersonName(p),
     dateFirstAttended: p.date_first_attended,
   }));
 

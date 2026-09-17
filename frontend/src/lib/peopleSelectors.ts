@@ -14,6 +14,8 @@ type PersonChipLike = {
   status?: string | null;
   cluster_codes?: string[] | null;
   branch?: number | null;
+  nickname?: string | null;
+  first_name?: string | null;
 };
 
 const normalize = (value?: string | null): string =>
@@ -44,5 +46,7 @@ export function personDropdownChips(person: PersonChipLike) {
     statusClassName: getPersonStatusColor(person.status),
     clusterCode: codes.length > 0 ? codes.join(", ") : "NO CLUSTER",
     clusterBranchId: person.branch ?? null,
+    nickname: person.nickname?.trim() || null,
+    firstName: person.first_name?.trim() || null,
   };
 }

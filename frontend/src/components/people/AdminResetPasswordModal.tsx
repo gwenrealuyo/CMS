@@ -6,6 +6,7 @@ import Button from "@/src/components/ui/Button";
 import PasswordInput from "@/src/components/ui/PasswordInput";
 import { authApi } from "@/src/lib/api";
 import { Person } from "@/src/types/person";
+import { formatPersonName } from "@/src/lib/name";
 import toast from "react-hot-toast";
 import UserLoginCredentialsModal from "@/src/components/people/UserLoginCredentialsModal";
 
@@ -16,10 +17,8 @@ interface AdminResetPasswordModalProps {
 }
 
 function personDisplayName(person: Person): string {
-  return (
-    `${person.first_name ?? ""} ${person.last_name ?? ""}`.trim() ||
-    person.username
-  );
+  const name = formatPersonName(person);
+  return name === "Unknown person" ? person.username : name;
 }
 
 export default function AdminResetPasswordModal({

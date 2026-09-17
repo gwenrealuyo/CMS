@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useMemo } from "react";
 import { createPortal } from "react-dom";
-import { formatPersonName } from "@/src/lib/name";
+import { formatPersonName, personNameSearchText } from "@/src/lib/name";
 import { getPersonRoleColor } from "@/src/lib/personRole";
 import {
   formatPersonClusterLabel,
@@ -89,9 +89,8 @@ export default function SearchableSelect({
     }
     const query = searchQuery.toLowerCase();
     return validOptions.filter((option) => {
-      const name = formatPersonName(option).toLowerCase();
-      const username = (option.username || "").toLowerCase();
-      return name.includes(query) || username.includes(query);
+      const haystack = personNameSearchText(option);
+      return haystack.includes(query);
     });
   }, [options, searchQuery]);
 

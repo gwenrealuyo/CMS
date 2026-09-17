@@ -635,10 +635,10 @@ export default function ClusterReportsDashboard({
           break;
         case "submitted_by":
           aValue = a.submitted_by_details
-            ? `${a.submitted_by_details.first_name} ${a.submitted_by_details.last_name}`
+            ? formatPersonName(a.submitted_by_details)
             : "";
           bValue = b.submitted_by_details
-            ? `${b.submitted_by_details.first_name} ${b.submitted_by_details.last_name}`
+            ? formatPersonName(b.submitted_by_details)
             : "";
           break;
         default:

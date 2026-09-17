@@ -19,7 +19,7 @@ import {
   type MeetingDayKey,
 } from "@/src/lib/clusterMeetingSchedule";
 import { getPersonRoleColor } from "@/src/lib/personRole";
-import { formatPersonName } from "@/src/lib/name";
+import { formatPersonName, personNameSearchText } from "@/src/lib/name";
 import { isSelectablePerson } from "@/src/lib/peopleSelectors";
 import PersonAvatar from "@/src/components/people/PersonAvatar";
 import {
@@ -422,6 +422,8 @@ export default function ClusterForm({
   const memberOptions = people.map((p) => ({
     value: p.id,
     label: formatPersonName(p),
+    nickname: p.nickname?.trim() || null,
+    firstName: p.first_name?.trim() || null,
   }));
 
   const filteredMembers = useMemo(() => {
@@ -429,7 +431,7 @@ export default function ClusterForm({
     const searchLower = memberSearch.toLowerCase();
     return people.filter(
       (member) =>
-        formatPersonName(member).toLowerCase().includes(searchLower) ||
+        personNameSearchText(member).includes(searchLower) ||
         member.role.toLowerCase().includes(searchLower) ||
         member.status.toLowerCase().includes(searchLower),
     );

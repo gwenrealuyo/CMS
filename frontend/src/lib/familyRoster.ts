@@ -4,6 +4,7 @@ import {
   Person,
   PersonUI,
 } from "@/src/types/person";
+import { formatPersonName } from "@/src/lib/name";
 
 /** Roles included in family ``member_count`` (converts are stored as MEMBER). */
 const FAMILY_MEMBER_ROLES = new Set(["MEMBER", "PASTOR"]);
@@ -42,7 +43,7 @@ function slimToPersonUI(m: FamilyMemberPreview): PersonUI {
     role: (m.role || "MEMBER") as Person["role"],
     status: "ACTIVE",
     photo: m.photo ?? undefined,
-    name: `${m.first_name ?? ""} ${m.last_name ?? ""}`.trim(),
+    name: formatPersonName(m),
   } as PersonUI;
 }
 

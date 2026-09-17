@@ -14,12 +14,14 @@ export function findPossibleNameDuplicates(
   opts: {
     firstName?: string | null;
     lastName?: string | null;
+    suffix?: string | null;
     branch?: number | null;
     excludeId?: string | number | null;
   }
 ): Person[] {
   const first = normalizeNamePart(opts.firstName);
   const last = normalizeNamePart(opts.lastName);
+  const suffix = normalizeNamePart(opts.suffix);
   if (!first && !last) return [];
 
   const excludeId =
@@ -31,7 +33,8 @@ export function findPossibleNameDuplicates(
     if (excludeId && String(person.id) === excludeId) return false;
     return (
       normalizeNamePart(person.first_name) === first &&
-      normalizeNamePart(person.last_name) === last
+      normalizeNamePart(person.last_name) === last &&
+      normalizeNamePart(person.suffix) === suffix
     );
   });
 

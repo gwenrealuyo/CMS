@@ -29,7 +29,7 @@ import {
   personIdString,
 } from "@/src/lib/baptismVerifiers";
 import { memberCareActionLabel } from "@/src/lib/memberCare";
-import { formatPersonName } from "@/src/lib/name";
+import { formatPersonName, formatPersonLegalName } from "@/src/lib/name";
 
 function TrashIcon({ className = "w-4 h-4" }: { className?: string }) {
   return (
@@ -887,6 +887,18 @@ export default function PersonProfile({
                       Personal
                     </h3>
                     <dl className="divide-y divide-gray-100">
+                      <ProfileFieldRow
+                        label="Full name"
+                        value={formatPersonLegalName(person)}
+                      />
+                      <ProfileFieldRow
+                        label="Nickname"
+                        value={(person as any).nickname}
+                      />
+                      <ProfileFieldRow
+                        label="Maiden name"
+                        value={person.maiden_name}
+                      />
                       <ProfileFieldRow label="Gender" value={person.gender} />
                       <ProfileFieldRow
                         label="Birthday"
@@ -948,14 +960,6 @@ export default function PersonProfile({
                             person.hg_witnessed_by_display_name,
                           ) || undefined
                         }
-                      />
-                      <ProfileFieldRow
-                        label="Nickname"
-                        value={(person as any).nickname}
-                      />
-                      <ProfileFieldRow
-                        label="Maiden name"
-                        value={person.maiden_name}
                       />
                       <ProfileFieldRow
                         label="NCC teacher"

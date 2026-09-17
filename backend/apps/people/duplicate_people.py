@@ -25,6 +25,7 @@ def _person_summary(person: Person) -> Dict[str, Any]:
         "first_name": person.first_name,
         "last_name": person.last_name,
         "middle_name": person.middle_name or "",
+        "suffix": person.suffix or "",
         "username": person.username,
         "email": person.email or "",
         "phone": person.phone or "",
@@ -53,7 +54,7 @@ def find_possible_people_duplicate_groups(
     Return groups of people that look like duplicates.
 
     match: "name" | "member_id" | "both"
-    - name: same first+last (case-insensitive, trimmed); both parts non-empty
+    - name: same first+last+suffix (case-insensitive, trimmed); first and last non-empty
     - member_id: same non-empty LAMP ID (case-insensitive, trimmed)
     """
     match = (match or "both").strip().lower()
@@ -71,30 +72,36 @@ def find_possible_people_duplicate_groups(
             base.annotate(
                 fn=Lower(Trim("first_name")),
                 ln=Lower(Trim("last_name")),
+                sf=Lower(Trim("suffix")),
             )
             .exclude(fn="")
             .exclude(ln="")
         )
         name_keys = (
-            name_qs.values("fn", "ln")
+            name_qs.values("fn", "ln", "sf")
             .annotate(count=Count("id"))
             .filter(count__gt=1)
-            .order_by("-count", "ln", "fn")
+            .order_by("-count", "ln", "fn", "sf")
         )
         for row in name_keys:
             people = list(
-                name_qs.filter(fn=row["fn"], ln=row["ln"])
+                name_qs.filter(fn=row["fn"], ln=row["ln"], sf=row["sf"])
                 .prefetch_related("clusters")
                 .order_by("id")
             )
             same_branch = _group_same_branch(people)
             if same_branch_only and not same_branch:
                 continue
+            label_parts = [
+                people[0].first_name,
+                people[0].last_name,
+                (people[0].suffix or "").strip(),
+            ]
             groups.append(
                 {
                     "match_type": "name",
-                    "key": f"{row['fn']}|{row['ln']}",
-                    "label": f"{people[0].first_name} {people[0].last_name}".strip(),
+                    "key": f"{row['fn']}|{row['ln']}|{row['sf']}",
+                    "label": " ".join(p for p in label_parts if p).strip(),
                     "count": len(people),
                     "same_branch": same_branch,
                     "people": [_person_summary(p) for p in people],

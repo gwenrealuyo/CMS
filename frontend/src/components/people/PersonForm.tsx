@@ -1464,6 +1464,7 @@ export default function PersonForm({
       const nameMatches = findPossibleNameDuplicates(peopleOptions, {
         firstName: formData.first_name,
         lastName: formData.last_name,
+        suffix: formData.suffix,
         branch: formData.branch ?? null,
         excludeId: initialData?.id,
       });

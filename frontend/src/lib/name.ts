@@ -87,6 +87,17 @@ export function formatPersonName(person: PersonLike): string {
   return personId ? `Person #${personId}` : "Unknown person";
 }
 
+/** Legal name only: first + full middle + last + suffix (no nickname). */
+export function formatPersonLegalName(person: PersonLike): string {
+  if (!person || !hasNameFields(person)) {
+    return "";
+  }
+  return [person.first_name, person.middle_name, person.last_name, person.suffix]
+    .map((part) => trimmed(part))
+    .filter(Boolean)
+    .join(" ");
+}
+
 /** Haystack for person pickers: legal first name stays searchable when nickname is shown. */
 export function personNameSearchText(person: PersonLike): string {
   if (!person || !hasNameFields(person)) {

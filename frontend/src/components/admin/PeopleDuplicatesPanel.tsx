@@ -18,6 +18,7 @@ type DuplicatePerson = {
   first_name: string;
   last_name: string;
   middle_name?: string;
+  suffix?: string;
   username: string;
   email?: string;
   phone?: string;

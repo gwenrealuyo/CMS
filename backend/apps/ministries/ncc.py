@@ -89,6 +89,14 @@ def seed_ncc_ministries_for_all_branches() -> int:
     return created
 
 
+def _lessons_module_assignment(person: Person) -> Optional[ModuleCoordinator]:
+    return ModuleCoordinator.objects.filter(
+        person=person,
+        module=ModuleCoordinator.ModuleType.LESSONS,
+        resource_id=None,
+    ).first()
+
+
 def grant_lessons_teacher_access(person: Person) -> Optional[ModuleCoordinator]:
     """
     Ensure the person can access Lessons as a teacher.
@@ -96,11 +104,7 @@ def grant_lessons_teacher_access(person: Person) -> Optional[ModuleCoordinator]:
     ModuleCoordinator is unique on (person, module, resource_id), so a Lessons
     coordinator/senior already covers access — do not create a duplicate TEACHER row.
     """
-    existing = ModuleCoordinator.objects.filter(
-        person=person,
-        module=ModuleCoordinator.ModuleType.LESSONS,
-        resource_id=None,
-    ).first()
+    existing = _lessons_module_assignment(person)
     if existing:
         return existing
     return ModuleCoordinator.objects.create(
@@ -110,6 +114,85 @@ def grant_lessons_teacher_access(person: Person) -> Optional[ModuleCoordinator]:
         resource_id=None,
         resource_type="",
     )
+
+
+def grant_lessons_coordinator_access(person: Person) -> Optional[ModuleCoordinator]:
+    """
+    Ensure a non-senior Lessons Coordinator assignment.
+
+    Unique on (person, LESSONS, resource_id=None): leave SENIOR in place, upgrade
+    TEACHER to COORDINATOR, or create COORDINATOR.
+    """
+    if person is None or not getattr(person, "pk", None):
+        return None
+    existing = _lessons_module_assignment(person)
+    if existing:
+        if existing.level == ModuleCoordinator.CoordinatorLevel.SENIOR_COORDINATOR:
+            return existing
+        if existing.level != ModuleCoordinator.CoordinatorLevel.COORDINATOR:
+            existing.level = ModuleCoordinator.CoordinatorLevel.COORDINATOR
+            existing.save(update_fields=["level"])
+        return existing
+    return ModuleCoordinator.objects.create(
+        person=person,
+        module=ModuleCoordinator.ModuleType.LESSONS,
+        level=ModuleCoordinator.CoordinatorLevel.COORDINATOR,
+        resource_id=None,
+        resource_type="",
+    )
+
+
+def _person_should_keep_lessons_teacher_access(person: Person) -> bool:
+    return MinistryMember.objects.filter(
+        ministry__code=NCC_MINISTRY_CODE,
+        member=person,
+        is_active=True,
+    ).exists()
+
+
+def revoke_lessons_coordinator_access(person: Person) -> None:
+    """
+    Drop auto-granted Lessons Coordinator access when the person is no longer
+    NCC support (and not NCC primary). Demote to TEACHER when they still have
+    an active NCC roster membership; otherwise delete the COORDINATOR row.
+    Never demotes SENIOR_COORDINATOR.
+    """
+    if person is None or not getattr(person, "pk", None):
+        return
+    from apps.lessons.coordinator_access import (
+        is_ncc_primary_coordinator,
+        is_ncc_support_coordinator,
+    )
+
+    if is_ncc_support_coordinator(person) or is_ncc_primary_coordinator(person):
+        return
+    existing = _lessons_module_assignment(person)
+    if (
+        existing is None
+        or existing.level != ModuleCoordinator.CoordinatorLevel.COORDINATOR
+    ):
+        return
+    if _person_should_keep_lessons_teacher_access(person):
+        existing.level = ModuleCoordinator.CoordinatorLevel.TEACHER
+        existing.save(update_fields=["level"])
+        return
+    existing.delete()
+
+
+def sync_ncc_support_coordinator_access(
+    ministry: Ministry,
+    *,
+    removed_support_ids: Optional[Iterable[int]] = None,
+) -> None:
+    """Grant/revoke Lessons Coordinator rows for an NCC ministry's support list."""
+    if not is_ncc_ministry(ministry):
+        return
+    for person in ministry.support_coordinators.all():
+        grant_lessons_coordinator_access(person)
+    for person_id in set(removed_support_ids or []):
+        person = Person.objects.filter(pk=person_id).first()
+        if person:
+            revoke_lessons_coordinator_access(person)
 
 
 _LESSONS_ACCESS_LEVELS = (

@@ -36,16 +36,20 @@ def apply_ministry_branch_visibility(queryset, user):
     return queryset.filter(scope=MinistryScope.NATIONAL)
 
 
-def sync_coordinators_to_members(ministry):
+def sync_coordinators_to_members(ministry, *, removed_support_ids=None):
     """
     Sync primary_coordinator and support_coordinators to MinistryMember entries.
     This ensures coordinator assignments automatically create/update MinistryMember records.
 
     This function is shared between serializers and signals to avoid code duplication.
+
+    For NCC ministries, also grants/revokes a non-senior Lessons Coordinator
+    ModuleCoordinator row when support coordinators are added or removed.
     """
     # Track current coordinators
     current_primary = ministry.primary_coordinator
     current_support = set(ministry.support_coordinators.all())
+    demoted_member_ids = set()
 
     # Sync primary coordinator
     if current_primary:
@@ -87,5 +91,11 @@ def sync_coordinators_to_members(ministry):
 
             if not is_still_primary and not is_still_support:
                 # They were removed from coordinator positions, update to TEAM_MEMBER
+                demoted_member_ids.add(membership.member_id)
                 membership.role = MinistryRole.TEAM_MEMBER
                 membership.save(update_fields=["role"])
+
+    from .ncc import sync_ncc_support_coordinator_access
+
+    revoke_ids = set(removed_support_ids or []) | demoted_member_ids
+    sync_ncc_support_coordinator_access(ministry, removed_support_ids=revoke_ids)

@@ -91,6 +91,7 @@ Applied to:
 - Branch `<select>` on the right of the content tab row (`Lesson Content` | `Student Progress` | `Teachers` | `Session Reports` | `Files`).
 - Editable for ADMIN, PASTOR, and HQ Lessons seniors (Admin Settings **or** NCC primary coordinator). Locked with tooltip for teachers, Lessons coordinators, NCC support coordinators, and satellite seniors.
 - Changing branch refetches summary, progress, enrollments, and session reports (when that tab is active). Assign/session people dropdowns are filtered client-side to the selected branch. The filter **defaults to the user's own branch** (not “All branches”).
+- Assign Lessons and session student pickers load people with `for_lessons=1` so Lessons Coordinators (including NCC support) can search same-branch people. The People directory stays unexpanded (self + family).
 
 ## Commitment Form & NCC Lessons PDF
 
@@ -161,12 +162,12 @@ Entry: [`frontend/src/app/lessons/page.tsx`](../frontend/src/app/lessons/page.ts
 - **Teachers** tab: Admin, Pastor, Lessons coordinators, and NCC primary/support coordinators only. Lessons teachers who are not coordinators stay on Student Progress (their assigned students).
 - Branch picker: ADMIN, PASTOR, and HQ Lessons seniors (including HQ NCC primary) only. Hidden when Progress/Reports tabs are hidden.
 
-NCC ministry roles (no extra `ModuleCoordinator` row):
+NCC ministry roles:
 
 | NCC ministry role | Lessons access |
 |-------------------|----------------|
-| **Support coordinator** | Same as Lessons Coordinator (all students in their branch; assign, log sessions, manage that branch's NCC roster). Does not expand People/Families. |
-| **Primary coordinator** | Same as Lessons Senior Coordinator for Lessons/NCC. Own branch unless the NCC ministry is HQ, in which case they may view other branches. People/Families stay unchanged. |
+| **Support coordinator** | Creates a non-senior `LESSONS` + `COORDINATOR` assignment (same as Lessons Coordinator): all students in their branch; assign, log sessions, manage that branch's NCC roster. Removing last NCC support demotes that row to `TEACHER` if they stay on the roster, otherwise deletes it. Does not expand the People directory; Lessons pickers use `for_lessons`. |
+| **Primary coordinator** | Same as Lessons Senior Coordinator for Lessons/NCC (derived; no extra senior row). Own branch unless the NCC ministry is HQ, in which case they may view other branches. People/Families stay unchanged. |
 
 ## Testing
 

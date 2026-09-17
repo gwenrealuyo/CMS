@@ -215,7 +215,10 @@ export default function LessonsPageContainer() {
     String(new Date().getFullYear()),
   ]);
 
-  const { people, loading: peopleLoading, error: peopleError } = usePeople();
+  const { people, loading: peopleLoading, error: peopleError } = usePeople(
+    true,
+    { for_lessons: true },
+  );
   const { user } = useAuth();
   const { moduleEnabled } = useModuleSettings();
   const userCanHardDelete = canHardDelete(user);

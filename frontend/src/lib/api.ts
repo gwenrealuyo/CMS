@@ -357,6 +357,8 @@ export type PeopleListParams = {
   exclude_username?: string;
   /** Same-branch people for weekly-report attendee pickers (Bible Sharers). */
   for_report?: boolean | string;
+  /** Same-branch people for Lessons assign / session pickers. */
+  for_lessons?: boolean | string;
 };
 
 export type PeopleListResponse = PaginatedResponse<Person> | Person[];

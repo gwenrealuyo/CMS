@@ -1,9 +1,12 @@
 import { useState, useEffect, useCallback } from "react";
 import { Person, PersonUI } from "@/src/types/person";
-import { peopleApi } from "@/src/lib/api";
+import { peopleApi, PeopleListParams } from "@/src/lib/api";
 import { formatPersonName } from "@/src/lib/name";
 
-export const usePeople = (enabled: boolean = true) => {
+export const usePeople = (
+  enabled: boolean = true,
+  params?: PeopleListParams,
+) => {
   const [people, setPeople] = useState<Person[]>([]);
   const peopleUI: PersonUI[] = people.map((p) => ({
     ...p,
@@ -12,6 +15,7 @@ export const usePeople = (enabled: boolean = true) => {
   }));
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const paramsKey = JSON.stringify(params ?? {});
 
   const fetchPeople = useCallback(async () => {
     if (!enabled) {
@@ -19,7 +23,10 @@ export const usePeople = (enabled: boolean = true) => {
     }
     try {
       setLoading(true);
-      const response = await peopleApi.getAll();
+      const listParams: PeopleListParams = paramsKey
+        ? JSON.parse(paramsKey)
+        : {};
+      const response = await peopleApi.getAll(listParams);
       setPeople(response.data);
       setError(null);
     } catch (err) {
@@ -27,7 +34,7 @@ export const usePeople = (enabled: boolean = true) => {
     } finally {
       setLoading(false);
     }
-  }, [enabled]);
+  }, [enabled, paramsKey]);
 
   const createPerson = async (personData: Partial<Person> | FormData) => {
     const response = await peopleApi.create(personData);

@@ -137,7 +137,7 @@ class PersonViewSet(viewsets.ModelViewSet):
             return PersonListSerializer
         return PersonSerializer
 
-    def _scoped_people_queryset(self, *, for_profile=False, for_report=False):
+    def _scoped_people_queryset(self, *, for_profile=False, for_report=False, for_lessons=False):
         """
         Scope people for list/search vs profile/mutation access.
 
@@ -149,6 +149,10 @@ class PersonViewSet(viewsets.ModelViewSet):
         the narrow directory list (group members), but `for_report=True` widens
         list/search to same-branch people so weekly-report attendee pickers can
         include existing visitor Person profiles. Profile access stays narrow.
+
+        Lessons coordinators (including NCC support) keep the narrow directory,
+        but `for_lessons=True` widens list/search to same-branch people for
+        Assign Lessons and session pickers. Profile access stays narrow.
         """
         user = self.request.user
         queryset = super().get_queryset()
@@ -341,6 +345,14 @@ class PersonViewSet(viewsets.ModelViewSet):
             if can_submit_evangelism_report:
                 people_querysets.append(queryset)
 
+        # 6. Lessons coordinators / NCC support: same-branch people for Lessons
+        # pickers only (for_lessons=1). Directory and profile stay narrow.
+        if for_lessons and not for_profile:
+            from apps.lessons.coordinator_access import has_lessons_browse_all
+
+            if has_lessons_browse_all(user):
+                people_querysets.append(queryset)
+
         # Combine all querysets using union
         if people_querysets:
             combined_queryset = people_querysets[0]
@@ -379,8 +391,13 @@ class PersonViewSet(viewsets.ModelViewSet):
         for_report = getattr(self, "action", None) == "list" and str(
             self.request.query_params.get("for_report", "")
         ).lower() in ("1", "true", "yes")
+        for_lessons = getattr(self, "action", None) == "list" and str(
+            self.request.query_params.get("for_lessons", "")
+        ).lower() in ("1", "true", "yes")
         qs = self._scoped_people_queryset(
-            for_profile=for_profile, for_report=for_report
+            for_profile=for_profile,
+            for_report=for_report,
+            for_lessons=for_lessons,
         )
         if getattr(self, "action", None) == "retrieve":
             user_pk = self.request.user.pk

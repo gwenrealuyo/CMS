@@ -177,7 +177,7 @@ Coordinators and pastors should **mark records inactive** or update status inste
 - **Lesson catalog** (create / edit / deactivate) and **commitment form upload** are limited to **Admin** (any branch), or **HQ Pastor** / **HQ Lessons Coordinator** / **HQ Senior Coordinator** / **HQ NCC primary or support coordinator**. Teachers cannot manage catalog content.
 - **Teachers** see and log sessions for their students; they can also assign lessons when they have Lessons write access.
 - **Coordinators** assign lessons and see broader student lists.
-- **NCC ministry support coordinators** have the same Lessons access as a Lessons Coordinator (their branch). **NCC ministry primary coordinators** have Lessons Senior access: their branch, or all branches if they are primary of the HQ NCC ministry. People/Families lists are not expanded by these ministry roles.
+- **NCC ministry support coordinators** receive a non-senior Lessons Coordinator assignment (same branch access). **NCC ministry primary coordinators** have Lessons Senior access: their branch, or all branches if they are primary of the HQ NCC ministry. People/Families directory lists are not expanded; Lessons Assign / session pickers can search same-branch people.
 - Branch filter on Lessons is editable for Admin, Pastor, and **HQ** Lessons seniors (including HQ NCC primary). The filter defaults to the user's own branch.
 
 **Sunday School**
@@ -230,7 +230,7 @@ Branch filters appear as chips or dropdowns on many pages. If a filter is locked
 |--------|-------------|------------------|
 | Small-group leader | Member + Cluster Coordinator (Cluster A) | Submit reports for Cluster A; edit cluster members; create/edit families in scope |
 | NCC teacher | Member + Lessons Teacher | Log lesson sessions; view assigned students |
-| NCC support coordinator | Listed as NCC ministry support coordinator | Same Lessons access as a Lessons Coordinator in their branch (assign, log sessions, manage that roster). People list stays self + family |
+| NCC support coordinator | Listed as NCC ministry support coordinator | Same Lessons access as a Lessons Coordinator in their branch (assign, log sessions, manage that roster; Lessons pickers can search the branch). People directory stays self + family |
 | NCC primary (branch) | NCC ministry primary coordinator | Lessons senior access for that branch |
 | NCC primary (HQ) | Primary coordinator of the HQ NCC ministry | Lessons senior access; can switch the Lessons branch filter (defaults to their own branch) |
 | SS teacher + cluster lead | Member + Sunday School Teacher (Class 1) + Cluster Coordinator (Cluster B) | Students in Class 1 **plus** Cluster B members and families |

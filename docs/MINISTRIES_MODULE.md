@@ -46,7 +46,7 @@ System ministries (`is_system=True`) are seeded by the platform, not created in 
 
 | Ministry | Code | Scope | Who can manage members (beyond Ministries write) | Downstream use |
 |---|---|---|---|---|
-| **NCC / Lessons** | `NCC` | One `BRANCH` row per branch | Lessons coordinators / seniors, **NCC primary and support coordinators** (branch-limited; HQ primary may manage other branches) | Gates who can be assigned as a Lessons teacher; optional Lessons `TEACHER` access grant. **Primary coordinator** receives Lessons senior access; **support coordinators** receive Lessons coordinator access (Lessons/NCC data only; no extra People/Families scope). |
+| **NCC / Lessons** | `NCC` | One `BRANCH` row per branch | Lessons coordinators / seniors, **NCC primary and support coordinators** (branch-limited; HQ primary may manage other branches) | Gates who can be assigned as a Lessons teacher; optional Lessons `TEACHER` access grant. **Primary coordinator** receives Lessons senior access (derived). **Support coordinators** receive a non-senior `LESSONS` + `COORDINATOR` assignment (Lessons/NCC data only; People directory stays unexpanded; Lessons pickers use `for_lessons`). |
 | **Bible Sharers** | `BIBLE_SHARERS` | One `BRANCH` row on the headquarters branch | HQ pastor, Evangelism senior, or Evangelism coordinator on the HQ branch | HQ evangelism groups may only assign Bible Sharers who are already on this roster (active or inactive). Non-HQ groups are unchanged. Optional **Grant Evangelism access** (default on) creates a module-wide `EVANGELISM` + `BIBLE_SHARER` row (`resource_id` empty) so they can open Evangelism **read-only**. Weekly reports still require being assigned as Bible Sharer (or Coordinator / Reporter) on a specific group. Unchecking grant or marking inactive deletes **only** the module-wide row. |
 
 Detection is **code-based** (`NCC` vs `BIBLE_SHARERS`). `is_system` is only the protection flag.
@@ -74,8 +74,8 @@ Detection is **code-based** (`NCC` vs `BIBLE_SHARERS`). `is_system` is only the 
 The system automatically synchronizes coordinator assignments between `Ministry` fields and `MinistryMember` entries:
 
 1. **When `primary_coordinator` is set**: Automatically creates or updates a `MinistryMember` entry with role `PRIMARY_COORDINATOR`
-2. **When `support_coordinators` are set**: Automatically creates or updates `MinistryMember` entries with role `COORDINATOR` for each support coordinator
-3. **When coordinators are removed**: If a coordinator is removed from `primary_coordinator` or `support_coordinators`, their `MinistryMember` role is automatically updated to `TEAM_MEMBER` (if they still have a membership record)
+2. **When `support_coordinators` are set**: Automatically creates or updates `MinistryMember` entries with role `COORDINATOR` for each support coordinator. On **NCC** ministries, also grants a non-senior `LESSONS` + `COORDINATOR` `ModuleCoordinator` row (leaves `SENIOR_COORDINATOR` in place; upgrades `TEACHER`).
+3. **When coordinators are removed**: If a coordinator is removed from `primary_coordinator` or `support_coordinators`, their `MinistryMember` role is automatically updated to `TEAM_MEMBER` (if they still have a membership record). On **NCC**, removing last support (and not primary) demotes the Lessons Coordinator row to `TEACHER` when an active roster membership remains, otherwise deletes that coordinator row. Never demotes `SENIOR_COORDINATOR`.
 4. **Edge Cases**:
    - If a person is removed from `support_coordinators` but is still `primary_coordinator`, they remain `PRIMARY_COORDINATOR`
    - If a person is removed from `primary_coordinator` but is still in `support_coordinators`, they become `COORDINATOR`

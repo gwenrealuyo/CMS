@@ -26,14 +26,18 @@ def sync_ministry_coordinators(sender, instance, **kwargs):
 
 
 @receiver(m2m_changed, sender=Ministry.support_coordinators.through)
-def sync_support_coordinators(sender, instance, action, **kwargs):
+def sync_support_coordinators(sender, instance, action, pk_set=None, **kwargs):
     """
     Signal handler to sync coordinators when support_coordinators ManyToMany is changed.
     This handles additions and removals from support_coordinators.
     """
     # Only sync on post_add, post_remove, and post_clear actions
     # (post_clear happens when all are removed)
-    if action in ("post_add", "post_remove", "post_clear"):
+    if action == "post_add":
+        sync_coordinators_to_members(instance)
+    elif action == "post_remove":
+        sync_coordinators_to_members(instance, removed_support_ids=pk_set or set())
+    elif action == "post_clear":
         sync_coordinators_to_members(instance)
 
 

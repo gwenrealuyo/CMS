@@ -98,13 +98,13 @@ When a user has multiple assignments, they see the union of all applicable peopl
 7. **Cluster Coordinator Family Access**: Cluster coordinators see families of their members even if the family isn't directly connected to the cluster
 8. **Member Sunday School Access**: Members can access Sunday School module but stats/summary cards are hidden
 9. **Cluster Coordinator Lessons Stats**: Cluster coordinators can see stats cards in Lessons module
-10. **NCC ministry coordinators**: Support coordinators have Lessons Coordinator access; primary coordinators have Lessons Senior access (HQ primary may view other branches). These roles do **not** expand People/Families. Access is derived from the NCC ministry record, not a `ModuleCoordinator` LESSONS row.
+10. **NCC ministry coordinators**: Adding someone as NCC **support** creates a non-senior `LESSONS` + `COORDINATOR` `ModuleCoordinator` row (upgrade `TEACHER` if present; do not overwrite `SENIOR_COORDINATOR`). Primary coordinators still have derived Lessons Senior access (HQ primary may view other branches). These roles do **not** expand the People directory. Lessons Assign / session pickers pass `for_lessons` to list same-branch people.
 
 ## Implementation Details
 
 ### Backend Queries
 
-- **PersonViewSet**: Collects people from all module assignments (Cluster, Sunday School, Lessons, Evangelism) and returns union
+- **PersonViewSet**: Collects people from all module assignments (Cluster, Sunday School, Lessons, Evangelism) and returns union. `for_lessons=1` on list/search widens to same-branch people for `has_lessons_browse_all` users (Lessons Coordinator / Senior / NCC support or primary) without changing profile retrieve or the People directory.
 - **FamilyViewSet**: List/retrieve scoped by role (Members: own families; Cluster coordinators: cluster-linked families + families of cluster members). **Create/update** requires Admin, Pastor, or `HasModuleAccess('CLUSTER')` (Cluster COORDINATOR or SENIOR_COORDINATOR). Destroy remains Admin-only. Other-module coordinators (e.g. Evangelism-only) cannot create/update families.
 - **ClusterViewSet**: Members can list/retrieve all clusters in their branch; roster fields `members_details` / `families_details` provide display-only summaries without expanding People/Family list scope
 

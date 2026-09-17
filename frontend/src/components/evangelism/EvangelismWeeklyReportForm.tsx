@@ -108,6 +108,29 @@ function isInvitableProspect(prospect: Prospect, groupId: string): boolean {
   return true;
 }
 
+function rosterMemberId(
+  member: Person | number | string | { id?: unknown } | null | undefined,
+): string | null {
+  if (member == null || member === "") return null;
+  if (typeof member === "object") {
+    const id = member.id;
+    if (id == null || id === "") return null;
+    return String(id);
+  }
+  return String(member);
+}
+
+function isPersonRosterEntry(
+  member: Person | number | string | { id?: unknown },
+): member is Person {
+  return (
+    typeof member === "object" &&
+    member != null &&
+    "first_name" in member &&
+    member.id != null
+  );
+}
+
 /** True when members is a (possibly empty) person roster, not omitted or PK-only. */
 function groupHasPersonRoster(g?: EvangelismGroup | null): boolean {
   if (!g || !Array.isArray(g.members)) return false;
@@ -489,8 +512,9 @@ export default function EvangelismWeeklyReportForm({
   }, []);
 
   const allowedMemberIds = useMemo(() => {
-    const inlineIds =
-      rosterGroup?.members?.map((member) => String(member.id)) || [];
+    const inlineIds = (rosterGroup?.members || [])
+      .map((member) => rosterMemberId(member))
+      .filter((id): id is string => Boolean(id));
     const coordinatorIds = rosterGroup?.coordinator?.id
       ? [String(rosterGroup.coordinator.id)]
       : [];
@@ -506,10 +530,20 @@ export default function EvangelismWeeklyReportForm({
   );
 
   const memberOptions = useMemo(() => {
-    const inlineMembers =
-      rosterGroup?.members?.map((member) => personToMemberOption(member)) || [];
+    const peopleById = new Map(people.map((person) => [String(person.id), person]));
+    const inlineMembers: PersonUI[] = [];
+    for (const member of rosterGroup?.members || []) {
+      if (isPersonRosterEntry(member)) {
+        inlineMembers.push(personToMemberOption(member));
+        continue;
+      }
+      const id = rosterMemberId(member);
+      if (!id) continue;
+      const fromPeople = peopleById.get(id);
+      if (fromPeople) inlineMembers.push(fromPeople);
+    }
 
-    const combined = [...people, ...inlineMembers];
+    const combined = [...inlineMembers, ...people];
     if (coordinatorOption) {
       const hasCoordinator = combined.some(
         (p) => p.id === coordinatorOption.id,
@@ -519,12 +553,19 @@ export default function EvangelismWeeklyReportForm({
       }
     }
     const seen = new Set<string>();
+    const allowed = new Set(allowedMemberIds);
     return combined.filter((person) => {
       if (!person.id || seen.has(person.id)) return false;
+      if (allowed.size > 0 && !allowed.has(String(person.id))) return false;
       seen.add(person.id);
       return true;
     });
-  }, [coordinatorOption, rosterGroup?.members, people]);
+  }, [
+    allowedMemberIds,
+    coordinatorOption,
+    rosterGroup?.members,
+    people,
+  ]);
 
   const invitedProspectIdsSelected = useMemo(
     () => new Set((formData.prospects_invited || []).map(String)),

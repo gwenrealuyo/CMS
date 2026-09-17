@@ -108,12 +108,6 @@ function groupBranchIdFromRecord(group: EvangelismGroup): string {
   return clusterBranchId(group.cluster);
 }
 
-function personBelongsToCluster(person: Person, clusterId: string): boolean {
-  return (person.cluster_ids ?? []).some(
-    (id) => String(id) === String(clusterId),
-  );
-}
-
 function personRecordId(value: unknown): string | null {
   if (value == null || value === "") return null;
   if (typeof value === "object") {
@@ -381,27 +375,37 @@ export default function EvangelismGroupForm({
 
   const coordinatorOptions = useMemo(() => {
     const base = people.length > 0 ? people : coordinators;
-    let filtered = base.filter(isSelectablePerson);
-    if (values.cluster_id) {
-      const clusterId = String(values.cluster_id);
-      filtered = filtered.filter((person) =>
-        personBelongsToCluster(person, clusterId),
-      );
-      const ensureIds = [
-        clusterCoordinatorId(selectedCluster),
-        values.coordinator_id,
-      ].filter(Boolean);
-      for (const id of ensureIds) {
-        if (filtered.some((person) => String(person.id) === String(id))) {
-          continue;
-        }
-        const extra = base.find((person) => String(person.id) === String(id));
-        if (extra && isSelectablePerson(extra)) {
-          filtered = [extra, ...filtered];
-        }
+    const memberIds = new Set(
+      (values.initial_member_ids || [])
+        .map((id) => personRecordId(id))
+        .filter((id): id is string => Boolean(id)),
+    );
+    if (values.coordinator_id) {
+      memberIds.add(String(values.coordinator_id));
+    }
+    const fromMembers = base.filter(
+      (person) =>
+        isSelectablePerson(person) && memberIds.has(String(person.id)),
+    );
+    const filtered =
+      !isCreate && memberIds.size > 0
+        ? fromMembers
+        : base.filter(isSelectablePerson);
+    const ensureIds = [
+      clusterCoordinatorId(selectedCluster),
+      values.coordinator_id,
+    ].filter(Boolean);
+    let options = filtered;
+    for (const id of ensureIds) {
+      if (options.some((person) => String(person.id) === String(id))) {
+        continue;
+      }
+      const extra = base.find((person) => String(person.id) === String(id));
+      if (extra && isSelectablePerson(extra)) {
+        options = [extra, ...options];
       }
     }
-    return filtered
+    return options
       .map((person) => ({
         label: formatPersonName(person),
         value: String(person.id),
@@ -410,9 +414,10 @@ export default function EvangelismGroupForm({
   }, [
     people,
     coordinators,
-    values.cluster_id,
     values.coordinator_id,
+    values.initial_member_ids,
     selectedCluster,
+    isCreate,
   ]);
   const isHqGroup = useMemo(() => {
     const branchId = selectedCluster?.branch ?? values.branch_id;
@@ -706,21 +711,11 @@ export default function EvangelismGroupForm({
                     clusterCoordinatorId(nextCluster);
                   const previousSuggestedCoordinator =
                     clusterCoordinatorId(prevCluster);
-                  const roster = people.length > 0 ? people : coordinators;
-                  const stillInCluster =
-                    Boolean(value) &&
-                    Boolean(prev.coordinator_id) &&
-                    roster.some(
-                      (person) =>
-                        String(person.id) === String(prev.coordinator_id) &&
-                        personBelongsToCluster(person, String(value)),
-                    );
                   const shouldPrefillCoordinator =
                     Boolean(value) &&
                     Boolean(suggestedCoordinator) &&
                     (!prev.coordinator_id ||
-                      prev.coordinator_id === previousSuggestedCoordinator ||
-                      !stillInCluster);
+                      prev.coordinator_id === previousSuggestedCoordinator);
                   const nextCoordinatorId = shouldPrefillCoordinator
                     ? suggestedCoordinator
                     : prev.coordinator_id;
@@ -779,9 +774,9 @@ export default function EvangelismGroupForm({
               className="w-full"
               showSearch
             />
-            {values.cluster_id ? (
+            {!isCreate ? (
               <p className="text-xs text-gray-500">
-                Limited to members of this cluster.
+                Choose from members of this evangelism group.
               </p>
             ) : null}
           </div>

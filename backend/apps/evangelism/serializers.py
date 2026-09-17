@@ -45,6 +45,7 @@ from .models import (
 )
 from .services import (
     create_invited_prospect_for_evangelism_group,
+    encoded_visitor_prospect_defaults,
     find_duplicate_invited_prospects_for_group,
     get_default_each1reach1_target,
 )
@@ -1107,6 +1108,7 @@ class ProspectSerializer(serializers.ModelSerializer):
         source="invited_by",
         queryset=Person.objects.exclude(role="ADMIN"),
         write_only=True,
+        required=False,
     )
     inviter_cluster = ClusterSummarySerializer(read_only=True)
     evangelism_group = EvangelismGroupSerializer(read_only=True)
@@ -1126,6 +1128,13 @@ class ProspectSerializer(serializers.ModelSerializer):
         allow_null=True,
     )
     person = PersonSummarySerializer(read_only=True)
+    person_id = serializers.PrimaryKeyRelatedField(
+        source="person",
+        queryset=Person.objects.filter(role="VISITOR"),
+        write_only=True,
+        required=False,
+        allow_null=True,
+    )
     pipeline_stage_display = serializers.CharField(
         source="get_pipeline_stage_display", read_only=True
     )
@@ -1157,6 +1166,7 @@ class ProspectSerializer(serializers.ModelSerializer):
             "endorsed_cluster",
             "endorsed_cluster_id",
             "person",
+            "person_id",
             "pipeline_stage",
             "pipeline_stage_display",
             "date_first_invited",
@@ -1189,6 +1199,10 @@ class ProspectSerializer(serializers.ModelSerializer):
             "spirit_baptism_date",
             "reached_date",
         )
+        extra_kwargs = {
+            "first_name": {"required": False},
+            "last_name": {"required": False},
+        }
 
     def _person_date(self, obj, attr):
         person = obj.person
@@ -1217,6 +1231,70 @@ class ProspectSerializer(serializers.ModelSerializer):
         return None
 
     def validate(self, attrs):
+        person = attrs.get("person")
+        if person is None and self.instance is not None and "person" not in attrs:
+            person = self.instance.person
+
+        group = attrs.get("evangelism_group")
+        if group is None and self.instance is not None:
+            group = self.instance.evangelism_group
+
+        if attrs.get("person") is not None:
+            if person.role != "VISITOR":
+                raise serializers.ValidationError(
+                    {"person_id": "Only encoded visitors can be added this way."}
+                )
+            if group is None:
+                raise serializers.ValidationError(
+                    {
+                        "evangelism_group_id": (
+                            "A group is required to add an encoded visitor."
+                        )
+                    }
+                )
+            already = Prospect.objects.filter(
+                person=person,
+                evangelism_group=group,
+                is_dropped_off=False,
+            )
+            if self.instance is not None:
+                already = already.exclude(pk=self.instance.pk)
+            if already.exists():
+                raise serializers.ValidationError(
+                    {"person_id": "This visitor is already on this group."}
+                )
+            copied = encoded_visitor_prospect_defaults(person)
+            for key, value in copied.items():
+                if key == "date_first_invited" and attrs.get("date_first_invited"):
+                    continue
+                if key == "last_activity_date" and attrs.get("last_activity_date"):
+                    continue
+                if key == "invited_by" and attrs.get("invited_by"):
+                    continue
+                if value is not None:
+                    attrs[key] = value
+
+        first_name = (attrs.get("first_name") or "").strip()
+        last_name = (attrs.get("last_name") or "").strip()
+        if self.instance is None and (not first_name or not last_name):
+            raise serializers.ValidationError(
+                {
+                    "first_name": "First name and last name are required.",
+                    "last_name": "First name and last name are required.",
+                }
+            )
+
+        if self.instance is None and not attrs.get("invited_by"):
+            if attrs.get("person") is not None:
+                raise serializers.ValidationError(
+                    {
+                        "person_id": "This visitor has no inviter on their record."
+                    }
+                )
+            raise serializers.ValidationError(
+                {"invited_by_id": "Inviter is required."}
+            )
+
         apply_title_case_name_fields(attrs, PROSPECT_NAME_FIELDS)
         return attrs
 

@@ -20,7 +20,10 @@ import {
 import { Person } from "@/src/types/person";
 import { Cluster } from "@/src/types/cluster";
 import { formatPersonName } from "@/src/lib/name";
-import { isSelectablePerson } from "@/src/lib/peopleSelectors";
+import {
+  isSelectablePerson,
+  personDropdownChips,
+} from "@/src/lib/peopleSelectors";
 import { useBranches } from "@/src/hooks/useBranches";
 import {
   evangelismApi,
@@ -170,7 +173,6 @@ export default function EvangelismGroupForm({
   }>({ isOpen: false, matches: [] });
   const [duplicateCheckLoading, setDuplicateCheckLoading] = useState(false);
 
-  const [initialPickerValue, setInitialPickerValue] = useState("");
   const { branches } = useBranches();
   const [bibleSharerRosterIds, setBibleSharerRosterIds] = useState<Set<string>>(
     new Set(),
@@ -274,25 +276,29 @@ export default function EvangelismGroupForm({
             person.role !== "VISITOR" &&
             !(values.initial_member_ids || []).includes(String(person.id)),
         )
-        .map((person) => ({
-          label: formatPersonName(person),
-          value: String(person.id),
-        }))
+        .map((person) => {
+          const { statusLabel, statusClassName, clusterCode, clusterBranchId } =
+            personDropdownChips(person);
+          return {
+            label: formatPersonName(person),
+            value: String(person.id),
+            statusLabel,
+            statusClassName,
+            clusterCode,
+            clusterBranchId,
+          };
+        })
         .sort((a, b) => a.label.localeCompare(b.label)),
     [memberPool, values.initial_member_ids],
   );
 
-  const addInitialMember = () => {
-    if (!initialPickerValue) return;
-    if ((values.initial_member_ids || []).includes(initialPickerValue)) return;
+  const addInitialMember = (value: string) => {
+    if (!value) return;
+    if ((values.initial_member_ids || []).includes(value)) return;
     setValues((prev) => ({
       ...prev,
-      initial_member_ids: [
-        ...(prev.initial_member_ids || []),
-        initialPickerValue,
-      ],
+      initial_member_ids: [...(prev.initial_member_ids || []), value],
     }));
-    setInitialPickerValue("");
   };
 
   const removeInitialMember = (id: string) => {
@@ -841,30 +847,15 @@ export default function EvangelismGroupForm({
           <p className="text-sm font-medium text-gray-800">
             {isCreate ? "Initial members (optional)" : "Members"}
           </p>
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
-            <div className="flex-1">
-              <ScalableSelect
-                options={[
-                  { label: "Select people to enroll", value: "" },
-                  ...initialMemberOptions,
-                ]}
-                value={initialPickerValue}
-                onChange={(value) => setInitialPickerValue(value)}
-                placeholder="Add member"
-                className="w-full"
-                showSearch
-              />
-            </div>
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={addInitialMember}
-              disabled={!initialPickerValue}
-              className="sm:w-auto"
-            >
-              Add
-            </Button>
-          </div>
+          <ScalableSelect
+            options={initialMemberOptions}
+            value=""
+            onChange={addInitialMember}
+            onConfirm={addInitialMember}
+            placeholder="Search and pick member to add"
+            className="w-full"
+            showSearch
+          />
           {(values.initial_member_ids?.length ?? 0) > 0 ? (
             <ul className="flex flex-wrap gap-2 mt-2">
               {(values.initial_member_ids ?? []).map((id) => {

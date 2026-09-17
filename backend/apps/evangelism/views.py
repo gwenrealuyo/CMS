@@ -1805,11 +1805,30 @@ class ProspectViewSet(viewsets.ModelViewSet):
         ensure_user_can_mutate_evangelism_group_records(self.request.user, group)
 
     def perform_create(self, serializer):
-        """Create an invited prospect. Do not copy the inviter's cluster."""
+        """Create an invited prospect or link an encoded visitor. Do not copy the inviter's cluster."""
         self._ensure_group_record_write(serializer.validated_data.get("evangelism_group"))
-        extra = {"pipeline_stage": Prospect.PipelineStage.INVITED}
-        if not serializer.validated_data.get("date_first_invited"):
-            extra["date_first_invited"] = church_today()
+        extra = {}
+        person = serializer.validated_data.get("person")
+        if person is None:
+            extra["pipeline_stage"] = Prospect.PipelineStage.INVITED
+            if not serializer.validated_data.get("date_first_invited"):
+                extra["date_first_invited"] = church_today()
+            if not serializer.validated_data.get("last_activity_date"):
+                extra["last_activity_date"] = extra.get(
+                    "date_first_invited"
+                ) or church_today()
+        else:
+            if not serializer.validated_data.get("date_first_invited"):
+                extra["date_first_invited"] = (
+                    person.date_first_invited or church_today()
+                )
+            if not serializer.validated_data.get("last_activity_date"):
+                extra["last_activity_date"] = (
+                    person.date_first_attended
+                    or extra.get("date_first_invited")
+                    or person.date_first_invited
+                    or church_today()
+                )
         serializer.save(**extra)
 
     def perform_update(self, serializer):

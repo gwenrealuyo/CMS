@@ -309,6 +309,29 @@ def create_invited_prospect_for_evangelism_group(
     return prospect
 
 
+def encoded_visitor_prospect_defaults(person: Person) -> dict:
+    """Copy encoded VISITOR Person fields onto a Prospect create payload."""
+    stage = (
+        Prospect.PipelineStage.ATTENDED
+        if person.date_first_attended
+        else Prospect.PipelineStage.INVITED
+    )
+    activity = person.date_first_attended or person.date_first_invited
+    return {
+        "first_name": person.first_name,
+        "middle_name": person.middle_name or "",
+        "last_name": person.last_name,
+        "suffix": person.suffix or "",
+        "gender": person.gender or "",
+        "facebook_name": person.facebook_name or "",
+        "contact_info": (person.phone or "").strip(),
+        "invited_by": person.inviter,
+        "pipeline_stage": stage,
+        "date_first_invited": person.date_first_invited,
+        "last_activity_date": activity,
+    }
+
+
 def mark_prospect_attended(
     prospect: Prospect,
     *,

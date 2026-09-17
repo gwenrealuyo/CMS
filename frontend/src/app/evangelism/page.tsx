@@ -24,8 +24,12 @@ import {
   evangelismApi,
   peopleApi,
 } from "@/src/lib/api";
-import { isSelectablePerson } from "@/src/lib/peopleSelectors";
-import { isDuplicateMeetingReportError } from "@/src/lib/apiErrors";
+import {
+  isSelectablePerson,
+  personDropdownChips,
+} from "@/src/lib/peopleSelectors";
+import { formatApiErrorMessage, isDuplicateMeetingReportError } from "@/src/lib/apiErrors";
+import { formatPersonName } from "@/src/lib/name";
 import ScalableSelect from "@/src/components/ui/ScalableSelect";
 import {
   EvangelismGroup,
@@ -42,6 +46,9 @@ import EvangelismGroupView from "@/src/components/evangelism/EvangelismGroupView
 import ProspectForm, {
   ProspectFormValues,
 } from "@/src/components/evangelism/ProspectForm";
+import AddEncodedVisitorForm, {
+  EncodedVisitorFormValues,
+} from "@/src/components/evangelism/AddEncodedVisitorForm";
 import ProspectProgressForm from "@/src/components/evangelism/ProspectProgressForm";
 import ConversionForm, {
   ConversionFormValues,
@@ -390,6 +397,9 @@ export default function EvangelismPage() {
   }, [conversionVisitors, people]);
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
   const [isProspectModalOpen, setIsProspectModalOpen] = useState(false);
+  const [isEncodedVisitorModalOpen, setIsEncodedVisitorModalOpen] =
+    useState(false);
+  const [encodedVisitors, setEncodedVisitors] = useState<Person[]>([]);
   const [isConversionModalOpen, setIsConversionModalOpen] = useState(false);
   const [editingConversion, setEditingConversion] = useState<Conversion | null>(
     null,
@@ -670,6 +680,24 @@ export default function EvangelismPage() {
   }, [needsPeopleCatalog, people.length]);
 
   useEffect(() => {
+    if (!isProspectModalOpen && !isEncodedVisitorModalOpen) return;
+    let cancelled = false;
+    const loadEncodedVisitors = async () => {
+      try {
+        const res = await peopleApi.getAll({ role: "VISITOR" });
+        if (cancelled) return;
+        setEncodedVisitors(res.data.filter(isSelectablePerson));
+      } catch (err) {
+        console.error("Error loading encoded visitors", err);
+      }
+    };
+    void loadEncodedVisitors();
+    return () => {
+      cancelled = true;
+    };
+  }, [isProspectModalOpen, isEncodedVisitorModalOpen]);
+
+  useEffect(() => {
     if (!user) return;
     setGroupListBranch(defaultEvangelismListBranch(user));
   }, [user?.id]);
@@ -696,7 +724,12 @@ export default function EvangelismPage() {
   ]);
 
   useEffect(() => {
-    if (activeTab !== "reports" && !reportsFormOpen && !isProspectModalOpen) {
+    if (
+      activeTab !== "reports" &&
+      !reportsFormOpen &&
+      !isProspectModalOpen &&
+      !isEncodedVisitorModalOpen
+    ) {
       return;
     }
     let cancelled = false;
@@ -984,7 +1017,7 @@ export default function EvangelismPage() {
           : values.evangelism_group_id,
       };
       await createProspect(prospectData);
-      setSuccessMessage("Visitor created successfully.");
+      setSuccessMessage("Invitation recorded.");
       setIsProspectModalOpen(false);
       if (viewEditGroup) {
         fetchProspects();
@@ -998,6 +1031,56 @@ export default function EvangelismPage() {
           firstError?.[0] ||
           "Failed to create visitor"
       );
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleCreateEncodedVisitor = async (
+    values: EncodedVisitorFormValues,
+  ) => {
+    try {
+      setIsSubmitting(true);
+      setFormError(null);
+      if (!viewEditGroup?.id) {
+        setFormError("A group is required to add returning visitors.");
+        return;
+      }
+      const failures: string[] = [];
+      let added = 0;
+      for (const personId of values.person_ids) {
+        try {
+          await createProspect({
+            person_id: personId,
+            evangelism_group_id: String(viewEditGroup.id),
+          });
+          added += 1;
+        } catch (err) {
+          const visitor = encodedVisitors.find(
+            (person) => String(person.id) === String(personId),
+          );
+          const name = visitor
+            ? formatPersonName(visitor)
+            : `Visitor ${personId}`;
+          failures.push(
+            `${name}: ${formatApiErrorMessage(err, "Could not add.")}`,
+          );
+        }
+      }
+      if (added > 0) {
+        fetchProspects();
+        setSuccessMessage(
+          added === 1
+            ? "Returning visitor added."
+            : `${added} returning visitors added.`,
+        );
+        setTimeout(() => setSuccessMessage(null), 5000);
+      }
+      if (failures.length > 0) {
+        setFormError(failures.join(" "));
+        return;
+      }
+      setIsEncodedVisitorModalOpen(false);
     } finally {
       setIsSubmitting(false);
     }
@@ -1492,6 +1575,10 @@ export default function EvangelismPage() {
           setIsReportModalOpen(true);
         }}
         onAddProspect={() => setIsProspectModalOpen(true)}
+        onAddEncodedVisitor={() => {
+          setFormError(null);
+          setIsEncodedVisitorModalOpen(true);
+        }}
         onUpdateProgress={(prospect) => {
           setSelectedProspect(prospect);
           setIsUpdateProgressModalOpen(true);
@@ -2500,13 +2587,14 @@ export default function EvangelismPage() {
               setIsProspectModalOpen(false);
               setFormError(null);
             }}
-            title="Add Invited Visitor"
+            title="Record invitation"
             closeOnOutsideClick={false}
           >
             <ProspectForm
               inviters={(people.length > 0 ? people : coordinators).filter(
                 isSelectablePerson
               )}
+              encodedVisitors={encodedVisitors}
               groups={
                 reportablePickerGroups.length > 0
                   ? reportablePickerGroups
@@ -2519,6 +2607,34 @@ export default function EvangelismPage() {
               onSubmit={handleCreateProspect}
               onCancel={() => {
                 setIsProspectModalOpen(false);
+                setFormError(null);
+              }}
+              isSubmitting={isSubmitting}
+              error={formError}
+              submitLabel="Record invitation"
+            />
+          </Modal>
+        )}
+
+        {isEncodedVisitorModalOpen && (
+          <Modal
+            isOpen={isEncodedVisitorModalOpen}
+            onClose={() => {
+              setIsEncodedVisitorModalOpen(false);
+              setFormError(null);
+            }}
+            title="Bulk Add Returning Visitors"
+            closeOnOutsideClick={false}
+          >
+            <AddEncodedVisitorForm
+              visitors={encodedVisitors}
+              groupProspects={prospects}
+              excludedPersonIds={prospects
+                .filter((prospect) => prospect.person?.id != null)
+                .map((prospect) => prospect.person!.id)}
+              onSubmit={handleCreateEncodedVisitor}
+              onCancel={() => {
+                setIsEncodedVisitorModalOpen(false);
                 setFormError(null);
               }}
               isSubmitting={isSubmitting}
@@ -2985,7 +3101,6 @@ function BulkEnrollModalContent({
   onCancel: () => void;
 }) {
   const [selectedPersonIds, setSelectedPersonIds] = useState<string[]>([]);
-  const [memberSelectorValue, setMemberSelectorValue] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -3011,17 +3126,17 @@ function BulkEnrollModalContent({
           label: formatPersonLabel(person),
           value: String(person.id),
           disabled: selectedPersonIds.includes(String(person.id)),
+          ...personDropdownChips(person),
         }))
         .sort((a, b) => a.label.localeCompare(b.label)),
     [availablePeople, selectedPersonIds]
   );
 
-  const handleAddMember = () => {
-    if (!memberSelectorValue) return;
-    if (!selectedPersonIds.includes(memberSelectorValue)) {
-      setSelectedPersonIds([...selectedPersonIds, memberSelectorValue]);
-    }
-    setMemberSelectorValue("");
+  const handleSelectMember = (value: string) => {
+    if (!value) return;
+    setSelectedPersonIds((prev) =>
+      prev.includes(value) ? prev : [...prev, value],
+    );
   };
 
   const handleRemoveMember = (id: string) => {
@@ -3056,27 +3171,15 @@ function BulkEnrollModalContent({
         <label className="block text-sm font-medium text-gray-700 mb-1">
           Select Members
         </label>
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
-          <div className="sm:flex-1">
-            <ScalableSelect
-              options={memberOptions}
-              value={memberSelectorValue}
-              onChange={setMemberSelectorValue}
-              placeholder="Search and pick member to add"
-              className="w-full z-[60]"
-              showSearch
-            />
-          </div>
-          <Button
-            type="button"
-            variant="secondary"
-            onClick={handleAddMember}
-            disabled={!memberSelectorValue}
-            className="sm:w-auto"
-          >
-            Add Member
-          </Button>
-        </div>
+        <ScalableSelect
+          options={memberOptions}
+          value=""
+          onChange={handleSelectMember}
+          onConfirm={handleSelectMember}
+          placeholder="Search and pick member to add"
+          className="w-full z-[60]"
+          showSearch
+        />
         {selectedPersonIds.length > 0 ? (
           <ul className="mt-3 flex flex-wrap gap-2">
             {selectedPersonIds.map((id) => {

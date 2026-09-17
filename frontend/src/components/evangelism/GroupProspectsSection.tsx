@@ -19,6 +19,7 @@ function prospectDisplayName(p: Prospect): string {
 
 interface GroupProspectsSectionProps {
   prospects: Prospect[];
+  onAddEncodedVisitor: () => void;
   onAddProspect: () => void;
   onUpdateProgress: (prospect: Prospect) => void;
   onDelete?: (prospect: Prospect) => Promise<void> | void;
@@ -28,6 +29,7 @@ interface GroupProspectsSectionProps {
 
 export default function GroupProspectsSection({
   prospects,
+  onAddEncodedVisitor,
   onAddProspect,
   onUpdateProgress,
   onDelete,
@@ -39,6 +41,7 @@ export default function GroupProspectsSection({
 
   const formatPipelineStage = (stage: string | undefined): string => {
     if (!stage) return "N/A";
+    if (stage === "INVITED" || stage === "Invited") return "Invited only";
     if (stage === "TAKEN_NCC") return "NCC";
     if (stage === "REACHED") return "Reached";
     if (stage === "RECEIVED_HG") return "Received HG";
@@ -62,14 +65,28 @@ export default function GroupProspectsSection({
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
         <h3 className="text-base font-semibold text-gray-900 md:text-lg">
           Visitors
+          <span className="ml-2 text-sm font-normal text-gray-500">
+            ({prospects.length})
+          </span>
         </h3>
         {canAdd && (
-        <Button
-          onClick={onAddProspect}
-          className="!text-white !bg-orange-600 hover:!text-white hover:!bg-orange-700 w-full sm:w-auto min-h-[44px]"
-        >
-          + Add New Visitor
-        </Button>
+          <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+            <Button
+              variant="tertiary"
+              onClick={onAddProspect}
+              title="They were invited but not encoded yet. Type their name."
+              className="w-full sm:w-auto min-h-[44px]"
+            >
+              + Add Invited
+            </Button>
+            <Button
+              onClick={onAddEncodedVisitor}
+              title="Search visitors who already came."
+              className="!text-white !bg-orange-600 hover:!text-white hover:!bg-orange-700 w-full sm:w-auto min-h-[44px]"
+            >
+              + Add Returning
+            </Button>
+          </div>
         )}
       </div>
 

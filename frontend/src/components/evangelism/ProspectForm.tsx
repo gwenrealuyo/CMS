@@ -16,6 +16,7 @@ import type { Person } from "@/src/types/person";
 import { formatPersonName } from "@/src/lib/name";
 import {
   describeDuplicateProspect,
+  findEncodedVisitorNameMatches,
   findPossibleProspectNameDuplicates,
 } from "@/src/lib/prospectDuplicates";
 
@@ -74,6 +75,8 @@ interface ProspectFormProps {
   groups?: EvangelismGroup[];
   /** Existing prospects used for soft duplicate warnings. */
   prospectOptions?: Prospect[];
+  /** Encoded visitors used to warn if the typed name already has a record. */
+  encodedVisitors?: Person[];
   /** When set (e.g. group modal context), selects this bible study group and ensures it appears in options. */
   selectedBibleStudyGroup?: EvangelismGroup | null;
   onSubmit: (values: ProspectFormValues) => Promise<void>;
@@ -107,10 +110,11 @@ export default function ProspectForm({
   onCancel,
   isSubmitting,
   error,
-  submitLabel = "Create Invited Visitor",
+  submitLabel = "Record invitation",
   initialData,
   selectedBibleStudyGroup,
   defaultGroupId,
+  encodedVisitors = [],
 }: ProspectFormProps) {
   const contextGroupId = useMemo(() => {
     if (defaultGroupId) return defaultGroupId;
@@ -165,6 +169,10 @@ export default function ProspectForm({
     isOpen: boolean;
     matches: Prospect[];
   }>({ isOpen: false, matches: [] });
+  const [encodedNameWarning, setEncodedNameWarning] = useState<{
+    isOpen: boolean;
+    names: string[];
+  }>({ isOpen: false, names: [] });
 
   useEffect(() => {
     if (initialData) return;
@@ -257,13 +265,26 @@ export default function ProspectForm({
       return;
     }
 
+    const encodedMatches = findEncodedVisitorNameMatches(
+      encodedVisitors,
+      prospectOptions,
+      {
+        firstName: values.first_name,
+        lastName: values.last_name,
+      },
+    );
+    if (encodedMatches.length > 0) {
+      setEncodedNameWarning({ isOpen: true, names: encodedMatches });
+      return;
+    }
+
     if (prospectOptions.length > 0) {
       const nameMatches = findPossibleProspectNameDuplicates(prospectOptions, {
         firstName: values.first_name,
         lastName: values.last_name,
         evangelismGroupId: values.evangelism_group_id || contextGroupId || null,
         excludeId: initialData?.id,
-      });
+      }).filter((prospect) => !prospect.person);
       if (nameMatches.length > 0) {
         setDuplicateNameConfirm({ isOpen: true, matches: nameMatches });
         return;
@@ -373,7 +394,7 @@ export default function ProspectForm({
             value={values.notes}
             onChange={handleChange("notes")}
             rows={3}
-            placeholder="Invitation notes (shown on timeline when visitor gets a Person profile)…"
+            placeholder="Invitation notes (shown on the timeline once they are encoded)…"
             className={CLUSTER_VISITOR_CONTROL}
           />
         </div>
@@ -528,6 +549,29 @@ export default function ProspectForm({
         confirmText={initialData ? "Update anyway" : "Create anyway"}
         cancelText="Go back"
         variant="warning"
+        zIndex={80}
+      />
+
+      <ConfirmationModal
+        isOpen={encodedNameWarning.isOpen}
+        onClose={() => setEncodedNameWarning({ isOpen: false, names: [] })}
+        onConfirm={() => setEncodedNameWarning({ isOpen: false, names: [] })}
+        title="Already encoded"
+        message={
+          <div className="space-y-2">
+            {encodedNameWarning.names.slice(0, 8).map((name) => (
+              <p key={name}>
+                {name} is already encoded. Use Add returning visitors.
+              </p>
+            ))}
+            {encodedNameWarning.names.length > 8 && (
+              <p>…and {encodedNameWarning.names.length - 8} more</p>
+            )}
+          </div>
+        }
+        confirmText="Go back"
+        cancelText="Cancel"
+        variant="info"
         zIndex={80}
       />
     </>

@@ -207,6 +207,7 @@ export interface Prospect {
   endorsed_cluster?: Cluster;
   endorsed_cluster_id?: string;
   person?: Person;
+  person_id?: string;
   pipeline_stage: PipelineStage;
   pipeline_stage_display: string;
   date_first_invited?: string;

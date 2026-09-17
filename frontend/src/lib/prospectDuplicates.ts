@@ -59,3 +59,65 @@ export function describeDuplicateProspect(prospect: Prospect): string {
   if (groupName) bits.push(groupName);
   return bits.join(" · ");
 }
+
+function personDisplayName(person: {
+  first_name?: string | null;
+  last_name?: string | null;
+  display_name?: string | null;
+}): string {
+  const named = `${person.first_name ?? ""} ${person.last_name ?? ""}`.trim();
+  return person.display_name?.trim() || named;
+}
+
+export function findEncodedVisitorNameMatches(
+  visitors: Array<{
+    first_name?: string | null;
+    last_name?: string | null;
+    display_name?: string | null;
+  }>,
+  prospects: Prospect[],
+  opts: {
+    firstName?: string | null;
+    lastName?: string | null;
+  }
+): string[] {
+  const first = normalizeText(opts.firstName);
+  const last = normalizeText(opts.lastName);
+  if (!first || !last) return [];
+
+  const names: string[] = [];
+  const seen = new Set<string>();
+
+  const pushName = (label: string) => {
+    const key = normalizeText(label);
+    if (!key || seen.has(key)) return;
+    seen.add(key);
+    names.push(label);
+  };
+
+  for (const visitor of visitors) {
+    if (
+      normalizeText(visitor.first_name) === first &&
+      normalizeText(visitor.last_name) === last
+    ) {
+      pushName(personDisplayName(visitor) || `${opts.firstName} ${opts.lastName}`.trim());
+    }
+  }
+
+  for (const prospect of prospects) {
+    if (prospect.is_dropped_off) continue;
+    if (!prospect.person) continue;
+    if (
+      normalizeText(prospect.first_name) === first &&
+      normalizeText(prospect.last_name) === last
+    ) {
+      pushName(
+        personDisplayName(prospect.person) ||
+          personDisplayName(prospect) ||
+          `${opts.firstName} ${opts.lastName}`.trim()
+      );
+    }
+  }
+
+  return names;
+}

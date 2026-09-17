@@ -115,7 +115,7 @@ export default function FamilyForm({
     if (!formData.members.includes(member.id)) {
       setFormData({
         ...formData,
-        members: [...formData.members, member.id],
+        members: [member.id, ...formData.members],
       });
     }
     setMemberSearch("");
@@ -151,9 +151,9 @@ export default function FamilyForm({
 
 
   const getSelectedMembers = () => {
-    return selectableMembers.filter((member) =>
-      formData.members.includes(member.id)
-    );
+    return formData.members
+      .map((id) => selectableMembers.find((member) => member.id === id))
+      .filter((member): member is PersonUI => !!member);
   };
 
   return (

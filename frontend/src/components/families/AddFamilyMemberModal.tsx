@@ -135,7 +135,7 @@ export default function AddFamilyMemberModal({
 
   const addMember = (memberId: string) => {
     if (!selectedMembers.includes(memberId)) {
-      setSelectedMembers([...selectedMembers, memberId]);
+      setSelectedMembers([memberId, ...selectedMembers]);
     }
     setMemberSearch("");
     setShowMemberDropdown(false);
@@ -165,7 +165,9 @@ export default function AddFamilyMemberModal({
   };
 
   const getSelectedMembers = () => {
-    return peopleUI.filter((person) => selectedMembers.includes(person.id));
+    return selectedMembers
+      .map((id) => peopleUI.find((person) => person.id === id))
+      .filter((person): person is PersonUI => !!person);
   };
 
   const handleSubmit = async () => {

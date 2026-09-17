@@ -443,7 +443,7 @@ export default function ClusterForm({
     }
     const memberIdStr = member.id.toString();
     if (!memberIds.includes(memberIdStr)) {
-      setMemberIds([...memberIds, memberIdStr]);
+      setMemberIds([memberIdStr, ...memberIds]);
     }
     setMemberSearch("");
     setShowMemberDropdown(false);
@@ -474,7 +474,9 @@ export default function ClusterForm({
 
 
   const getSelectedMembers = () => {
-    return people.filter((member) => memberIds.includes(member.id.toString()));
+    return memberIds
+      .map((id) => people.find((member) => member.id.toString() === id))
+      .filter((member): member is Person | PersonUI => !!member);
   };
 
   return (

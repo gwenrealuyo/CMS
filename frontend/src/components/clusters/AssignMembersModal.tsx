@@ -190,7 +190,7 @@ export default function AssignMembersModal({
     if (!branchOk || alreadyIncluded) {
       return;
     }
-    setSelectedMemberIds((prev) => [...prev, normalizedId]);
+    setSelectedMemberIds((prev) => [normalizedId, ...prev]);
     setSelectedPersonById((prev) => ({ ...prev, [normalizedId]: person }));
     setMemberSearch("");
     setShowMemberDropdown(false);

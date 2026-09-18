@@ -116,6 +116,7 @@ export interface Event {
   expected_include_semiactive?: boolean;
   expected_include_inactive?: boolean;
   expected_include_ongoing_visitors?: boolean;
+  tardy_grace_minutes?: number;
   recurrence_pattern?: RecurrencePattern | null;
   occurrences?: EventOccurrence[];
   next_occurrence?: EventOccurrence | null;

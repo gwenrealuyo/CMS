@@ -198,6 +198,7 @@ class EventSerializer(serializers.ModelSerializer):
     created_by_name = serializers.SerializerMethodField()
     updated_by_name = serializers.SerializerMethodField()
     reviewed_by_name = serializers.SerializerMethodField()
+    tardy_grace_minutes = serializers.IntegerField(min_value=0, required=False)
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -240,6 +241,7 @@ class EventSerializer(serializers.ModelSerializer):
             "expected_include_semiactive",
             "expected_include_inactive",
             "expected_include_ongoing_visitors",
+            "tardy_grace_minutes",
             "occurrences",
             "next_occurrence",
             "attendee_badges",

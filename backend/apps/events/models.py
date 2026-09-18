@@ -145,6 +145,13 @@ class Event(models.Model):
     expected_include_semiactive = models.BooleanField(default=True)
     expected_include_inactive = models.BooleanField(default=True)
     expected_include_ongoing_visitors = models.BooleanField(default=True)
+    tardy_grace_minutes = models.PositiveIntegerField(
+        default=0,
+        help_text=(
+            "Minutes after occurrence start before a check-in counts as tardy. "
+            "0 means any check-in after start is tardy."
+        ),
+    )
     volunteers = models.ManyToManyField(
         settings.AUTH_USER_MODEL, related_name="volunteered_events"
     )

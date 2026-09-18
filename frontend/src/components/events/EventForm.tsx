@@ -210,6 +210,7 @@ type FormDefaults = {
   expected_include_semiactive: boolean;
   expected_include_inactive: boolean;
   expected_include_ongoing_visitors: boolean;
+  tardy_grace_minutes: number;
 };
 
 function withPlaceholders(
@@ -227,6 +228,7 @@ function withExpectedAttendeeDefaults(
     | "expected_include_semiactive"
     | "expected_include_inactive"
     | "expected_include_ongoing_visitors"
+    | "tardy_grace_minutes"
   >
 ): Omit<FormDefaults, "branch" | "room"> {
   return {
@@ -235,6 +237,7 @@ function withExpectedAttendeeDefaults(
     expected_include_semiactive: true,
     expected_include_inactive: true,
     expected_include_ongoing_visitors: true,
+    tardy_grace_minutes: 0,
   };
 }
 
@@ -352,6 +355,7 @@ export default function EventForm({
           initialData.expected_include_inactive ?? true,
         expected_include_ongoing_visitors:
           initialData.expected_include_ongoing_visitors ?? true,
+        tardy_grace_minutes: initialData.tardy_grace_minutes ?? 0,
       };
     }
 
@@ -461,6 +465,16 @@ export default function EventForm({
         ...prev,
         room: roomId,
         location: selected?.name || prev.location,
+      }));
+      return;
+    }
+
+    if (name === "tardy_grace_minutes") {
+      const parsed = Number.parseInt(value, 10);
+      setFormData((prev) => ({
+        ...prev,
+        tardy_grace_minutes:
+          Number.isFinite(parsed) && parsed >= 0 ? parsed : 0,
       }));
       return;
     }
@@ -577,6 +591,7 @@ export default function EventForm({
       expected_include_inactive: formData.expected_include_inactive,
       expected_include_ongoing_visitors:
         formData.expected_include_ongoing_visitors,
+      tardy_grace_minutes: formData.tardy_grace_minutes,
     };
 
     const conflict = findScheduleConflict({
@@ -1013,6 +1028,33 @@ export default function EventForm({
                   </div>
                 </div>
               )}
+
+              <div className="rounded-lg border border-gray-200 bg-gray-50 p-4 space-y-2">
+                <div>
+                  <h4 className="text-sm font-semibold text-gray-800">
+                    Tardy grace period
+                  </h4>
+                  <p className="mt-1 text-xs text-gray-500">
+                    Minutes after the event start before a check-in counts as
+                    tardy. Use 0 for no grace (default for Sunday Service).
+                  </p>
+                </div>
+                <label className="block text-sm text-gray-700">
+                  <span className="sr-only">Tardy grace minutes</span>
+                  <input
+                    type="number"
+                    name="tardy_grace_minutes"
+                    min={0}
+                    step={1}
+                    value={formData.tardy_grace_minutes}
+                    onChange={handleChange}
+                    className="w-full md:w-40 px-3 py-2 min-h-[44px] border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent text-sm"
+                  />
+                  <span className="mt-1 block text-xs text-gray-500">
+                    minutes
+                  </span>
+                </label>
+              </div>
 
               {formData.type === "SUNDAY_SERVICE" && (
                 <div className="rounded-lg border border-gray-200 bg-gray-50 p-4 space-y-3">

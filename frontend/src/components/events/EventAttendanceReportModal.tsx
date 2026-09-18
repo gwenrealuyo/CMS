@@ -79,6 +79,13 @@ function StatusBreakdown({
 }
 
 function RosterRow({ person }: { person: AttendanceReportPerson }) {
+  const checkInTime = person.recordedAt
+    ? new Date(person.recordedAt).toLocaleTimeString([], {
+        hour: "numeric",
+        minute: "2-digit",
+      })
+    : null;
+
   return (
     <li className="flex flex-wrap items-center gap-2 py-2.5">
       <span className="text-sm font-medium text-lighthouse-navy">
@@ -132,6 +139,16 @@ function RosterRow({ person }: { person: AttendanceReportPerson }) {
       ) : (
         <span className="chip-primary-sm shrink-0">{person.clusterLabel}</span>
       )}
+      {checkInTime ? (
+        <span className="text-xs text-muted-foreground tabular-nums">
+          {checkInTime}
+        </span>
+      ) : null}
+      {person.isTardy ? (
+        <span className="inline-flex shrink-0 items-center rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-800">
+          Tardy
+        </span>
+      ) : null}
     </li>
   );
 }
@@ -200,8 +217,9 @@ export default function EventAttendanceReportModal({
   const [venueFilter, setVenueFilter] = useState("");
 
   const report = useMemo(
-    () => buildAttendanceReport(people, event, attendanceRecords),
-    [people, event, attendanceRecords]
+    () =>
+      buildAttendanceReport(people, event, attendanceRecords, occurrenceDate),
+    [people, event, attendanceRecords, occurrenceDate]
   );
 
   const clusterFilterOptions = useMemo(() => {
@@ -354,6 +372,22 @@ export default function EventAttendanceReportModal({
               {report.surpriseCount}
             </p>
             <p className="text-xs text-muted-foreground">Surprises</p>
+          </div>
+          <div
+            className={`rounded-lg border p-3 ${
+              report.tardyCount > 0
+                ? "border-amber-200 bg-amber-50/80"
+                : "border-gray-200 bg-white"
+            }`}
+          >
+            <p
+              className={`text-2xl font-semibold ${
+                report.tardyCount > 0 ? "text-amber-700" : "text-gray-400"
+              }`}
+            >
+              {report.tardyCount}
+            </p>
+            <p className="text-xs text-muted-foreground">Tardy</p>
           </div>
         </div>
 

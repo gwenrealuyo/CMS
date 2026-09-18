@@ -5,6 +5,7 @@ import {
   getExpectedMembers,
 } from "@/src/lib/events/checkInUtils";
 import { startOfLocalDay } from "@/src/lib/events/agenda";
+import { findOccurrence } from "@/src/lib/events/recurrenceScope";
 import { formatPersonStatusLabel } from "@/src/lib/personStatus";
 import {
   AttendanceMode,
@@ -27,6 +28,7 @@ export type AttendanceReportPerson = {
   venueLabel: string;
   venueColor: string;
   recordedAt?: string;
+  isTardy?: boolean;
 };
 
 export type StatusCount = {
@@ -47,6 +49,7 @@ export type AttendanceReport = {
   checkedInCount: number;
   remainingCount: number;
   surpriseCount: number;
+  tardyCount: number;
   onsiteCount: number;
   onlineCount: number;
   onlineByVenue: VenueCount[];
@@ -84,7 +87,8 @@ function toReportPersonFromPerson(person: Person): AttendanceReportPerson {
 }
 
 function toReportPersonFromRecord(
-  record: EventAttendanceRecord
+  record: EventAttendanceRecord,
+  isTardy = false
 ): AttendanceReportPerson {
   const person = record.person;
   const status = normalizeStatus(person.status);
@@ -103,6 +107,7 @@ function toReportPersonFromRecord(
     venueLabel: record.attendance_venue_label || "",
     venueColor: record.attendance_venue_color || "",
     recordedAt: record.recorded_at,
+    isTardy,
   };
 }
 
@@ -201,10 +206,54 @@ export function isAttendanceReportAvailable(
   return occurrence.getTime() <= today.getTime();
 }
 
+/**
+ * Resolve the occurrence start datetime for tardiness checks.
+ * Prefer matching `event.occurrences`; otherwise apply event clock time to the date.
+ */
+export function resolveOccurrenceStart(
+  event: Pick<Event, "start_date" | "occurrences">,
+  occurrenceDate: string
+): Date | null {
+  const matched = findOccurrence(event as Event, occurrenceDate);
+  if (matched?.start_date) {
+    const fromOccurrence = new Date(matched.start_date);
+    if (!Number.isNaN(fromOccurrence.getTime())) return fromOccurrence;
+  }
+
+  const baseStart = new Date(event.start_date);
+  if (Number.isNaN(baseStart.getTime())) return null;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(occurrenceDate.trim())) return null;
+
+  const [year, month, day] = occurrenceDate.split("-").map(Number);
+  return new Date(
+    year,
+    month - 1,
+    day,
+    baseStart.getHours(),
+    baseStart.getMinutes(),
+    baseStart.getSeconds(),
+    baseStart.getMilliseconds()
+  );
+}
+
+/** Tardy when check-in is strictly after occurrence start + grace minutes. */
+export function isCheckInTardy(
+  recordedAt: string | undefined,
+  occurrenceStart: Date | null,
+  graceMinutes = 0
+): boolean {
+  if (!recordedAt || !occurrenceStart) return false;
+  const checkedInAt = new Date(recordedAt);
+  if (Number.isNaN(checkedInAt.getTime())) return false;
+  const graceMs = Math.max(0, graceMinutes) * 60 * 1000;
+  return checkedInAt.getTime() > occurrenceStart.getTime() + graceMs;
+}
+
 export function buildAttendanceReport(
   people: Person[],
   event: Event,
-  attendanceRecords: EventAttendanceRecord[]
+  attendanceRecords: EventAttendanceRecord[],
+  occurrenceDate?: string
 ): AttendanceReport {
   const expectedMembers = getExpectedMembers(people, event);
   const expectedIds = new Set(expectedMembers.map((person) => String(person.id)));
@@ -223,8 +272,22 @@ export function buildAttendanceReport(
     }
   }
 
+  const dateKey =
+    occurrenceDate?.trim() ||
+    attendanceRecords[0]?.occurrence_date ||
+    "";
+  const occurrenceStart = dateKey
+    ? resolveOccurrenceStart(event, dateKey)
+    : null;
+  const graceMinutes = event.tardy_grace_minutes ?? 0;
+
   const checkedInRoster = Array.from(latestByPerson.values())
-    .map(toReportPersonFromRecord)
+    .map((record) =>
+      toReportPersonFromRecord(
+        record,
+        isCheckInTardy(record.recorded_at, occurrenceStart, graceMinutes)
+      )
+    )
     .sort((a, b) => a.name.localeCompare(b.name));
 
   const surprises = checkedInRoster.filter((person) => !expectedIds.has(person.id));
@@ -240,12 +303,14 @@ export function buildAttendanceReport(
   const onlineCount = checkedInRoster.filter(
     (person) => person.attendanceMode === "ONLINE"
   ).length;
+  const tardyCount = checkedInRoster.filter((person) => person.isTardy).length;
 
   return {
     expectedCount: expectedMembers.length,
     checkedInCount: checkedInRoster.length,
     remainingCount: remainingRoster.length,
     surpriseCount: surprises.length,
+    tardyCount,
     onsiteCount,
     onlineCount,
     onlineByVenue: countOnlineByVenue(checkedInRoster),
@@ -279,6 +344,7 @@ export function buildAttendanceReportCsv(
     ["Online", String(report.onlineCount)].map(escapeCsvValue).join(","),
     ["Remaining", String(report.remainingCount)].map(escapeCsvValue).join(","),
     ["Surprises", String(report.surpriseCount)].map(escapeCsvValue).join(","),
+    ["Tardy", String(report.tardyCount)].map(escapeCsvValue).join(","),
     "",
     [
       "Category",
@@ -290,6 +356,7 @@ export function buildAttendanceReportCsv(
       "Attendance mode",
       "Online venue",
       "Checked In At",
+      "Tardy",
     ]
       .map(escapeCsvValue)
       .join(","),
@@ -313,6 +380,7 @@ export function buildAttendanceReportCsv(
           person.recordedAt
             ? new Date(person.recordedAt).toLocaleString()
             : "",
+          person.recordedAt ? (person.isTardy ? "Yes" : "No") : "",
         ]
           .map(escapeCsvValue)
           .join(",")

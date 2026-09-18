@@ -75,12 +75,14 @@ class EventExpectedAttendeeFlagsTests(APITestCase):
         self.assertTrue(response.data["expected_include_semiactive"])
         self.assertTrue(response.data["expected_include_inactive"])
         self.assertTrue(response.data["expected_include_ongoing_visitors"])
+        self.assertEqual(response.data["tardy_grace_minutes"], 0)
 
         event = Event.objects.get(pk=response.data["id"])
         self.assertTrue(event.expected_include_active)
         self.assertTrue(event.expected_include_semiactive)
         self.assertTrue(event.expected_include_inactive)
         self.assertTrue(event.expected_include_ongoing_visitors)
+        self.assertEqual(event.tardy_grace_minutes, 0)
 
     def test_update_expected_flags_round_trip(self):
         event = Event.objects.create(
@@ -115,3 +117,67 @@ class EventExpectedAttendeeFlagsTests(APITestCase):
         self.assertTrue(event.expected_include_semiactive)
         self.assertFalse(event.expected_include_inactive)
         self.assertFalse(event.expected_include_ongoing_visitors)
+
+    def test_create_defaults_tardy_grace_minutes_zero(self):
+        self.client.force_authenticate(user=self.coordinator)
+        start = make_aware_local(2026, 8, 9, 9)
+        end = make_aware_local(2026, 8, 9, 11)
+        response = self.client.post(
+            "/api/events/",
+            {
+                "title": "Sunday Service",
+                "description": "",
+                "type": "SUNDAY_SERVICE",
+                "location": "Main Hall",
+                "branch": self.hq.id,
+                "start_date": start.isoformat(),
+                "end_date": end.isoformat(),
+                "is_recurring": False,
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, 201, response.data)
+        self.assertEqual(response.data["tardy_grace_minutes"], 0)
+        event = Event.objects.get(pk=response.data["id"])
+        self.assertEqual(event.tardy_grace_minutes, 0)
+
+    def test_update_tardy_grace_minutes_round_trip(self):
+        event = Event.objects.create(
+            title="Sunday Service",
+            description="",
+            event_type=self.event_type,
+            location="Main Hall",
+            branch=self.hq,
+            start_date=make_aware_local(2026, 8, 9, 9),
+            end_date=make_aware_local(2026, 8, 9, 11),
+            created_by=self.coordinator,
+        )
+        self.client.force_authenticate(user=self.coordinator)
+        response = self.client.patch(
+            f"/api/events/{event.id}/",
+            {"tardy_grace_minutes": 15},
+            format="json",
+        )
+        self.assertEqual(response.status_code, 200, response.data)
+        self.assertEqual(response.data["tardy_grace_minutes"], 15)
+        event.refresh_from_db()
+        self.assertEqual(event.tardy_grace_minutes, 15)
+
+    def test_reject_negative_tardy_grace_minutes(self):
+        event = Event.objects.create(
+            title="Sunday Service",
+            description="",
+            event_type=self.event_type,
+            location="Main Hall",
+            branch=self.hq,
+            start_date=make_aware_local(2026, 8, 9, 9),
+            end_date=make_aware_local(2026, 8, 9, 11),
+            created_by=self.coordinator,
+        )
+        self.client.force_authenticate(user=self.coordinator)
+        response = self.client.patch(
+            f"/api/events/{event.id}/",
+            {"tardy_grace_minutes": -5},
+            format="json",
+        )
+        self.assertEqual(response.status_code, 400, response.data)

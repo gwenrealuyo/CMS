@@ -82,7 +82,7 @@ import { formatApiErrorMessage } from "@/src/lib/apiErrors";
 import {
   PERSON_PHOTO_ACCEPT,
   PERSON_PHOTO_HELPER_TEXT,
-  validatePersonPhoto,
+  preparePersonPhoto,
 } from "@/src/lib/personPhoto";
 import { formatAgeYears, getLocalTodayDateString } from "@/src/lib/date";
 import PersonDateField, {
@@ -743,7 +743,7 @@ export default function PersonForm({
     const file = e.target.files?.[0];
     if (!file) return;
 
-    const result = await validatePersonPhoto(file);
+    const result = await preparePersonPhoto(file);
     if (!result.ok) {
       toast.error(result.message);
       if (photoInputRef.current) {
@@ -752,7 +752,7 @@ export default function PersonForm({
       return;
     }
 
-    setPhotoFile(file);
+    setPhotoFile(result.file);
     setPhotoRemoved(false);
     setHasUnsavedChanges(true);
   };

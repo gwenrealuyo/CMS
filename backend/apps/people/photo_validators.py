@@ -8,8 +8,18 @@ PERSON_PHOTO_MAX_DIMENSION = 4000
 PERSON_PHOTO_ALLOWED_MIME_TYPES = frozenset(
     {"image/jpeg", "image/png", "image/webp"}
 )
+# Safari / some Apple clients report non-standard JPEG MIME aliases.
+PERSON_PHOTO_MIME_ALIASES = {
+    "image/jpg": "image/jpeg",
+    "image/pjpeg": "image/jpeg",
+    "image/x-png": "image/png",
+}
 PERSON_PHOTO_ALLOWED_EXTENSIONS = frozenset({".jpg", ".jpeg", ".png", ".webp"})
-PERSON_PHOTO_HELPER_TEXT = "JPEG, PNG, or WebP · max 5 MB · max 4000×4000 px"
+PERSON_PHOTO_HELPER_TEXT = (
+    "JPEG, PNG, WebP, or Apple HEIC · max 5 MB · max 4000×4000 px"
+)
+# Apple HEIC is converted to JPEG on the client before upload; stored types remain
+# JPEG/PNG/WebP only.
 
 
 def _extension(filename: str) -> str:
@@ -32,10 +42,14 @@ def validate_person_photo(value):
             f"Unsupported file type. Use {PERSON_PHOTO_HELPER_TEXT}."
         )
 
-    if content_type and content_type not in PERSON_PHOTO_ALLOWED_MIME_TYPES:
-        raise ValidationError(
-            f"Unsupported file type. Use {PERSON_PHOTO_HELPER_TEXT}."
+    if content_type:
+        normalized_type = PERSON_PHOTO_MIME_ALIASES.get(
+            content_type.lower(), content_type.lower()
         )
+        if normalized_type not in PERSON_PHOTO_ALLOWED_MIME_TYPES:
+            raise ValidationError(
+                f"Unsupported file type. Use {PERSON_PHOTO_HELPER_TEXT}."
+            )
 
     size = getattr(value, "size", None)
     if size is not None and size > PERSON_PHOTO_MAX_BYTES:

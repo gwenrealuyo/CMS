@@ -15,7 +15,7 @@ import toast from "react-hot-toast";
 import {
   PERSON_PHOTO_ACCEPT,
   PERSON_PHOTO_HELPER_TEXT,
-  validatePersonPhoto,
+  preparePersonPhoto,
 } from "@/src/lib/personPhoto";
 
 export default function ProfilePage() {
@@ -339,7 +339,7 @@ function ProfilePageContent() {
                 onChange={async (e) => {
                   const file = e.target.files?.[0];
                   if (!file) return;
-                  const result = await validatePersonPhoto(file);
+                  const result = await preparePersonPhoto(file);
                   if (!result.ok) {
                     toast.error(result.message);
                     if (photoInputRef.current) {
@@ -347,7 +347,7 @@ function ProfilePageContent() {
                     }
                     return;
                   }
-                  setProfileData({ ...profileData, photo: file });
+                  setProfileData({ ...profileData, photo: result.file });
                   setPhotoRemoved(false);
                 }}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"

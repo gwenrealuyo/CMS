@@ -16,6 +16,7 @@ import Button from "@/src/components/ui/Button";
 import ConfirmationModal from "@/src/components/ui/ConfirmationModal";
 import EventAttendanceReportModal from "@/src/components/events/EventAttendanceReportModal";
 import EditAttendanceModeControl from "@/src/components/events/EditAttendanceModeControl";
+import PersonAvatar from "@/src/components/people/PersonAvatar";
 import LoadingSpinner from "@/src/components/ui/LoadingSpinner";
 import ScalableSelect from "@/src/components/ui/ScalableSelect";
 import { usePeople } from "@/src/hooks/usePeople";
@@ -96,10 +97,12 @@ function formatOccurrenceLabel(dateValue: string) {
 function CheckInStatusBanner({
   kind,
   message,
+  person,
   onClose,
 }: {
   kind: CheckInFlash;
   message: string;
+  person?: Person;
   onClose: () => void;
 }) {
   const styles =
@@ -119,6 +122,7 @@ function CheckInStatusBanner({
       role="status"
       className={`mt-4 flex items-center gap-2 rounded-lg border px-4 py-3.5 text-base font-medium leading-snug ${styles}`}
     >
+      {person && <PersonAvatar person={person} size="md" enlargeable={true} />}
       <p className="min-w-0 flex-1">{message}</p>
       <button
         type="button"
@@ -191,6 +195,7 @@ export default function EventCheckInView({
   const [actionBanner, setActionBanner] = useState<{
     kind: CheckInFlash;
     message: string;
+    person?: Person;
   } | null>(null);
   const [flash, setFlash] = useState<CheckInFlash | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -444,6 +449,7 @@ export default function EventCheckInView({
       setActionBanner({
         kind: "already",
         message: `${formatPersonName(person)} is already checked in.`,
+        person,
       });
       showCheckInToast(
         "already",
@@ -479,6 +485,7 @@ export default function EventCheckInView({
       setActionBanner({
         kind: "success",
         message: `${formatPersonName(person)} checked in.`,
+        person,
       });
       showCheckInToast("success", `${formatPersonName(person)} checked in.`);
       triggerFlash("success");
@@ -497,6 +504,7 @@ export default function EventCheckInView({
           message:
             detail ||
             `${formatPersonName(person)} is already checked in. Mode and venue cannot be changed.`,
+          person,
         });
         showCheckInToast(
           "already",
@@ -557,6 +565,7 @@ export default function EventCheckInView({
       setActionBanner({
         kind: "already",
         message: `${formatPersonName(person)} is already checked in.`,
+        person,
       });
       showCheckInToast(
         "already",
@@ -914,6 +923,7 @@ export default function EventCheckInView({
             <CheckInStatusBanner
               kind={actionBanner.kind}
               message={actionBanner.message}
+              person={actionBanner.person}
               onClose={() => setActionBanner(null)}
             />
           )}

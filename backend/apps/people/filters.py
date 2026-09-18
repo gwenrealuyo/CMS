@@ -215,12 +215,23 @@ class FamilyFilter(django_filters.FilterSet):
     )
 
     def filter_branch(self, queryset, name, value):
-        """Match Family.branch or any member's branch (same as FamilyViewSet scope)."""
+        """Match Family.branch or any member's branch (same as FamilyViewSet scope).
+
+        Plain members always keep households they belong to, even when the family
+        record is tagged to another branch.
+        """
         if value in (None, ""):
             return queryset
-        return queryset.filter(
-            Q(branch_id=value) | Q(members__branch_id=value)
-        ).distinct()
+        q = Q(branch_id=value) | Q(members__branch_id=value)
+        request = getattr(self, "request", None)
+        user = getattr(request, "user", None) if request is not None else None
+        if (
+            user is not None
+            and getattr(user, "is_authenticated", False)
+            and getattr(user, "role", None) == "MEMBER"
+        ):
+            q = q | Q(members=user)
+        return queryset.filter(q).distinct()
 
     class Meta:
         model = Family

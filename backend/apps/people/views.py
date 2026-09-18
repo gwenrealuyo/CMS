@@ -620,15 +620,9 @@ class FamilyViewSet(viewsets.ModelViewSet):
                     directly_connected_families | families_of_members
                 ).distinct()
                 scoped = filter_families_by_branch(combined_families)
-            # MEMBER: Only families they're members of
+            # MEMBER: Families they belong to (any branch on the family record)
             elif user.role == "MEMBER":
-                member_families = queryset.filter(members=user).distinct()
-                if user.branch:
-                    scoped = member_families.filter(
-                        Q(branch=user.branch) | Q(members__branch=user.branch)
-                    ).distinct()
-                else:
-                    scoped = member_families
+                scoped = queryset.filter(members=user).distinct()
             else:
                 scoped = queryset.none()
 
@@ -640,9 +634,15 @@ class FamilyViewSet(viewsets.ModelViewSet):
         """
         Override to set permissions based on action.
         """
-        if self.action in ["list", "retrieve", "unassigned_people", "summary"]:
+        if self.action in ["list", "retrieve", "summary"]:
             # Read: All authenticated non-visitors
             return [IsAuthenticatedAndNotVisitor(), IsMemberOrAbove()]
+        elif self.action == "unassigned_people":
+            # Unassigned roster: family managers only (not plain members)
+            return [
+                IsAuthenticatedAndNotVisitor(),
+                HasModuleAccess("CLUSTER", "write"),
+            ]
         elif self.action == "create":
             # Write create: ADMIN, PASTOR, or CLUSTER coordinator (any level)
             return [
@@ -738,6 +738,9 @@ class FamilyViewSet(viewsets.ModelViewSet):
             .values_list("id", flat=True)
             .distinct()
         )
+        can_see_unassigned = HasModuleAccess(
+            "CLUSTER", "write"
+        ).has_permission(request, self)
         unassigned_count = (
             people_qs.exclude(id__in=assigned_ids)
             .exclude(username="admin")
@@ -745,6 +748,8 @@ class FamilyViewSet(viewsets.ModelViewSet):
             .exclude(first_name__isnull=True)
             .exclude(last_name__isnull=True)
             .count()
+            if can_see_unassigned
+            else 0
         )
 
         return Response(

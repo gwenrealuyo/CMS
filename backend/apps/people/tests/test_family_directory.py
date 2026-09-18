@@ -132,6 +132,38 @@ class FamilyDirectoryAPITests(APITestCase):
         self.assertEqual(row["member_count"], 3)
         self.assertEqual(row["visitor_count"], 1)
 
+    def test_plain_member_sees_families_they_belong_to_regardless_of_family_branch(self):
+        """Membership wins over Family.branch for plain members."""
+        self.reyes.members.add(self.member)
+        self.assertEqual(self.reyes.branch_id, self.other_branch.id)
+        self.assertEqual(self.member.branch_id, self.muntinlupa.id)
+
+        self.client.force_authenticate(self.member)
+        response = self.client.get("/api/people/families/")
+        self.assertEqual(response.status_code, 200, response.data)
+        names = self._names(response)
+        self.assertIn("Santos", names)
+        self.assertIn("Reyes", names)
+
+        # Even with a branch query param, membership still includes their households.
+        branched = self.client.get(
+            "/api/people/families/",
+            {"branch": self.muntinlupa.id},
+        )
+        self.assertEqual(branched.status_code, 200, branched.data)
+        branched_names = self._names(branched)
+        self.assertIn("Santos", branched_names)
+        self.assertIn("Reyes", branched_names)
+
+    def test_plain_member_cannot_list_unassigned_people(self):
+        self.client.force_authenticate(self.member)
+        response = self.client.get("/api/people/families/unassigned-people/")
+        self.assertEqual(response.status_code, 403)
+
+        summary = self.client.get("/api/people/families/summary/")
+        self.assertEqual(summary.status_code, 200, summary.data)
+        self.assertEqual(summary.data["unassigned_count"], 0)
+
     def test_cluster_coordinator_count_is_not_cluster_overlap(self):
         family, _pastor, member_b, _visitor = self._antonio_household()
         coordinator = self._person(

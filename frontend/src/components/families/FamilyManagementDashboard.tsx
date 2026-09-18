@@ -181,23 +181,37 @@ export default function FamilyManagementDashboard({
     { value: string; label: string }[]
   >([]);
   const [branchesLoading, setBranchesLoading] = useState(false);
+  const [branchFilterReady, setBranchFilterReady] = useState(false);
   const familyBranchUserIdRef = React.useRef<number | undefined>(undefined);
+  const awaitingUserBranchRef = React.useRef(false);
 
   useEffect(() => {
     if (!user) {
       setBranchFilterId("");
+      setBranchFilterReady(false);
       familyBranchUserIdRef.current = undefined;
+      awaitingUserBranchRef.current = false;
       return;
     }
+    const userBranch =
+      user.branch != null && user.branch !== undefined
+        ? String(user.branch)
+        : "";
     if (familyBranchUserIdRef.current !== user.id) {
       familyBranchUserIdRef.current = user.id;
-      setBranchFilterId(
-        user.branch != null && user.branch !== undefined
-          ? String(user.branch)
-          : "",
-      );
+      setBranchFilterId(userBranch);
+      awaitingUserBranchRef.current = !userBranch;
+    } else if (!canChangeFamilyBranchFilter) {
+      // Locked users always stay on their assigned branch.
+      setBranchFilterId(userBranch);
+      awaitingUserBranchRef.current = false;
+    } else if (awaitingUserBranchRef.current && userBranch) {
+      // Auth hydrated branch after the first user payload.
+      setBranchFilterId(userBranch);
+      awaitingUserBranchRef.current = false;
     }
-  }, [user]);
+    setBranchFilterReady(true);
+  }, [user, canChangeFamilyBranchFilter]);
 
   useEffect(() => {
     if (!canChangeFamilyBranchFilter) {
@@ -356,11 +370,13 @@ export default function FamilyManagementDashboard({
 
   const directoryFilters = useMemo(() => {
     const params = filtersToFamilyParams(familyFilters);
-    if (branchFilterId) {
+    // Locked users rely on backend membership/branch scope (same as clusters).
+    // Passing branch here can hide households the member belongs to.
+    if (canChangeFamilyBranchFilter && branchFilterId) {
       params.branch = branchFilterId;
     }
     return params;
-  }, [familyFilters, branchFilterId]);
+  }, [familyFilters, branchFilterId, canChangeFamilyBranchFilter]);
 
   const directoryOrdering = useMemo(() => {
     const field =
@@ -383,11 +399,13 @@ export default function FamilyManagementDashboard({
     page: familyPage,
     pageSize: FAMILY_PAGE_SIZE,
     ordering: directoryOrdering,
+    enabled: branchFilterReady,
   });
 
   const { summary: directorySummary, refetch: refetchSummary } =
     useFamiliesSummary({
-      branch: branchFilterId,
+      branch: canChangeFamilyBranchFilter ? branchFilterId : "",
+      enabled: branchFilterReady,
     });
 
   const {
@@ -399,6 +417,7 @@ export default function FamilyManagementDashboard({
     search: unassignedSearch,
     page: unassignedPage,
     pageSize: UNASSIGNED_PAGE_SIZE,
+    enabled: branchFilterReady && showWriteActions,
   });
 
   const unassignedMembers = unassignedPeopleUI;
@@ -524,7 +543,11 @@ export default function FamilyManagementDashboard({
   return (
     <div className="space-y-6">
       {/* Statistics Cards */}
-      <div className="grid min-w-0 grid-cols-1 gap-4 md:grid-cols-3 [&>*]:min-w-0">
+      <div
+        className={`grid min-w-0 grid-cols-1 gap-4 [&>*]:min-w-0 ${
+          showWriteActions ? "md:grid-cols-3" : "md:grid-cols-2"
+        }`}
+      >
         <div className="bg-white rounded-lg border border-gray-200 p-4 card-shadow">
           <div className="flex items-center">
             <div className="flex-shrink-0">
@@ -581,6 +604,7 @@ export default function FamilyManagementDashboard({
             </div>
           </div>
         </div>
+        {showWriteActions && (
         <div className="bg-white rounded-lg border border-gray-200 p-4 card-shadow">
           <div className="flex items-center">
             <div className="flex-shrink-0">
@@ -610,6 +634,7 @@ export default function FamilyManagementDashboard({
             </div>
           </div>
         </div>
+        )}
       </div>
 
       {/* Header */}
@@ -1039,7 +1064,7 @@ export default function FamilyManagementDashboard({
       </div>
 
       {/* Unassigned Members Section */}
-      {unassignedTotalCount > 0 && (
+      {showWriteActions && unassignedTotalCount > 0 && (
         <div className="space-y-4">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <h2 className="text-lg font-semibold text-gray-900 sm:text-xl">

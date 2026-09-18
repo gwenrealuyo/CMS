@@ -34,6 +34,11 @@ export default function FamilyForm({
     user?.role === "PASTOR" ||
     isSeniorCoordinator("CLUSTER");
 
+  const userBranchId =
+    user?.branch != null && user.branch !== undefined
+      ? String(user.branch)
+      : "";
+
   const getInitialFormData = useCallback(
     () => ({
       name: initialData?.name || "",
@@ -44,9 +49,9 @@ export default function FamilyForm({
       branch:
         initialData?.branch != null && initialData.branch !== undefined
           ? String(initialData.branch)
-          : "",
+          : userBranchId,
     }),
-    [initialData]
+    [initialData, userBranchId],
   );
 
   const [formData, setFormData] = useState({
@@ -65,7 +70,7 @@ export default function FamilyForm({
 
   const selectableMembers = useMemo(
     () => availableMembers.filter(isSelectablePerson),
-    [availableMembers]
+    [availableMembers],
   );
 
   const filteredMembers = useMemo(() => {
@@ -75,7 +80,7 @@ export default function FamilyForm({
       (member) =>
         formatPersonName(member).toLowerCase().includes(searchLower) ||
         member.role.toLowerCase().includes(searchLower) ||
-        member.status.toLowerCase().includes(searchLower)
+        member.status.toLowerCase().includes(searchLower),
     );
   }, [selectableMembers, memberSearch]);
 
@@ -89,7 +94,7 @@ export default function FamilyForm({
       alert(
         formData.members.length === 0
           ? "Please add members and select a family leader"
-          : "Please select a family leader"
+          : "Please select a family leader",
       );
       return;
     }
@@ -149,7 +154,6 @@ export default function FamilyForm({
     }
   };
 
-
   const getSelectedMembers = () => {
     return formData.members
       .map((id) => selectableMembers.find((member) => member.id === id))
@@ -208,11 +212,6 @@ export default function FamilyForm({
                 </option>
               ))}
           </select>
-          {!canEditBranch && (
-            <p className="text-xs text-gray-500 mt-1">
-              Only ADMIN, PASTOR, or CLUSTER Senior Coordinator can edit branch
-            </p>
-          )}
         </div>
 
         <div>
@@ -331,14 +330,14 @@ export default function FamilyForm({
                       <div className="flex items-center space-x-1 mt-0.5">
                         <span
                           className={`px-1.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(
-                            member.status
+                            member.status,
                           )}`}
                         >
                           {member.status.toLowerCase()}
                         </span>
                         <span
                           className={`px-1.5 py-0.5 rounded-full text-xs font-medium ${getPersonRoleColor(
-                            member.role
+                            member.role,
                           )}`}
                         >
                           {member.role.toLowerCase()}
@@ -426,8 +425,8 @@ export default function FamilyForm({
           {loading
             ? "Saving..."
             : initialData
-            ? "Update Family"
-            : "Create Family"}
+              ? "Update Family"
+              : "Create Family"}
         </Button>
         {initialData && onDelete && showDeleteButton && (
           <>

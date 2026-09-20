@@ -166,19 +166,13 @@ class SelfCheckInAPITests(APITestCase):
             "apps.events.services.self_checkin.church_today",
             return_value=TODAY,
         )
-        self.views_today_patch = patch(
-            "apps.events.self_checkin_views.church_today",
-            return_value=TODAY,
-        )
         self.people_utils_today_patch = patch(
             "apps.people.utils.church_today",
             return_value=TODAY,
         )
         self.church_today_patch.start()
-        self.views_today_patch.start()
         self.people_utils_today_patch.start()
         self.addCleanup(self.church_today_patch.stop)
-        self.addCleanup(self.views_today_patch.stop)
         self.addCleanup(self.people_utils_today_patch.stop)
         EventSetting.get_solo()
         EventSetting.objects.filter(pk=EventSetting.SOLO_PK).update(
@@ -543,6 +537,7 @@ class SelfCheckInAPITests(APITestCase):
         self.assertEqual(visitor.status, "ONGOING")
         self.assertEqual(visitor.inviter_id, self.coordinator.id)
         self.assertEqual(visitor.date_first_attended, TODAY)
+        self.assertEqual(visitor.date_first_invited, TODAY)
         self.assertTrue(
             AttendanceRecord.objects.filter(
                 event=self.event, person=visitor, occurrence_date=TODAY
@@ -553,6 +548,45 @@ class SelfCheckInAPITests(APITestCase):
                 type="NOTE", description__icontains="Adult"
             ).exists()
         )
+
+    def test_encode_first_time_attending_sets_invited_date(self):
+        self.client.force_authenticate(self.member)
+        response = self.client.post(
+            "/api/events/self-check-in/visitors/",
+            {
+                "first_name": "Firsty",
+                "last_name": "Online",
+                "gender": "FEMALE",
+                "age_group": "ADULT",
+                "first_time_attending": True,
+                "attendance_venue": "HOME_ALTAR",
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, 201, response.data)
+        visitor = Person.objects.get(first_name="Firsty", last_name="Online")
+        self.assertEqual(visitor.date_first_attended, TODAY)
+        self.assertEqual(visitor.date_first_invited, TODAY)
+        self.assertEqual(visitor.inviter_id, self.member.id)
+
+    def test_encode_not_first_time_leaves_invited_null(self):
+        self.client.force_authenticate(self.member)
+        response = self.client.post(
+            "/api/events/self-check-in/visitors/",
+            {
+                "first_name": "Later",
+                "last_name": "Online",
+                "gender": "MALE",
+                "age_group": "CHILD",
+                "first_time_attending": False,
+                "attendance_venue": "HOME_ALTAR",
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, 201, response.data)
+        visitor = Person.objects.get(first_name="Later", last_name="Online")
+        self.assertEqual(visitor.date_first_attended, TODAY)
+        self.assertIsNone(visitor.date_first_invited)
 
     def test_new_visitor_names_are_title_cased(self):
         self.client.force_authenticate(self.coordinator)

@@ -1,5 +1,10 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
+from .onsite_guest_views import (
+    OnsiteGuestInvitersView,
+    OnsiteGuestSessionView,
+    OnsiteGuestVisitorsView,
+)
 from .self_checkin_views import (
     EventSettingView,
     PublicSelfCheckInIdentifyView,
@@ -23,6 +28,21 @@ urlpatterns = [
         "settings/",
         EventSettingView.as_view(),
         name="event-settings",
+    ),
+    path(
+        "onsite-guest/session/",
+        OnsiteGuestSessionView.as_view(),
+        name="onsite-guest-session",
+    ),
+    path(
+        "onsite-guest/visitors/",
+        OnsiteGuestVisitorsView.as_view(),
+        name="onsite-guest-visitors",
+    ),
+    path(
+        "onsite-guest/inviters/",
+        OnsiteGuestInvitersView.as_view(),
+        name="onsite-guest-inviters",
     ),
     path(
         "self-check-in/public/session/",

@@ -120,10 +120,27 @@ The Event form shows these toggles only when the type is Sunday Service. Other e
 - Station toggle: **Onsite** (default) posts `attendance_mode: ONSITE`; **Online** requires a venue and posts `ONLINE` + venue. Switching the station also sets the Recent Check-Ins mode filter to Onsite or Online. Recent Check-Ins show mode/venue chips, **Edit mode** (PATCH correction), and can still filter by mode and cluster.
 - Reuses `POST /api/events/{id}/attendance/` with `status: PRESENT` and refreshes the recent check-ins list after each success.
 - For **today or past** occurrences, **Generate Report** opens the same client-side attendance report as Event Details.
+- **New guest** opens `/events/guest?event={id}&occurrence=YYYY-MM-DD` for encoding walk-ins / new visitors with **ONSITE** attendance (Events write only).
+
+### Guest (onsite Sunday)
+
+Staff page at `/events/guest` (no sidebar). Events write only (same as check-in: Admin, Pastor, Events Coordinator / Senior Coordinator).
+
+- Resolves today’s approved `SUNDAY_SERVICE` (branch-aware picker when needed), or uses `?event=` + `?occurrence=` when opened from the check-in station.
+- Search first: existing `VISITOR` people and Invited prospects in the event branch; check-in existing matches as **ONSITE** (no venue).
+- Encode new guest: first/last name, optional phone/email, gender, age group, **First time attending** (default on — sets `date_first_attended` and `date_first_invited` to the occurrence date; off leaves invited null), **optional inviter** (member search). Blank inviter = walk-in (`inviter=null` — do not invent a staff inviter).
+- Creates `VISITOR` / `ONGOING` with the same title-case / first-activity / age-group Journey note rules as online guest encode, then Present with `attendance_mode: ONSITE`.
+- Duplicate first+last in the branch returns 409 with matches.
+
+API (Events write):
+
+- `GET /api/events/onsite-guest/session/` — `?event=` / `?occurrence=` optional
+- `GET|POST /api/events/onsite-guest/visitors/` — search / check in existing, prospect, or create (`inviter_id` optional)
+- `GET /api/events/onsite-guest/inviters/?q=` — member search for optional inviter (empty query returns no results)
 
 ### Self Check-In (Sunday Service)
 
-Mobile-first page at `/events/self-check-in` (no sidebar). **Online attendance only** — onsite guests and members use the staff station at `/events/check-in`. Both write the same `AttendanceRecord` + `EVENT_ATTENDANCE` journey.
+Mobile-first page at `/events/self-check-in` (no sidebar). **Online attendance only** — onsite members use the staff station at `/events/check-in`; onsite guests use `/events/guest` (linked from check-in). Both write the same `AttendanceRecord` + `EVENT_ATTENDANCE` journey.
 
 There are two UIs on the same URL:
 
@@ -136,9 +153,9 @@ The member QR payload stays the LAMP ID (`member_id`), for example `LAMP12345`. 
 - **Who can use the public link:** **Member self-check-in** in Admin Settings → Module controls is off by default. Turn the switch on to open the public LAMP ID page. While off, the public APIs return `available: false`, `reason: restricted`; admins and Events coordinators still use the logged-in household/guest page.
 - **Public identify:** `POST` with `{ member_id }` (also accepts digits-only, e.g. `10001` for `LAMP10001`). Unknown / admin / deceased → generic 404. Duplicate LAMP IDs → 409 asking staff. Check-in re-resolves from `member_id` (does not trust a client `person_id`).
 - **Logged-in members:** any allowed authenticated non-visitor attending **online** can check in themselves and household members on the same `Family` record(s). Deceased and other admin accounts are skipped. Does **not** require Events write.
-- **Online guests (logged-in only):** any allowed member can search first (existing `VISITOR` records **and Invited prospects** in the event branch), then check them in or add a new guest. Inviter is always the logged-in host (not editable). Duplicate first+last name in the branch returns 409 with matches instead of creating a second person. This does **not** grant People-module visitor create rights.
+- **Online guests (logged-in only):** any allowed member can search first (existing `VISITOR` records **and Invited prospects** in the event branch), then check them in or add a new guest. Inviter is always the logged-in host (not editable). Duplicate first+last name in the branch returns 409 with matches instead of creating a second person. This does **not** grant People-module visitor create rights. New-guest encode includes **First time attending** (default on): checked sets both `date_first_attended` and `date_first_invited` to the occurrence date; unchecked sets attended only.
 - Checking in an Invited prospect uses the same `mark_prospect_attended` path as Evangelism / cluster reports: creates a `VISITOR` / `ONGOING` Person, sets first activity to Sunday Service, then marks Present. Undo still only removes attendance.
-- New guests: `VISITOR` / `ONGOING`, `date_first_attended` today, `first_activity_attended=SUNDAY_SERVICE`, event branch, age group stored as a visitor note. First and last names use the same title-case rules as Add Person.
+- New guests: `VISITOR` / `ONGOING`, `date_first_attended` = occurrence date, optional `date_first_invited` when **First time attending** is checked (default), `first_activity_attended=SUNDAY_SERVICE`, event branch, age group stored as a visitor note. First and last names use the same title-case rules as Add Person.
 - Dashboard and My record show a Sunday-aware **Check in online** banner when a logged-in session is open, labelled as online-only. The unauthenticated home page shows **Sunday online check-in** when the public session is available.
 - After a successful logged-in check-in, **I made a mistake** undoes that attendance for this service (household or guests you invited). Admins and Events coordinators can also undo other visitors in the event branch. It does not delete the person record. The public page has no undo.
 

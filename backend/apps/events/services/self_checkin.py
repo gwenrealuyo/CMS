@@ -675,6 +675,234 @@ def parse_event_id(raw) -> Optional[int]:
         return None
 
 
+def parse_occurrence_date(raw) -> Optional[date]:
+    if raw in (None, "", False):
+        return None
+    if isinstance(raw, date) and not isinstance(raw, datetime):
+        return raw
+    text = str(raw).strip()
+    if not text:
+        return None
+    try:
+        return date.fromisoformat(text[:10])
+    except ValueError:
+        return None
+
+
+def resolve_onsite_guest_session(
+    user,
+    event_id: Optional[int] = None,
+    occurrence_date: Optional[date] = None,
+) -> ResolvedSession:
+    """Staff onsite guest session for a Sunday Service occurrence.
+
+    When ``event_id`` and ``occurrence_date`` are both set (e.g. from check-in),
+    validate that approved Sunday Service occurrence. Otherwise resolve services
+    for the given (or church-today) date like online self-check-in.
+    """
+    if event_id is not None and occurrence_date is not None:
+        try:
+            event = (
+                Event.objects.select_related("event_type", "branch", "room")
+                .get(pk=event_id)
+            )
+        except Event.DoesNotExist:
+            return ResolvedSession(
+                available=False,
+                reason="invalid_event",
+                needs_selection=False,
+                event=None,
+                occurrence=None,
+                occurrence_date=occurrence_date,
+                options=[],
+                can_encode_visitors=True,
+            )
+        if event.event_type_id != SUNDAY_SERVICE_TYPE:
+            return ResolvedSession(
+                available=False,
+                reason="invalid_event",
+                needs_selection=False,
+                event=None,
+                occurrence=None,
+                occurrence_date=occurrence_date,
+                options=[],
+                can_encode_visitors=True,
+            )
+        if event.booking_status != Event.BookingStatus.APPROVED:
+            return ResolvedSession(
+                available=False,
+                reason="invalid_event",
+                needs_selection=False,
+                event=None,
+                occurrence=None,
+                occurrence_date=occurrence_date,
+                options=[],
+                can_encode_visitors=True,
+            )
+        if not _is_visible_to_user(event, user):
+            return ResolvedSession(
+                available=False,
+                reason="invalid_event",
+                needs_selection=False,
+                event=None,
+                occurrence=None,
+                occurrence_date=occurrence_date,
+                options=[],
+                can_encode_visitors=True,
+            )
+        occ = occurrence_on_date(event, occurrence_date)
+        if occ is None:
+            return ResolvedSession(
+                available=False,
+                reason="invalid_event",
+                needs_selection=False,
+                event=None,
+                occurrence=None,
+                occurrence_date=occurrence_date,
+                options=[],
+                can_encode_visitors=True,
+            )
+        return ResolvedSession(
+            available=True,
+            reason=None,
+            needs_selection=False,
+            event=event,
+            occurrence=occ,
+            occurrence_date=occurrence_date,
+            options=[(event, occ)],
+            can_encode_visitors=True,
+        )
+
+    target_day = occurrence_date or church_today()
+    resolved = resolve_session(user, event_id=event_id, today=target_day)
+    return ResolvedSession(
+        available=resolved.available,
+        reason=resolved.reason,
+        needs_selection=resolved.needs_selection,
+        event=resolved.event,
+        occurrence=resolved.occurrence,
+        occurrence_date=resolved.occurrence_date,
+        options=list(resolved.options),
+        can_encode_visitors=True,
+    )
+
+
+def validate_guest_encode_fields(data) -> Tuple[dict, dict]:
+    """Return (cleaned_fields, errors) for guest create payloads."""
+    from apps.people.name_formatting import title_case_name
+
+    first_name = title_case_name(str(data.get("first_name") or "").strip())
+    last_name = title_case_name(str(data.get("last_name") or "").strip())
+    gender = str(data.get("gender") or "").strip().upper()
+    age_group = str(data.get("age_group") or "").strip().upper()
+    phone = str(data.get("phone") or "").strip()
+    email = str(data.get("email") or "").strip()
+    errors: dict = {}
+    if not first_name:
+        errors["first_name"] = ["First name is required."]
+    if not last_name:
+        errors["last_name"] = ["Last name is required."]
+    if gender not in ("MALE", "FEMALE"):
+        errors["gender"] = ["Select Male or Female."]
+    if age_group not in AGE_GROUP_LABELS:
+        errors["age_group"] = ["Select Adult, Youth, or Child."]
+    if phone and len(phone) > 20:
+        errors["phone"] = ["Phone must be 20 characters or fewer."]
+    if errors:
+        return {}, errors
+    return {
+        "first_name": first_name,
+        "last_name": last_name,
+        "gender": gender,
+        "age_group": age_group,
+        "phone": phone,
+        "email": email,
+    }, {}
+
+
+def parse_first_time_attending(raw) -> bool:
+    """True when omitted; accept common truthy/falsey payload values."""
+    if raw in (None, ""):
+        return True
+    if isinstance(raw, bool):
+        return raw
+    if isinstance(raw, (int, float)):
+        return bool(raw)
+    text = str(raw).strip().lower()
+    if text in ("1", "true", "yes", "y", "on"):
+        return True
+    if text in ("0", "false", "no", "n", "off"):
+        return False
+    return True
+
+
+def create_visitor_guest_person(
+    *,
+    first_name: str,
+    last_name: str,
+    gender: str,
+    age_group: str,
+    phone: str = "",
+    email: str = "",
+    branch=None,
+    inviter=None,
+    date_first_attended: Optional[date] = None,
+    date_first_invited: Optional[date] = None,
+) -> Person:
+    """Create a VISITOR person + age-group Journey note (no attendance)."""
+    from apps.events.models import EventType
+    from apps.people.models import Journey, Person
+    from apps.people.usernames import generate_unique_username
+
+    attended = date_first_attended or church_today()
+    event_type = EventType.objects.filter(code=SUNDAY_SERVICE_TYPE).first()
+    person = Person(
+        username=generate_unique_username(first_name, last_name),
+        first_name=first_name,
+        last_name=last_name,
+        gender=gender,
+        phone=phone,
+        email=email,
+        role="VISITOR",
+        status="ONGOING",
+        date_first_attended=attended,
+        date_first_invited=date_first_invited,
+        first_activity_attended=event_type,
+        branch=branch,
+        inviter=inviter,
+    )
+    person.set_unusable_password()
+    person.save()
+
+    Journey.objects.create(
+        user=person,
+        type="NOTE",
+        title="Visitor note",
+        description=f"Age group: {AGE_GROUP_LABELS[age_group]}",
+        date=person.date_first_attended or church_today(),
+        verified_by=None,
+    )
+    return person
+
+
+def resolve_optional_inviter(user, event: Event, inviter_id) -> Tuple[Optional[Person], Optional[dict]]:
+    """Staff may set an optional inviter; omit/blank means walk-in (null)."""
+    if inviter_id in (None, "", False):
+        return None, None
+    parsed = parse_event_id(inviter_id)
+    if parsed is None:
+        return None, {"inviter_id": ["Invalid inviter."]}
+    qs = (
+        people_scope_for_event(user, event)
+        .exclude(role="VISITOR")
+        .exclude(status="DECEASED")
+    )
+    try:
+        return qs.get(pk=parsed), None
+    except Person.DoesNotExist:
+        return None, {"inviter_id": ["Inviter not found for this service."]}
+
+
 def parse_person_ids(raw: Iterable) -> List[int]:
     ids: List[int] = []
     seen = set()

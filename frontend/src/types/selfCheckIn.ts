@@ -91,6 +91,7 @@ export interface SelfCheckInVisitorWrite {
   inviter_id?: number;
   event_id?: number;
   attendance_venue: string;
+  first_time_attending?: boolean;
 }
 
 export interface PublicSelfCheckInPerson {

@@ -21,10 +21,10 @@ from apps.evangelism.models import Prospect
 from apps.evangelism.services import mark_prospect_attended
 from apps.events.serializers import AttendanceVenueSerializer, EventSettingSerializer
 from apps.events.services.self_checkin import (
-    AGE_GROUP_LABELS,
     REASON_RESTRICTED,
     SUNDAY_SERVICE_TYPE,
     checked_in_person_ids,
+    create_visitor_guest_person,
     exact_name_matches,
     exact_prospect_name_matches,
     find_people_by_member_id,
@@ -33,6 +33,7 @@ from apps.events.services.self_checkin import (
     invited_prospect_scope_for_event,
     member_self_checkin_enabled,
     parse_event_id,
+    parse_first_time_attending,
     parse_person_ids,
     people_scope_for_event,
     person_full_name,
@@ -49,12 +50,10 @@ from apps.events.services.self_checkin import (
     undoable_person_ids,
     user_can_encode_self_checkin_visitors,
     user_can_use_self_checkin,
+    validate_guest_encode_fields,
     visitor_scope_for_event,
 )
-from apps.people.models import Journey, Person
-from apps.people.name_formatting import title_case_name
-from apps.people.usernames import generate_unique_username
-from core.datetime_utils import church_today
+from apps.people.models import Person
 
 
 def _active_venues_payload():
@@ -540,33 +539,22 @@ class SelfCheckInVisitorsView(APIView):
         )
 
     def _create_and_check_in(self, request, resolved, venue: AttendanceVenue):
-        data = request.data or {}
-        first_name = title_case_name(str(data.get("first_name") or "").strip())
-        last_name = title_case_name(str(data.get("last_name") or "").strip())
-        gender = str(data.get("gender") or "").strip().upper()
-        age_group = str(data.get("age_group") or "").strip().upper()
-        phone = str(data.get("phone") or "").strip()
-        email = str(data.get("email") or "").strip()
-        errors = {}
-        if not first_name:
-            errors["first_name"] = ["First name is required."]
-        if not last_name:
-            errors["last_name"] = ["Last name is required."]
-        if gender not in ("MALE", "FEMALE"):
-            errors["gender"] = ["Select Male or Female."]
-        if age_group not in AGE_GROUP_LABELS:
-            errors["age_group"] = ["Select Adult, Youth, or Child."]
-        if phone and len(phone) > 20:
-            errors["phone"] = ["Phone must be 20 characters or fewer."]
+        cleaned, errors = validate_guest_encode_fields(request.data or {})
         if errors:
             return Response(errors, status=status.HTTP_400_BAD_REQUEST)
 
         branch = resolved.event.branch or getattr(request.user, "branch", None)
         person_matches = list(
-            exact_name_matches(first_name, last_name, getattr(branch, "pk", None))[:8]
+            exact_name_matches(
+                cleaned["first_name"],
+                cleaned["last_name"],
+                getattr(branch, "pk", None),
+            )[:8]
         )
         prospect_matches = list(
-            exact_prospect_name_matches(first_name, last_name, resolved.event)[:8]
+            exact_prospect_name_matches(
+                cleaned["first_name"], cleaned["last_name"], resolved.event
+            )[:8]
         )
         if person_matches or prospect_matches:
             checked = checked_in_person_ids(resolved.event, resolved.occurrence_date)
@@ -589,33 +577,23 @@ class SelfCheckInVisitorsView(APIView):
                 status=status.HTTP_409_CONFLICT,
             )
 
-        inviter = request.user
-
-        event_type = EventType.objects.filter(code=SUNDAY_SERVICE_TYPE).first()
-        person = Person(
-            username=generate_unique_username(first_name, last_name),
-            first_name=first_name,
-            last_name=last_name,
-            gender=gender,
-            phone=phone,
-            email=email,
-            role="VISITOR",
-            status="ONGOING",
-            date_first_attended=church_today(),
-            first_activity_attended=event_type,
+        person = create_visitor_guest_person(
+            first_name=cleaned["first_name"],
+            last_name=cleaned["last_name"],
+            gender=cleaned["gender"],
+            age_group=cleaned["age_group"],
+            phone=cleaned["phone"],
+            email=cleaned["email"],
             branch=branch,
-            inviter=inviter,
-        )
-        person.set_unusable_password()
-        person.save()
-
-        Journey.objects.create(
-            user=person,
-            type="NOTE",
-            title="Visitor note",
-            description=f"Age group: {AGE_GROUP_LABELS[age_group]}",
-            date=person.date_first_attended or church_today(),
-            verified_by=None,
+            inviter=request.user,
+            date_first_attended=resolved.occurrence_date,
+            date_first_invited=(
+                resolved.occurrence_date
+                if parse_first_time_attending(
+                    (request.data or {}).get("first_time_attending")
+                )
+                else None
+            ),
         )
 
         record, _created, _already = _upsert_present(

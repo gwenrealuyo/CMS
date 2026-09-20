@@ -312,6 +312,7 @@ export default function EventSelfCheckInView() {
     SelfCheckInVisitorMatch[]
   >([]);
   const [attendanceVenue, setAttendanceVenue] = useState("");
+  const [firstTimeAttending, setFirstTimeAttending] = useState(true);
 
   const session: SelfCheckInSessionDetails | null = payload?.session ?? null;
   const selectedEventId =
@@ -437,6 +438,7 @@ export default function EventSelfCheckInView() {
     });
     setPhoneDialCountry(DEFAULT_COUNTRY);
     setPhoneLocal("");
+    setFirstTimeAttending(true);
   };
 
   const requireVenue = () => {
@@ -592,6 +594,7 @@ export default function EventSelfCheckInView() {
         email: encode.email.trim() || undefined,
         event_id: selectedEventId ? Number(selectedEventId) : undefined,
         attendance_venue: attendanceVenue,
+        first_time_attending: firstTimeAttending,
       });
       setSuccessNames([response.data.person.full_name]);
       setLastCheckInIds([response.data.person.id]);
@@ -997,6 +1000,7 @@ export default function EventSelfCheckInView() {
             <input
               required
               className="mt-1 w-full rounded-full border border-gray-200 px-4 py-3 text-base outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+              placeholder="e.g. Juan"
               value={encode.first_name}
               onChange={(event) =>
                 setEncode((current) => ({
@@ -1011,6 +1015,7 @@ export default function EventSelfCheckInView() {
             <input
               required
               className="mt-1 w-full rounded-full border border-gray-200 px-4 py-3 text-base outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+              placeholder="e.g. Santos"
               value={encode.last_name}
               onChange={(event) =>
                 setEncode((current) => ({
@@ -1068,6 +1073,7 @@ export default function EventSelfCheckInView() {
           <input
             type="email"
             className="mt-1 w-full rounded-full border border-gray-200 px-4 py-3 text-base outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+            placeholder="name@email.com"
             value={encode.email}
             onChange={(event) =>
               setEncode((current) => ({
@@ -1087,7 +1093,7 @@ export default function EventSelfCheckInView() {
                 onClick={() =>
                   setEncode((current) => ({ ...current, gender: value }))
                 }
-                className={`min-h-12 rounded-full border text-sm font-medium ${
+                className={`min-h-20 rounded-full border px-4 text-base font-medium ${
                   encode.gender === value
                     ? "border-primary bg-primary/10 text-primary"
                     : "border-gray-200"
@@ -1128,6 +1134,23 @@ export default function EventSelfCheckInView() {
             ))}
           </div>
         </fieldset>
+        <label className="flex items-start gap-3 rounded-2xl border border-gray-200 px-4 py-3">
+          <input
+            type="checkbox"
+            className="mt-1 h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+            checked={firstTimeAttending}
+            onChange={(event) => setFirstTimeAttending(event.target.checked)}
+          />
+          <span>
+            <span className="block text-sm font-medium text-lighthouse-navy">
+              First time attending
+            </span>
+            <span className="mt-0.5 block text-xs text-muted-foreground">
+              When checked, first invited date is set to the same day as first
+              attended.
+            </span>
+          </span>
+        </label>
         <p className="text-sm text-muted-foreground">
           Inviter is you. This guest is recorded as attending online with you.
         </p>

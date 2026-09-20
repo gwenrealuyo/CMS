@@ -42,6 +42,12 @@ import {
   SelfCheckInVisitorMatch,
   SelfCheckInVisitorWrite,
 } from "@/src/types/selfCheckIn";
+import type {
+  OnsiteGuestInviter,
+  OnsiteGuestSessionResponse,
+  OnsiteGuestVisitorMatch,
+  OnsiteGuestVisitorWrite,
+} from "@/src/types/onsiteGuest";
 import {
   Ministry,
   MinistryMember,
@@ -1056,6 +1062,56 @@ export const eventsApi = {
         params: {
           q: query,
           ...(params?.event ? { event: params.event } : {}),
+        },
+      }
+    ),
+  onsiteGuestSession: (params?: {
+    event?: number | string;
+    occurrence?: string;
+  }) =>
+    api.get<OnsiteGuestSessionResponse>(
+      "/events/onsite-guest/session/",
+      {
+        params: {
+          ...(params?.event ? { event: params.event } : {}),
+          ...(params?.occurrence ? { occurrence: params.occurrence } : {}),
+        },
+      }
+    ),
+  searchOnsiteGuestVisitors: (
+    query: string,
+    params?: { event?: number | string; occurrence?: string }
+  ) =>
+    api.get<{ query: string; results: OnsiteGuestVisitorMatch[] }>(
+      "/events/onsite-guest/visitors/",
+      {
+        params: {
+          q: query,
+          ...(params?.event ? { event: params.event } : {}),
+          ...(params?.occurrence ? { occurrence: params.occurrence } : {}),
+        },
+      }
+    ),
+  onsiteGuestVisitor: (payload: OnsiteGuestVisitorWrite) =>
+    api.post<{
+      created_person: boolean;
+      already_checked_in: boolean;
+      person: OnsiteGuestVisitorMatch;
+      attendance_record?: EventAttendanceRecord;
+      detail?: string;
+      matches?: OnsiteGuestVisitorMatch[];
+    }>("/events/onsite-guest/visitors/", payload),
+  searchOnsiteGuestInviters: (
+    query: string,
+    params?: { event?: number | string; occurrence?: string }
+  ) =>
+    api.get<{ query: string; results: OnsiteGuestInviter[] }>(
+      "/events/onsite-guest/inviters/",
+      {
+        params: {
+          q: query,
+          ...(params?.event ? { event: params.event } : {}),
+          ...(params?.occurrence ? { occurrence: params.occurrence } : {}),
         },
       }
     ),

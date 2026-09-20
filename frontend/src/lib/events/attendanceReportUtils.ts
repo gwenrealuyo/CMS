@@ -102,8 +102,9 @@ function toReportPersonFromPerson(person: Person): AttendanceReportPerson {
     status,
     statusLabel: formatPersonStatusLabel(person.status),
     clusterLabel: person.cluster_codes?.[0] || "NO CLUSTER",
+    // Remaining / not checked in — no attendance mode yet
     attendanceMode: "ONSITE",
-    attendanceModeLabel: "Onsite",
+    attendanceModeLabel: "",
     venueCode: "",
     venueLabel: "",
     venueColor: "",

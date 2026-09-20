@@ -317,6 +317,12 @@ export default function AttendanceSelector({
     setLastClickedButton("selectAllActive");
   };
 
+  const selectCameBefore = () => {
+    const ids = returningVisitors.map((p) => normalizePersonId(p.id));
+    onSelectionChange(ids);
+    setLastClickedButton("selectCameBefore");
+  };
+
   const selectClusterVisitors = () => {
     if (filterRole !== "VISITOR") return;
     const clusterVisitorIds = clusterVisitors.map((p) => normalizePersonId(p.id));
@@ -378,31 +384,73 @@ export default function AttendanceSelector({
       if (filterRole === "VISITOR" && !hasAutoSelectScope) {
         hasAutoSelectedRef.current = null;
       } else if (filterRole === "MEMBER") {
-        // For members: select all active members from the cluster (peopleByRole is already filtered)
-        const active = peopleByRole.filter(
-          (person) => person.status === "ACTIVE"
-        );
-        const activeIds = active.map((p) => normalizePersonId(p.id));
-        if (activeIds.length > 0) {
-          onSelectionChange(activeIds);
-          setLastClickedButton("selectAllActive");
-          hasAutoSelectedRef.current = clusterKey;
+        // Evangelism (autoSelectScopeId): form applies previously-attended
+        // default after prior-attendance loads — skip here so we don't lock
+        // in ACTIVE before those ids arrive.
+        if (autoSelectScopeId) {
+          // no-op
+        } else {
+          // Cluster: prefer previously attended (most recent report), then all
+          // prior, then all ACTIVE roster members.
+          const available = new Set(
+            peopleByRole.map((p) => normalizePersonId(p.id))
+          );
+          const mostRecentIds = mostRecentAttendedIds
+            .map(normalizePersonId)
+            .filter((id) => available.has(id));
+          if (mostRecentIds.length > 0) {
+            onSelectionChange(mostRecentIds);
+            setLastClickedButton("selectAllClusterMembers");
+            hasAutoSelectedRef.current = clusterKey;
+          } else if (previouslyAttendedPeople.length > 0) {
+            const priorIds = previouslyAttendedPeople.map((p) =>
+              normalizePersonId(p.id)
+            );
+            onSelectionChange(priorIds);
+            setLastClickedButton("selectAllClusterMembers");
+            hasAutoSelectedRef.current = clusterKey;
+          } else {
+            const active = peopleByRole.filter(
+              (person) => person.status === "ACTIVE"
+            );
+            const activeIds = active.map((p) => normalizePersonId(p.id));
+            if (activeIds.length > 0) {
+              onSelectionChange(activeIds);
+              setLastClickedButton("selectAllActive");
+              hasAutoSelectedRef.current = clusterKey;
+            }
+          }
         }
       } else {
-        // For visitors: only select visitors from the most recent report.
-        // Evangelism (autoSelectScopeId) never falls back to the full returning set.
-        const idsToSelect = (
-          mostRecentAttendedIds.length > 0
-            ? mostRecentAttendedIds
-            : autoSelectScopeId
-              ? []
-              : previouslyAttendedIds
-        ).map(normalizePersonId);
+        // Visitors: when grouped by kind, default to "Came before" (returning).
+        // Otherwise prefer the most recent report; cluster falls back to all
+        // previously attended, evangelism does not.
+        if (useVisitorKindGroups && previouslyAttendedIds.length > 0) {
+          const available = new Set(
+            peopleByRole.map((p) => normalizePersonId(p.id))
+          );
+          const idsToSelect = previouslyAttendedIds
+            .map(normalizePersonId)
+            .filter((id) => available.has(id));
+          if (idsToSelect.length > 0) {
+            onSelectionChange(idsToSelect);
+            setLastClickedButton("selectCameBefore");
+            hasAutoSelectedRef.current = clusterKey;
+          }
+        } else {
+          const idsToSelect = (
+            mostRecentAttendedIds.length > 0
+              ? mostRecentAttendedIds
+              : autoSelectScopeId
+                ? []
+                : previouslyAttendedIds
+          ).map(normalizePersonId);
 
-        if (idsToSelect.length > 0) {
-          onSelectionChange(idsToSelect);
-          setLastClickedButton("selectAllClusterMembers");
-          hasAutoSelectedRef.current = clusterKey;
+          if (idsToSelect.length > 0) {
+            onSelectionChange(idsToSelect);
+            setLastClickedButton("selectAllClusterMembers");
+            hasAutoSelectedRef.current = clusterKey;
+          }
         }
         // If no previous attendance, don't auto-select anything - let user choose manually
       }
@@ -424,6 +472,7 @@ export default function AttendanceSelector({
     mostRecentAttendedIds.length,
     selectedIds.length,
     peopleByRole.length,
+    useVisitorKindGroups,
   ]);
 
   // Detect which button matches the current selection when editing
@@ -497,6 +546,22 @@ export default function AttendanceSelector({
           }
         }
       } else if (filterRole === "VISITOR") {
+        if (useVisitorKindGroups && returningVisitors.length > 0) {
+          const cameBeforeIds = returningVisitors.map((p) =>
+            normalizePersonId(p.id)
+          );
+          const cameBeforeSet = new Set(cameBeforeIds);
+          if (
+            selectedIds.length === cameBeforeIds.length &&
+            selectedIds.every((id) =>
+              cameBeforeSet.has(normalizePersonId(id))
+            )
+          ) {
+            setLastClickedButton("selectCameBefore");
+            return;
+          }
+        }
+
         const clusterVisitorIds = clusterVisitors.map((p) =>
           normalizePersonId(p.id)
         );
@@ -540,6 +605,9 @@ export default function AttendanceSelector({
     previouslyAttendedPeople.map((p) => p.id).join(","),
     clusterVisitors.length,
     clusterVisitors.map((p) => p.id).join(","),
+    returningVisitors.length,
+    returningVisitors.map((p) => p.id).join(","),
+    useVisitorKindGroups,
     peopleByRole.length,
   ]);
 
@@ -641,6 +709,19 @@ export default function AttendanceSelector({
                   Select All Active
                 </button>
               )}
+              {useVisitorKindGroups && returningVisitors.length > 0 && (
+                <button
+                  type="button"
+                  onClick={selectCameBefore}
+                  className={`text-xs px-2 py-1 border rounded transition-colors ${
+                    lastClickedButton === "selectCameBefore"
+                      ? "bg-purple-600 text-white border-purple-600 font-semibold"
+                      : "bg-purple-50 text-purple-700 border-purple-200 hover:bg-purple-100"
+                  }`}
+                >
+                  {`Came before (${returningVisitors.length})`}
+                </button>
+              )}
               {filterRole === "VISITOR" &&
                 !useVisitorKindGroups &&
                 selectedCluster &&
@@ -657,12 +738,9 @@ export default function AttendanceSelector({
                     {`Select Cluster Visitors (${clusterVisitors.length})`}
                   </button>
                 )}
-              {selectedCluster &&
-                ((filterRole === "VISITOR" &&
-                  previouslyAttendedPeople.length > 0) ||
-                  (filterRole === "MEMBER" &&
-                    (mostRecentAttendedIds.length > 0 ||
-                      previouslyAttendedPeople.length > 0))) && (
+              {filterRole === "MEMBER" &&
+                (mostRecentAttendedIds.length > 0 ||
+                  previouslyAttendedPeople.length > 0) && (
                   <button
                     type="button"
                     onClick={selectAllClusterMembers}
@@ -672,13 +750,26 @@ export default function AttendanceSelector({
                         : "bg-purple-50 text-purple-700 border-purple-200 hover:bg-purple-100"
                     }`}
                   >
-                    {filterRole === "VISITOR"
-                      ? `Select All Previously Attended (${previouslyAttendedPeople.length})`
-                      : `Select All Previously Attended (${
-                          mostRecentAttendedIds.length > 0
-                            ? mostRecentAttendedIds.length
-                            : previouslyAttendedPeople.length
-                        })`}
+                    {`Select All Previously Attended (${
+                      mostRecentAttendedIds.length > 0
+                        ? mostRecentAttendedIds.length
+                        : previouslyAttendedPeople.length
+                    })`}
+                  </button>
+                )}
+              {selectedCluster &&
+                filterRole === "VISITOR" &&
+                previouslyAttendedPeople.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={selectAllClusterMembers}
+                    className={`text-xs px-2 py-1 border rounded transition-colors ${
+                      lastClickedButton === "selectAllClusterMembers"
+                        ? "bg-purple-600 text-white border-purple-600 font-semibold"
+                        : "bg-purple-50 text-purple-700 border-purple-200 hover:bg-purple-100"
+                    }`}
+                  >
+                    {`Select All Previously Attended (${previouslyAttendedPeople.length})`}
                   </button>
                 )}
             </>

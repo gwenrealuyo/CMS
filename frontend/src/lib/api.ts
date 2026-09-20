@@ -1898,6 +1898,8 @@ export const evangelismApi = {
     api.get<{
       previously_attended_visitor_ids: number[];
       most_recent_visitor_ids: number[];
+      previously_attended_member_ids: number[];
+      most_recent_member_ids: number[];
     }>(`/evangelism/groups/${groupId}/previous_visitors/`, { params }),
   getGroupSummary: (groupId: number | string) =>
     api.get<any>(`/evangelism/groups/${groupId}/summary/`),

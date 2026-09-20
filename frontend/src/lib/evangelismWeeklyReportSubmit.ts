@@ -2,10 +2,15 @@ import type { EvangelismWeeklyReportFormValues } from "@/src/components/evangeli
 import { evangelismApi } from "@/src/lib/api";
 import {
   isPendingNewProspectId,
+  isPendingNewVisitorId,
   isProspectAttendanceId,
+  pendingNewVisitorTempKey,
   prospectIdFromAttendanceId,
 } from "@/src/lib/clusterWeeklyReportSubmit";
-import type { EvangelismReportNewInvitedProspectInput } from "@/src/types/evangelism";
+import type {
+  EvangelismReportNewInvitedProspectInput,
+  EvangelismReportNewVisitorInput,
+} from "@/src/types/evangelism";
 
 function toNumberId(id: string | number): number | null {
   const n = typeof id === "number" ? id : Number(id);
@@ -15,6 +20,7 @@ function toNumberId(id: string | number): number | null {
 /**
  * Resolves prospect visitors to person IDs (markAttended), then returns API payload
  * matching the Evangelism weekly report serializer (create/update).
+ * Pending `newvisitor:` ids become nested `new_visitors` (created server-side).
  */
 export async function buildEvangelismWeeklyReportPayloadFromFormValues(
   values: EvangelismWeeklyReportFormValues
@@ -22,9 +28,21 @@ export async function buildEvangelismWeeklyReportPayloadFromFormValues(
   const prospectIds = (values.visitors_attended || [])
     .filter((id) => isProspectAttendanceId(id))
     .map((id) => id.replace("prospect:", ""));
-  const existingVisitorIds = (values.visitors_attended || []).filter(
-    (id) => !isProspectAttendanceId(id) && !id.startsWith("newvisitor:")
-  );
+  const existingVisitorIds: string[] = [];
+  const new_visitors: EvangelismReportNewVisitorInput[] = [];
+  const pendingVisitors = values.pending_new_visitors || {};
+
+  for (const id of values.visitors_attended || []) {
+    if (isProspectAttendanceId(id)) continue;
+    if (isPendingNewVisitorId(id)) {
+      const tempKey = pendingNewVisitorTempKey(id);
+      const payload = pendingVisitors[tempKey] || pendingVisitors[id];
+      if (payload) new_visitors.push(payload);
+      continue;
+    }
+    existingVisitorIds.push(String(id));
+  }
+
   const createdVisitorIds: string[] = [];
 
   for (const prospectId of prospectIds) {
@@ -80,5 +98,6 @@ export async function buildEvangelismWeeklyReportPayloadFromFormValues(
     visitors_attended: [...existingVisitorIds, ...createdVisitorIds].map(String),
     prospects_invited,
     new_invited_prospects,
+    new_visitors,
   };
 }

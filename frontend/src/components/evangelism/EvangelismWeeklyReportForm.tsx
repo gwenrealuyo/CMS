@@ -12,6 +12,7 @@ import ProspectForm, {
 import {
   EvangelismGroup,
   EvangelismReportNewInvitedProspectInput,
+  EvangelismReportNewVisitorInput,
   EvangelismWeeklyReport,
   Prospect,
 } from "@/src/types/evangelism";
@@ -28,6 +29,7 @@ import {
   isProspectAttendanceId,
   prospectIdFromAttendanceId,
   toPendingNewProspectId,
+  toPendingNewVisitorId,
   toProspectAttendanceId,
 } from "@/src/lib/clusterWeeklyReportSubmit";
 import { isDuplicateMeetingReportError } from "@/src/lib/apiErrors";
@@ -176,6 +178,7 @@ export interface EvangelismWeeklyReportFormValues {
     string,
     EvangelismReportNewInvitedProspectInput
   >;
+  pending_new_visitors?: Record<string, EvangelismReportNewVisitorInput>;
   gathering_type: "PHYSICAL" | "ONLINE" | "HYBRID";
   topic?: string;
   activities_held?: string;
@@ -233,7 +236,7 @@ export default function EvangelismWeeklyReportForm({
   );
   const [duplicateDialogOpen, setDuplicateDialogOpen] = useState(false);
   const [pendingNewVisitors, setPendingNewVisitors] = useState<
-    Record<string, Partial<Person> & { note?: string }>
+    Record<string, EvangelismReportNewVisitorInput>
   >({});
   const [pendingNewProspects, setPendingNewProspects] = useState<
     Record<string, EvangelismReportNewInvitedProspectInput>
@@ -255,8 +258,15 @@ export default function EvangelismWeeklyReportForm({
     useState<string[]>([]);
   const [mostRecentAttendedVisitorIds, setMostRecentAttendedVisitorIds] =
     useState<string[]>([]);
+  const [previouslyAttendedMemberIds, setPreviouslyAttendedMemberIds] =
+    useState<string[]>([]);
+  const [mostRecentAttendedMemberIds, setMostRecentAttendedMemberIds] =
+    useState<string[]>([]);
   const rosterCacheRef = useRef<Record<string, EvangelismGroup>>({});
   const skipAttendanceResetRef = useRef(true);
+  const membersAutoSelectedForGroupRef = useRef<string | null>(null);
+  const [previousAttendanceLoaded, setPreviousAttendanceLoaded] =
+    useState(false);
 
   const showGroupPicker = Array.isArray(availableGroups);
   const groupPickerLocked = Boolean(initialData);
@@ -346,6 +356,8 @@ export default function EvangelismWeeklyReportForm({
       visitors_attended: [],
       prospects_invited: [],
     }));
+    membersAutoSelectedForGroupRef.current = null;
+    setPreviousAttendanceLoaded(false);
     setPendingNewVisitors({});
     setPendingNewProspects({});
     setGroupFieldError(null);
@@ -428,9 +440,13 @@ export default function EvangelismWeeklyReportForm({
     if (!selectedGroupId) {
       setPreviouslyAttendedVisitorIds([]);
       setMostRecentAttendedVisitorIds([]);
+      setPreviouslyAttendedMemberIds([]);
+      setMostRecentAttendedMemberIds([]);
+      setPreviousAttendanceLoaded(false);
       return;
     }
     let cancelled = false;
+    setPreviousAttendanceLoaded(false);
     const params: {
       year: number;
       week_number: number;
@@ -452,11 +468,21 @@ export default function EvangelismWeeklyReportForm({
         setMostRecentAttendedVisitorIds(
           (res.data.most_recent_visitor_ids || []).map(String),
         );
+        setPreviouslyAttendedMemberIds(
+          (res.data.previously_attended_member_ids || []).map(String),
+        );
+        setMostRecentAttendedMemberIds(
+          (res.data.most_recent_member_ids || []).map(String),
+        );
+        setPreviousAttendanceLoaded(true);
       })
       .catch(() => {
         if (!cancelled) {
           setPreviouslyAttendedVisitorIds([]);
           setMostRecentAttendedVisitorIds([]);
+          setPreviouslyAttendedMemberIds([]);
+          setMostRecentAttendedMemberIds([]);
+          setPreviousAttendanceLoaded(true);
         }
       });
     return () => {
@@ -543,6 +569,49 @@ export default function EvangelismWeeklyReportForm({
     people,
   ]);
 
+  // On create, default Members Attended to previously attended (most recent
+  // report), then all prior, then ACTIVE roster — after prior-attendance loads.
+  useEffect(() => {
+    if (initialData) return;
+    if (!selectedGroupId || loadingRoster || !previousAttendanceLoaded) return;
+    if (membersAutoSelectedForGroupRef.current === selectedGroupId) return;
+
+    const allowed = new Set(allowedMemberIds.map(String));
+    if (allowed.size === 0) return;
+
+    const inRoster = (id: string) => allowed.has(id);
+    let ids = mostRecentAttendedMemberIds.filter(inRoster);
+    if (ids.length === 0) {
+      ids = previouslyAttendedMemberIds.filter(inRoster);
+    }
+    if (ids.length === 0) {
+      ids = memberOptions
+        .filter(
+          (person) =>
+            person.status === "ACTIVE" &&
+            person.id != null &&
+            inRoster(String(person.id)),
+        )
+        .map((person) => String(person.id));
+    }
+    if (ids.length === 0) return;
+
+    membersAutoSelectedForGroupRef.current = selectedGroupId;
+    setFormData((prev) => ({
+      ...prev,
+      members_attended: ids,
+    }));
+  }, [
+    allowedMemberIds,
+    initialData,
+    loadingRoster,
+    memberOptions,
+    mostRecentAttendedMemberIds,
+    previousAttendanceLoaded,
+    previouslyAttendedMemberIds,
+    selectedGroupId,
+  ]);
+
   const invitedProspectIdsSelected = useMemo(
     () => new Set((formData.prospects_invited || []).map(String)),
     [formData.prospects_invited],
@@ -603,7 +672,7 @@ export default function EvangelismWeeklyReportForm({
     ).map(([tempId, payload]) => {
       const name = `${formatPersonName(payload)} (new)`.trim();
       return {
-        id: `newvisitor:${tempId}`,
+        id: toPendingNewVisitorId(tempId),
         name,
         role: "VISITOR" as const,
         status: "ONGOING" as const,
@@ -611,9 +680,10 @@ export default function EvangelismWeeklyReportForm({
         last_name: payload.last_name || "",
         middle_name: payload.middle_name || "",
         suffix: payload.suffix || "",
-        inviter: payload.inviter,
+        inviter:
+          payload.inviter_id != null ? String(payload.inviter_id) : "",
         inviter_display_name:
-          inviterDisplayNameFromPeople(payload.inviter, people) || null,
+          inviterDisplayNameFromPeople(payload.inviter_id, people) || null,
         username: "",
         email: "",
       } as PersonUI;
@@ -825,34 +895,12 @@ export default function EvangelismWeeklyReportForm({
       return;
     }
     setGroupFieldError(null);
-    const pendingEntries = Object.entries(pendingNewVisitors);
-    let visitorsAttended = [...formData.visitors_attended];
-
-    if (pendingEntries.length > 0) {
-      const idMap = new Map<string, string>();
-      for (const [tempId, payload] of pendingEntries) {
-        const created = await peopleApi.create(payload);
-        const realId = String(created.data.id);
-        idMap.set(`newvisitor:${tempId}`, realId);
-        setPeople((prev) => [
-          ...prev,
-          {
-            ...created.data,
-            name: formatPersonName(created.data),
-            dateFirstAttended: created.data.date_first_attended,
-            id: realId,
-          },
-        ]);
-      }
-      visitorsAttended = visitorsAttended.map((id) => idMap.get(id) || id);
-      setPendingNewVisitors({});
-    }
 
     try {
       await onSubmit({
         ...formData,
-        visitors_attended: visitorsAttended,
         pending_new_prospects: pendingNewProspects,
+        pending_new_visitors: pendingNewVisitors,
       });
     } catch (err: unknown) {
       if (isDuplicateMeetingReportError(err)) {
@@ -870,18 +918,37 @@ export default function EvangelismWeeklyReportForm({
       typeof crypto !== "undefined" && "randomUUID" in crypto
         ? crypto.randomUUID()
         : `tmp-${Date.now()}`;
-    const pendingId = `newvisitor:${tempId}`;
-    setPendingNewVisitors((prev) => ({ ...prev, [tempId]: visitorData }));
+    const inviterRaw = visitorData.inviter;
+    const inviterId =
+      inviterRaw !== undefined &&
+      inviterRaw !== null &&
+      String(inviterRaw).trim() !== ""
+        ? inviterRaw
+        : null;
+    const payload: EvangelismReportNewVisitorInput = {
+      first_name: visitorData.first_name || "",
+      last_name: visitorData.last_name || "",
+      middle_name: visitorData.middle_name || "",
+      suffix: visitorData.suffix || "",
+      gender: visitorData.gender || "",
+      facebook_name: visitorData.facebook_name || "",
+      note: String(visitorData.note || "").trim(),
+      inviter_id: inviterId,
+      date_first_attended: visitorData.date_first_attended || null,
+      first_activity_attended: visitorData.first_activity_attended || null,
+    };
+    const pendingId = toPendingNewVisitorId(tempId);
+    setPendingNewVisitors((prev) => ({ ...prev, [tempId]: payload }));
     setFormData((prev) => ({
       ...prev,
       visitors_attended: [...prev.visitors_attended, pendingId],
     }));
     return {
       id: pendingId,
-      first_name: visitorData.first_name || "",
-      last_name: visitorData.last_name || "",
-      middle_name: visitorData.middle_name,
-      suffix: visitorData.suffix,
+      first_name: payload.first_name,
+      last_name: payload.last_name,
+      middle_name: payload.middle_name,
+      suffix: payload.suffix,
       role: "VISITOR" as const,
       status: "ONGOING" as const,
     } as Person;
@@ -1028,6 +1095,9 @@ export default function EvangelismWeeklyReportForm({
               setFormData((prev) => ({ ...prev, members_attended: ids }))
             }
             allowedIds={allowedMemberIds}
+            autoSelectScopeId={selectedGroupId || undefined}
+            previouslyAttendedIds={previouslyAttendedMemberIds}
+            mostRecentAttendedIds={mostRecentAttendedMemberIds}
             isLoadingRoster={
               loadingRoster || (showGroupPicker && !selectedGroupId)
             }

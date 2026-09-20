@@ -84,7 +84,7 @@ class EvangelismGroupPreviousVisitorsAPITests(APITestCase):
         )
         self.client.force_authenticate(self.sharer)
 
-    def _ev_report(self, week, visitors, year=2026):
+    def _ev_report(self, week, visitors=None, members=None, year=2026):
         report = EvangelismWeeklyReport.objects.create(
             evangelism_group=self.group,
             year=year,
@@ -93,7 +93,10 @@ class EvangelismGroupPreviousVisitorsAPITests(APITestCase):
             gathering_type="PHYSICAL",
             submitted_by=self.sharer,
         )
-        report.visitors_attended.set(visitors)
+        if visitors:
+            report.visitors_attended.set(visitors)
+        if members:
+            report.members_attended.set(members)
         return report
 
     def _cluster_report(self, week, visitors, year=2026):
@@ -115,8 +118,8 @@ class EvangelismGroupPreviousVisitorsAPITests(APITestCase):
         )
 
     def test_prior_evangelism_visitors_only_not_unlinked_people(self):
-        self._ev_report(36, [self.ev_visitor_old])
-        self._ev_report(37, [self.ev_visitor_recent])
+        self._ev_report(36, visitors=[self.ev_visitor_old])
+        self._ev_report(37, visitors=[self.ev_visitor_recent])
         response = self._get(year=2026, week_number=38)
         self.assertEqual(response.status_code, 200, response.data)
         previously = response.data["previously_attended_visitor_ids"]
@@ -128,8 +131,32 @@ class EvangelismGroupPreviousVisitorsAPITests(APITestCase):
         self.assertNotIn(self.unlinked_visitor.id, previously)
         self.assertNotIn(self.cluster_visitor.id, previously)
 
+    def test_prior_evangelism_members_for_auto_select(self):
+        other_member = Person.objects.create_user(
+            username="prevvismember2",
+            password="pass12345",
+            first_name="Other",
+            last_name="Member",
+            role="MEMBER",
+            status="ACTIVE",
+            branch=self.branch,
+        )
+        self.group.members.add(other_member)
+        self._ev_report(36, members=[self.sharer])
+        self._ev_report(37, members=[self.sharer, other_member])
+        response = self._get(year=2026, week_number=38)
+        self.assertEqual(response.status_code, 200, response.data)
+        self.assertCountEqual(
+            response.data["previously_attended_member_ids"],
+            [self.sharer.id, other_member.id],
+        )
+        self.assertCountEqual(
+            response.data["most_recent_member_ids"],
+            [self.sharer.id, other_member.id],
+        )
+
     def test_bible_sharer_includes_linked_cluster_report_visitors(self):
-        self._ev_report(36, [self.ev_visitor_old])
+        self._ev_report(36, visitors=[self.ev_visitor_old])
         self._cluster_report(37, [self.cluster_visitor])
         response = self._get(year=2026, week_number=38)
         self.assertEqual(response.status_code, 200, response.data)
@@ -143,16 +170,18 @@ class EvangelismGroupPreviousVisitorsAPITests(APITestCase):
         )
 
     def test_same_or_later_week_is_excluded(self):
-        self._ev_report(38, [self.ev_visitor_recent])
-        self._ev_report(39, [self.unlinked_visitor])
+        self._ev_report(38, visitors=[self.ev_visitor_recent])
+        self._ev_report(39, visitors=[self.unlinked_visitor])
         response = self._get(year=2026, week_number=38)
         self.assertEqual(response.status_code, 200, response.data)
         self.assertEqual(response.data["previously_attended_visitor_ids"], [])
         self.assertEqual(response.data["most_recent_visitor_ids"], [])
+        self.assertEqual(response.data["previously_attended_member_ids"], [])
+        self.assertEqual(response.data["most_recent_member_ids"], [])
 
     def test_exclude_report_skips_the_report_being_edited(self):
-        older = self._ev_report(36, [self.ev_visitor_old])
-        current = self._ev_report(37, [self.ev_visitor_recent])
+        older = self._ev_report(36, visitors=[self.ev_visitor_old])
+        current = self._ev_report(37, visitors=[self.ev_visitor_recent])
         response = self._get(
             year=2026, week_number=38, exclude_report=current.id
         )

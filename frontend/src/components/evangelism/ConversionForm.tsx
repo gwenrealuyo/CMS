@@ -37,7 +37,13 @@ export interface ConversionFormValues {
 }
 
 interface ConversionFormProps {
+  /** Candidates for the Person field (typically conversion visitors). */
   people?: Person[];
+  /**
+   * People available for Baptized by / Witnessed by (same source as PersonForm
+   * `peopleOptions`). Defaults to `people` when omitted.
+   */
+  verifierPeople?: Person[];
   onSubmit: (values: ConversionFormValues) => Promise<void>;
   onCancel: () => void;
   isSubmitting: boolean;
@@ -90,6 +96,7 @@ function initialDateFirstAttended(c?: Conversion): string {
 
 export default function ConversionForm({
   people = [],
+  verifierPeople,
   onSubmit,
   onCancel,
   isSubmitting,
@@ -139,8 +146,8 @@ export default function ConversionForm({
   );
 
   const verifierOptions = useMemo(
-    () => verifierPeopleOptions(people),
-    [people],
+    () => verifierPeopleOptions(verifierPeople ?? people),
+    [verifierPeople, people],
   );
 
   const handleChange =

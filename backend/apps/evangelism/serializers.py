@@ -16,10 +16,13 @@ from apps.people.baptism_verifiers import (
     validate_historical_name_pair,
 )
 from apps.people.name_formatting import (
+    PERSON_NAME_FIELDS,
     PROSPECT_NAME_FIELDS,
     apply_title_case_name_fields,
     format_person_display_name,
 )
+from apps.people.serializers import PersonSerializer
+from apps.events.models import EventType
 from apps.clusters.models import Cluster
 
 from core.datetime_utils import church_today
@@ -675,6 +678,39 @@ class EvangelismReportNewInvitedProspectSerializer(serializers.Serializer):
         return attrs
 
 
+class EvangelismReportNewVisitorSerializer(serializers.Serializer):
+    """Write-only payload for creating a VISITOR person on an evangelism weekly report."""
+
+    first_name = serializers.CharField(max_length=150)
+    last_name = serializers.CharField(max_length=150)
+    inviter_id = serializers.PrimaryKeyRelatedField(
+        source="inviter",
+        queryset=Person.objects.exclude(role="ADMIN"),
+        required=False,
+        allow_null=True,
+    )
+    middle_name = serializers.CharField(max_length=150, required=False, allow_blank=True)
+    suffix = serializers.CharField(max_length=150, required=False, allow_blank=True)
+    gender = serializers.ChoiceField(
+        choices=[("MALE", "Male"), ("FEMALE", "Female"), ("", "")],
+        required=False,
+        allow_blank=True,
+    )
+    facebook_name = serializers.CharField(max_length=200, required=False, allow_blank=True)
+    note = serializers.CharField(required=False, allow_blank=True)
+    date_first_attended = serializers.DateField(required=False, allow_null=True)
+    first_activity_attended = serializers.SlugRelatedField(
+        slug_field="code",
+        queryset=EventType.activity_queryset(),
+        required=False,
+        allow_null=True,
+    )
+
+    def validate(self, attrs):
+        apply_title_case_name_fields(attrs, PERSON_NAME_FIELDS)
+        return attrs
+
+
 def _iso_year_week_from_meeting_date(meeting_date):
     iso = meeting_date.isocalendar()
     return iso[0], iso[1]
@@ -697,6 +733,9 @@ class EvangelismWeeklyReportSerializer(serializers.ModelSerializer):
     new_invited_prospects = EvangelismReportNewInvitedProspectSerializer(
         many=True, required=False, write_only=True
     )
+    new_visitors = EvangelismReportNewVisitorSerializer(
+        many=True, required=False, write_only=True
+    )
     prospects_invited_details = serializers.SerializerMethodField()
     submitted_by_details = PersonSummarySerializer(source="submitted_by", read_only=True)
 
@@ -713,6 +752,7 @@ class EvangelismWeeklyReportSerializer(serializers.ModelSerializer):
             "visitors_attended",
             "prospects_invited",
             "new_invited_prospects",
+            "new_visitors",
             "members_attended_details",
             "visitors_attended_details",
             "prospects_invited_details",
@@ -950,6 +990,40 @@ class EvangelismWeeklyReportSerializer(serializers.ModelSerializer):
             )
         return created
 
+    def _create_new_visitors(self, group, meeting_date, new_visitors_data):
+        created = []
+        branch_id = getattr(group, "branch_id", None) or getattr(
+            getattr(group, "cluster", None), "branch_id", None
+        )
+        for payload in new_visitors_data:
+            person_data = {
+                "first_name": payload["first_name"],
+                "last_name": payload["last_name"],
+                "middle_name": payload.get("middle_name", ""),
+                "suffix": payload.get("suffix", ""),
+                "gender": payload.get("gender", "") or "",
+                "facebook_name": payload.get("facebook_name", ""),
+                "role": "VISITOR",
+                "status": "ONGOING",
+                "date_first_attended": payload.get("date_first_attended")
+                or meeting_date,
+                "note": (payload.get("note") or "").strip(),
+                "generate_temporary_password": False,
+            }
+            if branch_id:
+                person_data["branch"] = branch_id
+            inviter = payload.get("inviter")
+            if inviter is not None:
+                person_data["inviter"] = inviter.pk
+            activity = payload.get("first_activity_attended")
+            if activity is not None:
+                person_data["first_activity_attended"] = activity.code
+
+            ser = PersonSerializer(data=person_data, context=self.context)
+            ser.is_valid(raise_exception=True)
+            created.append(ser.save())
+        return created
+
     def _sync_derived_new_prospects(self, report):
         count = report.prospects_invited.count()
         if report.new_prospects != count:
@@ -959,6 +1033,7 @@ class EvangelismWeeklyReportSerializer(serializers.ModelSerializer):
     @transaction.atomic
     def create(self, validated_data):
         new_invited_data = validated_data.pop("new_invited_prospects", [])
+        new_visitors_data = validated_data.pop("new_visitors", [])
         prospects_invited = validated_data.pop("prospects_invited", [])
         members_attended = validated_data.pop("members_attended", [])
         visitors_attended = validated_data.pop("visitors_attended", [])
@@ -968,12 +1043,24 @@ class EvangelismWeeklyReportSerializer(serializers.ModelSerializer):
         created_prospects = self._create_new_invited_prospects(
             group, meeting_date, new_invited_data
         )
+        created_visitors = self._create_new_visitors(
+            group, meeting_date, new_visitors_data
+        )
 
         report = EvangelismWeeklyReport.objects.create(**validated_data)
         if members_attended:
             report.members_attended.set(members_attended)
-        if visitors_attended:
-            report.visitors_attended.set(visitors_attended)
+
+        visitor_set = list(visitors_attended) + created_visitors
+        seen = set()
+        deduped_visitors = []
+        for person in visitor_set:
+            if person.pk in seen:
+                continue
+            seen.add(person.pk)
+            deduped_visitors.append(person)
+        if deduped_visitors:
+            report.visitors_attended.set(deduped_visitors)
 
         invited_set = list(prospects_invited) + created_prospects
         if invited_set:
@@ -984,6 +1071,7 @@ class EvangelismWeeklyReportSerializer(serializers.ModelSerializer):
     @transaction.atomic
     def update(self, instance, validated_data):
         new_invited_data = validated_data.pop("new_invited_prospects", None)
+        new_visitors_data = validated_data.pop("new_visitors", None)
         prospects_invited = validated_data.pop("prospects_invited", serializers.empty)
         members_attended = validated_data.pop("members_attended", serializers.empty)
         visitors_attended = validated_data.pop("visitors_attended", serializers.empty)
@@ -996,14 +1084,33 @@ class EvangelismWeeklyReportSerializer(serializers.ModelSerializer):
                 group, meeting_date, new_invited_data
             )
 
+        created_visitors = []
+        if new_visitors_data:
+            created_visitors = self._create_new_visitors(
+                group, meeting_date, new_visitors_data
+            )
+
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
         instance.save()
 
         if members_attended is not serializers.empty:
             instance.members_attended.set(members_attended)
-        if visitors_attended is not serializers.empty:
-            instance.visitors_attended.set(visitors_attended)
+
+        if visitors_attended is not serializers.empty or created_visitors:
+            if visitors_attended is serializers.empty:
+                current_visitors = list(instance.visitors_attended.all())
+            else:
+                current_visitors = list(visitors_attended)
+            visitor_set = current_visitors + created_visitors
+            seen = set()
+            deduped_visitors = []
+            for person in visitor_set:
+                if person.pk in seen:
+                    continue
+                seen.add(person.pk)
+                deduped_visitors.append(person)
+            instance.visitors_attended.set(deduped_visitors)
 
         if prospects_invited is not serializers.empty or created_prospects:
             if prospects_invited is serializers.empty:

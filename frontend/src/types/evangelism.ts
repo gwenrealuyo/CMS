@@ -113,6 +113,19 @@ export interface EvangelismReportNewInvitedProspectInput {
   date_first_invited?: string | null;
 }
 
+export interface EvangelismReportNewVisitorInput {
+  first_name: string;
+  last_name: string;
+  inviter_id?: number | string | null;
+  middle_name?: string;
+  suffix?: string;
+  gender?: string;
+  facebook_name?: string;
+  note?: string;
+  date_first_attended?: string | null;
+  first_activity_attended?: string | null;
+}
+
 export interface EvangelismTallyRow {
   cluster_id?: number;
   cluster_name?: string;

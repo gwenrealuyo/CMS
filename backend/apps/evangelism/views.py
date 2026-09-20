@@ -386,7 +386,7 @@ class EvangelismGroupViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=["get"], url_path="previous_visitors")
     def previous_visitors(self, request, pk=None):
-        """Visitor IDs from prior evangelism (and linked cluster) weekly reports."""
+        """Visitor/member IDs from prior evangelism (and linked cluster) weekly reports."""
         evangelism_group = self.get_object()
         try:
             year = int(request.query_params.get("year"))

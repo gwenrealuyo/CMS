@@ -956,12 +956,14 @@ def previous_report_visitors_for_group(
     exclude_report_id: Optional[int] = None,
 ) -> Dict[str, List[int]]:
     """
-    Visitor Person IDs from earlier weekly reports for this group.
+    Person IDs from earlier weekly reports for this group.
 
-    Returning: unique visitors_attended on prior evangelism reports, plus
+    Visitors: unique visitors_attended on prior evangelism reports, plus
     prior cluster weekly reports when the group has a linked cluster.
-    Auto-select: union of visitors on the latest prior evangelism report and
-    (if linked) the latest prior cluster report.
+    Members: unique members_attended on prior evangelism reports only
+    (group roster attendance).
+    Auto-select (most_recent_*): attendees on the latest prior evangelism
+    report, and for visitors also the latest prior linked cluster report.
     """
     ev_qs = EvangelismWeeklyReport.objects.filter(
         evangelism_group=group,
@@ -969,35 +971,48 @@ def previous_report_visitors_for_group(
     if exclude_report_id is not None:
         ev_qs = ev_qs.exclude(pk=exclude_report_id)
 
-    previously: Set[int] = set(
+    previously_visitors: Set[int] = set(
         Person.objects.filter(evangelism_reports_as_visitor__in=ev_qs)
         .values_list("id", flat=True)
         .distinct()
     )
-    most_recent: Set[int] = set()
+    previously_members: Set[int] = set(
+        Person.objects.filter(evangelism_reports_as_member__in=ev_qs)
+        .values_list("id", flat=True)
+        .distinct()
+    )
+    most_recent_visitors: Set[int] = set()
+    most_recent_members: Set[int] = set()
 
     latest_ev = ev_qs.order_by("-year", "-week_number", "-id").first()
     if latest_ev is not None:
-        most_recent.update(latest_ev.visitors_attended.values_list("id", flat=True))
+        most_recent_visitors.update(
+            latest_ev.visitors_attended.values_list("id", flat=True)
+        )
+        most_recent_members.update(
+            latest_ev.members_attended.values_list("id", flat=True)
+        )
 
     if group.cluster_id:
         cluster_qs = ClusterWeeklyReport.objects.filter(
             cluster_id=group.cluster_id,
         ).filter(_prior_year_week_q(year, week_number))
-        previously.update(
+        previously_visitors.update(
             Person.objects.filter(cluster_reports_as_visitor__in=cluster_qs)
             .values_list("id", flat=True)
             .distinct()
         )
         latest_cluster = cluster_qs.order_by("-year", "-week_number", "-id").first()
         if latest_cluster is not None:
-            most_recent.update(
+            most_recent_visitors.update(
                 latest_cluster.visitors_attended.values_list("id", flat=True)
             )
 
     return {
-        "previously_attended_visitor_ids": sorted(previously),
-        "most_recent_visitor_ids": sorted(most_recent),
+        "previously_attended_visitor_ids": sorted(previously_visitors),
+        "most_recent_visitor_ids": sorted(most_recent_visitors),
+        "previously_attended_member_ids": sorted(previously_members),
+        "most_recent_member_ids": sorted(most_recent_members),
     }
 
 

@@ -651,7 +651,8 @@ export default function EvangelismPage() {
     viewMode === "edit" ||
     isAddMemberModalOpen ||
     isBulkEnrollModalOpen ||
-    isProspectModalOpen;
+    isProspectModalOpen ||
+    isConversionModalOpen;
 
   useEffect(() => {
     if (!needsPeopleCatalog || people.length > 0) return;
@@ -2658,6 +2659,7 @@ export default function EvangelismPage() {
             <ConversionForm
               key={editingConversion?.id ?? "create-conversion"}
               people={conversionFormPeople}
+              verifierPeople={people}
               initialData={editingConversion ?? undefined}
               onSubmit={
                 editingConversion

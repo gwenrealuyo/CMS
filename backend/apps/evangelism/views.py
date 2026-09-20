@@ -1775,6 +1775,11 @@ class ProspectViewSet(viewsets.ModelViewSet):
         "evangelism_group",
         "endorsed_cluster",
         "person",
+        "person__lesson_enrollment",
+        "person__lesson_enrollment__teacher",
+        "person__inviter",
+        "person__baptized_by",
+        "person__hg_witnessed_by",
     ).all()
     serializer_class = ProspectSerializer
     pagination_class = EvangelismRelatedPagination
@@ -2189,59 +2194,49 @@ class ConversionViewSet(viewsets.ModelViewSet):
         return group
 
     def perform_create(self, serializer):
-        """Auto-update person milestones, prospect pipeline, and conversion completion."""
-        ensure_user_can_mutate_evangelism_group_records(
-            self.request.user, serializer.validated_data.get("evangelism_group")
-        )
-        date_first_invited = serializer.validated_data.pop("date_first_invited", None)
-        date_first_attended = serializer.validated_data.pop("date_first_attended", None)
-        conversion = serializer.save()
-        updates = []
-        if not conversion.converted_by_id:
-            conversion.converted_by = self.request.user
-            updates.append("converted_by")
-        if not conversion.lesson_start_date and conversion.person.lessons_started_at:
-            conversion.lesson_start_date = conversion.person.lessons_started_at
-            updates.append("lesson_start_date")
-        if not conversion.conversion_date:
-            conversion.conversion_date = (
-                conversion.water_baptism_date
-                or conversion.spirit_baptism_date
-                or conversion.lesson_start_date
-                or church_today()
-            )
-            updates.append("conversion_date")
-        if updates:
-            conversion.save(update_fields=updates)
-
-        if conversion.water_baptism_date or conversion.spirit_baptism_date:
-            if conversion.prospect and not check_lesson_completion(conversion.prospect):
-                raise ValidationError(
-                    "Prospect must complete lessons before baptism."
+        raise ValidationError(
+            {
+                "detail": (
+                    "Conversion create is deprecated. Update the Person profile "
+                    "from the evangelism group instead."
                 )
-
-        sync_conversion_pipeline(
-            conversion,
-            date_first_invited=date_first_invited,
-            date_first_attended=date_first_attended,
-            lesson_start_date=conversion.lesson_start_date,
+            }
         )
 
     def perform_update(self, serializer):
-        """Update person milestones, prospect pipeline, and conversion completion."""
-        ensure_user_can_mutate_evangelism_group_records(
-            self.request.user, self._group_from_serializer(serializer)
+        raise ValidationError(
+            {
+                "detail": (
+                    "Conversion update is deprecated. Update the Person profile "
+                    "from the evangelism group instead."
+                )
+            }
         )
-        date_first_invited = serializer.validated_data.pop("date_first_invited", None)
-        date_first_attended = serializer.validated_data.pop("date_first_attended", None)
-        serializer.validated_data.pop("lesson_start_date", None)
-        serializer.validated_data.pop("is_complete", None)
-        conversion = serializer.save()
-        sync_conversion_pipeline(
-            conversion,
-            date_first_invited=date_first_invited,
-            date_first_attended=date_first_attended,
+
+    def create(self, request, *args, **kwargs):
+        return Response(
+            {
+                "detail": (
+                    "Conversion create is deprecated. Update the Person profile "
+                    "from the evangelism group instead."
+                )
+            },
+            status=status.HTTP_410_GONE,
         )
+
+    def update(self, request, *args, **kwargs):
+        return Response(
+            {
+                "detail": (
+                    "Conversion update is deprecated. Update the Person profile "
+                    "from the evangelism group instead."
+                )
+            },
+            status=status.HTTP_410_GONE,
+        )
+
+    def partial_update(self, request, *args, **kwargs):
+        return self.update(request, *args, **kwargs)
 
 
 class MonthlyConversionTrackingViewSet(viewsets.ModelViewSet):
@@ -2409,23 +2404,49 @@ class Each1Reach1GoalViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=["get"])
     def member_progress(self, request, pk=None):
-        """Individual member progress within cluster."""
+        """Individual member progress within cluster (by inviter of reached people)."""
         goal = self.get_object()
         cluster = goal.cluster
+        year = goal.year
+        start = date(year, 1, 1)
+        end = date(year, 12, 31)
 
-        # Get conversions by cluster members
-        conversions = Conversion.objects.filter(
-            cluster=cluster, conversion_date__year=goal.year, is_complete=True
-        ).select_related("converted_by", "person")
+        from apps.evangelism.services import (
+            annotate_people_reached_date,
+            people_meeting_reached_milestones,
+        )
+
+        reached = annotate_people_reached_date(
+            people_meeting_reached_milestones(
+                Person.objects.exclude(role="ADMIN")
+            )
+        ).filter(reached_date__gte=start, reached_date__lte=end)
+
+        prospects = (
+            Prospect.objects.filter(
+                is_dropped_off=False,
+                person_id__in=reached.values_list("id", flat=True),
+            )
+            .filter(
+                Q(inviter_cluster=cluster)
+                | Q(endorsed_cluster=cluster)
+                | Q(evangelism_group__cluster=cluster)
+            )
+            .select_related("invited_by", "person")
+        )
 
         member_progress = {}
-        for conversion in conversions:
-            converter_id = conversion.converted_by.id
+        for prospect in prospects:
+            inviter = prospect.invited_by or (
+                prospect.person.inviter if prospect.person_id else None
+            )
+            if not inviter:
+                continue
+            converter_id = inviter.id
             if converter_id not in member_progress:
                 member_progress[converter_id] = {
                     "member_id": converter_id,
-                    "member_name": conversion.converted_by.get_full_name()
-                    or conversion.converted_by.username,
+                    "member_name": inviter.get_full_name() or inviter.username,
                     "conversions": 0,
                 }
             member_progress[converter_id]["conversions"] += 1

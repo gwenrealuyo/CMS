@@ -14,7 +14,6 @@ import {
   useEvangelismGroup,
   useEvangelismWeeklyReports,
   useProspects,
-  useConversions,
   useEvangelismSummary,
 } from "@/src/hooks/useEvangelism";
 import { useEvangelismGroupsDirectory } from "@/src/hooks/useEvangelismGroupsDirectory";
@@ -35,7 +34,6 @@ import {
   EvangelismGroup,
   EvangelismWeeklyReport,
   Prospect,
-  Conversion,
   EvangelismGroupFormValues,
 } from "@/src/types/evangelism";
 import { Person } from "@/src/types/person";
@@ -50,10 +48,7 @@ import AddEncodedVisitorForm, {
   EncodedVisitorFormValues,
 } from "@/src/components/evangelism/AddEncodedVisitorForm";
 import ProspectProgressForm from "@/src/components/evangelism/ProspectProgressForm";
-import ConversionForm, {
-  ConversionFormValues,
-  personIdFromConversion,
-} from "@/src/components/evangelism/ConversionForm";
+import EvangelismPersonProgressForm from "@/src/components/evangelism/EvangelismPersonProgressForm";
 import EvangelismWeeklyReportForm, {
   EvangelismWeeklyReportFormValues,
 } from "@/src/components/evangelism/EvangelismWeeklyReportForm";
@@ -332,10 +327,6 @@ export default function EvangelismPage() {
     () => (viewEditGroup ? { evangelism_group: viewEditGroup.id } : undefined),
     [viewEditGroup?.id]
   );
-  const conversionsFilters = useMemo(
-    () => (viewEditGroup ? { evangelism_group: viewEditGroup.id } : undefined),
-    [viewEditGroup?.id]
-  );
 
   const {
     prospects,
@@ -348,35 +339,19 @@ export default function EvangelismPage() {
     fetchAll: true,
     enabled: Boolean(viewEditGroup),
   });
-  const {
-    conversions,
-    loading: conversionsLoading,
-    fetchConversions,
-    createConversion,
-    updateConversion,
-  } = useConversions(conversionsFilters, { enabled: Boolean(viewEditGroup) });
 
-  const personIdsWithAnyConversion = useMemo(() => {
-    const ids = new Set<string>();
-    for (const c of conversions) {
-      if (c.person?.id != null) ids.add(String(c.person.id));
-    }
-    return ids;
-  }, [conversions]);
-
-  const conversionVisitors = useMemo(() => {
+  const progressPeople = useMemo(() => {
     const visitors = prospects
       .map((prospect) => prospect.person)
-      .filter((person): person is Person => Boolean(person))
-      .filter((person) => person.role === "VISITOR");
+      .filter((person): person is Person => Boolean(person));
     const seen = new Set<string>();
-    const unique = visitors.filter((person) => {
-      if (seen.has(person.id)) return false;
-      seen.add(person.id);
+    return visitors.filter((person) => {
+      const id = String(person.id);
+      if (seen.has(id)) return false;
+      seen.add(id);
       return true;
     });
-    return unique.filter((p) => !personIdsWithAnyConversion.has(String(p.id)));
-  }, [prospects, personIdsWithAnyConversion]);
+  }, [prospects]);
 
   const each1Reach1Totals = useMemo(() => {
     const target = summary?.each1reach1_target ?? 0;
@@ -389,21 +364,21 @@ export default function EvangelismPage() {
   const [clusters, setClusters] = useState<Cluster[]>([]);
   const [branches, setBranches] = useState<Branch[]>([]);
   const [people, setPeople] = useState<Person[]>([]);
-  const conversionFormPeople = useMemo(() => {
+  const progressFormPeople = useMemo(() => {
     const byId = new Map(people.map((person) => [String(person.id), person]));
-    return conversionVisitors.map(
+    return progressPeople.map(
       (visitor) => byId.get(String(visitor.id)) ?? visitor,
     );
-  }, [conversionVisitors, people]);
+  }, [progressPeople, people]);
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
   const [isProspectModalOpen, setIsProspectModalOpen] = useState(false);
   const [isEncodedVisitorModalOpen, setIsEncodedVisitorModalOpen] =
     useState(false);
   const [encodedVisitors, setEncodedVisitors] = useState<Person[]>([]);
-  const [isConversionModalOpen, setIsConversionModalOpen] = useState(false);
-  const [editingConversion, setEditingConversion] = useState<Conversion | null>(
-    null,
-  );
+  const [isPersonProgressModalOpen, setIsPersonProgressModalOpen] =
+    useState(false);
+  const [editingProgressPerson, setEditingProgressPerson] =
+    useState<Person | null>(null);
   const [isAddMemberModalOpen, setIsAddMemberModalOpen] = useState(false);
   const [isBulkEnrollModalOpen, setIsBulkEnrollModalOpen] = useState(false);
   const [isUpdateProgressModalOpen, setIsUpdateProgressModalOpen] =
@@ -652,7 +627,7 @@ export default function EvangelismPage() {
     isAddMemberModalOpen ||
     isBulkEnrollModalOpen ||
     isProspectModalOpen ||
-    isConversionModalOpen;
+    isPersonProgressModalOpen;
 
   useEffect(() => {
     if (!needsPeopleCatalog || people.length > 0) return;
@@ -844,8 +819,8 @@ export default function EvangelismPage() {
   }, [user, canChangeEvangelismBranch, tallyBranch]);
 
   // Load group data when viewing
-  // Note: fetchProspects and fetchConversions are not needed here because
-  // useProspects and useConversions hooks automatically fetch when their filters change
+  // Note: fetchProspects is not needed here because
+  // useProspects automatically fetches when its filters change
   useEffect(() => {
     if (viewEditGroup) {
       fetchGroup();
@@ -1087,128 +1062,15 @@ export default function EvangelismPage() {
     }
   };
 
-  const handleCreateConversion = async (values: ConversionFormValues) => {
-    try {
-      setIsSubmitting(true);
-      setFormError(null);
-      const prospectMatch = prospects.find(
-        (prospect) => prospect.person?.id === values.person_id,
-      );
-      const invited = values.date_first_invited?.trim() ?? "";
-      const attended = values.date_first_attended?.trim() ?? "";
-      const lessonStart = values.lesson_start_date?.trim() ?? "";
-      const conversionData = {
-        person_id: values.person_id,
-        date_first_invited: invited || null,
-        date_first_attended: attended || null,
-        lesson_start_date: lessonStart || null,
-        water_baptism_date: values.water_baptism_date || null,
-        spirit_baptism_date: values.spirit_baptism_date || null,
-        baptized_by_id: values.baptized_by_id
-          ? values.baptized_by_id
-          : values.water_baptism_date || values.baptized_by_first_name
-            ? null
-            : undefined,
-        baptized_by_first_name:
-          (values.baptized_by_first_name || "").trim() ||
-          (values.water_baptism_date ? "" : undefined),
-        baptized_by_last_name:
-          (values.baptized_by_last_name || "").trim() ||
-          (values.water_baptism_date ? "" : undefined),
-        hg_witnessed_by_id: values.hg_witnessed_by_id
-          ? values.hg_witnessed_by_id
-          : values.spirit_baptism_date || values.hg_witnessed_by_first_name
-            ? null
-            : undefined,
-        hg_witnessed_by_first_name:
-          (values.hg_witnessed_by_first_name || "").trim() ||
-          (values.spirit_baptism_date ? "" : undefined),
-        hg_witnessed_by_last_name:
-          (values.hg_witnessed_by_last_name || "").trim() ||
-          (values.spirit_baptism_date ? "" : undefined),
-        notes: values.notes,
-        prospect_id: prospectMatch?.id,
-        evangelism_group_id: viewEditGroup?.id
-          ? String(viewEditGroup.id)
-          : undefined,
-      };
-      await createConversion(conversionData);
-
-      setSuccessMessage("Conversion recorded successfully.");
-      setIsConversionModalOpen(false);
-      setEditingConversion(null);
-      if (viewEditGroup) {
-        fetchConversions();
-      }
-      setTimeout(() => setSuccessMessage(null), 5000);
-    } catch (err: any) {
-      const errorData = err.response?.data || {};
-      const firstError = Object.values(errorData)[0] as string[] | undefined;
-      setFormError(
-        err.response?.data?.detail ||
-          firstError?.[0] ||
-          "Failed to record conversion",
-      );
-    } finally {
-      setIsSubmitting(false);
+  const handlePersonProgressSaved = async (_person: Person) => {
+    setSuccessMessage("Visitor progress saved.");
+    setIsPersonProgressModalOpen(false);
+    setEditingProgressPerson(null);
+    setFormError(null);
+    if (viewEditGroup) {
+      await fetchProspects();
     }
-  };
-
-  const handleUpdateConversion = async (values: ConversionFormValues) => {
-    if (!editingConversion) return;
-    try {
-      setIsSubmitting(true);
-      setFormError(null);
-      const invited = values.date_first_invited?.trim() ?? "";
-      const attended = values.date_first_attended?.trim() ?? "";
-      const w = values.water_baptism_date?.trim() ?? "";
-      const s = values.spirit_baptism_date?.trim() ?? "";
-      await updateConversion(editingConversion.id, {
-        date_first_invited: invited || null,
-        date_first_attended: attended || null,
-        notes: values.notes ?? "",
-        water_baptism_date: w ? w : null,
-        spirit_baptism_date: s ? s : null,
-        baptized_by_id: values.baptized_by_id
-          ? values.baptized_by_id
-          : w || values.baptized_by_first_name
-            ? null
-            : undefined,
-        baptized_by_first_name:
-          (values.baptized_by_first_name || "").trim() || (w ? "" : undefined),
-        baptized_by_last_name:
-          (values.baptized_by_last_name || "").trim() || (w ? "" : undefined),
-        hg_witnessed_by_id: values.hg_witnessed_by_id
-          ? values.hg_witnessed_by_id
-          : s || values.hg_witnessed_by_first_name
-            ? null
-            : undefined,
-        hg_witnessed_by_first_name:
-          (values.hg_witnessed_by_first_name || "").trim() ||
-          (s ? "" : undefined),
-        hg_witnessed_by_last_name:
-          (values.hg_witnessed_by_last_name || "").trim() ||
-          (s ? "" : undefined),
-      });
-
-      setSuccessMessage("Conversion updated successfully.");
-      setIsConversionModalOpen(false);
-      setEditingConversion(null);
-      if (viewEditGroup) {
-        fetchConversions();
-      }
-      setTimeout(() => setSuccessMessage(null), 5000);
-    } catch (err: any) {
-      const errorData = err.response?.data || {};
-      const firstError = Object.values(errorData)[0] as string[] | undefined;
-      setFormError(
-        err.response?.data?.detail ||
-          firstError?.[0] ||
-          "Failed to update conversion",
-      );
-    } finally {
-      setIsSubmitting(false);
-    }
+    setTimeout(() => setSuccessMessage(null), 5000);
   };
 
   const filteredGroups = groups;
@@ -1555,8 +1417,8 @@ export default function EvangelismPage() {
         reportsLoading={reportsLoading}
         prospects={prospects}
         prospectsLoading={prospectsLoading}
-        conversions={conversions}
-        conversionsLoading={conversionsLoading}
+        progressPeople={progressPeople}
+        progressPeopleLoading={prospectsLoading}
         onAddMember={() => setIsAddMemberModalOpen(true)}
         onBulkEnroll={() => setIsBulkEnrollModalOpen(true)}
         onRemoveMember={(person) => {
@@ -1592,13 +1454,13 @@ export default function EvangelismPage() {
               }
             : undefined
         }
-        onAddConversion={() => {
-          setEditingConversion(null);
-          setIsConversionModalOpen(true);
+        onAddPersonProgress={() => {
+          setEditingProgressPerson(null);
+          setIsPersonProgressModalOpen(true);
         }}
-        onEditConversion={(c) => {
-          setEditingConversion(c);
-          setIsConversionModalOpen(true);
+        onEditPersonProgress={(person) => {
+          setEditingProgressPerson(person);
+          setIsPersonProgressModalOpen(true);
         }}
         onEdit={() => {
           setViewMode("edit");
@@ -1661,7 +1523,7 @@ export default function EvangelismPage() {
           <div className="space-y-1">
             <h1 className="text-2xl font-bold text-foreground">Evangelism</h1>
             <p className="text-sm text-gray-600">
-              Manage Bible Study groups, track visitors, and monitor conversion
+              Manage Bible Study groups, track visitors, and monitor nurture
               progress.
             </p>
           </div>
@@ -2644,38 +2506,36 @@ export default function EvangelismPage() {
           </Modal>
         )}
 
-        {/* Conversion Modal */}
-        {isConversionModalOpen && (
+        {/* Visitor progress Modal */}
+        {isPersonProgressModalOpen && (
           <Modal
-            isOpen={isConversionModalOpen}
+            isOpen={isPersonProgressModalOpen}
             onClose={() => {
-              setIsConversionModalOpen(false);
-              setEditingConversion(null);
+              setIsPersonProgressModalOpen(false);
+              setEditingProgressPerson(null);
               setFormError(null);
             }}
-            title={editingConversion ? "Update Conversion" : "Record Conversion"}
+            title={
+              editingProgressPerson
+                ? "Update visitor progress"
+                : "Update visitor progress"
+            }
             closeOnOutsideClick={false}
           >
-            <ConversionForm
-              key={editingConversion?.id ?? "create-conversion"}
-              people={conversionFormPeople}
+            <EvangelismPersonProgressForm
+              key={editingProgressPerson?.id ?? "create-progress"}
+              people={progressFormPeople}
               verifierPeople={people}
-              initialData={editingConversion ?? undefined}
-              onSubmit={
-                editingConversion
-                  ? handleUpdateConversion
-                  : handleCreateConversion
-              }
+              initialPerson={editingProgressPerson}
+              onSubmit={handlePersonProgressSaved}
               onCancel={() => {
-                setIsConversionModalOpen(false);
-                setEditingConversion(null);
+                setIsPersonProgressModalOpen(false);
+                setEditingProgressPerson(null);
                 setFormError(null);
               }}
               isSubmitting={isSubmitting}
               error={formError}
-              submitLabel={
-                editingConversion ? "Save changes" : "Record Conversion"
-              }
+              submitLabel="Save progress"
             />
           </Modal>
         )}

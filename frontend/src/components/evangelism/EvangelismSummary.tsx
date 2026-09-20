@@ -106,7 +106,7 @@ export default function EvangelismSummary({
           value={formatNumber(summary.total_reached)}
           subtitle={`${formatNumber(
             summary.completed_conversions,
-          )} completed conversions in ${summary.year}`}
+          )} reached in ${summary.year}`}
         />
         <SummaryCard
           title="Each 1 Reach 1 Goal"

@@ -108,6 +108,7 @@ export default function BaptismVerifierPicker({
               value={firstName}
               onChange={(e) => onFirstNameChange(e.target.value)}
               disabled={disabled}
+              placeholder="First name"
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-ring disabled:bg-gray-50 disabled:cursor-not-allowed"
             />
           </div>
@@ -123,6 +124,7 @@ export default function BaptismVerifierPicker({
               value={lastName}
               onChange={(e) => onLastNameChange(e.target.value)}
               disabled={disabled}
+              placeholder="Last name"
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-ring disabled:bg-gray-50 disabled:cursor-not-allowed"
             />
           </div>

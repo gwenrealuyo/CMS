@@ -81,14 +81,28 @@ class PersonSummarySerializer(serializers.ModelSerializer):
 
 
 class PersonConversionNestedSerializer(PersonSummarySerializer):
-    """Person fields needed on Conversion responses without widening all PersonSummary uses."""
+    """Person fields needed on Conversion/Prospect progress without widening all PersonSummary uses."""
 
     lesson_teacher_display_name = serializers.SerializerMethodField()
 
     class Meta(PersonSummarySerializer.Meta):
         fields = tuple(PersonSummarySerializer.Meta.fields) + (
+            "photo",
+            "phone",
+            "email",
+            "facebook_name",
+            "inviter",
             "date_first_invited",
             "date_first_attended",
+            "lessons_started_at",
+            "water_baptism_date",
+            "spirit_baptism_date",
+            "baptized_by",
+            "baptized_by_first_name",
+            "baptized_by_last_name",
+            "hg_witnessed_by",
+            "hg_witnessed_by_first_name",
+            "hg_witnessed_by_last_name",
             "lesson_teacher_display_name",
         )
 
@@ -1214,7 +1228,7 @@ class ProspectSerializer(serializers.ModelSerializer):
         required=False,
         allow_null=True,
     )
-    person = PersonSummarySerializer(read_only=True)
+    person = PersonConversionNestedSerializer(read_only=True)
     person_id = serializers.PrimaryKeyRelatedField(
         source="person",
         queryset=Person.objects.filter(role="VISITOR"),

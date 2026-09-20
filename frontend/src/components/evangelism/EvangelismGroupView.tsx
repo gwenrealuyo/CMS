@@ -2,8 +2,8 @@
 
 import Button from "@/src/components/ui/Button";
 import LoadingSpinner from "@/src/components/ui/LoadingSpinner";
-import GroupConversionsSection from "@/src/components/evangelism/GroupConversionsSection";
 import GroupMembersSection from "@/src/components/evangelism/GroupMembersSection";
+import GroupPeopleProgressSection from "@/src/components/evangelism/GroupPeopleProgressSection";
 import GroupProspectsSection from "@/src/components/evangelism/GroupProspectsSection";
 import GroupReportsSection from "@/src/components/evangelism/GroupReportsSection";
 import {
@@ -28,7 +28,6 @@ import {
 import { Cluster } from "@/src/types/cluster";
 import { Branch } from "@/src/types/branch";
 import {
-  Conversion,
   EvangelismGroup,
   EvangelismWeeklyReport,
   Prospect,
@@ -68,8 +67,8 @@ interface EvangelismGroupViewProps {
   reportsLoading?: boolean;
   prospects: Prospect[];
   prospectsLoading?: boolean;
-  conversions: Conversion[];
-  conversionsLoading?: boolean;
+  progressPeople: Person[];
+  progressPeopleLoading?: boolean;
   onAddMember: () => void;
   onBulkEnroll: () => void;
   onRemoveMember: (person: Person) => void;
@@ -80,8 +79,8 @@ interface EvangelismGroupViewProps {
   onAddEncodedVisitor: () => void;
   onUpdateProgress: (prospect: Prospect) => void;
   onDeleteProspect?: (prospect: Prospect) => Promise<void> | void;
-  onAddConversion: () => void;
-  onEditConversion: (conversion: Conversion) => void;
+  onAddPersonProgress: () => void;
+  onEditPersonProgress: (person: Person) => void;
   onEdit: () => void;
   onDelete: () => void;
   onHardDelete?: () => void;
@@ -106,8 +105,8 @@ export default function EvangelismGroupView({
   reportsLoading = false,
   prospects,
   prospectsLoading = false,
-  conversions,
-  conversionsLoading = false,
+  progressPeople,
+  progressPeopleLoading = false,
   onAddMember,
   onBulkEnroll,
   onRemoveMember,
@@ -118,8 +117,8 @@ export default function EvangelismGroupView({
   onAddEncodedVisitor,
   onUpdateProgress,
   onDeleteProspect,
-  onAddConversion,
-  onEditConversion,
+  onAddPersonProgress,
+  onEditPersonProgress,
   onDelete,
   onHardDelete,
   onClose,
@@ -431,15 +430,19 @@ export default function EvangelismGroupView({
               canAdd={Boolean(canManageGroup && canOperateGroup)}
             />
 
-            <GroupConversionsSection
-              conversions={conversions}
-              onAddConversion={
-                canManageGroup && canOperateGroup ? onAddConversion : undefined
+            <GroupPeopleProgressSection
+              people={progressPeople}
+              onAddProgress={
+                canManageGroup && canOperateGroup
+                  ? onAddPersonProgress
+                  : undefined
               }
-              onEditConversion={
-                canManageGroup && canOperateGroup ? onEditConversion : undefined
+              onEditProgress={
+                canManageGroup && canOperateGroup
+                  ? onEditPersonProgress
+                  : undefined
               }
-              loading={conversionsLoading}
+              loading={progressPeopleLoading}
             />
           </div>
         )}

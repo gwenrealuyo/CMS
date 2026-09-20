@@ -1232,6 +1232,100 @@ def advance_prospect_to_taken_ncc(
         prospect.save(update_fields=["pipeline_stage"])
 
 
+def sync_person_evangelism_pipeline(
+    person: Person,
+    *,
+    prospect: Optional[Prospect] = None,
+    notes: Optional[str] = None,
+    activity_date: Optional[date] = None,
+    lesson_start_date: Optional[date] = None,
+) -> Optional[Prospect]:
+    """
+    Advance linked Prospect pipeline / monthly tracking / E1R1 from Person
+    milestones. Does not create or update Conversion rows.
+    """
+    person.refresh_from_db()
+
+    if prospect is None:
+        prospect = (
+            Prospect.objects.filter(person=person, is_dropped_off=False)
+            .order_by("-updated_at")
+            .first()
+        )
+
+    if notes:
+        if person.date_first_attended:
+            Journey.objects.filter(
+                user=person, type="NOTE", date=person.date_first_attended
+            ).update(description=notes)
+        if person.water_baptism_date:
+            Journey.objects.filter(
+                user=person, type="BAPTISM", date=person.water_baptism_date
+            ).update(description=notes)
+        if person.spirit_baptism_date:
+            Journey.objects.filter(
+                user=person, type="SPIRIT", date=person.spirit_baptism_date
+            ).update(description=notes)
+
+    if not prospect:
+        return None
+
+    new_stage = resolve_pipeline_stage_for_person(
+        person,
+        lesson_start_date=lesson_start_date or person.lessons_started_at,
+    )
+    is_complete = person_meets_all_reached_milestones(person)
+    resolved_activity = (
+        activity_date
+        or get_latest_milestone_date(person)
+        or church_today()
+    )
+
+    prospect_updates = ["pipeline_stage", "last_activity_date"]
+    prospect.pipeline_stage = new_stage
+    prospect.last_activity_date = resolved_activity
+    if person.date_first_invited and (
+        prospect.date_first_invited != person.date_first_invited
+    ):
+        prospect.date_first_invited = person.date_first_invited
+        prospect_updates.append("date_first_invited")
+    prospect.save(update_fields=list(dict.fromkeys(prospect_updates)))
+
+    cluster = (
+        prospect.inviter_cluster
+        or prospect.endorsed_cluster
+        or (
+            prospect.evangelism_group.cluster
+            if prospect.evangelism_group_id
+            else None
+        )
+    )
+    if cluster:
+        stage_dates = {
+            Prospect.PipelineStage.INVITED: person.date_first_invited,
+            Prospect.PipelineStage.ATTENDED: person.date_first_attended,
+            Prospect.PipelineStage.TAKEN_NCC: get_earliest_ncc_session_date(person)
+            or lesson_start_date
+            or person.lessons_started_at,
+            Prospect.PipelineStage.BAPTIZED: person.water_baptism_date,
+            Prospect.PipelineStage.RECEIVED_HG: person.spirit_baptism_date,
+            Prospect.PipelineStage.REACHED: get_latest_milestone_date(person),
+        }
+        tracking_date = stage_dates.get(new_stage) or resolved_activity
+        if new_stage in MonthlyConversionTracking.Stage.values:
+            update_monthly_tracking(
+                prospect,
+                new_stage,
+                cluster,
+                tracking_date,
+            )
+        if is_complete:
+            year = (get_latest_milestone_date(person) or church_today()).year
+            recount_each1reach1_goal_for_cluster(cluster, year)
+
+    return prospect
+
+
 def sync_conversion_pipeline(
     conversion: Conversion,
     *,
@@ -1239,6 +1333,7 @@ def sync_conversion_pipeline(
     date_first_attended: Optional[date] = None,
     lesson_start_date: Optional[date] = None,
 ) -> Conversion:
+    """Legacy Conversion sync — copies onto Person then runs person pipeline sync."""
     person = conversion.person
     person_updates = []
 
@@ -1264,71 +1359,24 @@ def sync_conversion_pipeline(
             .order_by("-updated_at")
             .first()
         )
-        if prospect:
-            conversion.prospect = prospect
 
-    new_stage = resolve_pipeline_stage_for_person(
+    synced_prospect = sync_person_evangelism_pipeline(
         person,
-        lesson_start_date=conversion.lesson_start_date,
+        prospect=prospect,
+        notes=conversion.notes or None,
+        activity_date=conversion.conversion_date,
+        lesson_start_date=conversion.lesson_start_date or lesson_start_date,
     )
-    is_complete = person_meets_all_reached_milestones(person)
 
+    is_complete = person_meets_all_reached_milestones(person)
     conversion.is_complete = is_complete
     conversion_updates = ["is_complete"]
     if lesson_start_date is not None:
         conversion_updates.append("lesson_start_date")
-    if prospect and conversion.prospect_id != prospect.pk:
-        conversion.prospect = prospect
+    if synced_prospect and conversion.prospect_id != synced_prospect.pk:
+        conversion.prospect = synced_prospect
         conversion_updates.append("prospect")
     conversion.save(update_fields=conversion_updates)
-
-    if prospect:
-        if date_first_invited is not None:
-            prospect.date_first_invited = date_first_invited
-        prospect.pipeline_stage = new_stage
-        activity_date = (
-            get_latest_milestone_date(person)
-            or conversion.conversion_date
-            or church_today()
-        )
-        prospect.last_activity_date = activity_date
-        prospect.save(
-            update_fields=[
-                "date_first_invited",
-                "pipeline_stage",
-                "last_activity_date",
-            ]
-        )
-
-        cluster = (
-            conversion.cluster
-            or prospect.inviter_cluster
-            or prospect.endorsed_cluster
-        )
-        if cluster:
-            stage_dates = {
-                Prospect.PipelineStage.INVITED: person.date_first_invited,
-                Prospect.PipelineStage.ATTENDED: person.date_first_attended,
-                Prospect.PipelineStage.TAKEN_NCC: get_earliest_ncc_session_date(
-                    person
-                )
-                or conversion.lesson_start_date,
-                Prospect.PipelineStage.BAPTIZED: person.water_baptism_date,
-                Prospect.PipelineStage.RECEIVED_HG: person.spirit_baptism_date,
-                Prospect.PipelineStage.REACHED: get_latest_milestone_date(person),
-            }
-            tracking_stage = new_stage
-            tracking_date = stage_dates.get(tracking_stage) or activity_date
-            if tracking_stage in MonthlyConversionTracking.Stage.values:
-                update_monthly_tracking(
-                    prospect,
-                    tracking_stage,
-                    cluster,
-                    tracking_date,
-                )
-
-    if is_complete:
-        update_each1reach1_goal(conversion)
 
     return conversion
 
@@ -1377,36 +1425,100 @@ def recalculate_each1reach1_goal_targets() -> int:
     return updated
 
 
-def update_each1reach1_goal(conversion: Conversion) -> None:
+def recount_each1reach1_goal_for_cluster(cluster: Cluster, year: int) -> None:
     """
-    Update cluster goal progress when conversion is completed.
+    Set achieved_conversions from Person reached milestones attributed to this
+    cluster via Prospect (inviter/endorsed/group cluster) for the given year.
     """
-    if not conversion.is_complete:
-        return
+    reached = annotate_people_reached_date(
+        people_meeting_reached_milestones(Person.objects.exclude(role="ADMIN"))
+    ).filter(reached_date__year=year)
 
-    cluster = conversion.cluster
-    if not cluster:
-        return
+    attributed_person_ids = (
+        Prospect.objects.filter(
+            is_dropped_off=False,
+            person_id__in=reached.values_list("id", flat=True),
+        )
+        .filter(
+            Q(inviter_cluster=cluster)
+            | Q(endorsed_cluster=cluster)
+            | Q(evangelism_group__cluster=cluster)
+        )
+        .values_list("person_id", flat=True)
+        .distinct()
+    )
+    achieved = len(set(attributed_person_ids))
 
-    year = conversion.conversion_date.year
-
-    goal, created = Each1Reach1Goal.objects.get_or_create(
+    goal, _created = Each1Reach1Goal.objects.get_or_create(
         cluster=cluster,
         year=year,
         defaults={
             "target_conversions": get_default_each1reach1_target(cluster),
             "achieved_conversions": 0,
             "status": Each1Reach1Goal.Status.NOT_STARTED,
-        }
+        },
+    )
+    goal.achieved_conversions = achieved
+    goal.status = _each1reach1_status_for_progress(
+        achieved, goal.target_conversions
+    )
+    goal.save(
+        update_fields=["achieved_conversions", "status", "updated_at"]
     )
 
-    goal.achieved_conversions += 1
-    if goal.achieved_conversions >= goal.target_conversions:
-        goal.status = Each1Reach1Goal.Status.COMPLETED
-    else:
-        goal.status = Each1Reach1Goal.Status.IN_PROGRESS
-    
-    goal.save()
+
+def update_each1reach1_goal(conversion: Conversion) -> None:
+    """Legacy wrapper — recount from Person reached for the conversion cluster."""
+    cluster = conversion.cluster
+    if not cluster and conversion.prospect_id:
+        prospect = conversion.prospect
+        cluster = (
+            prospect.inviter_cluster
+            or prospect.endorsed_cluster
+            or (
+                prospect.evangelism_group.cluster
+                if prospect.evangelism_group_id
+                else None
+            )
+        )
+    if not cluster:
+        return
+    year = conversion.conversion_date.year if conversion.conversion_date else church_today().year
+    recount_each1reach1_goal_for_cluster(cluster, year)
+
+
+def _reached_person_ids_for_scope(
+    *,
+    group: Optional[EvangelismGroup] = None,
+    cluster: Optional[Cluster] = None,
+    start_date: Optional[date] = None,
+    end_date: Optional[date] = None,
+) -> Set[int]:
+    people = annotate_people_reached_date(
+        people_meeting_reached_milestones(Person.objects.exclude(role="ADMIN"))
+    )
+    if start_date:
+        people = people.filter(reached_date__gte=start_date)
+    if end_date:
+        people = people.filter(reached_date__lte=end_date)
+    person_ids = set(people.values_list("id", flat=True))
+    if not person_ids:
+        return set()
+
+    prospects = Prospect.objects.filter(
+        is_dropped_off=False, person_id__in=person_ids
+    )
+    if group:
+        prospects = prospects.filter(evangelism_group=group)
+    if cluster:
+        prospects = prospects.filter(
+            Q(inviter_cluster=cluster)
+            | Q(endorsed_cluster=cluster)
+            | Q(evangelism_group__cluster=cluster)
+        )
+    if group or cluster:
+        return set(prospects.values_list("person_id", flat=True).distinct())
+    return person_ids
 
 
 def calculate_conversion_rate(
@@ -1416,22 +1528,17 @@ def calculate_conversion_rate(
     end_date: Optional[date] = None,
 ) -> Optional[float]:
     """
-    Calculate conversion rate for a group or cluster.
+    Conversion rate = reached people / prospects for a group or cluster.
     """
-    conversions = Conversion.objects.filter(is_complete=True)
-    
-    if group:
-        conversions = conversions.filter(evangelism_group=group)
-    if cluster:
-        conversions = conversions.filter(cluster=cluster)
-    if start_date:
-        conversions = conversions.filter(conversion_date__gte=start_date)
-    if end_date:
-        conversions = conversions.filter(conversion_date__lte=end_date)
+    total_conversions = len(
+        _reached_person_ids_for_scope(
+            group=group,
+            cluster=cluster,
+            start_date=start_date,
+            end_date=end_date,
+        )
+    )
 
-    total_conversions = conversions.count()
-    
-    # Get total prospects
     prospects = Prospect.objects.all()
     if group:
         prospects = prospects.filter(evangelism_group=group)
@@ -1441,7 +1548,7 @@ def calculate_conversion_rate(
         )
 
     total_prospects = prospects.count()
-    
+
     if total_prospects == 0:
         return None
 
@@ -1454,7 +1561,7 @@ def get_group_statistics(group: EvangelismGroup) -> Dict:
     """
     members_count = group.members.exclude(role__in=["ADMIN", "VISITOR"]).count()
     prospects_count = group.prospects.count()
-    conversions_count = group.conversions.filter(is_complete=True).count()
+    conversions_count = len(_reached_person_ids_for_scope(group=group))
     conversion_rate = calculate_conversion_rate(group=group)
 
     return {
@@ -1475,9 +1582,13 @@ def get_cluster_statistics(cluster: Cluster, year: Optional[int] = None) -> Dict
         year = timezone.now().year
 
     prospects = get_cluster_visitors(cluster)
-    conversions = Conversion.objects.filter(cluster=cluster, is_complete=True)
-    if year:
-        conversions = conversions.filter(conversion_date__year=year)
+    start = date(year, 1, 1)
+    end = date(year, 12, 31)
+    conversions_count = len(
+        _reached_person_ids_for_scope(
+            cluster=cluster, start_date=start, end_date=end
+        )
+    )
 
     goal = Each1Reach1Goal.objects.filter(cluster=cluster, year=year).first()
 
@@ -1486,7 +1597,7 @@ def get_cluster_statistics(cluster: Cluster, year: Optional[int] = None) -> Dict
         "cluster_name": cluster.name,
         "year": year,
         "prospects_count": prospects.count(),
-        "conversions_count": conversions.count(),
+        "conversions_count": conversions_count,
         "goal": {
             "target": goal.target_conversions if goal else 0,
             "achieved": goal.achieved_conversions if goal else 0,
@@ -1728,13 +1839,8 @@ def calculate_yearly_monthly_trend(
 
 
 def _count_completed_conversions(*, branch_id: Optional[int], year: int) -> int:
-    conversions = Conversion.objects.filter(
-        is_complete=True,
-        conversion_date__year=year,
-    )
-    if branch_id is not None:
-        conversions = conversions.filter(cluster__branch_id=branch_id)
-    return conversions.count()
+    """Alias for Person reached in year (legacy V2B 'completed conversions' metric)."""
+    return _count_total_reached(branch_id=branch_id, year=year)
 
 
 def _count_total_reached(*, branch_id: Optional[int], year: int) -> int:
@@ -1754,15 +1860,17 @@ def _build_v2b_by_cluster(*, branch_id: Optional[int], year: int) -> List[Dict]:
     if branch_id is not None:
         clusters = clusters.filter(branch_id=branch_id)
 
+    start = date(year, 1, 1)
+    end = date(year, 12, 31)
     rows = []
     for cluster in clusters.order_by("name"):
         prospects = get_cluster_visitors(cluster)
         active_prospects = prospects.count()
-        completed = Conversion.objects.filter(
-            cluster=cluster,
-            is_complete=True,
-            conversion_date__year=year,
-        ).count()
+        completed = len(
+            _reached_person_ids_for_scope(
+                cluster=cluster, start_date=start, end_date=end
+            )
+        )
         drop_offs = DropOff.objects.filter(
             prospect__in=prospects,
             drop_off_date__year=year,

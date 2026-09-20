@@ -5,7 +5,7 @@ from django.db.models.functions import Coalesce
 
 from apps.people.models import ModuleCoordinator
 
-from .models import EvangelismGroup
+from .models import EvangelismGroup, Prospect
 
 
 def _count_subquery(annotation):
@@ -40,7 +40,16 @@ def annotate_evangelism_group_counts(queryset):
             distinct=True,
         )
     )
-    conversions_count = _count_subquery(Count("conversions", distinct=True))
+    conversions_count = _count_subquery(
+        Count(
+            "prospects",
+            filter=Q(
+                prospects__is_dropped_off=False,
+                prospects__pipeline_stage=Prospect.PipelineStage.REACHED,
+            ),
+            distinct=True,
+        )
+    )
     has_bible_sharers = Exists(
         ModuleCoordinator.objects.filter(
             module=ModuleCoordinator.ModuleType.EVANGELISM,

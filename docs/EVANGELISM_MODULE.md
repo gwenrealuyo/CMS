@@ -9,11 +9,12 @@ Key features include:
 - **Group Management**: Create/manage Bible Study groups with leaders, members, and optional cluster affiliation
 - **Session Scheduling**: Schedule one-time or recurring Bible study sessions with automatic event creation
 - **Reports**: Submit evangelism reports (one per meeting date) and aggregate them with cluster weekly reports for unified weekly tallies
-- **Visitor Pipeline**: Track visitors through stages (UI focuses on INVITED → ATTENDED; conversion journeys are recorded via Person baptism dates)
+- **Visitor Pipeline**: Track visitors through stages (UI focuses on INVITED → ATTENDED; nurture/baptism continues on Person)
 - **Prospect Tracking**: Track invited visitors separately until they attend; creating a Person happens on ATTENDED
+- **Person progress**: Group-scoped form updates contact, photo, and baptism/invite milestones on Person (Conversion create/update is deprecated)
 - **Follow-up Workflow**: Create and assign follow-up tasks, track completion, auto-generate tasks for inactive visitors
 - **Drop-off Detection & Tracking**: Automatic detection based on inactivity period, track drop-off stage and reason, recovery tracking
-- **Conversion Recording**: Record water baptism and Holy Ghost reception with dates; update Person and Journey timelines
+- **Conversion Recording**: Deprecated product writes; record baptism/HG on Person (evangelism progress form or People). Historical Conversion rows remain until a later migration.
 - **Each 1 Reach 1 Goals**: Cluster-based goal tracking with automatic progress updates
 - **Monthly Conversion Tracking**: Track unique persons per month at each stage (INVITED, ATTENDED, BAPTIZED, RECEIVED_HG, CONVERTED)
 - **Reporting**: People tally (Invited, Attended, NCC, Baptized, Received HG, Reached, Unique HC) by cluster or by month, and weekly unified tallies
@@ -181,32 +182,12 @@ Key features include:
 - Default ordering: by `-drop_off_date`
 - **Drop-off Detection**: Automatic detection based on inactivity period (default 30 days, configurable - note in docs for future admin configuration)
 
-### Conversion Model
+### Conversion Model (deprecated for product writes)
 
-- `apps.evangelism.models.Conversion` represents a conversion (baptism and/or Holy Ghost reception) with:
-  - `person` (ForeignKey to `people.Person`) – the converted person
-  - `prospect` (ForeignKey to Prospect, nullable) – linked prospect (if applicable)
-  - `converted_by` (ForeignKey to `people.Person`) – member who led the conversion
-  - `evangelism_group` (ForeignKey to EvangelismGroup, nullable) – associated group
-  - `cluster` (ForeignKey to `clusters.Cluster`, nullable) – cluster for tracking (from inviter or endorsed cluster)
-  - `conversion_date` (DateField) – date of conversion journey
-  - `lesson_start_date` (DateField, nullable) – NCC lessons start date. Set automatically from the first NCC teacher session report (`LessonSessionReport.session_date`) going forward, in sync with `Person.lessons_started_at`. Not backfilled for legacy records or people with `has_finished_lessons=True`. Writable on create (and copied from `Person.lessons_started_at` when omitted); ignored on update. Read-only on the Update Conversion form.
-  - `water_baptism_date` (DateField, nullable) – date of water baptism
-  - `spirit_baptism_date` (DateField, nullable) – date they received the Holy Ghost
-  - `verified_by` (ForeignKey to `people.Person`, nullable) – who verified the conversion (unused by the baptism/HG person pickers)
-  - Write-through (not Conversion columns): `baptized_by_id` / `hg_witnessed_by_id` — optional Person IDs stored as `Journey.verified_by` on the person's BAPTISM / SPIRIT journeys (`null` = unknown). `baptized_by_first_name` / `baptized_by_last_name` and `hg_witnessed_by_*` record former names when the person is not in the directory. Read as nested `baptized_by` / `hg_witnessed_by` plus display names.
-  - `is_complete` (BooleanField) – True if both baptisms completed
-  - `notes` (TextField, blank) – additional notes
-  - `created_at`, `updated_at` (DateTimeFields)
-- Default ordering: by `-conversion_date`
-- **Validation**: Check if lessons are completed before baptism.
-- **Validation**: Check if commitment form is signed.
-- **Auto-updates**:
-  - Update Person's `water_baptism_date` and `spirit_baptism_date` when conversion is created/updated
-  - Copy `Person.lessons_started_at` onto `lesson_start_date` on create when the client omits it
-  - Update prospect `pipeline_stage` (BAPTIZED, RECEIVED_HG, CONVERTED)
-  - Update monthly tracking when conversion journeys are recorded
-  - Update Each1Reach1Goal when conversion is completed (cluster-based)
+- `apps.evangelism.models.Conversion` remains for **historical rows** only.
+- **Product path:** nurture progress is edited on **Person** (evangelism Person progress form / People API). Prospect `pipeline_stage`, monthly tracking, and Each1Reach1 counts sync via `sync_person_evangelism_pipeline` on Person save.
+- **API:** `POST` / `PUT` / `PATCH` on `/api/evangelism/conversions/` return **410 Gone**. `GET` / `DELETE` may still work for admin/history until a follow-up migration drops the table.
+- Metrics that formerly counted `Conversion.is_complete` now use Person “reached” milestones (`person_meets_all_reached_milestones` / inviter attribution). Group `conversions_count` is the count of non-dropped group prospects with `pipeline_stage=REACHED`.
 
 ### MonthlyConversionTracking Model
 
@@ -430,29 +411,13 @@ All routes live under `/api/evangelism/` (namespaced in `core.urls`):
   - `POST /{id}/recover/` – Attempt to recover a dropped off visitor
   - `GET /analytics/` – Drop-off analytics by stage, reason, time period
 
-### Conversions
+### Conversions (deprecated writes)
 
-- `/api/evangelism/conversions/` – ConversionViewSet CRUD
-  - `GET` – List all conversions
-    - Query params: `?converted_by={person_id}` – filter by converter
-    - Query params: `?cluster={cluster_id}` – filter by cluster
-    - Query params: `?group={group_id}` – filter by group
-    - Query params: `?year={year}` – filter by year
-  - `POST` – Create a new conversion (requires `person_id`, optional `lesson_start_date`, optional `water_baptism_date`, `spirit_baptism_date`)
-    - `converted_by` defaults to the request user
-    - `conversion_date` is derived if not supplied
-    - If `lesson_start_date` is omitted, it is copied from `Person.lessons_started_at` when that date is already set (first NCC session report)
-    - **Validation**: Check if lessons are completed before baptism.
-    - **Validation**: Check if commitment form is signed.
-    - If notes are provided, related Journey entries (BAPTISM/SPIRIT) use those notes
-    - Auto-update Person's baptism dates
-    - Auto-update prospect pipeline_stage
-    - Auto-update monthly tracking
-    - Auto-update Each1Reach1Goal
-  - `GET /{id}/` – Retrieve a specific conversion
-  - `PUT /{id}/` – Update a conversion (full update). `lesson_start_date` is ignored; it is not editable after create.
-  - `PATCH /{id}/` – Partial update. `lesson_start_date` is ignored; it is not editable after create.
-  - `DELETE /{id}/` – Delete a conversion
+- `/api/evangelism/conversions/` – ConversionViewSet (historical rows only)
+  - `GET` – List historical conversions (filters: converted_by, cluster, group, year)
+  - `POST` / `PUT` / `PATCH` – **410 Gone**; update Person via `/api/people/people/` instead
+  - `DELETE` – Delete a historical conversion row
+  - Nurture milestones sync Prospect pipeline via `sync_person_evangelism_pipeline` on Person save
 
 ### Monthly Conversion Tracking
 
@@ -663,8 +628,12 @@ The Groups tab toolbar mirrors the clusters page layout:
   - Table of visitors with pipeline stage, last activity, cluster
   - Add visitor button
   - Update (INVITED only) opens Mark attended: activity date + first activity; Clustering / evangelism-group activities must go through the weekly report
-- **`GroupConversionsSection`**: Section displaying conversions
-  - Table of conversions with dates, converter, verification status
+- **`GroupPeopleProgressSection`**: Section displaying group-linked visitors with Person profiles
+  - Table of people with invite/attend/baptism/HG dates and Update action
+  - Opens `EvangelismPersonProgressForm` (contact + photo + nurture fields → People API PATCH)
+- **`EvangelismPersonProgressForm`**: Group-scoped Person progress editor (replaces Conversion form)
+  - Contact (phone, email, facebook), photo upload/remove, invite/attend, baptism/HG + verifiers, notes
+  - Saves via `peopleApi`; Prospect pipeline syncs on the backend
 
 #### Reports
 

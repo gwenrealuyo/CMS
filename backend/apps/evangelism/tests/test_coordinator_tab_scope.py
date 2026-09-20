@@ -288,7 +288,8 @@ class CoordinatorTabScopeAPITests(APITestCase):
         )
         self.assertEqual(denied_progress.status_code, 403)
 
-        own_conversion = self.client.post(
+        # Conversion writes are deprecated (410); use Person PATCH instead.
+        deprecated_create = self.client.post(
             CONVERSIONS_URL,
             {
                 "person_id": convert_person.id,
@@ -298,23 +299,12 @@ class CoordinatorTabScopeAPITests(APITestCase):
             },
             format="json",
         )
-        self.assertEqual(own_conversion.status_code, 201, own_conversion.data)
-
-        denied_conversion = self.client.post(
-            CONVERSIONS_URL,
-            {
-                "person_id": convert_person.id,
-                "converted_by_id": self.coordinator.id,
-                "evangelism_group_id": self.other_group.id,
-                "conversion_date": "2026-03-02",
-            },
-            format="json",
-        )
-        self.assertEqual(denied_conversion.status_code, 403)
+        self.assertEqual(deprecated_create.status_code, 410)
 
         denied_edit = self.client.patch(
             f"{CONVERSIONS_URL}{other_conversion.id}/",
             {"notes": "should not stick"},
             format="json",
         )
-        self.assertEqual(denied_edit.status_code, 403)
+        # Write path is gone for everyone (including group owners).
+        self.assertEqual(denied_edit.status_code, 410)

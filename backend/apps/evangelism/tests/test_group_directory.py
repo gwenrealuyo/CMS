@@ -1,7 +1,7 @@
 from rest_framework.test import APITestCase
 
 from apps.clusters.models import Cluster
-from apps.evangelism.models import Conversion, EvangelismGroup, Prospect
+from apps.evangelism.models import EvangelismGroup, Prospect
 from apps.people.models import Branch, ModuleCoordinator, Person
 
 
@@ -69,11 +69,13 @@ class EvangelismGroupDirectoryAPITests(APITestCase):
             evangelism_group=self.group,
             pipeline_stage=Prospect.PipelineStage.INVITED,
         )
-        Conversion.objects.create(
-            person=self.member,
-            converted_by=self.coordinator,
+        Prospect.objects.create(
+            first_name="Ray",
+            last_name="Reached",
+            invited_by=self.member,
             evangelism_group=self.group,
-            conversion_date="2026-01-15",
+            person=self.visitor,
+            pipeline_stage=Prospect.PipelineStage.REACHED,
         )
         ModuleCoordinator.objects.create(
             person=self.member,
@@ -94,7 +96,7 @@ class EvangelismGroupDirectoryAPITests(APITestCase):
         )
         self.assertNotIn("members", row)
         self.assertEqual(row["members_count"], 2)
-        self.assertEqual(row["visitors_count"], 2)
+        self.assertEqual(row["visitors_count"], 3)
         self.assertEqual(row["conversions_count"], 1)
         self.assertTrue(row["has_bible_sharers"])
         self.assertEqual(row["approval_status"], "approved")

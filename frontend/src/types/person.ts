@@ -136,6 +136,7 @@ export interface Person {
   role: PersonRole;
   address?: string;
   country?: string;
+  note?: string;
   date_of_birth?: string; // ISO date string
   date_first_invited?: string; // ISO date string
   date_first_attended?: string; // ISO date string

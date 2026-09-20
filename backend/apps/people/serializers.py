@@ -1535,6 +1535,7 @@ class PersonSerializer(serializers.ModelSerializer):
                 verified_by=None,
             )
 
+        self._sync_evangelism_pipeline_after_save(person, note=note or None)
         return person
 
     def to_representation(self, instance):
@@ -1639,7 +1640,17 @@ class PersonSerializer(serializers.ModelSerializer):
                     changed_by=changed_by,
                 )
 
+        self._sync_evangelism_pipeline_after_save(
+            updated_instance, note=None
+        )
         return updated_instance
+
+    def _sync_evangelism_pipeline_after_save(self, person, *, note=None):
+        try:
+            from apps.evangelism.services import sync_person_evangelism_pipeline
+        except ImportError:
+            return
+        sync_person_evangelism_pipeline(person, notes=note)
 
     def get_cluster_codes(self, obj: Person):
         # Use .all() so prefetched clusters are reused (avoids N+1 on list).

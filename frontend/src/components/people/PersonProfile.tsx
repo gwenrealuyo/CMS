@@ -599,7 +599,7 @@ export default function PersonProfile({
                 <p className="text-gray-500 text-sm">@{person.username}</p>
                 {person.member_id?.trim() ? (
                   <p className="text-gray-500 text-sm">
-                    LAMP ID: {person.member_id.trim()}
+                    {person.member_id.trim()}
                   </p>
                 ) : null}
                 <div className="flex flex-wrap items-center justify-center sm:justify-start gap-1.5 mt-2">
@@ -1154,16 +1154,16 @@ export default function PersonProfile({
                               </div>
                               {(journey.type === "BAPTISM" ||
                                 journey.type === "SPIRIT") && (
-                                  <div className="text-xs text-gray-600 mt-1">
-                                    {journeyVerifierLabel(journey.type)}:{" "}
-                                    {renderLinkedPersonName(
-                                      journey.verified_by,
-                                      journey.verified_by_display_name,
-                                    ) ||
-                                      journey.verified_by_display_name ||
-                                      NOT_SURE_OPTION_LABEL}
-                                  </div>
-                                )}
+                                <div className="text-xs text-gray-600 mt-1">
+                                  {journeyVerifierLabel(journey.type)}:{" "}
+                                  {renderLinkedPersonName(
+                                    journey.verified_by,
+                                    journey.verified_by_display_name,
+                                  ) ||
+                                    journey.verified_by_display_name ||
+                                    NOT_SURE_OPTION_LABEL}
+                                </div>
+                              )}
                               {journey.verified_by_display_name &&
                                 journey.type !== "BAPTISM" &&
                                 journey.type !== "SPIRIT" && (

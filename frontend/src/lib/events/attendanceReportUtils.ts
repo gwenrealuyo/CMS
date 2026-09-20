@@ -35,6 +35,7 @@ export type StatusCount = {
   status: string;
   label: string;
   count: number;
+  percent: number | null;
 };
 
 export type VenueCount = {
@@ -42,6 +43,7 @@ export type VenueCount = {
   label: string;
   color: string;
   count: number;
+  percent: number | null;
 };
 
 export type AttendanceReport = {
@@ -52,6 +54,14 @@ export type AttendanceReport = {
   tardyCount: number;
   onsiteCount: number;
   onlineCount: number;
+  /** Expected pool who checked in / expected (excludes surprises). */
+  attendanceRate: number | null;
+  remainingRate: number | null;
+  checkedInRate: number | null;
+  surpriseRate: number | null;
+  onsiteRate: number | null;
+  onlineRate: number | null;
+  tardyRate: number | null;
   onlineByVenue: VenueCount[];
   checkedInByStatus: StatusCount[];
   remainingByStatus: StatusCount[];
@@ -59,6 +69,20 @@ export type AttendanceReport = {
   checkedInRoster: AttendanceReportPerson[];
   remainingRoster: AttendanceReportPerson[];
 };
+
+/** Percent 0–100 to 1 decimal, or null when denominator is 0. */
+export function computeRatePercent(
+  numerator: number,
+  denominator: number
+): number | null {
+  if (denominator <= 0) return null;
+  return Math.round((numerator / denominator) * 1000) / 10;
+}
+
+export function formatRatePercent(rate: number | null): string {
+  if (rate == null) return "—";
+  return `${rate.toFixed(1)}%`;
+}
 
 function normalizeStatus(status?: string | null): string {
   return (status || "").trim().toUpperCase() || "UNSET";
@@ -123,7 +147,10 @@ const STATUS_SORT_ORDER = [
   "UNSET",
 ];
 
-function countByStatus(people: AttendanceReportPerson[]): StatusCount[] {
+function countByStatus(
+  people: AttendanceReportPerson[],
+  total: number
+): StatusCount[] {
   const counts = new Map<string, number>();
   for (const person of people) {
     counts.set(person.status, (counts.get(person.status) || 0) + 1);
@@ -133,6 +160,7 @@ function countByStatus(people: AttendanceReportPerson[]): StatusCount[] {
       status,
       label: formatAttendanceReportStatusLabel(status),
       count,
+      percent: computeRatePercent(count, total),
     }))
     .sort((a, b) => {
       const ai = STATUS_SORT_ORDER.indexOf(a.status);
@@ -144,7 +172,10 @@ function countByStatus(people: AttendanceReportPerson[]): StatusCount[] {
     });
 }
 
-function countOnlineByVenue(people: AttendanceReportPerson[]): VenueCount[] {
+function countOnlineByVenue(
+  people: AttendanceReportPerson[],
+  onlineTotal: number
+): VenueCount[] {
   const map = new Map<string, VenueCount>();
   for (const person of people) {
     if (person.attendanceMode !== "ONLINE") continue;
@@ -158,12 +189,16 @@ function countOnlineByVenue(people: AttendanceReportPerson[]): VenueCount[] {
         label: person.venueLabel || code,
         color: person.venueColor || "#0EA5E9",
         count: 1,
+        percent: null,
       });
     }
   }
-  return Array.from(map.values()).sort((a, b) =>
-    a.label.localeCompare(b.label)
-  );
+  return Array.from(map.values())
+    .map((venue) => ({
+      ...venue,
+      percent: computeRatePercent(venue.count, onlineTotal),
+    }))
+    .sort((a, b) => a.label.localeCompare(b.label));
 }
 
 /** Clear labels for report breakdowns (members vs visitors). */
@@ -305,17 +340,30 @@ export function buildAttendanceReport(
   ).length;
   const tardyCount = checkedInRoster.filter((person) => person.isTardy).length;
 
+  const expectedCount = expectedMembers.length;
+  const checkedInCount = checkedInRoster.length;
+  const remainingCount = remainingRoster.length;
+  const surpriseCount = surprises.length;
+  const expectedCheckedInCount = checkedInCount - surpriseCount;
+
   return {
-    expectedCount: expectedMembers.length,
-    checkedInCount: checkedInRoster.length,
-    remainingCount: remainingRoster.length,
-    surpriseCount: surprises.length,
+    expectedCount,
+    checkedInCount,
+    remainingCount,
+    surpriseCount,
     tardyCount,
     onsiteCount,
     onlineCount,
-    onlineByVenue: countOnlineByVenue(checkedInRoster),
-    checkedInByStatus: countByStatus(checkedInRoster),
-    remainingByStatus: countByStatus(remainingRoster),
+    attendanceRate: computeRatePercent(expectedCheckedInCount, expectedCount),
+    remainingRate: computeRatePercent(remainingCount, expectedCount),
+    checkedInRate: computeRatePercent(checkedInCount, expectedCount),
+    surpriseRate: computeRatePercent(surpriseCount, checkedInCount),
+    onsiteRate: computeRatePercent(onsiteCount, checkedInCount),
+    onlineRate: computeRatePercent(onlineCount, checkedInCount),
+    tardyRate: computeRatePercent(tardyCount, checkedInCount),
+    onlineByVenue: countOnlineByVenue(checkedInRoster, onlineCount),
+    checkedInByStatus: countByStatus(checkedInRoster, checkedInCount),
+    remainingByStatus: countByStatus(remainingRoster, remainingCount),
     surprises,
     checkedInRoster,
     remainingRoster,
@@ -340,11 +388,40 @@ export function buildAttendanceReportCsv(
     ["Occurrence", occurrenceDate].map(escapeCsvValue).join(","),
     ["Expected", String(report.expectedCount)].map(escapeCsvValue).join(","),
     ["Checked In", String(report.checkedInCount)].map(escapeCsvValue).join(","),
+    ["Checked In % of Expected", formatRatePercent(report.checkedInRate)]
+      .map(escapeCsvValue)
+      .join(","),
+    ["Attendance Rate %", formatRatePercent(report.attendanceRate)]
+      .map(escapeCsvValue)
+      .join(","),
     ["Onsite", String(report.onsiteCount)].map(escapeCsvValue).join(","),
+    ["Onsite % of Checked In", formatRatePercent(report.onsiteRate)]
+      .map(escapeCsvValue)
+      .join(","),
     ["Online", String(report.onlineCount)].map(escapeCsvValue).join(","),
+    ["Online % of Checked In", formatRatePercent(report.onlineRate)]
+      .map(escapeCsvValue)
+      .join(","),
     ["Remaining", String(report.remainingCount)].map(escapeCsvValue).join(","),
+    ["Remaining % of Expected", formatRatePercent(report.remainingRate)]
+      .map(escapeCsvValue)
+      .join(","),
     ["Surprises", String(report.surpriseCount)].map(escapeCsvValue).join(","),
+    ["Surprises % of Checked In", formatRatePercent(report.surpriseRate)]
+      .map(escapeCsvValue)
+      .join(","),
     ["Tardy", String(report.tardyCount)].map(escapeCsvValue).join(","),
+    ["Tardy % of Checked In", formatRatePercent(report.tardyRate)]
+      .map(escapeCsvValue)
+      .join(","),
+    ...report.onlineByVenue.map((venue) =>
+      [
+        `Online venue: ${venue.label}`,
+        `${venue.count} (${formatRatePercent(venue.percent)})`,
+      ]
+        .map(escapeCsvValue)
+        .join(",")
+    ),
     "",
     [
       "Category",

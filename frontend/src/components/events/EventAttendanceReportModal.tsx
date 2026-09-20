@@ -8,13 +8,13 @@ import ScalableSelect from "@/src/components/ui/ScalableSelect";
 import {
   buildAttendanceReport,
   downloadAttendanceReportCsv,
+  formatRatePercent,
   type AttendanceReportPerson,
   type StatusCount,
 } from "@/src/lib/events/attendanceReportUtils";
 import { formatLampIdDisplay } from "@/src/lib/events/checkInUtils";
 import { getPersonRoleColor } from "@/src/lib/personRole";
 import {
-  formatPersonStatusLabel,
   getPersonStatusColor,
 } from "@/src/lib/personStatus";
 import { Event, EventAttendanceRecord } from "@/src/types/event";
@@ -37,6 +37,40 @@ function formatOccurrenceLabel(dateValue: string) {
     month: "long",
     day: "numeric",
   });
+}
+
+/** Red &lt; 50%, amber 50–74.9%, green ≥ 75%. */
+function getAttendanceRateTone(rate: number | null): {
+  card: string;
+  value: string;
+  bar: string;
+} {
+  if (rate == null) {
+    return {
+      card: "border-gray-200 bg-gray-50/80",
+      value: "text-gray-400",
+      bar: "bg-gray-300",
+    };
+  }
+  if (rate < 50) {
+    return {
+      card: "border-red-200 bg-red-50/70",
+      value: "text-red-600",
+      bar: "bg-red-500",
+    };
+  }
+  if (rate < 75) {
+    return {
+      card: "border-amber-200 bg-amber-50/70",
+      value: "text-amber-600",
+      bar: "bg-amber-400",
+    };
+  }
+  return {
+    card: "border-green-200 bg-green-50/70",
+    value: "text-green-700",
+    bar: "bg-green-500",
+  };
 }
 
 function StatusBreakdown({
@@ -67,13 +101,60 @@ function StatusBreakdown({
               >
                 {item.label}
               </span>
-              <span className="font-semibold text-lighthouse-navy">
-                {item.count}
+              <span className="flex shrink-0 items-baseline justify-end gap-2.5 text-right">
+                <span className="text-xs text-muted-foreground">
+                  {formatRatePercent(item.percent)}
+                </span>
+                <span className="font-semibold text-lighthouse-navy">
+                  {item.count}
+                </span>
               </span>
             </li>
           ))}
         </ul>
       )}
+    </div>
+  );
+}
+
+function SummaryCard({
+  count,
+  label,
+  rate,
+  active,
+  activeClassName,
+  inactiveClassName = "border-gray-200 bg-white",
+  countClassName,
+  inactiveCountClassName = "text-gray-400",
+}: {
+  count: number;
+  label: string;
+  rate?: number | null;
+  active: boolean;
+  activeClassName: string;
+  inactiveClassName?: string;
+  countClassName: string;
+  inactiveCountClassName?: string;
+}) {
+  return (
+    <div
+      className={`rounded-lg border p-3 ${
+        active ? activeClassName : inactiveClassName
+      }`}
+    >
+      <p
+        className={`text-2xl font-semibold ${
+          active ? countClassName : inactiveCountClassName
+        }`}
+      >
+        {count}
+      </p>
+      <p className="text-xs text-muted-foreground">{label}</p>
+      {rate !== undefined ? (
+        <p className="mt-0.5 text-xs font-medium text-muted-foreground">
+          {formatRatePercent(rate)}
+        </p>
+      ) : null}
     </div>
   );
 }
@@ -221,6 +302,7 @@ export default function EventAttendanceReportModal({
       buildAttendanceReport(people, event, attendanceRecords, occurrenceDate),
     [people, event, attendanceRecords, occurrenceDate]
   );
+  const attendanceRateTone = getAttendanceRateTone(report.attendanceRate);
 
   const clusterFilterOptions = useMemo(() => {
     const codes = new Set<string>();
@@ -305,89 +387,87 @@ export default function EventAttendanceReportModal({
         </div>
 
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <div className="rounded-lg border border-primary/20 bg-primary/5 p-3">
-            <p className="text-2xl font-semibold text-primary">
-              {report.expectedCount}
+          <SummaryCard
+            count={report.expectedCount}
+            label="Expected"
+            active
+            activeClassName="border-primary/20 bg-primary/5"
+            countClassName="text-primary"
+            inactiveCountClassName="text-primary"
+          />
+          <SummaryCard
+            count={report.checkedInCount}
+            label="Checked In"
+            rate={report.checkedInRate}
+            active={report.checkedInCount > 0}
+            activeClassName="border-green-200 bg-green-50/80"
+            countClassName="text-green-700"
+          />
+          <SummaryCard
+            count={report.onsiteCount}
+            label="Onsite"
+            rate={report.onsiteRate}
+            active={report.onsiteCount > 0}
+            activeClassName="border-emerald-200 bg-emerald-50/80"
+            countClassName="text-emerald-700"
+          />
+          <SummaryCard
+            count={report.onlineCount}
+            label="Online"
+            rate={report.onlineRate}
+            active={report.onlineCount > 0}
+            activeClassName="border-sky-200 bg-sky-50/80"
+            countClassName="text-sky-700"
+          />
+          <SummaryCard
+            count={report.remainingCount}
+            label="Remaining"
+            rate={report.remainingRate}
+            active={report.remainingCount > 0}
+            activeClassName="border-red-200 bg-red-50/80"
+            inactiveClassName="border-green-200 bg-green-50/80"
+            countClassName="text-red-600"
+            inactiveCountClassName="text-green-700"
+          />
+          <SummaryCard
+            count={report.surpriseCount}
+            label="Surprises"
+            rate={report.surpriseRate}
+            active={report.surpriseCount > 0}
+            activeClassName="border-amber-200 bg-amber-50/80"
+            countClassName="text-amber-600"
+          />
+          <SummaryCard
+            count={report.tardyCount}
+            label="Tardy"
+            rate={report.tardyRate}
+            active={report.tardyCount > 0}
+            activeClassName="border-amber-200 bg-amber-50/80"
+            countClassName="text-amber-700"
+          />
+        </div>
+
+        <div className={`rounded-lg border p-4 ${attendanceRateTone.card}`}>
+          <div className="flex items-center justify-between gap-2">
+            <div>
+              <p className="text-sm font-medium text-lighthouse-navy">
+                Attendance Rate
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Expected pool checked in (excludes surprises)
+              </p>
+            </div>
+            <p className={`text-2xl font-semibold ${attendanceRateTone.value}`}>
+              {formatRatePercent(report.attendanceRate)}
             </p>
-            <p className="text-xs text-muted-foreground">Expected</p>
           </div>
-          <div className="rounded-lg border border-green-200 bg-green-50/80 p-3">
-            <p
-              className={`text-2xl font-semibold ${
-                report.checkedInCount > 0 ? "text-green-700" : "text-gray-400"
-              }`}
-            >
-              {report.checkedInCount}
-            </p>
-            <p className="text-xs text-muted-foreground">Checked In</p>
-          </div>
-          <div className="rounded-lg border border-emerald-200 bg-emerald-50/80 p-3">
-            <p
-              className={`text-2xl font-semibold ${
-                report.onsiteCount > 0 ? "text-emerald-700" : "text-gray-400"
-              }`}
-            >
-              {report.onsiteCount}
-            </p>
-            <p className="text-xs text-muted-foreground">Onsite</p>
-          </div>
-          <div className="rounded-lg border border-sky-200 bg-sky-50/80 p-3">
-            <p
-              className={`text-2xl font-semibold ${
-                report.onlineCount > 0 ? "text-sky-700" : "text-gray-400"
-              }`}
-            >
-              {report.onlineCount}
-            </p>
-            <p className="text-xs text-muted-foreground">Online</p>
-          </div>
-          <div
-            className={`rounded-lg border p-3 ${
-              report.remainingCount > 0
-                ? "border-red-200 bg-red-50/80"
-                : "border-green-200 bg-green-50/80"
-            }`}
-          >
-            <p
-              className={`text-2xl font-semibold ${
-                report.remainingCount > 0 ? "text-red-600" : "text-green-700"
-              }`}
-            >
-              {report.remainingCount}
-            </p>
-            <p className="text-xs text-muted-foreground">Remaining</p>
-          </div>
-          <div
-            className={`rounded-lg border p-3 ${
-              report.surpriseCount > 0
-                ? "border-amber-200 bg-amber-50/80"
-                : "border-gray-200 bg-white"
-            }`}
-          >
-            <p
-              className={`text-2xl font-semibold ${
-                report.surpriseCount > 0 ? "text-amber-600" : "text-gray-400"
-              }`}
-            >
-              {report.surpriseCount}
-            </p>
-            <p className="text-xs text-muted-foreground">Surprises</p>
-          </div>
-          <div
-            className={`rounded-lg border p-3 ${
-              report.tardyCount > 0
-                ? "border-amber-200 bg-amber-50/80"
-                : "border-gray-200 bg-white"
-            }`}
-          >
-            <p
-              className={`text-2xl font-semibold ${
-                report.tardyCount > 0 ? "text-amber-700" : "text-gray-400"
-              }`}
-            >
-              {report.tardyCount}
-            </p>
-            <p className="text-xs text-muted-foreground">Tardy</p>
+          <div className="mt-2 h-2 w-full rounded-full bg-gray-200">
+            <div
+              className={`h-2 rounded-full ${attendanceRateTone.bar}`}
+              style={{
+                width: `${Math.min(100, report.attendanceRate ?? 0)}%`,
+              }}
+            />
           </div>
         </div>
 
@@ -411,8 +491,13 @@ export default function EventAttendanceReportModal({
                   >
                     {venue.label}
                   </span>
-                  <span className="font-semibold text-lighthouse-navy">
-                    {venue.count}
+                  <span className="flex shrink-0 items-baseline justify-end gap-2.5 text-right">
+                    <span className="text-xs text-muted-foreground">
+                      {formatRatePercent(venue.percent)}
+                    </span>
+                    <span className="font-semibold text-lighthouse-navy">
+                      {venue.count}
+                    </span>
                   </span>
                 </li>
               ))}

@@ -1227,7 +1227,11 @@ export default function ClustersPageContainer() {
     [needPeopleCatalog, refreshPeople],
   );
 
-  const handleAssignMembers = async (memberIds: number[]) => {
+  const handleAssignMembers = async (payload: {
+    memberIds: number[];
+    transferMemberIds: number[];
+  }) => {
+    const { memberIds, transferMemberIds } = payload;
     if (assignMembersModal.cluster) {
       try {
         // List/slim rows omit members/families; hydrate so we never wipe on replace.
@@ -1239,6 +1243,7 @@ export default function ClustersPageContainer() {
         const updatedCluster = await clustersApi.update(cluster.id, {
           members: memberIds,
           families: cluster.families ?? [],
+          transfer_member_ids: transferMemberIds,
         } as Partial<ClusterInput>);
 
         const returnedIdSet = new Set(

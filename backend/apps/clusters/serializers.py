@@ -26,6 +26,7 @@ from apps.clusters.branch_membership import (
     ensure_coordinator_in_members,
     merge_cluster_member_ids,
     prune_members_not_matching_cluster_branch,
+    remove_person_from_other_active_clusters,
     sync_member_branches_to_cluster,
 )
 from apps.clusters.coordinator_assignments import (
@@ -160,6 +161,16 @@ class ClusterSerializer(serializers.ModelSerializer):
     members = serializers.PrimaryKeyRelatedField(
         many=True, queryset=Person.objects.exclude(role="ADMIN")
     )
+    transfer_member_ids = serializers.ListField(
+        child=serializers.IntegerField(),
+        required=False,
+        write_only=True,
+        default=list,
+        help_text=(
+            "Person IDs among members who should leave other active clusters "
+            "(real transfer). Omitted IDs keep dual membership when already elsewhere."
+        ),
+    )
     members_details = serializers.SerializerMethodField()
     families_details = serializers.SerializerMethodField()
     reporter_ids = serializers.SerializerMethodField()
@@ -174,6 +185,7 @@ class ClusterSerializer(serializers.ModelSerializer):
             "coordinator_id",
             "families",
             "members",
+            "transfer_member_ids",
             "members_details",
             "families_details",
             "reporter_ids",
@@ -227,6 +239,23 @@ class ClusterSerializer(serializers.ModelSerializer):
 
     def validate(self, attrs):
         attrs = super().validate(attrs)
+
+        transfer_raw = attrs.pop("transfer_member_ids", None)
+        if transfer_raw is None:
+            transfer_raw = []
+        if not isinstance(transfer_raw, list):
+            raise serializers.ValidationError(
+                {"transfer_member_ids": "Expected a list of person IDs."}
+            )
+        transfer_ids: set[int] = set()
+        for item in transfer_raw:
+            try:
+                transfer_ids.add(int(item))
+            except (TypeError, ValueError):
+                raise serializers.ValidationError(
+                    {"transfer_member_ids": "Each transfer member ID must be an integer."}
+                )
+        attrs["_transfer_member_ids"] = transfer_ids
 
         # Writable reporter_ids via initial_data (field is SerializerMethodField / read-only).
         if "reporter_ids" not in self.initial_data:
@@ -363,6 +392,8 @@ class ClusterSerializer(serializers.ModelSerializer):
         old_member_ids=None,
         verified_by=None,
         previous_cluster_map=None,
+        transfer_member_ids=None,
+        transfer_from_map=None,
     ):
         """
         Create journey entries for cluster membership changes.
@@ -372,12 +403,18 @@ class ClusterSerializer(serializers.ModelSerializer):
             new_member_ids: Set of member IDs that should be in the cluster
             old_member_ids: Set of previous member IDs (for transfer detection)
             verified_by: Person who made the change (from request context)
-            previous_cluster_map: Dict mapping person_id to their previous cluster IDs (for transfer detection)
+            previous_cluster_map: Dict mapping person_id to their previous cluster IDs
+            transfer_member_ids: Person IDs explicitly transferred (left other clusters)
+            transfer_from_map: person_id -> list of Cluster instances left on transfer
         """
         if old_member_ids is None:
             old_member_ids = set()
         if previous_cluster_map is None:
             previous_cluster_map = {}
+        if transfer_member_ids is None:
+            transfer_member_ids = set()
+        if transfer_from_map is None:
+            transfer_from_map = {}
 
         cluster_display = self._get_cluster_display_name(cluster)
         today = church_today()
@@ -396,29 +433,22 @@ class ClusterSerializer(serializers.ModelSerializer):
             new_members = Person.objects.filter(id__in=added_member_ids)
 
             for person in new_members:
-                # Check if this is a transfer
-                # First check previous_cluster_map (from before update)
-                prev_cluster_ids = previous_cluster_map.get(person.id, set())
-                # Also check current clusters (excluding this one) in case they're still in another cluster
-                current_other_clusters = person.clusters.exclude(id=cluster.id)
-
-                is_transfer = bool(prev_cluster_ids) or current_other_clusters.exists()
-
                 title = f"Added to cluster: {cluster_display}"
-                if is_transfer:
-                    prev_cluster = None
-                    if prev_cluster_ids:
-                        prev_cluster = Cluster.objects.filter(
-                            id__in=prev_cluster_ids
-                        ).first()
-                    if not prev_cluster and current_other_clusters.exists():
-                        prev_cluster = current_other_clusters.first()
-
-                    if prev_cluster:
-                        prev_cluster_display = self._get_cluster_display_name(
-                            prev_cluster
+                if person.id in transfer_member_ids:
+                    left_clusters = transfer_from_map.get(person.id) or []
+                    if not left_clusters:
+                        prev_ids = previous_cluster_map.get(person.id, set()) - {
+                            cluster.id
+                        }
+                        if prev_ids:
+                            left_clusters = list(
+                                Cluster.objects.filter(id__in=prev_ids)
+                            )
+                    if left_clusters:
+                        labels = ", ".join(
+                            self._get_cluster_display_name(c) for c in left_clusters
                         )
-                        description = f"Transferred from {prev_cluster_display}."
+                        description = f"Transferred from {labels}."
                     else:
                         description = "Transferred from another cluster."
                 else:
@@ -457,10 +487,50 @@ class ClusterSerializer(serializers.ModelSerializer):
             family_member_ids.update(family.members.values_list("id", flat=True))
         return family_member_ids
 
+    def _apply_transfers_and_journeys(
+        self,
+        instance,
+        final_member_ids,
+        old_member_ids,
+        verified_by,
+        transfer_member_ids,
+        previous_cluster_map=None,
+    ):
+        """Remove transfer targets from other active clusters, then write journeys."""
+        transfer_ids = set(transfer_member_ids or ()) & set(final_member_ids)
+        transfer_from_map = {}
+        if transfer_ids:
+            # Capture other memberships before removal for people not in previous_cluster_map.
+            if previous_cluster_map is None:
+                previous_cluster_map = {}
+            missing = transfer_ids - set(previous_cluster_map.keys())
+            if missing:
+                for person in Person.objects.filter(id__in=missing).prefetch_related(
+                    "clusters"
+                ):
+                    previous_cluster_map[person.id] = set(
+                        person.clusters.values_list("id", flat=True)
+                    )
+            transfer_from_map = remove_person_from_other_active_clusters(
+                instance, transfer_ids
+            )
+
+        if final_member_ids != old_member_ids:
+            self._create_membership_journeys(
+                instance,
+                final_member_ids,
+                old_member_ids,
+                verified_by,
+                previous_cluster_map or {},
+                transfer_ids,
+                transfer_from_map,
+            )
+
     def create(self, validated_data):
         families = validated_data.pop("families", [])
         members = validated_data.pop("members", [])
         reporter_ids = validated_data.pop("_reporter_ids", None)
+        transfer_member_ids = validated_data.pop("_transfer_member_ids", set())
 
         # Get request user for verified_by
         request = self.context.get("request")
@@ -493,8 +563,21 @@ class ClusterSerializer(serializers.ModelSerializer):
         # Create journeys for initial members
         final_member_ids = set(instance.members.values_list("id", flat=True))
         if final_member_ids:
-            self._create_membership_journeys(
-                instance, final_member_ids, old_member_ids, verified_by
+            previous_cluster_map = {}
+            for person in Person.objects.filter(
+                id__in=final_member_ids
+            ).prefetch_related("clusters"):
+                # After set, includes this cluster; capture all for transfer labeling.
+                previous_cluster_map[person.id] = set(
+                    person.clusters.exclude(id=instance.id).values_list("id", flat=True)
+                )
+            self._apply_transfers_and_journeys(
+                instance,
+                final_member_ids,
+                old_member_ids,
+                verified_by,
+                transfer_member_ids,
+                previous_cluster_map,
             )
 
         if reporter_ids is not None:
@@ -507,6 +590,7 @@ class ClusterSerializer(serializers.ModelSerializer):
         families = validated_data.pop("families", None)
         members = validated_data.pop("members", None)
         reporter_ids = validated_data.pop("_reporter_ids", serializers.empty)
+        transfer_member_ids = validated_data.pop("_transfer_member_ids", set())
 
         # Get request user for verified_by
         request = self.context.get("request")
@@ -515,13 +599,15 @@ class ClusterSerializer(serializers.ModelSerializer):
         # Capture previous memberships before any changes
         old_member_ids = set(instance.members.values_list("id", flat=True))
 
-        # Capture previous cluster memberships for each person (for transfer detection)
+        # Capture previous cluster memberships for current + incoming members
         previous_cluster_map = {}
-        if old_member_ids:
-            old_members = Person.objects.filter(id__in=old_member_ids).prefetch_related(
+        capture_ids = set(old_member_ids)
+        if members is not None:
+            capture_ids |= {member.id for member in members}
+        if capture_ids:
+            for person in Person.objects.filter(id__in=capture_ids).prefetch_related(
                 "clusters"
-            )
-            for person in old_members:
+            ):
                 previous_cluster_map[person.id] = set(
                     person.clusters.values_list("id", flat=True)
                 )
@@ -566,15 +652,14 @@ class ClusterSerializer(serializers.ModelSerializer):
         instance.refresh_from_db()
         new_member_ids = set(instance.members.values_list("id", flat=True))
 
-        # Create journeys for membership changes
-        if new_member_ids != old_member_ids:
-            self._create_membership_journeys(
-                instance,
-                new_member_ids,
-                old_member_ids,
-                verified_by,
-                previous_cluster_map,
-            )
+        self._apply_transfers_and_journeys(
+            instance,
+            new_member_ids,
+            old_member_ids,
+            verified_by,
+            transfer_member_ids,
+            previous_cluster_map,
+        )
 
         if reporter_ids is not serializers.empty:
             sync_cluster_reporter_assignments(instance, reporter_ids)

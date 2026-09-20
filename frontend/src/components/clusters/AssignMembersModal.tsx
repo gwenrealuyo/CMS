@@ -1,22 +1,35 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
 import { Cluster } from "@/src/types/cluster";
-import { Person, PersonUI } from "@/src/types/person";
+import { PersonUI } from "@/src/types/person";
 import { formatPersonName } from "@/src/lib/name";
 import { isSelectablePerson } from "@/src/lib/peopleSelectors";
-import { personMatchesClusterBranch } from "@/src/lib/clusterMembership";
+import {
+  formatOtherClusterLabels,
+  otherClusterIdsForPerson,
+  otherClusterLabelsForPerson,
+  personMatchesClusterBranch,
+} from "@/src/lib/clusterMembership";
 import { clustersApi } from "@/src/lib/api";
 import Button from "@/src/components/ui/Button";
 import ConfirmationModal from "@/src/components/ui/ConfirmationModal";
 import ModalOverlay from "@/src/components/ui/ModalOverlay";
 import { getPersonRoleColor } from "@/src/lib/personRole";
 import PersonAvatar from "@/src/components/people/PersonAvatar";
+import ClusterMembershipChoiceModal, {
+  type ClusterMembershipChoice,
+} from "@/src/components/clusters/ClusterMembershipChoiceModal";
+
+export type AssignMembersResult = {
+  memberIds: string[];
+  transferMemberIds: string[];
+};
 
 interface AssignMembersModalProps {
   cluster: Cluster | null;
   peopleUI: PersonUI[];
   isOpen: boolean;
   onClose: () => void;
-  onAssignMembers: (memberIds: string[]) => void;
+  onAssignMembers: (result: AssignMembersResult) => void | Promise<void>;
 }
 
 const normalizeMemberId = (id: string | number): string => String(id);
@@ -40,6 +53,7 @@ export default function AssignMembersModal({
 }: AssignMembersModalProps) {
   const clusterBranch = cluster?.branch ?? null;
   const [selectedMemberIds, setSelectedMemberIds] = useState<string[]>([]);
+  const [transferMemberIds, setTransferMemberIds] = useState<string[]>([]);
   const [selectedPersonById, setSelectedPersonById] = useState<
     Record<string, PersonUI>
   >({});
@@ -52,6 +66,10 @@ export default function AssignMembersModal({
     memberId: string | null;
     memberName: string | null;
   }>({ isOpen: false, memberId: null, memberName: null });
+  const [membershipChoice, setMembershipChoice] = useState<{
+    isOpen: boolean;
+    person: PersonUI | null;
+  }>({ isOpen: false, person: null });
   const memberDropdownRef = useRef<HTMLDivElement>(null);
   const initializedForClusterRef = useRef<number | null>(null);
 
@@ -76,11 +94,13 @@ export default function AssignMembersModal({
       initializedForClusterRef.current = null;
       setHydratingMembers(false);
       setSelectedPersonById({});
+      setTransferMemberIds([]);
       setRemoveMemberConfirmation({
         isOpen: false,
         memberId: null,
         memberName: null,
       });
+      setMembershipChoice({ isOpen: false, person: null });
       return;
     }
     if (!cluster) return;
@@ -102,6 +122,7 @@ export default function AssignMembersModal({
       }
       setSelectedMemberIds(initialMembers);
       setSelectedPersonById(initialPeople);
+      setTransferMemberIds([]);
       setHydratingMembers(false);
     };
 
@@ -183,7 +204,10 @@ export default function AssignMembersModal({
     };
   }, [showMemberDropdown]);
 
-  const addMember = (person: PersonUI) => {
+  const commitAddMember = (
+    person: PersonUI,
+    choice: ClusterMembershipChoice | null
+  ) => {
     const normalizedId = normalizeMemberId(person.id);
     const alreadyIncluded = includesMemberId(selectedMemberIds, normalizedId);
     const branchOk = personMatchesClusterBranch(person, clusterBranch);
@@ -192,8 +216,30 @@ export default function AssignMembersModal({
     }
     setSelectedMemberIds((prev) => [normalizedId, ...prev]);
     setSelectedPersonById((prev) => ({ ...prev, [normalizedId]: person }));
+    if (choice === "transfer") {
+      setTransferMemberIds((prev) =>
+        includesMemberId(prev, normalizedId) ? prev : [normalizedId, ...prev]
+      );
+    }
     setMemberSearch("");
     setShowMemberDropdown(false);
+    setMembershipChoice({ isOpen: false, person: null });
+  };
+
+  const addMember = (person: PersonUI) => {
+    const normalizedId = normalizeMemberId(person.id);
+    const alreadyIncluded = includesMemberId(selectedMemberIds, normalizedId);
+    const branchOk = personMatchesClusterBranch(person, clusterBranch);
+    if (!branchOk || alreadyIncluded) {
+      return;
+    }
+    const otherIds = otherClusterIdsForPerson(person, cluster?.id);
+    if (otherIds.length > 0) {
+      setShowMemberDropdown(false);
+      setMembershipChoice({ isOpen: true, person });
+      return;
+    }
+    commitAddMember(person, null);
   };
 
   const closeRemoveMemberConfirmation = () => {
@@ -218,6 +264,9 @@ export default function AssignMembersModal({
     setSelectedMemberIds((prev) =>
       prev.filter((id) => !memberIdsMatch(id, memberId))
     );
+    setTransferMemberIds((prev) =>
+      prev.filter((id) => !memberIdsMatch(id, memberId))
+    );
     setSelectedPersonById((prev) => {
       const next = { ...prev };
       delete next[memberId];
@@ -230,7 +279,10 @@ export default function AssignMembersModal({
     if (hydratingMembers) return;
     try {
       setLoading(true);
-      await onAssignMembers(selectedMemberIds);
+      await onAssignMembers({
+        memberIds: selectedMemberIds,
+        transferMemberIds,
+      });
       onClose();
     } catch (error) {
       console.error("Error assigning members:", error);
@@ -260,8 +312,17 @@ export default function AssignMembersModal({
     }
   };
 
-
   if (!isOpen || !cluster) return null;
+
+  const choicePerson = membershipChoice.person;
+  const choiceOtherIds = choicePerson
+    ? otherClusterIdsForPerson(choicePerson, cluster.id)
+    : [];
+  const choiceLabels = choicePerson
+    ? formatOtherClusterLabels(
+        otherClusterLabelsForPerson(choicePerson, cluster.id)
+      )
+    : "";
 
   return (
     <>
@@ -333,7 +394,11 @@ export default function AssignMembersModal({
 
               {showMemberDropdown && filteredMembers.length > 0 && (
                 <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-y-auto">
-                  {filteredMembers.map((person) => (
+                  {filteredMembers.map((person) => {
+                    const otherLabels = formatOtherClusterLabels(
+                      otherClusterLabelsForPerson(person, cluster.id)
+                    );
+                    return (
                     <button
                       key={person.id}
                       onClick={() => addMember(person)}
@@ -351,6 +416,7 @@ export default function AssignMembersModal({
                                 ? "No branch"
                                 : `Branch ${person.branch}`),
                             person.email,
+                            otherLabels ? `In ${otherLabels}` : null,
                           ]
                             .filter(Boolean)
                             .join(" · ")}
@@ -373,7 +439,8 @@ export default function AssignMembersModal({
                         </div>
                       </div>
                     </button>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>
@@ -403,7 +470,12 @@ export default function AssignMembersModal({
               </div>
             ) : (
               <div className="grid grid-cols-1 gap-3">
-                {selectedMemberPeople.map((member) => (
+                {selectedMemberPeople.map((member) => {
+                  const isTransfer = includesMemberId(
+                    transferMemberIds,
+                    member.id
+                  );
+                  return (
                   <div
                     key={member.id}
                     className="flex items-start gap-3 p-3 bg-white border border-gray-200 rounded-lg"
@@ -416,6 +488,11 @@ export default function AssignMembersModal({
                       {(member.email || member.username) && (
                         <p className="text-sm text-gray-600 break-all">
                           {member.email || member.username}
+                        </p>
+                      )}
+                      {isTransfer && (
+                        <p className="text-xs text-amber-700 mt-1">
+                          Will transfer from other cluster(s) on save
                         </p>
                       )}
                       <div className="mt-1.5 flex flex-wrap items-center gap-1">
@@ -456,7 +533,8 @@ export default function AssignMembersModal({
                       </svg>
                     </button>
                   </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
@@ -539,6 +617,20 @@ export default function AssignMembersModal({
       confirmText="Remove"
       cancelText="Cancel"
       variant="warning"
+      zIndex={80}
+    />
+
+    <ClusterMembershipChoiceModal
+      isOpen={membershipChoice.isOpen && !!choicePerson}
+      personName={choicePerson ? formatPersonName(choicePerson) : ""}
+      otherClusterLabels={choiceLabels || "another cluster"}
+      allowTransfer={choiceOtherIds.length === 1}
+      onClose={() => setMembershipChoice({ isOpen: false, person: null })}
+      onChoose={(choice) => {
+        if (choicePerson) {
+          commitAddMember(choicePerson, choice);
+        }
+      }}
       zIndex={80}
     />
     </>

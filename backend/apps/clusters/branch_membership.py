@@ -118,3 +118,39 @@ def ensure_coordinator_in_members(cluster: Cluster) -> None:
     if not cluster.coordinator_id:
         return
     cluster.members.add(cluster.coordinator)
+
+
+def remove_person_from_other_active_clusters(
+    cluster: Cluster, person_ids: Union[Iterable[int], set, list]
+) -> dict[int, list[Cluster]]:
+    """
+    Remove the given people from every other *active* cluster.
+
+    Returns a map of person_id -> list of clusters they were removed from
+    (for journey descriptions). Ignores IDs not on ``cluster``'s roster.
+    """
+    ids = {int(pid) for pid in person_ids}
+    if not ids or cluster.pk is None:
+        return {}
+
+    roster_ids = set(cluster.members.filter(id__in=ids).values_list("id", flat=True))
+    if not roster_ids:
+        return {}
+
+    removed_from: dict[int, list[Cluster]] = {pid: [] for pid in roster_ids}
+    other_clusters = (
+        Cluster.objects.filter(is_active=True, members__id__in=roster_ids)
+        .exclude(id=cluster.id)
+        .distinct()
+    )
+    for other in other_clusters:
+        overlap_ids = list(
+            other.members.filter(id__in=roster_ids).values_list("id", flat=True)
+        )
+        if not overlap_ids:
+            continue
+        other.members.remove(*overlap_ids)
+        for pid in overlap_ids:
+            removed_from[pid].append(other)
+
+    return {pid: clusters for pid, clusters in removed_from.items() if clusters}

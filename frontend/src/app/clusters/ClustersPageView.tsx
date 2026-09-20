@@ -163,7 +163,10 @@ interface ClustersPageViewProps {
   onCreateClusterSubmit: (data: ClusterInput) => Promise<void>;
   onUpdateClusterSubmit: (data: Partial<ClusterInput>) => Promise<void>;
   assignMembersModal: { isOpen: boolean; cluster: Cluster | null };
-  onAssignMembers: (memberIds: number[]) => Promise<void>;
+  onAssignMembers: (payload: {
+    memberIds: number[];
+    transferMemberIds: number[];
+  }) => Promise<void>;
   onCloseAssignMembers: () => void;
   onOpenAssignMembers: (cluster: Cluster) => void | Promise<void>;
   // Overlay modals
@@ -1919,8 +1922,11 @@ export default function ClustersPageView({
             peopleUI={peopleUI}
             isOpen={assignMembersModal.isOpen}
             onClose={onCloseAssignMembers}
-            onAssignMembers={async (memberIds: string[]) => {
-              await onAssignMembers(memberIds.map(Number));
+            onAssignMembers={async ({ memberIds, transferMemberIds }) => {
+              await onAssignMembers({
+                memberIds: memberIds.map(Number),
+                transferMemberIds: transferMemberIds.map(Number),
+              });
             }}
           />
         )}

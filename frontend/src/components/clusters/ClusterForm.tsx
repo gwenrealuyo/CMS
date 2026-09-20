@@ -11,6 +11,9 @@ import Button from "@/src/components/ui/Button";
 import ErrorMessage from "@/src/components/ui/ErrorMessage";
 import SearchableSelect from "@/src/components/ui/SearchableSelect";
 import ConfirmationModal from "@/src/components/ui/ConfirmationModal";
+import ClusterMembershipChoiceModal, {
+  type ClusterMembershipChoice,
+} from "@/src/components/clusters/ClusterMembershipChoiceModal";
 import toast from "react-hot-toast";
 import {
   CLUSTER_MEETING_DAY_OPTIONS,
@@ -27,6 +30,11 @@ import {
   findClusterCodeConflict,
   findPossibleClusterNameDuplicates,
 } from "@/src/lib/clusterDuplicates";
+import {
+  formatOtherClusterLabels,
+  otherClusterIdsForPerson,
+  otherClusterLabelsForPerson,
+} from "@/src/lib/clusterMembership";
 
 interface ClusterFormProps {
   initialData?: Cluster;
@@ -85,6 +93,11 @@ export default function ClusterForm({
   const [memberIds, setMemberIds] = useState<string[]>(
     getInitialFormData().memberIds,
   );
+  const [transferMemberIds, setTransferMemberIds] = useState<string[]>([]);
+  const [membershipChoice, setMembershipChoice] = useState<{
+    isOpen: boolean;
+    person: Person | PersonUI | null;
+  }>({ isOpen: false, person: null });
   const [reporterIds, setReporterIds] = useState<string[]>(
     getInitialFormData().reporterIds,
   );
@@ -155,6 +168,8 @@ export default function ClusterForm({
       setCoordinatorId(next.coordinatorId);
       setFamilyIds(next.familyIds);
       setMemberIds(next.memberIds);
+      setTransferMemberIds([]);
+      setMembershipChoice({ isOpen: false, person: null });
       setReporterIds(next.reporterIds);
       setLocation(next.location);
       setMeetingDay(next.meetingDay);
@@ -181,6 +196,8 @@ export default function ClusterForm({
     setCoordinatorId(next.coordinatorId);
     setFamilyIds(next.familyIds);
     setMemberIds(next.memberIds);
+    setTransferMemberIds([]);
+    setMembershipChoice({ isOpen: false, person: null });
     setReporterIds(next.reporterIds);
     setLocation(next.location);
     setMeetingDay(next.meetingDay);
@@ -218,6 +235,7 @@ export default function ClusterForm({
       coordinator_id: coordinatorId ? Number(coordinatorId) : undefined,
       families: familyIds.map(Number),
       members: memberIds.map(Number),
+      transfer_member_ids: transferMemberIds.map(Number),
       reporter_ids: reporterIds
         .filter((id) => id !== coordinatorId)
         .map(Number),
@@ -232,6 +250,7 @@ export default function ClusterForm({
       coordinatorId,
       familyIds,
       memberIds,
+      transferMemberIds,
       reporterIds,
       branchId,
       location,
@@ -437,20 +456,44 @@ export default function ClusterForm({
     );
   }, [people, memberSearch]);
 
+  const commitAddMember = (
+    member: Person | PersonUI,
+    choice: ClusterMembershipChoice | null,
+  ) => {
+    const memberIdStr = member.id.toString();
+    if (!memberIds.includes(memberIdStr)) {
+      setMemberIds([memberIdStr, ...memberIds]);
+    }
+    if (choice === "transfer") {
+      setTransferMemberIds((prev) =>
+        prev.includes(memberIdStr) ? prev : [memberIdStr, ...prev],
+      );
+    }
+    setMemberSearch("");
+    setShowMemberDropdown(false);
+    setMembershipChoice({ isOpen: false, person: null });
+  };
+
   const addMember = (member: Person | PersonUI) => {
     if (!isSelectablePerson(member)) {
       return;
     }
     const memberIdStr = member.id.toString();
-    if (!memberIds.includes(memberIdStr)) {
-      setMemberIds([memberIdStr, ...memberIds]);
+    if (memberIds.includes(memberIdStr)) {
+      return;
     }
-    setMemberSearch("");
-    setShowMemberDropdown(false);
+    const otherIds = otherClusterIdsForPerson(member, initialData?.id);
+    if (otherIds.length > 0) {
+      setShowMemberDropdown(false);
+      setMembershipChoice({ isOpen: true, person: member });
+      return;
+    }
+    commitAddMember(member, null);
   };
 
   const removeMember = (memberId: string) => {
     setMemberIds(memberIds.filter((id) => id !== memberId));
+    setTransferMemberIds((prev) => prev.filter((id) => id !== memberId));
   };
 
   const getStatusColor = (status: string) => {
@@ -886,6 +929,9 @@ export default function ClusterForm({
                 filteredMembers.map((member) => {
                   const memberIdStr = member.id.toString();
                   const isSelected = memberIds.includes(memberIdStr);
+                  const otherLabels = formatOtherClusterLabels(
+                    otherClusterLabelsForPerson(member, initialData?.id),
+                  );
                   return (
                     <button
                       key={member.id}
@@ -903,6 +949,11 @@ export default function ClusterForm({
                         <p className="font-medium text-sm">
                           {formatPersonName(member)}
                         </p>
+                        {otherLabels ? (
+                          <p className="text-xs text-gray-500 mt-0.5">
+                            In {otherLabels}
+                          </p>
+                        ) : null}
                         <div className="flex items-center space-x-1 mt-0.5">
                           <span
                             className={`px-1.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(
@@ -1095,6 +1146,40 @@ export default function ClusterForm({
       confirmText={initialData ? "Update anyway" : "Create anyway"}
       cancelText="Go back"
       variant="warning"
+      zIndex={80}
+    />
+
+    <ClusterMembershipChoiceModal
+      isOpen={membershipChoice.isOpen && !!membershipChoice.person}
+      personName={
+        membershipChoice.person
+          ? formatPersonName(membershipChoice.person)
+          : ""
+      }
+      otherClusterLabels={
+        membershipChoice.person
+          ? formatOtherClusterLabels(
+              otherClusterLabelsForPerson(
+                membershipChoice.person,
+                initialData?.id,
+              ),
+            ) || "another cluster"
+          : "another cluster"
+      }
+      allowTransfer={
+        membershipChoice.person
+          ? otherClusterIdsForPerson(
+              membershipChoice.person,
+              initialData?.id,
+            ).length === 1
+          : false
+      }
+      onClose={() => setMembershipChoice({ isOpen: false, person: null })}
+      onChoose={(choice) => {
+        if (membershipChoice.person) {
+          commitAddMember(membershipChoice.person, choice);
+        }
+      }}
       zIndex={80}
     />
     </>

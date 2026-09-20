@@ -79,6 +79,8 @@ export interface Cluster {
   /** Present on detail/write payloads; omitted from slim directory list. */
   families?: number[];
   members?: number[];
+  /** Write-only: members who should leave other active clusters on save. */
+  transfer_member_ids?: number[];
   members_details?: ClusterMemberDetail[];
   families_details?: ClusterFamilyDetail[];
   /** MEMBER + PASTOR roster size (admins and visitors excluded). */
@@ -102,6 +104,11 @@ export interface ClusterInput {
   coordinator_id?: number | null;
   families?: number[];
   members?: number[];
+  /**
+   * Person IDs among members who should leave other active clusters
+   * (real transfer). Omitted IDs keep dual membership when already elsewhere.
+   */
+  transfer_member_ids?: number[];
   /** Person IDs to assign as CLUSTER REPORTER for this cluster */
   reporter_ids?: number[];
   branch?: number | null;

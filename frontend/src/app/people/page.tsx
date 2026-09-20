@@ -1169,7 +1169,11 @@ export default function PeoplePage() {
     }
   };
 
-  const handleAssignMembers = async (memberIds: string[]) => {
+  const handleAssignMembers = async (payload: {
+    memberIds: string[];
+    transferMemberIds: string[];
+  }) => {
+    const { memberIds, transferMemberIds } = payload;
     if (assignMembersModal.cluster) {
       try {
         const cluster = await openClusterDetail(assignMembersModal.cluster);
@@ -1178,6 +1182,7 @@ export default function PeoplePage() {
         const updated = await clustersApi.update(cluster.id, {
           members: memberIds.map(Number),
           families: cluster.families ?? [],
+          transfer_member_ids: transferMemberIds.map(Number),
         });
         const returnedIdSet = new Set(
           (updated.data.members ?? []).map((id: number) => String(id))

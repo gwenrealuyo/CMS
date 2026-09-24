@@ -1,4 +1,4 @@
-"""Sunday Service self check-in: resolve today's session and household."""
+"""Event self check-in: resolve today's opted-in session and household."""
 
 from __future__ import annotations
 
@@ -94,15 +94,18 @@ def occurrence_on_date(event: Event, today: date) -> Optional[Occurrence]:
     return None
 
 
-def find_todays_sunday_services(
+def find_todays_self_checkin_events(
     today: Optional[date] = None,
 ) -> List[Tuple[Event, Occurrence]]:
+    """Approved activity events with self-check-in enabled that occur today."""
     today = today or church_today()
     events = (
         Event.objects.filter(
-            event_type_id=SUNDAY_SERVICE_TYPE,
+            self_checkin_enabled=True,
             booking_status=Event.BookingStatus.APPROVED,
+            event_type__counts_as_activity=True,
         )
+        .exclude(attendance_format=Event.AttendanceFormat.ONSITE_ONLY)
         .select_related("event_type", "branch", "room")
         .order_by("start_date", "id")
     )
@@ -114,8 +117,26 @@ def find_todays_sunday_services(
     return matches
 
 
+# Backward-compatible alias used by older imports/tests.
+find_todays_sunday_services = find_todays_self_checkin_events
+
+
+def event_requires_online_venue(event: Event) -> bool:
+    return getattr(event, "requires_online_venue", True)
+
+
+def _event_allows_staff_onsite_guest(event: Event) -> bool:
+    """Staff guest encode from check-in: any approved activity event."""
+    if event.booking_status != Event.BookingStatus.APPROVED:
+        return False
+    event_type = getattr(event, "event_type", None)
+    if event_type is not None and not getattr(event_type, "counts_as_activity", True):
+        return False
+    return True
+
+
 def _is_visible_to_user(event: Event, user) -> bool:
-    if event.branch_id is None:
+    if event.branch_id is None or event.allow_cross_branch_attendance:
         return True
     if user.can_see_all_branches():
         return True
@@ -170,7 +191,7 @@ def find_people_by_member_id(raw: str) -> QuerySet[Person]:
 
 
 def _is_visible_to_person(event: Event, person: Person) -> bool:
-    if event.branch_id is None:
+    if event.branch_id is None or event.allow_cross_branch_attendance:
         return True
     return event.branch_id == getattr(person, "branch_id", None)
 
@@ -249,7 +270,7 @@ def resolve_session(
 ) -> ResolvedSession:
     today = today or church_today()
     can_encode = user_can_encode_self_checkin_visitors(user)
-    matches = find_todays_sunday_services(today)
+    matches = find_todays_self_checkin_events(today)
     selected, reason = select_matches_for_user(matches, user, event_id=event_id)
 
     if reason == "invalid_event":
@@ -305,9 +326,9 @@ def resolve_public_session(
     event_id: Optional[int] = None,
     today: Optional[date] = None,
 ) -> ResolvedSession:
-    """Today's approved Sunday services with no user or branch filter."""
+    """Today's approved self-check-in events with no user or branch filter."""
     today = today or church_today()
-    matches = find_todays_sunday_services(today)
+    matches = find_todays_self_checkin_events(today)
 
     if event_id is not None:
         chosen = [(event, occ) for event, occ in matches if event.pk == event_id]
@@ -377,7 +398,7 @@ def resolve_person_public_session(
     today: Optional[date] = None,
 ) -> ResolvedSession:
     today = today or church_today()
-    matches = find_todays_sunday_services(today)
+    matches = find_todays_self_checkin_events(today)
     selected, reason = select_matches_for_person(
         matches, person, event_id=event_id
     )
@@ -564,6 +585,9 @@ def exact_name_matches(
 
 
 def serialize_event_option(event: Event, occ: Occurrence) -> dict:
+    attendance_format = (
+        event.attendance_format or Event.AttendanceFormat.HYBRID
+    )
     return {
         "event_id": event.pk,
         "title": event.title,
@@ -576,6 +600,8 @@ def serialize_event_option(event: Event, occ: Occurrence) -> dict:
         "occurrence_date": church_calendar_date(occ.start).isoformat()
         if church_calendar_date(occ.start)
         else None,
+        "attendance_format": attendance_format,
+        "requires_online_venue": event_requires_online_venue(event),
     }
 
 
@@ -694,11 +720,11 @@ def resolve_onsite_guest_session(
     event_id: Optional[int] = None,
     occurrence_date: Optional[date] = None,
 ) -> ResolvedSession:
-    """Staff onsite guest session for a Sunday Service occurrence.
+    """Staff onsite guest session for an approved activity occurrence.
 
     When ``event_id`` and ``occurrence_date`` are both set (e.g. from check-in),
-    validate that approved Sunday Service occurrence. Otherwise resolve services
-    for the given (or church-today) date like online self-check-in.
+    validate that approved activity occurrence. Otherwise resolve today's
+    self-check-in-enabled events like online self-check-in.
     """
     if event_id is not None and occurrence_date is not None:
         try:
@@ -717,18 +743,7 @@ def resolve_onsite_guest_session(
                 options=[],
                 can_encode_visitors=True,
             )
-        if event.event_type_id != SUNDAY_SERVICE_TYPE:
-            return ResolvedSession(
-                available=False,
-                reason="invalid_event",
-                needs_selection=False,
-                event=None,
-                occurrence=None,
-                occurrence_date=occurrence_date,
-                options=[],
-                can_encode_visitors=True,
-            )
-        if event.booking_status != Event.BookingStatus.APPROVED:
+        if not _event_allows_staff_onsite_guest(event):
             return ResolvedSession(
                 available=False,
                 reason="invalid_event",
@@ -848,6 +863,7 @@ def create_visitor_guest_person(
     inviter=None,
     date_first_attended: Optional[date] = None,
     date_first_invited: Optional[date] = None,
+    first_activity_attended=None,
 ) -> Person:
     """Create a VISITOR person + age-group Journey note (no attendance)."""
     from apps.events.models import EventType
@@ -855,7 +871,9 @@ def create_visitor_guest_person(
     from apps.people.usernames import generate_unique_username
 
     attended = date_first_attended or church_today()
-    event_type = EventType.objects.filter(code=SUNDAY_SERVICE_TYPE).first()
+    event_type = first_activity_attended
+    if event_type is None:
+        event_type = EventType.objects.filter(code=SUNDAY_SERVICE_TYPE).first()
     person = Person(
         username=generate_unique_username(first_name, last_name),
         first_name=first_name,

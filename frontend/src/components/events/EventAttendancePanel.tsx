@@ -277,6 +277,16 @@ export default function EventAttendancePanel({
             <p className="text-sm text-gray-600">
               Total recorded attendees: {totalAttendanceCount}
             </p>
+            {event.self_checkin_enabled ? (
+              <p className="text-xs font-medium text-amber-800">
+                Online self-check-in is enabled
+                {event.attendance_format === "online_only"
+                  ? " (online only, no venue)"
+                  : event.attendance_format === "hybrid"
+                    ? " (hybrid)"
+                    : ""}
+              </p>
+            ) : null}
             <p className="text-xs text-gray-500">
               Showing attendees for{" "}
               {formatOccurrenceLabel(selectedOccurrenceDate || eventDateKey)}

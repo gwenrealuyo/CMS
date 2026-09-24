@@ -80,6 +80,7 @@ class SelfCheckInAPITests(APITestCase):
             status="ACTIVE",
             branch=self.hq,
             member_id="LAMP10001",
+            water_baptism_date=date(2020, 1, 1),
         )
         self.spouse = Person.objects.create_user(
             username="scispouse",
@@ -89,6 +90,7 @@ class SelfCheckInAPITests(APITestCase):
             role="MEMBER",
             status="ACTIVE",
             branch=self.hq,
+            water_baptism_date=date(2020, 1, 1),
         )
         self.outsider = Person.objects.create_user(
             username="scioutsider",
@@ -98,6 +100,7 @@ class SelfCheckInAPITests(APITestCase):
             role="MEMBER",
             status="ACTIVE",
             branch=self.hq,
+            water_baptism_date=date(2020, 1, 1),
         )
         self.deceased = Person.objects.create_user(
             username="scidec",
@@ -107,6 +110,7 @@ class SelfCheckInAPITests(APITestCase):
             role="MEMBER",
             status="DECEASED",
             branch=self.hq,
+            water_baptism_date=date(2020, 1, 1),
         )
         self.other_member = Person.objects.create_user(
             username="sciothermember",
@@ -116,6 +120,7 @@ class SelfCheckInAPITests(APITestCase):
             role="MEMBER",
             status="ACTIVE",
             branch=self.other_branch,
+            water_baptism_date=date(2020, 1, 1),
         )
         self.coordinator = Person.objects.create_user(
             username="scicoord",
@@ -125,6 +130,7 @@ class SelfCheckInAPITests(APITestCase):
             role="MEMBER",
             status="ACTIVE",
             branch=self.hq,
+            water_baptism_date=date(2020, 1, 1),
         )
         ModuleCoordinator.objects.create(
             person=self.coordinator,
@@ -149,6 +155,7 @@ class SelfCheckInAPITests(APITestCase):
                 "through": "2026-12-27",
                 "excluded_dates": [],
             },
+            self_checkin_enabled=True,
             created_by=self.coordinator,
         )
         self.other_event = Event.objects.create(
@@ -160,6 +167,7 @@ class SelfCheckInAPITests(APITestCase):
             location="Annex",
             branch=self.other_branch,
             is_recurring=False,
+            self_checkin_enabled=True,
             created_by=self.coordinator,
         )
         self.church_today_patch = patch(
@@ -264,6 +272,18 @@ class SelfCheckInAPITests(APITestCase):
         response = self.client.get("/api/events/self-check-in/session/")
         self.assertEqual(response.status_code, 200, response.data)
         self.assertFalse(response.data["available"])
+
+    def test_member_sees_other_branch_when_cross_branch_allowed(self):
+        self.event.delete()
+        self.other_event.allow_cross_branch_attendance = True
+        self.other_event.save(update_fields=["allow_cross_branch_attendance"])
+        self.client.force_authenticate(self.member)
+        response = self.client.get("/api/events/self-check-in/session/")
+        self.assertEqual(response.status_code, 200, response.data)
+        self.assertTrue(response.data["available"])
+        self.assertEqual(
+            response.data["session"]["event"]["id"], self.other_event.id
+        )
 
     def test_admin_picks_when_multiple_branches(self):
         self.client.force_authenticate(self.admin)
@@ -731,6 +751,7 @@ class SelfCheckInAPITests(APITestCase):
             location="Hall 2",
             branch=self.hq,
             is_recurring=False,
+            self_checkin_enabled=True,
             created_by=self.coordinator,
         )
         self.client.force_authenticate(self.member)
@@ -951,6 +972,7 @@ class SelfCheckInAPITests(APITestCase):
             status="ACTIVE",
             branch=self.hq,
             member_id="LAMP10001",
+            water_baptism_date=date(2020, 1, 1),
         )
         response = self.client.post(
             "/api/events/self-check-in/public/identify/",
@@ -992,3 +1014,221 @@ class SelfCheckInAPITests(APITestCase):
         self.assertEqual(second.status_code, 409, second.data)
         record.refresh_from_db()
         self.assertEqual(record.attendance_venue_id, "HOME_ALTAR")
+
+
+    def test_session_hidden_when_event_self_checkin_disabled(self):
+        self.event.self_checkin_enabled = False
+        self.event.save(update_fields=["self_checkin_enabled"])
+        self.other_event.self_checkin_enabled = False
+        self.other_event.save(update_fields=["self_checkin_enabled"])
+        self.client.force_authenticate(self.member)
+        response = self.client.get("/api/events/self-check-in/session/")
+        self.assertEqual(response.status_code, 200, response.data)
+        self.assertFalse(response.data["available"])
+        self.assertEqual(response.data["reason"], "no_service_today")
+
+    def test_opted_in_non_sunday_event_appears_in_session(self):
+        concert_type, _ = EventType.objects.get_or_create(
+            code="CONCERT_CRUSADE",
+            defaults={
+                "label": "Concert/Crusade",
+                "sort_order": 150,
+                "color": "#7c2d12",
+                "is_system": True,
+                "counts_as_activity": True,
+            },
+        )
+        self.event.self_checkin_enabled = False
+        self.event.save(update_fields=["self_checkin_enabled"])
+        self.other_event.self_checkin_enabled = False
+        self.other_event.save(update_fields=["self_checkin_enabled"])
+        concert = Event.objects.create(
+            title="City Crusade",
+            description="",
+            start_date=manila_dt(2026, 9, 13, 18),
+            end_date=manila_dt(2026, 9, 13, 21),
+            event_type=concert_type,
+            location="Arena",
+            branch=self.hq,
+            is_recurring=False,
+            self_checkin_enabled=True,
+            created_by=self.coordinator,
+        )
+        self.client.force_authenticate(self.member)
+        response = self.client.get("/api/events/self-check-in/session/")
+        self.assertEqual(response.status_code, 200, response.data)
+        self.assertTrue(response.data["available"])
+        self.assertEqual(response.data["session"]["event"]["id"], concert.id)
+
+        public = self.client.get("/api/events/self-check-in/public/session/")
+        self.assertEqual(public.status_code, 200, public.data)
+        self.assertTrue(public.data["available"])
+        option_ids = {opt["event_id"] for opt in public.data["options"]}
+        self.assertIn(concert.id, option_ids)
+
+        check_in = self.client.post(
+            "/api/events/self-check-in/",
+            {
+                "person_ids": [self.member.id],
+                "attendance_venue": "HOME_ALTAR",
+                "event_id": concert.id,
+            },
+            format="json",
+        )
+        self.assertEqual(check_in.status_code, 200, check_in.data)
+        record = AttendanceRecord.objects.get(
+            event=concert, person=self.member, occurrence_date=TODAY
+        )
+        self.assertEqual(record.attendance_mode, "ONLINE")
+
+    def test_meeting_cannot_enable_self_checkin(self):
+        meeting_type, _ = EventType.objects.get_or_create(
+            code="MEETING",
+            defaults={
+                "label": "Meeting",
+                "sort_order": 160,
+                "color": "#64748b",
+                "is_system": True,
+                "counts_as_activity": False,
+            },
+        )
+        meeting_type.counts_as_activity = False
+        meeting_type.save(update_fields=["counts_as_activity"])
+        from apps.events.models import EventRoom
+
+        room = EventRoom.objects.create(
+            branch=self.hq, name="Board Room SCI", is_active=True
+        )
+        self.client.force_authenticate(self.admin)
+        response = self.client.post(
+            "/api/events/",
+            {
+                "title": "Staff Meeting",
+                "description": "",
+                "start_date": manila_dt(2026, 9, 13, 14).isoformat(),
+                "end_date": manila_dt(2026, 9, 13, 15).isoformat(),
+                "type": "MEETING",
+                "room": room.id,
+                "branch": self.hq.id,
+                "self_checkin_enabled": True,
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, 400, response.data)
+        details = response.data.get("details") or response.data
+        self.assertIn("self_checkin_enabled", details)
+
+    def test_guest_first_activity_matches_event_type(self):
+        concert_type, _ = EventType.objects.get_or_create(
+            code="CONCERT_CRUSADE",
+            defaults={
+                "label": "Concert/Crusade",
+                "sort_order": 150,
+                "color": "#7c2d12",
+                "is_system": True,
+                "counts_as_activity": True,
+            },
+        )
+        self.event.self_checkin_enabled = False
+        self.event.save(update_fields=["self_checkin_enabled"])
+        self.other_event.self_checkin_enabled = False
+        self.other_event.save(update_fields=["self_checkin_enabled"])
+        concert = Event.objects.create(
+            title="Crusade Night",
+            description="",
+            start_date=manila_dt(2026, 9, 13, 18),
+            end_date=manila_dt(2026, 9, 13, 21),
+            event_type=concert_type,
+            location="Arena",
+            branch=self.hq,
+            is_recurring=False,
+            self_checkin_enabled=True,
+            created_by=self.coordinator,
+        )
+        self.client.force_authenticate(self.coordinator)
+        response = self.client.post(
+            f"/api/events/self-check-in/visitors/?event={concert.id}",
+            {
+                "first_name": "guesty",
+                "last_name": "crusade",
+                "gender": "FEMALE",
+                "age_group": "ADULT",
+                "attendance_venue": "HOME_ALTAR",
+                "event_id": concert.id,
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, 201, response.data)
+        visitor = Person.objects.get(first_name="Guesty", last_name="Crusade")
+        self.assertEqual(visitor.first_activity_attended_id, "CONCERT_CRUSADE")
+
+
+    def test_online_only_self_checkin_without_venue(self):
+        self.event.attendance_format = Event.AttendanceFormat.ONLINE_ONLY
+        self.event.save(update_fields=["attendance_format"])
+        self.other_event.self_checkin_enabled = False
+        self.other_event.save(update_fields=["self_checkin_enabled"])
+        self.client.force_authenticate(self.member)
+        session = self.client.get("/api/events/self-check-in/session/")
+        self.assertEqual(session.status_code, 200, session.data)
+        self.assertTrue(session.data["available"])
+        self.assertFalse(session.data["requires_online_venue"])
+        self.assertEqual(session.data["attendance_venues"], [])
+
+        response = self.client.post(
+            "/api/events/self-check-in/",
+            {"person_ids": [self.member.id], "event_id": self.event.id},
+            format="json",
+        )
+        self.assertEqual(response.status_code, 200, response.data)
+        record = AttendanceRecord.objects.get(
+            event=self.event, person=self.member, occurrence_date=TODAY
+        )
+        self.assertEqual(record.attendance_mode, "ONLINE")
+        self.assertIsNone(record.attendance_venue_id)
+
+    def test_public_online_only_checkin_without_venue(self):
+        self.event.attendance_format = Event.AttendanceFormat.ONLINE_ONLY
+        self.event.save(update_fields=["attendance_format"])
+        self.other_event.self_checkin_enabled = False
+        self.other_event.save(update_fields=["self_checkin_enabled"])
+        public = self.client.post(
+            "/api/events/self-check-in/public/",
+            {"member_id": "LAMP10001", "event_id": self.event.id},
+            format="json",
+        )
+        self.assertEqual(public.status_code, 200, public.data)
+        record = AttendanceRecord.objects.get(
+            event=self.event, person=self.member, occurrence_date=TODAY
+        )
+        self.assertEqual(record.attendance_mode, "ONLINE")
+        self.assertIsNone(record.attendance_venue_id)
+
+    def test_online_only_rejects_venue_on_public_checkin(self):
+        self.event.attendance_format = Event.AttendanceFormat.ONLINE_ONLY
+        self.event.save(update_fields=["attendance_format"])
+        self.other_event.self_checkin_enabled = False
+        self.other_event.save(update_fields=["self_checkin_enabled"])
+        rejected = self.client.post(
+            "/api/events/self-check-in/public/",
+            {
+                "member_id": "LAMP10001",
+                "attendance_venue": "HOME_ALTAR",
+                "event_id": self.event.id,
+            },
+            format="json",
+        )
+        self.assertEqual(rejected.status_code, 400, rejected.data)
+        details = rejected.data.get("details") or rejected.data
+        self.assertIn("attendance_venue", details)
+
+    def test_onsite_only_excluded_from_self_checkin_session(self):
+        self.event.attendance_format = Event.AttendanceFormat.ONSITE_ONLY
+        self.event.self_checkin_enabled = True
+        self.event.save(update_fields=["attendance_format", "self_checkin_enabled"])
+        self.other_event.self_checkin_enabled = False
+        self.other_event.save(update_fields=["self_checkin_enabled"])
+        self.client.force_authenticate(self.member)
+        response = self.client.get("/api/events/self-check-in/session/")
+        self.assertEqual(response.status_code, 200, response.data)
+        self.assertFalse(response.data["available"])

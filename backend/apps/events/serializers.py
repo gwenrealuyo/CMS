@@ -7,6 +7,7 @@ from rest_framework.exceptions import ValidationError
 
 from apps.attendance.serializers import AttendanceRecordSerializer
 from .models import AttendanceVenue, Event, EventRoom, EventType, EventSetting
+from .permissions import NATIONAL_EVENT_TYPE_CODES, can_manage_national_events
 from .services.conflicts import (
     validate_room_booking,
     validate_sunday_service_uniqueness,
@@ -241,7 +242,11 @@ class EventSerializer(serializers.ModelSerializer):
             "expected_include_semiactive",
             "expected_include_inactive",
             "expected_include_ongoing_visitors",
+            "track_expected_attendees",
+            "allow_cross_branch_attendance",
             "tardy_grace_minutes",
+            "self_checkin_enabled",
+            "attendance_format",
             "occurrences",
             "next_occurrence",
             "attendee_badges",
@@ -375,6 +380,49 @@ class EventSerializer(serializers.ModelSerializer):
             instance, "location", ""
         )
         event_type = attrs.get("event_type", getattr(instance, "event_type", None))
+        event_type_code = getattr(event_type, "pk", None) if event_type else None
+        request = (self.context or {}).get("request")
+        user = getattr(request, "user", None) if request else None
+        is_national_type = event_type_code in NATIONAL_EVENT_TYPE_CODES
+
+        if is_national_type and not can_manage_national_events(user):
+            raise ValidationError(
+                {
+                    "type": (
+                        "Only HQ Events coordinators and above can manage AWTA events."
+                    )
+                }
+            )
+
+        if branch is None:
+            if not is_national_type:
+                raise ValidationError(
+                    {
+                        "branch": (
+                            "Branch is required. Church-wide is only available for AWTA."
+                        )
+                    }
+                )
+            if not can_manage_national_events(user):
+                raise ValidationError(
+                    {
+                        "branch": (
+                            "Only HQ Events coordinators and above can create "
+                            "church-wide events."
+                        )
+                    }
+                )
+            if room is not None:
+                raise ValidationError(
+                    {
+                        "room": (
+                            "Church-wide events must use Other / off-site with a "
+                            "dedicated venue location."
+                        )
+                    }
+                )
+            attrs["allow_cross_branch_attendance"] = False
+
         if event_type is not None and not getattr(
             event_type, "counts_as_activity", True
         ):
@@ -386,6 +434,46 @@ class EventSerializer(serializers.ModelSerializer):
                         )
                     }
                 )
+
+        self_checkin_enabled = attrs.get(
+            "self_checkin_enabled",
+            getattr(instance, "self_checkin_enabled", False),
+        )
+        attendance_format = attrs.get(
+            "attendance_format",
+            getattr(instance, "attendance_format", Event.AttendanceFormat.HYBRID),
+        )
+        if self_checkin_enabled and event_type is not None and not getattr(
+            event_type, "counts_as_activity", True
+        ):
+            raise ValidationError(
+                {
+                    "self_checkin_enabled": (
+                        "Self-check-in is not available for Meeting room holds."
+                    )
+                }
+            )
+        elif (
+            instance is None
+            and "self_checkin_enabled"
+            not in getattr(self, "initial_data", {})
+            and event_type is not None
+            and getattr(event_type, "pk", None) == "SUNDAY_SERVICE"
+        ):
+            attrs["self_checkin_enabled"] = True
+            self_checkin_enabled = True
+
+        if (
+            self_checkin_enabled
+            and attendance_format == Event.AttendanceFormat.ONSITE_ONLY
+        ):
+            raise ValidationError(
+                {
+                    "self_checkin_enabled": (
+                        "Self-check-in cannot be enabled for onsite-only events."
+                    )
+                }
+            )
 
         if room is not None:
             room_branch_id = room.branch_id
@@ -405,7 +493,8 @@ class EventSerializer(serializers.ModelSerializer):
                     }
                 )
             attrs["location"] = location_text
-
+            if "branch" in attrs or instance is None:
+                attrs["branch"] = branch
         context = self.context or {}
         ignore_dates = context.get("schedule_ignore_dates")
         conflict_kwargs = dict(

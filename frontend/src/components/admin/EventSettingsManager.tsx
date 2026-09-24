@@ -48,7 +48,7 @@ export default function EventSettingsManager() {
       setSetting(response.data);
       toast.success(
         enabled
-          ? "Online self-check-in is now open from the public Sunday link."
+          ? "Online self-check-in is now open from the public link."
           : "Online self-check-in is limited to admins and Events coordinators.",
       );
     } catch (error: any) {
@@ -106,8 +106,7 @@ export default function EventSettingsManager() {
           Events
         </h2>
         <p className="text-sm text-gray-600 mt-1">
-          Control Sunday Service online self-check-in and online attendance
-          venues.
+          Control online self-check-in and online attendance venues.
         </p>
       </div>
 
@@ -138,11 +137,11 @@ export default function EventSettingsManager() {
               Member online self-check-in
             </h3>
             <p className="text-xs text-gray-500 mt-1 max-w-xl">
-              Opens the public Sunday link at /events/self-check-in so members
-              can check in online with their LAMP ID or member QR, without
-              logging in. Onsite check-in stays on the staff station. When off,
-              only admins and Events coordinators can use logged-in household
-              and guest check-in.
+              Opens the public link at /events/self-check-in so members can
+              check in online with their LAMP ID or member QR, without logging
+              in, for events that have self-check-in enabled. Onsite check-in
+              stays on the staff station. When off, only admins and Events
+              coordinators can use logged-in household and guest check-in.
             </p>
             <p className="text-xs text-gray-500 mt-1">
               {isEnabled
@@ -178,7 +177,7 @@ export default function EventSettingsManager() {
         onClose={closeToggleConfirmation}
         title={
           pendingToggle
-            ? "Open the public Sunday check-in link"
+            ? "Open the public check-in link"
             : "Limit online self-check-in to staff"
         }
       >
@@ -187,12 +186,12 @@ export default function EventSettingsManager() {
             <div className="space-y-2">
               <p className="text-sm text-gray-700">
                 {pendingToggle
-                  ? "Let members check in online from the public Sunday link using their LAMP ID or member QR, without logging in?"
-                  : "Hide Sunday online self-check-in from members?"}
+                  ? "Let members check in online from the public link using their LAMP ID or member QR, without logging in?"
+                  : "Hide online self-check-in from members?"}
               </p>
               <p className="text-sm text-gray-500">
                 {pendingToggle
-                  ? "The shared /events/self-check-in page will accept LAMP ID, camera scan, or a QR photo (decoded in the browser, not saved). Logged-in admins and Events coordinators keep household and guest check-in. Do not use this if they are onsite."
+                  ? "The shared /events/self-check-in page will accept LAMP ID, camera scan, or a QR photo (decoded in the browser, not saved) for events with self-check-in enabled. Logged-in admins and Events coordinators keep household and guest check-in. Do not use this if they are onsite."
                   : "Only admins and Events coordinators will still see and use logged-in household and guest self-check-in."}
               </p>
             </div>

@@ -116,7 +116,11 @@ export interface Event {
   expected_include_semiactive?: boolean;
   expected_include_inactive?: boolean;
   expected_include_ongoing_visitors?: boolean;
+  track_expected_attendees?: boolean;
+  allow_cross_branch_attendance?: boolean;
   tardy_grace_minutes?: number;
+  self_checkin_enabled?: boolean;
+  attendance_format?: "hybrid" | "online_only" | "onsite_only";
   recurrence_pattern?: RecurrencePattern | null;
   occurrences?: EventOccurrence[];
   next_occurrence?: EventOccurrence | null;

@@ -20,6 +20,26 @@ NON_EVENTS_MODULES = (
     ModuleCoordinator.ModuleType.LESSONS,
     ModuleCoordinator.ModuleType.MINISTRIES,
 )
+NATIONAL_EVENT_TYPE_CODES = frozenset({"AWTA"})
+
+
+def can_manage_national_events(user) -> bool:
+    """Admin, HQ Pastor, or Events Coordinator / Senior on the HQ branch."""
+    if not user or not getattr(user, "is_authenticated", False):
+        return False
+    if getattr(user, "role", None) == "ADMIN":
+        return True
+    branch = getattr(user, "branch", None)
+    if not branch or not getattr(branch, "is_headquarters", False):
+        return False
+    if getattr(user, "role", None) == "PASTOR":
+        return True
+    if not is_module_enabled(EVENTS):
+        return False
+    return user.module_coordinator_assignments.filter(
+        module=EVENTS,
+        level__in=ROOM_MANAGE_LEVELS,
+    ).exists()
 
 
 def can_manage_event_rooms(user) -> bool:
@@ -115,6 +135,12 @@ class CanCreateOrUpdateEvent(permissions.BasePermission):
     def has_object_permission(self, request, view, obj):
         user = request.user
         action = getattr(view, "action", None)
+        is_national = (
+            getattr(obj, "event_type_id", None) in NATIONAL_EVENT_TYPE_CODES
+            or getattr(obj, "branch_id", None) is None
+        )
+        if is_national and not can_manage_national_events(user):
+            return False
         if action == "destroy":
             if has_events_write(user):
                 return True

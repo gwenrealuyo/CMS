@@ -210,7 +210,11 @@ type FormDefaults = {
   expected_include_semiactive: boolean;
   expected_include_inactive: boolean;
   expected_include_ongoing_visitors: boolean;
+  track_expected_attendees: boolean;
+  allow_cross_branch_attendance: boolean;
   tardy_grace_minutes: number;
+  self_checkin_enabled: boolean;
+  attendance_format: "hybrid" | "online_only" | "onsite_only";
 };
 
 function withPlaceholders(
@@ -228,7 +232,11 @@ function withExpectedAttendeeDefaults(
     | "expected_include_semiactive"
     | "expected_include_inactive"
     | "expected_include_ongoing_visitors"
+    | "track_expected_attendees"
+    | "allow_cross_branch_attendance"
     | "tardy_grace_minutes"
+    | "self_checkin_enabled"
+    | "attendance_format"
   >
 ): Omit<FormDefaults, "branch" | "room"> {
   return {
@@ -237,7 +245,11 @@ function withExpectedAttendeeDefaults(
     expected_include_semiactive: true,
     expected_include_inactive: true,
     expected_include_ongoing_visitors: true,
+    track_expected_attendees: defaults.type === "SUNDAY_SERVICE",
+    allow_cross_branch_attendance: false,
     tardy_grace_minutes: 0,
+    self_checkin_enabled: defaults.type === "SUNDAY_SERVICE",
+    attendance_format: "hybrid",
   };
 }
 
@@ -318,6 +330,7 @@ export default function EventForm({
   isBookingRequest = false,
 }: EventFormProps) {
   const { user } = useAuth();
+  const canManageNational = Boolean(user?.can_manage_national_events);
   const canPickBranch = Boolean(user?.can_see_all_branches);
   const { branches } = useBranches();
   const userBranchId =
@@ -325,10 +338,26 @@ export default function EventForm({
       ? Number(user.branch)
       : "";
 
+  const visibleTypeOptions = useMemo(() => {
+    return eventTypeOptions.filter(
+      (option) =>
+        option.value !== "AWTA" ||
+        canManageNational ||
+        initialData?.type === "AWTA"
+    );
+  }, [eventTypeOptions, canManageNational, initialData?.type]);
+
+  const isEditingNationalLocked =
+    Boolean(initialData) &&
+    (initialData?.type === "AWTA" || initialData?.branch == null) &&
+    !canManageNational;
+
   const defaultFormData = useMemo(() => {
     const defaultBranch =
-      initialData?.branch != null
-        ? Number(initialData.branch)
+      initialData != null
+        ? initialData.branch != null
+          ? Number(initialData.branch)
+          : ""
         : userBranchId;
 
     if (initialData) {
@@ -355,7 +384,15 @@ export default function EventForm({
           initialData.expected_include_inactive ?? true,
         expected_include_ongoing_visitors:
           initialData.expected_include_ongoing_visitors ?? true,
+        track_expected_attendees:
+          initialData.track_expected_attendees ?? true,
+        allow_cross_branch_attendance:
+          initialData.allow_cross_branch_attendance ?? false,
         tardy_grace_minutes: initialData.tardy_grace_minutes ?? 0,
+        self_checkin_enabled:
+          initialData.self_checkin_enabled ??
+          (initialData.type || "SUNDAY_SERVICE") === "SUNDAY_SERVICE",
+        attendance_format: initialData.attendance_format ?? "hybrid",
       };
     }
 
@@ -365,6 +402,10 @@ export default function EventForm({
     return { ...base, branch: defaultBranch };
   }, [initialData, presetDate, eventTypeOptions, userBranchId]);
   const [formData, setFormData] = useState(defaultFormData);
+
+  const allowsChurchWide =
+    formData.type === "AWTA" && canManageNational && !isEditingNationalLocked;
+  const isChurchWide = allowsChurchWide && formData.branch === "";
 
   const selectedBranchId =
     formData.branch === "" ? null : Number(formData.branch);
@@ -381,9 +422,11 @@ export default function EventForm({
   }, [rooms, initialData?.room]);
   const isRoomHold = useMemo(
     () =>
+      visibleTypeOptions.find((option) => option.value === formData.type)
+        ?.counts_as_activity === false ||
       eventTypeOptions.find((option) => option.value === formData.type)
         ?.counts_as_activity === false,
-    [eventTypeOptions, formData.type]
+    [visibleTypeOptions, eventTypeOptions, formData.type]
   );
 
   const initialRecurrence = useMemo<RecurrencePattern | null>(
@@ -445,11 +488,14 @@ export default function EventForm({
     }
 
     if (name === "branch") {
+      const nextBranch = value ? Number(value) : "";
       setFormData((prev) => ({
         ...prev,
-        branch: value ? Number(value) : "",
-        room: "",
-        location: "",
+        branch: nextBranch,
+        room: nextBranch === "" ? OFFSITE_ROOM : "",
+        location: nextBranch === "" ? prev.location : "",
+        allow_cross_branch_attendance:
+          nextBranch === "" ? false : prev.allow_cross_branch_attendance,
       }));
       return;
     }
@@ -502,15 +548,43 @@ export default function EventForm({
 
       if (name === "type") {
         const optionLabel =
+          visibleTypeOptions.find((option) => option.value === value)?.label ||
           eventTypeOptions.find((option) => option.value === value)?.label ||
           value;
         nextState.title = optionLabel;
         const nextIsRoomHold =
-          eventTypeOptions.find((option) => option.value === value)
-            ?.counts_as_activity === false;
+          (
+            visibleTypeOptions.find((option) => option.value === value) ||
+            eventTypeOptions.find((option) => option.value === value)
+          )?.counts_as_activity === false;
         if (nextIsRoomHold && prev.room === OFFSITE_ROOM) {
           nextState.room = "";
           nextState.location = "";
+        }
+        if (nextIsRoomHold) {
+          nextState.self_checkin_enabled = false;
+          nextState.attendance_format = "hybrid";
+        } else if (value === "SUNDAY_SERVICE") {
+          nextState.self_checkin_enabled = true;
+          nextState.attendance_format = "hybrid";
+        } else if (prev.type === "SUNDAY_SERVICE") {
+          nextState.self_checkin_enabled = false;
+        }
+        if (!initialData) {
+          nextState.track_expected_attendees = value === "SUNDAY_SERVICE";
+        }
+        if (value !== "AWTA" && prev.branch === "") {
+          nextState.branch = userBranchId === "" ? "" : userBranchId;
+          nextState.room = "";
+          nextState.location = "";
+        }
+      }
+
+      if (name === "attendance_format") {
+        if (value === "onsite_only") {
+          nextState.self_checkin_enabled = false;
+        } else if (value === "online_only") {
+          nextState.self_checkin_enabled = true;
         }
       }
 
@@ -562,7 +636,17 @@ export default function EventForm({
     if (formData.room === "") {
       return;
     }
+    if (!allowsChurchWide && formData.branch === "") {
+      setConflictError("Branch is required.");
+      return;
+    }
     const isOffsite = formData.room === OFFSITE_ROOM;
+    if (isChurchWide && !isOffsite) {
+      setConflictError(
+        "Church-wide events must use Other / off-site with a dedicated venue location."
+      );
+      return;
+    }
     if (isRoomHold && isOffsite) {
       setConflictError(
         "Meeting events must use a room in the church building."
@@ -591,7 +675,20 @@ export default function EventForm({
       expected_include_inactive: formData.expected_include_inactive,
       expected_include_ongoing_visitors:
         formData.expected_include_ongoing_visitors,
+      track_expected_attendees: isRoomHold
+        ? false
+        : formData.track_expected_attendees,
+      allow_cross_branch_attendance:
+        isRoomHold || formData.branch === ""
+          ? false
+          : formData.allow_cross_branch_attendance,
       tardy_grace_minutes: formData.tardy_grace_minutes,
+      self_checkin_enabled: isRoomHold
+        ? false
+        : formData.attendance_format === "onsite_only"
+          ? false
+          : formData.self_checkin_enabled,
+      attendance_format: isRoomHold ? "hybrid" : formData.attendance_format,
     };
 
     const conflict = findScheduleConflict({
@@ -752,9 +849,10 @@ export default function EventForm({
                     name="type"
                     value={formData.type}
                     onChange={handleChange}
-                    className="w-full px-3 py-2 min-h-[44px] border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent"
+                    disabled={isEditingNationalLocked}
+                    className="w-full px-3 py-2 min-h-[44px] border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent disabled:bg-gray-100"
                   >
-                    {eventTypeOptions.map((option) => (
+                    {visibleTypeOptions.map((option) => (
                       <option key={option.value} value={option.value}>
                         {option.label}
                       </option>
@@ -763,17 +861,23 @@ export default function EventForm({
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Branch *
+                    Branch{allowsChurchWide ? "" : " *"}
                   </label>
                   <select
                     name="branch"
-                    required
+                    required={!allowsChurchWide}
                     value={formData.branch}
                     onChange={handleChange}
-                    disabled={!canPickBranch}
+                    disabled={
+                      (!canPickBranch && !allowsChurchWide) ||
+                      isEditingNationalLocked
+                    }
                     className="w-full px-3 py-2 min-h-[44px] border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent disabled:bg-gray-100"
                   >
-                    {formData.branch === "" && (
+                    {allowsChurchWide && (
+                      <option value="">Church-wide</option>
+                    )}
+                    {!allowsChurchWide && formData.branch === "" && (
                       <option value="">Select branch</option>
                     )}
                     {(canPickBranch
@@ -803,7 +907,11 @@ export default function EventForm({
                     required
                     value={formData.room}
                     onChange={handleChange}
-                    disabled={formData.branch === ""}
+                    disabled={
+                      isChurchWide ||
+                      (formData.branch === "" && !allowsChurchWide) ||
+                      isEditingNationalLocked
+                    }
                     className="w-full px-3 py-2 min-h-[44px] border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent disabled:bg-gray-100"
                   >
                     {formData.room === "" && (
@@ -811,12 +919,13 @@ export default function EventForm({
                         Select room
                       </option>
                     )}
-                    {roomChoices.map((room) => (
-                      <option key={room.id} value={room.id}>
-                        {room.name}
-                        {room.capacity != null ? ` (${room.capacity})` : ""}
-                      </option>
-                    ))}
+                    {!isChurchWide &&
+                      roomChoices.map((room) => (
+                        <option key={room.id} value={room.id}>
+                          {room.name}
+                          {room.capacity != null ? ` (${room.capacity})` : ""}
+                        </option>
+                      ))}
                     {!isRoomHold && (
                       <option value={OFFSITE_ROOM}>Other / off-site</option>
                     )}
@@ -833,12 +942,30 @@ export default function EventForm({
                       required
                       value={formData.location}
                       onChange={handleChange}
-                      className="w-full px-3 py-2 min-h-[44px] border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent"
-                      placeholder="e.g., Retreat center, park"
+                      disabled={isEditingNationalLocked}
+                      className="w-full px-3 py-2 min-h-[44px] border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent disabled:bg-gray-100"
+                      placeholder={
+                        isChurchWide
+                          ? "e.g., SMX Convention Center"
+                          : "e.g., Retreat center, park"
+                      }
                     />
                   </div>
                 )}
               </div>
+              {isChurchWide && (
+                <p className="text-xs text-gray-600 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
+                  Church-wide AWTA is visible to all branches. Use Other /
+                  off-site for the dedicated venue. Online check-in still uses
+                  Home altar or Cluster house.
+                </p>
+              )}
+              {isEditingNationalLocked && (
+                <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                  Only HQ Events coordinators and above can change AWTA or
+                  church-wide event details.
+                </p>
+              )}
               {isRoomHold && (
                 <p className="text-xs text-gray-600 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
                   This books a room in the church building. It is not recorded
@@ -1056,61 +1183,165 @@ export default function EventForm({
                 </label>
               </div>
 
-              {formData.type === "SUNDAY_SERVICE" && (
+              {!isRoomHold && (
+                <div className="rounded-lg border border-gray-200 bg-gray-50 p-4 space-y-3">
+                  <div>
+                    <h4 className="text-sm font-semibold text-gray-800">
+                      Attendance format
+                    </h4>
+                    <p className="mt-1 text-xs text-gray-500">
+                      Hybrid allows door check-in and online (online needs a
+                      venue like Home altar). Online only is remote with no
+                      venue. Onsite only is door/station only.
+                    </p>
+                  </div>
+                  <div className="space-y-2">
+                    {(
+                      [
+                        ["hybrid", "Hybrid (onsite + online)"],
+                        ["online_only", "Online only"],
+                        ["onsite_only", "Onsite only"],
+                      ] as const
+                    ).map(([value, label]) => (
+                      <label
+                        key={value}
+                        className="flex items-center gap-2 text-sm text-gray-700"
+                      >
+                        <input
+                          type="radio"
+                          name="attendance_format"
+                          value={value}
+                          checked={formData.attendance_format === value}
+                          onChange={handleChange}
+                          className="h-4 w-4 text-primary focus:ring-ring border-gray-300"
+                        />
+                        {label}
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {!isRoomHold && formData.attendance_format !== "onsite_only" && (
+                <div className="rounded-lg border border-gray-200 bg-gray-50 p-4 space-y-2">
+                  <div>
+                    <h4 className="text-sm font-semibold text-gray-800">
+                      Online self-check-in
+                    </h4>
+                    <p className="mt-1 text-xs text-gray-500">
+                      {formData.attendance_format === "online_only"
+                        ? "When enabled, members check in online (no venue) on days this event occurs, if church-wide member self-check-in is also open."
+                        : "When enabled, members can check in online (public LAMP ID link and logged-in household) on days this event occurs, if church-wide member self-check-in is also open. Hybrid online check-in asks for Home altar or Cluster house."}
+                    </p>
+                  </div>
+                  <label className="flex items-center gap-2 text-sm text-gray-700">
+                    <input
+                      type="checkbox"
+                      name="self_checkin_enabled"
+                      checked={formData.self_checkin_enabled}
+                      onChange={handleChange}
+                      className="h-4 w-4 text-primary focus:ring-ring border-gray-300 rounded"
+                    />
+                    Open for online self-check-in
+                  </label>
+                </div>
+              )}
+
+              {!isRoomHold &&
+                !isBookingRequest &&
+                formData.branch !== "" && (
+                <div className="rounded-lg border border-gray-200 bg-gray-50 p-4 space-y-3">
+                  <div>
+                    <h4 className="text-sm font-semibold text-gray-800">
+                      Cross-branch attendance
+                    </h4>
+                    <p className="mt-1 text-xs text-gray-500">
+                      When enabled, people from other branches can check in and
+                      self-check-in. They are not counted in Expected when
+                      tracking is on (useful for anniversary Sundays at a
+                      dedicated venue).
+                    </p>
+                  </div>
+                  <label className="flex items-center gap-2 text-sm text-gray-700">
+                    <input
+                      type="checkbox"
+                      name="allow_cross_branch_attendance"
+                      checked={formData.allow_cross_branch_attendance}
+                      onChange={handleChange}
+                      className="h-4 w-4 text-primary focus:ring-ring border-gray-300 rounded"
+                    />
+                    Allow other branches to check in
+                  </label>
+                </div>
+              )}
+
+              {!isRoomHold && !isBookingRequest && (
                 <div className="rounded-lg border border-gray-200 bg-gray-50 p-4 space-y-3">
                   <div>
                     <h4 className="text-sm font-semibold text-gray-800">
                       Expected Attendees
                     </h4>
                     <p className="mt-1 text-xs text-gray-500">
-                      Active, Semi-active, and Inactive members define the
-                      expected count for check-in. Ongoing visitors are included
-                      in Total by default. Anyone can still be checked in at the
-                      door.
+                      When tracking is on, Active / Semi-active / Inactive /
+                      Ongoing visitors define Total and Remaining for check-in.
+                      When off, the event is open headcount-only. Anyone can
+                      still be checked in at the door.
                     </p>
                   </div>
-                  <div className="space-y-2">
-                    <label className="flex items-center gap-2 text-sm text-gray-700">
-                      <input
-                        type="checkbox"
-                        name="expected_include_active"
-                        checked={formData.expected_include_active}
-                        onChange={handleChange}
-                        className="h-4 w-4 text-primary focus:ring-ring border-gray-300 rounded"
-                      />
-                      Active
-                    </label>
-                    <label className="flex items-center gap-2 text-sm text-gray-700">
-                      <input
-                        type="checkbox"
-                        name="expected_include_semiactive"
-                        checked={formData.expected_include_semiactive}
-                        onChange={handleChange}
-                        className="h-4 w-4 text-primary focus:ring-ring border-gray-300 rounded"
-                      />
-                      Semi-active
-                    </label>
-                    <label className="flex items-center gap-2 text-sm text-gray-700">
-                      <input
-                        type="checkbox"
-                        name="expected_include_inactive"
-                        checked={formData.expected_include_inactive}
-                        onChange={handleChange}
-                        className="h-4 w-4 text-primary focus:ring-ring border-gray-300 rounded"
-                      />
-                      Inactive
-                    </label>
-                    <label className="flex items-center gap-2 text-sm text-gray-700">
-                      <input
-                        type="checkbox"
-                        name="expected_include_ongoing_visitors"
-                        checked={formData.expected_include_ongoing_visitors}
-                        onChange={handleChange}
-                        className="h-4 w-4 text-primary focus:ring-ring border-gray-300 rounded"
-                      />
-                      Ongoing visitors
-                    </label>
-                  </div>
+                  <label className="flex items-center gap-2 text-sm text-gray-700">
+                    <input
+                      type="checkbox"
+                      name="track_expected_attendees"
+                      checked={formData.track_expected_attendees}
+                      onChange={handleChange}
+                      className="h-4 w-4 text-primary focus:ring-ring border-gray-300 rounded"
+                    />
+                    Track expected attendees
+                  </label>
+                  {formData.track_expected_attendees ? (
+                    <div className="space-y-2">
+                      <label className="flex items-center gap-2 text-sm text-gray-700">
+                        <input
+                          type="checkbox"
+                          name="expected_include_active"
+                          checked={formData.expected_include_active}
+                          onChange={handleChange}
+                          className="h-4 w-4 text-primary focus:ring-ring border-gray-300 rounded"
+                        />
+                        Active
+                      </label>
+                      <label className="flex items-center gap-2 text-sm text-gray-700">
+                        <input
+                          type="checkbox"
+                          name="expected_include_semiactive"
+                          checked={formData.expected_include_semiactive}
+                          onChange={handleChange}
+                          className="h-4 w-4 text-primary focus:ring-ring border-gray-300 rounded"
+                        />
+                        Semi-active
+                      </label>
+                      <label className="flex items-center gap-2 text-sm text-gray-700">
+                        <input
+                          type="checkbox"
+                          name="expected_include_inactive"
+                          checked={formData.expected_include_inactive}
+                          onChange={handleChange}
+                          className="h-4 w-4 text-primary focus:ring-ring border-gray-300 rounded"
+                        />
+                        Inactive
+                      </label>
+                      <label className="flex items-center gap-2 text-sm text-gray-700">
+                        <input
+                          type="checkbox"
+                          name="expected_include_ongoing_visitors"
+                          checked={formData.expected_include_ongoing_visitors}
+                          onChange={handleChange}
+                          className="h-4 w-4 text-primary focus:ring-ring border-gray-300 rounded"
+                        />
+                        Ongoing visitors
+                      </label>
+                    </div>
+                  ) : null}
                 </div>
               )}
             </div>

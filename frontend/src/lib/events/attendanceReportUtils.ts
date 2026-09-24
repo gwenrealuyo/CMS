@@ -3,6 +3,7 @@ import {
   formatLampIdDisplay,
   getCheckedInPersonIds,
   getExpectedMembers,
+  tracksExpectedAttendees,
 } from "@/src/lib/events/checkInUtils";
 import { startOfLocalDay } from "@/src/lib/events/agenda";
 import { findOccurrence } from "@/src/lib/events/recurrenceScope";
@@ -346,7 +347,10 @@ export function buildAttendanceReport(
   attendanceRecords: EventAttendanceRecord[],
   occurrenceDate?: string
 ): AttendanceReport {
-  const expectedMembers = getExpectedMembers(people, event);
+  const trackingExpected = tracksExpectedAttendees(event);
+  const expectedMembers = trackingExpected
+    ? getExpectedMembers(people, event)
+    : [];
   const expectedIds = new Set(expectedMembers.map((person) => String(person.id)));
   const checkedInIds = getCheckedInPersonIds(attendanceRecords);
 
@@ -381,12 +385,16 @@ export function buildAttendanceReport(
     )
     .sort((a, b) => a.name.localeCompare(b.name));
 
-  const surprises = checkedInRoster.filter((person) => !expectedIds.has(person.id));
+  const surprises = trackingExpected
+    ? checkedInRoster.filter((person) => !expectedIds.has(person.id))
+    : [];
 
-  const remainingRoster = expectedMembers
-    .filter((person) => !checkedInIds.has(String(person.id)))
-    .map(toReportPersonFromPerson)
-    .sort((a, b) => a.name.localeCompare(b.name));
+  const remainingRoster = trackingExpected
+    ? expectedMembers
+        .filter((person) => !checkedInIds.has(String(person.id)))
+        .map(toReportPersonFromPerson)
+        .sort((a, b) => a.name.localeCompare(b.name))
+    : [];
 
   const onsiteCount = checkedInRoster.filter(
     (person) => person.attendanceMode === "ONSITE"
@@ -410,10 +418,18 @@ export function buildAttendanceReport(
     tardyCount,
     onsiteCount,
     onlineCount,
-    attendanceRate: computeRatePercent(expectedCheckedInCount, expectedCount),
-    remainingRate: computeRatePercent(remainingCount, expectedCount),
-    checkedInRate: computeRatePercent(checkedInCount, expectedCount),
-    surpriseRate: computeRatePercent(surpriseCount, checkedInCount),
+    attendanceRate: trackingExpected
+      ? computeRatePercent(expectedCheckedInCount, expectedCount)
+      : null,
+    remainingRate: trackingExpected
+      ? computeRatePercent(remainingCount, expectedCount)
+      : null,
+    checkedInRate: trackingExpected
+      ? computeRatePercent(checkedInCount, expectedCount)
+      : null,
+    surpriseRate: trackingExpected
+      ? computeRatePercent(surpriseCount, checkedInCount)
+      : null,
     onsiteRate: computeRatePercent(onsiteCount, checkedInCount),
     onlineRate: computeRatePercent(onlineCount, checkedInCount),
     tardyRate: computeRatePercent(tardyCount, checkedInCount),
@@ -440,18 +456,35 @@ export function buildAttendanceReportCsv(
   occurrenceDate: string,
   report: AttendanceReport
 ): string {
+  const trackingExpected = tracksExpectedAttendees(event);
   const lines: string[] = [
     ["Field", "Value"].map(escapeCsvValue).join(","),
     ["Event", event.title].map(escapeCsvValue).join(","),
     ["Occurrence", occurrenceDate].map(escapeCsvValue).join(","),
-    ["Expected", String(report.expectedCount)].map(escapeCsvValue).join(","),
-    ["Checked In", String(report.checkedInCount)].map(escapeCsvValue).join(","),
-    ["Checked In % of Expected", formatRatePercent(report.checkedInRate)]
-      .map(escapeCsvValue)
-      .join(","),
-    ["Attendance Rate %", formatRatePercent(report.attendanceRate)]
-      .map(escapeCsvValue)
-      .join(","),
+  ];
+
+  if (trackingExpected) {
+    lines.push(
+      ["Expected", String(report.expectedCount)].map(escapeCsvValue).join(",")
+    );
+  }
+
+  lines.push(
+    ["Checked In", String(report.checkedInCount)].map(escapeCsvValue).join(",")
+  );
+
+  if (trackingExpected) {
+    lines.push(
+      ["Checked In % of Expected", formatRatePercent(report.checkedInRate)]
+        .map(escapeCsvValue)
+        .join(","),
+      ["Attendance Rate %", formatRatePercent(report.attendanceRate)]
+        .map(escapeCsvValue)
+        .join(",")
+    );
+  }
+
+  lines.push(
     ["Onsite", String(report.onsiteCount)].map(escapeCsvValue).join(","),
     ["Onsite % of Checked In", formatRatePercent(report.onsiteRate)]
       .map(escapeCsvValue)
@@ -459,15 +492,23 @@ export function buildAttendanceReportCsv(
     ["Online", String(report.onlineCount)].map(escapeCsvValue).join(","),
     ["Online % of Checked In", formatRatePercent(report.onlineRate)]
       .map(escapeCsvValue)
-      .join(","),
-    ["Remaining", String(report.remainingCount)].map(escapeCsvValue).join(","),
-    ["Remaining % of Expected", formatRatePercent(report.remainingRate)]
-      .map(escapeCsvValue)
-      .join(","),
-    ["Surprises", String(report.surpriseCount)].map(escapeCsvValue).join(","),
-    ["Surprises % of Checked In", formatRatePercent(report.surpriseRate)]
-      .map(escapeCsvValue)
-      .join(","),
+      .join(",")
+  );
+
+  if (trackingExpected) {
+    lines.push(
+      ["Remaining", String(report.remainingCount)].map(escapeCsvValue).join(","),
+      ["Remaining % of Expected", formatRatePercent(report.remainingRate)]
+        .map(escapeCsvValue)
+        .join(","),
+      ["Surprises", String(report.surpriseCount)].map(escapeCsvValue).join(","),
+      ["Surprises % of Checked In", formatRatePercent(report.surpriseRate)]
+        .map(escapeCsvValue)
+        .join(",")
+    );
+  }
+
+  lines.push(
     ["Tardy", String(report.tardyCount)].map(escapeCsvValue).join(","),
     ["Tardy % of Checked In", formatRatePercent(report.tardyRate)]
       .map(escapeCsvValue)
@@ -487,15 +528,23 @@ export function buildAttendanceReportCsv(
       ]
         .map(escapeCsvValue)
         .join(",")
-    ),
-    ...report.remainingByCluster.map((cluster) =>
-      [
-        `Cluster remaining: ${cluster.label}`,
-        `${cluster.count} (${formatRatePercent(cluster.percent)})`,
-      ]
-        .map(escapeCsvValue)
-        .join(",")
-    ),
+    )
+  );
+
+  if (trackingExpected) {
+    lines.push(
+      ...report.remainingByCluster.map((cluster) =>
+        [
+          `Cluster remaining: ${cluster.label}`,
+          `${cluster.count} (${formatRatePercent(cluster.percent)})`,
+        ]
+          .map(escapeCsvValue)
+          .join(",")
+      )
+    );
+  }
+
+  lines.push(
     "",
     [
       "Category",
@@ -510,8 +559,8 @@ export function buildAttendanceReportCsv(
       "Tardy",
     ]
       .map(escapeCsvValue)
-      .join(","),
-  ];
+      .join(",")
+  );
 
   const appendPeople = (
     category: string,
@@ -539,12 +588,16 @@ export function buildAttendanceReportCsv(
     }
   };
 
-  const expectedCheckedIn = report.checkedInRoster.filter(
-    (person) => !report.surprises.some((s) => s.id === person.id)
-  );
-  appendPeople("checked_in", expectedCheckedIn);
-  appendPeople("surprise", report.surprises);
-  appendPeople("remaining", report.remainingRoster);
+  if (trackingExpected) {
+    const expectedCheckedIn = report.checkedInRoster.filter(
+      (person) => !report.surprises.some((s) => s.id === person.id)
+    );
+    appendPeople("checked_in", expectedCheckedIn);
+    appendPeople("surprise", report.surprises);
+    appendPeople("remaining", report.remainingRoster);
+  } else {
+    appendPeople("checked_in", report.checkedInRoster);
+  }
 
   return lines.join("\n");
 }

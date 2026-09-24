@@ -132,7 +132,22 @@ class AttendanceRecordSerializer(serializers.ModelSerializer):
         if "attendance_mode" not in attrs and self.instance is None:
             mode = AttendanceRecord.AttendanceMode.ONSITE
 
+        event = attrs.get("event") or getattr(self.instance, "event", None)
+        attendance_format = (
+            getattr(event, "attendance_format", None) if event is not None else None
+        )
+        online_only = attendance_format == "online_only"
+        onsite_only = attendance_format == "onsite_only"
+
         if mode == AttendanceRecord.AttendanceMode.ONSITE:
+            if online_only:
+                raise ValidationError(
+                    {
+                        "attendance_mode": (
+                            "This event is online only; use online attendance."
+                        )
+                    }
+                )
             # Explicit non-null venue with Onsite is invalid; otherwise clear venue
             # (including when switching Online → Onsite without sending venue).
             if "attendance_venue" in attrs and attrs.get("attendance_venue") is not None:
@@ -145,7 +160,25 @@ class AttendanceRecordSerializer(serializers.ModelSerializer):
                 )
             attrs["attendance_venue"] = None
         elif mode == AttendanceRecord.AttendanceMode.ONLINE:
-            if venue is None:
+            if onsite_only:
+                raise ValidationError(
+                    {
+                        "attendance_mode": (
+                            "This event is onsite only; use onsite attendance."
+                        )
+                    }
+                )
+            if online_only:
+                if venue is not None:
+                    raise ValidationError(
+                        {
+                            "attendance_venue": (
+                                "Online-only events do not use an online venue."
+                            )
+                        }
+                    )
+                attrs["attendance_venue"] = None
+            elif venue is None:
                 raise ValidationError(
                     {
                         "attendance_venue": (
@@ -153,7 +186,7 @@ class AttendanceRecordSerializer(serializers.ModelSerializer):
                         )
                     }
                 )
-            if not venue.is_active:
+            elif not venue.is_active:
                 raise ValidationError(
                     {
                         "attendance_venue": (

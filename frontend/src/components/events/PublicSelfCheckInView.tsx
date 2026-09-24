@@ -182,6 +182,7 @@ export default function PublicSelfCheckInView() {
 
   const sessionEvent = payload?.session?.event ?? null;
   const memberId = composeMemberId(idPrefix, idNumber);
+  const requiresVenue = payload?.requires_online_venue ?? true;
 
   const activeVenues = useMemo(() => {
     const venues = payload?.attendance_venues ?? [];
@@ -343,7 +344,7 @@ export default function PublicSelfCheckInView() {
       setError("Enter your LAMP ID.");
       return;
     }
-    if (!attendanceVenue) {
+    if (requiresVenue && !attendanceVenue) {
       setError("Select an online venue before checking in.");
       return;
     }
@@ -352,7 +353,7 @@ export default function PublicSelfCheckInView() {
     try {
       const response = await publicSelfCheckInApi.checkIn({
         member_id: trimmed,
-        attendance_venue: attendanceVenue,
+        ...(requiresVenue ? { attendance_venue: attendanceVenue } : {}),
         ...(selectedEventId ? { event_id: selectedEventId } : {}),
       });
       applyPayload(response.data, trimmed);
@@ -412,7 +413,10 @@ export default function PublicSelfCheckInView() {
               Online Check-In
             </h1>
             <p className="mt-1 text-sm text-muted-foreground">
-              Only if you are attending Sunday Service online
+              {payload?.session?.event?.attendance_format === "online_only" ||
+              payload?.requires_online_venue === false
+                ? "Check in for today’s online event"
+                : "Only if you are attending online"}
             </p>
           </div>
           {children}
@@ -444,7 +448,7 @@ export default function PublicSelfCheckInView() {
         <p className="text-sm text-muted-foreground">
           {payload?.reason === "restricted"
             ? "Online check-in is not open to members yet."
-            : "Online check-in is only available on Sunday Service days."}
+            : "Online check-in is only available when an event is open today."}
         </p>
         <Link href="/" className="mt-5 inline-block w-full">
           <Button className="w-full">Back to home</Button>
@@ -531,17 +535,19 @@ export default function PublicSelfCheckInView() {
             <p className="mt-0.5 text-xs text-muted-foreground">Is this you?</p>
           </div>
         </div>
-        <OnlineVenuePicker
-          venues={activeVenues}
-          value={attendanceVenue}
-          onChange={setAttendanceVenue}
-          disabled={submitting}
-        />
+        {requiresVenue ? (
+          <OnlineVenuePicker
+            venues={activeVenues}
+            value={attendanceVenue}
+            onChange={setAttendanceVenue}
+            disabled={submitting}
+          />
+        ) : null}
         {actionError}
         <div className="grid gap-2">
           <Button
             className="w-full"
-            disabled={submitting || !attendanceVenue}
+            disabled={submitting || (requiresVenue && !attendanceVenue)}
             onClick={() => void handleCheckIn()}
           >
             {submitting ? "Checking in…" : "Check in online"}

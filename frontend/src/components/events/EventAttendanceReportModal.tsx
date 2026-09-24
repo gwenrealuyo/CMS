@@ -13,7 +13,7 @@ import {
   type ClusterCount,
   type StatusCount,
 } from "@/src/lib/events/attendanceReportUtils";
-import { formatLampIdDisplay } from "@/src/lib/events/checkInUtils";
+import { formatLampIdDisplay, tracksExpectedAttendees } from "@/src/lib/events/checkInUtils";
 import { getPersonRoleColor } from "@/src/lib/personRole";
 import {
   getPersonStatusColor,
@@ -351,6 +351,7 @@ export default function EventAttendanceReportModal({
       buildAttendanceReport(people, event, attendanceRecords, occurrenceDate),
     [people, event, attendanceRecords, occurrenceDate]
   );
+  const trackingExpected = tracksExpectedAttendees(event);
   const attendanceRateTone = getAttendanceRateTone(report.attendanceRate);
 
   const clusterFilterOptions = useMemo(() => {
@@ -436,18 +437,20 @@ export default function EventAttendanceReportModal({
         </div>
 
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <SummaryCard
-            count={report.expectedCount}
-            label="Expected"
-            active
-            activeClassName="border-primary/20 bg-primary/5"
-            countClassName="text-primary"
-            inactiveCountClassName="text-primary"
-          />
+          {trackingExpected ? (
+            <SummaryCard
+              count={report.expectedCount}
+              label="Expected"
+              active
+              activeClassName="border-primary/20 bg-primary/5"
+              countClassName="text-primary"
+              inactiveCountClassName="text-primary"
+            />
+          ) : null}
           <SummaryCard
             count={report.checkedInCount}
             label="Checked In"
-            rate={report.checkedInRate}
+            rate={trackingExpected ? report.checkedInRate : null}
             active={report.checkedInCount > 0}
             activeClassName="border-green-200 bg-green-50/80"
             countClassName="text-green-700"
@@ -468,24 +471,28 @@ export default function EventAttendanceReportModal({
             activeClassName="border-sky-200 bg-sky-50/80"
             countClassName="text-sky-700"
           />
-          <SummaryCard
-            count={report.remainingCount}
-            label="Remaining"
-            rate={report.remainingRate}
-            active={report.remainingCount > 0}
-            activeClassName="border-red-200 bg-red-50/80"
-            inactiveClassName="border-green-200 bg-green-50/80"
-            countClassName="text-red-600"
-            inactiveCountClassName="text-green-700"
-          />
-          <SummaryCard
-            count={report.surpriseCount}
-            label="Surprises"
-            rate={report.surpriseRate}
-            active={report.surpriseCount > 0}
-            activeClassName="border-amber-200 bg-amber-50/80"
-            countClassName="text-amber-600"
-          />
+          {trackingExpected ? (
+            <>
+              <SummaryCard
+                count={report.remainingCount}
+                label="Remaining"
+                rate={report.remainingRate}
+                active={report.remainingCount > 0}
+                activeClassName="border-red-200 bg-red-50/80"
+                inactiveClassName="border-green-200 bg-green-50/80"
+                countClassName="text-red-600"
+                inactiveCountClassName="text-green-700"
+              />
+              <SummaryCard
+                count={report.surpriseCount}
+                label="Surprises"
+                rate={report.surpriseRate}
+                active={report.surpriseCount > 0}
+                activeClassName="border-amber-200 bg-amber-50/80"
+                countClassName="text-amber-600"
+              />
+            </>
+          ) : null}
           <SummaryCard
             count={report.tardyCount}
             label="Tardy"
@@ -496,29 +503,31 @@ export default function EventAttendanceReportModal({
           />
         </div>
 
-        <div className={`rounded-lg border p-4 ${attendanceRateTone.card}`}>
-          <div className="flex items-center justify-between gap-2">
-            <div>
-              <p className="text-sm font-medium text-lighthouse-navy">
-                Attendance Rate
-              </p>
-              <p className="text-xs text-muted-foreground">
-                Expected pool checked in (excludes surprises)
+        {trackingExpected ? (
+          <div className={`rounded-lg border p-4 ${attendanceRateTone.card}`}>
+            <div className="flex items-center justify-between gap-2">
+              <div>
+                <p className="text-sm font-medium text-lighthouse-navy">
+                  Attendance Rate
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Expected pool checked in (excludes surprises)
+                </p>
+              </div>
+              <p className={`text-2xl font-semibold ${attendanceRateTone.value}`}>
+                {formatRatePercent(report.attendanceRate)}
               </p>
             </div>
-            <p className={`text-2xl font-semibold ${attendanceRateTone.value}`}>
-              {formatRatePercent(report.attendanceRate)}
-            </p>
+            <div className="mt-2 h-2 w-full rounded-full bg-gray-200">
+              <div
+                className={`h-2 rounded-full ${attendanceRateTone.bar}`}
+                style={{
+                  width: `${Math.min(100, report.attendanceRate ?? 0)}%`,
+                }}
+              />
+            </div>
           </div>
-          <div className="mt-2 h-2 w-full rounded-full bg-gray-200">
-            <div
-              className={`h-2 rounded-full ${attendanceRateTone.bar}`}
-              style={{
-                width: `${Math.min(100, report.attendanceRate ?? 0)}%`,
-              }}
-            />
-          </div>
-        </div>
+        ) : null}
 
         {report.onlineByVenue.length > 0 ? (
           <div className="rounded-lg border border-sky-200 bg-sky-50/50 p-3">
@@ -559,11 +568,13 @@ export default function EventAttendanceReportModal({
             title="Checked in by status"
             counts={report.checkedInByStatus}
           />
-          <StatusBreakdown
-            title="Remaining (no-shows) by status"
-            counts={report.remainingByStatus}
-            titleClassName="text-red-600"
-          />
+          {trackingExpected ? (
+            <StatusBreakdown
+              title="Remaining (no-shows) by status"
+              counts={report.remainingByStatus}
+              titleClassName="text-red-600"
+            />
+          ) : null}
         </div>
 
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -571,29 +582,33 @@ export default function EventAttendanceReportModal({
             title="Checked in by cluster"
             counts={report.checkedInByCluster}
           />
-          <ClusterBreakdown
-            title="Remaining (no-shows) by cluster"
-            counts={report.remainingByCluster}
-            titleClassName="text-red-600"
-          />
+          {trackingExpected ? (
+            <ClusterBreakdown
+              title="Remaining (no-shows) by cluster"
+              counts={report.remainingByCluster}
+              titleClassName="text-red-600"
+            />
+          ) : null}
         </div>
 
-        <div className="rounded-lg border border-amber-200 bg-amber-50/60 p-3">
-          <h4 className="text-xs font-semibold uppercase tracking-wide text-amber-900">
-            Surprises (not in expected pool)
-          </h4>
-          {report.surprises.length === 0 ? (
-            <p className="mt-2 text-sm text-amber-900/70">
-              No unexpected check-ins.
-            </p>
-          ) : (
-            <ul className="mt-1 divide-y divide-amber-200/80">
-              {report.surprises.map((person) => (
-                <RosterRow key={person.id} person={person} />
-              ))}
-            </ul>
-          )}
-        </div>
+        {trackingExpected ? (
+          <div className="rounded-lg border border-amber-200 bg-amber-50/60 p-3">
+            <h4 className="text-xs font-semibold uppercase tracking-wide text-amber-900">
+              Surprises (not in expected pool)
+            </h4>
+            {report.surprises.length === 0 ? (
+              <p className="mt-2 text-sm text-amber-900/70">
+                No unexpected check-ins.
+              </p>
+            ) : (
+              <ul className="mt-1 divide-y divide-amber-200/80">
+                {report.surprises.map((person) => (
+                  <RosterRow key={person.id} person={person} />
+                ))}
+              </ul>
+            )}
+          </div>
+        ) : null}
 
         <div>
           <div className="mb-2 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">

@@ -238,6 +238,9 @@ export default function GuestFormView() {
 
   const session: OnsiteGuestSessionDetails | null =
     payload?.session ?? null;
+  const isOnlineOnly =
+    session?.event?.attendance_format === "online_only";
+  const guestModeLabel = isOnlineOnly ? "online" : "onsite";
   const selectedEventId =
     eventParam || (session ? String(eventIdFromOption(session.event)) : "");
   const selectedOccurrence =
@@ -594,7 +597,7 @@ export default function GuestFormView() {
         </p>
         <p className="text-sm text-muted-foreground">
           {payload?.detail ||
-            "No approved Sunday Service is open for onsite guest encoding right now."}
+            "No approved event is open for guest encoding right now."}
         </p>
         <Link
           href="/events"
@@ -610,7 +613,7 @@ export default function GuestFormView() {
     return shell(
       <div className="space-y-4">
         <p className="text-center text-sm text-muted-foreground">
-          Select which Sunday Service this guest is attending.
+          Select which event this guest is attending.
         </p>
         <div className="space-y-3">
           {payload.options.map((option) => (
@@ -652,7 +655,9 @@ export default function GuestFormView() {
           <p className="text-lg font-semibold text-lighthouse-navy">
             {successName}
           </p>
-          <p className="text-sm text-emerald-800">Checked in onsite</p>
+          <p className="text-sm text-emerald-800">
+            Checked in {guestModeLabel}
+          </p>
         </div>
         <Button type="button" className="w-full min-h-12" onClick={goSearch}>
           Add another guest
@@ -950,7 +955,7 @@ export default function GuestFormView() {
         )}
         {actionError}
         <Button type="submit" className="w-full min-h-12" disabled={submitting}>
-          {submitting ? "Saving…" : "Check in guest onsite"}
+          {submitting ? "Saving…" : `Check in guest ${guestModeLabel}`}
         </Button>
       </form>,
     );
@@ -963,8 +968,8 @@ export default function GuestFormView() {
           Guest
         </h1>
         <p className="mt-0.5 text-sm text-muted-foreground">
-          Search first, then encode a new walk-in for this Sunday Service
-          (onsite).
+          Search first, then encode a new guest for this event
+          ({guestModeLabel}).
         </p>
       </div>
       {eventCard}

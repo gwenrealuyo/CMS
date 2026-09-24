@@ -55,7 +55,9 @@ export default function SundaySelfCheckInBanner() {
               Online only
             </p>
             <p className="text-sm font-semibold text-lighthouse-navy">
-              Sunday Service online check-in is open
+              {title
+                ? `${title} — online check-in is open`
+                : "Online check-in is open"}
             </p>
             <p className="text-sm text-amber-900/70">
               {/* {title ? `${title}. ` : ""} */}

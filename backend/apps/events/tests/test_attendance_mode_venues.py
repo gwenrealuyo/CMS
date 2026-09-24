@@ -71,6 +71,7 @@ class AttendanceModeVenueAPITests(APITestCase):
             status="ACTIVE",
             branch=self.hq,
             member_id="LAMP20001",
+            water_baptism_date=date(2020, 1, 1),
         )
         self.event = Event.objects.create(
             title="Sunday Service Mode Venue",
@@ -86,6 +87,7 @@ class AttendanceModeVenueAPITests(APITestCase):
                 "weekdays": [6],
                 "through": "2026-12-31",
             },
+            self_checkin_enabled=True,
             created_by=self.admin,
         )
 

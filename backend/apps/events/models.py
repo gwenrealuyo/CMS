@@ -99,6 +99,11 @@ class Event(models.Model):
         APPROVED = "approved", "Approved"
         REJECTED = "rejected", "Rejected"
 
+    class AttendanceFormat(models.TextChoices):
+        HYBRID = "hybrid", "Hybrid"
+        ONLINE_ONLY = "online_only", "Online only"
+        ONSITE_ONLY = "onsite_only", "Onsite only"
+
     title = models.CharField(max_length=200)
     description = models.TextField(blank=True)
     start_date = models.DateTimeField()
@@ -145,11 +150,45 @@ class Event(models.Model):
     expected_include_semiactive = models.BooleanField(default=True)
     expected_include_inactive = models.BooleanField(default=True)
     expected_include_ongoing_visitors = models.BooleanField(default=True)
+    track_expected_attendees = models.BooleanField(
+        default=False,
+        help_text=(
+            "When enabled, check-in Total/Remaining and attendance reports use "
+            "the expected-include status flags (duty-style). When disabled, "
+            "the event is open headcount-only (no expected pool)."
+        ),
+    )
+    allow_cross_branch_attendance = models.BooleanField(
+        default=False,
+        help_text=(
+            "When enabled on a branch-hosted event, people from other branches "
+            "may check in and self-check-in. The expected pool (when tracking) "
+            "still uses only the event's branch. Ignored for church-wide events."
+        ),
+    )
     tardy_grace_minutes = models.PositiveIntegerField(
         default=0,
         help_text=(
             "Minutes after occurrence start before a check-in counts as tardy. "
             "0 means any check-in after start is tardy."
+        ),
+    )
+    self_checkin_enabled = models.BooleanField(
+        default=False,
+        help_text=(
+            "When enabled, this approved activity event opens for online "
+            "member self-check-in (public LAMP ID and logged-in household) "
+            "on occurrence days. Meeting room holds cannot enable this."
+        ),
+    )
+    attendance_format = models.CharField(
+        max_length=20,
+        choices=AttendanceFormat.choices,
+        default=AttendanceFormat.HYBRID,
+        help_text=(
+            "Hybrid allows onsite and online (online requires a venue). "
+            "Online only is remote attendance without a venue. "
+            "Onsite only is door/station check-in only."
         ),
     )
     volunteers = models.ManyToManyField(
@@ -174,6 +213,25 @@ class Event(models.Model):
     def __str__(self):
         return f"{self.title} - {self.start_date}"
 
+    @property
+    def requires_online_venue(self) -> bool:
+        """Hybrid online check-in needs Home altar / Cluster house, etc."""
+        return self.attendance_format == self.AttendanceFormat.HYBRID
+
+    @property
+    def allows_onsite_attendance(self) -> bool:
+        return self.attendance_format in (
+            self.AttendanceFormat.HYBRID,
+            self.AttendanceFormat.ONSITE_ONLY,
+        )
+
+    @property
+    def allows_online_attendance(self) -> bool:
+        return self.attendance_format in (
+            self.AttendanceFormat.HYBRID,
+            self.AttendanceFormat.ONLINE_ONLY,
+        )
+
 
 class EventSetting(models.Model):
     """Singleton flags for the Events module (e.g. member self-check-in)."""
@@ -183,8 +241,9 @@ class EventSetting(models.Model):
     member_self_checkin_enabled = models.BooleanField(
         default=False,
         help_text=(
-            "When enabled, members can check in online from the public Sunday "
-            "link (LAMP ID / member QR) without logging in. When disabled, only "
+            "When enabled, members can check in online from the public "
+            "self-check-in link (LAMP ID / member QR) without logging in, for "
+            "events that have self-check-in enabled. When disabled, only "
             "admins and Events coordinators can use logged-in household and "
             "guest self-check-in."
         ),

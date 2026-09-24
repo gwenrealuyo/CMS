@@ -63,6 +63,11 @@ class AttendanceRecord(models.Model):
     def clean(self):
         super().clean()
         mode = self.attendance_mode or self.AttendanceMode.ONSITE
+        event = self.event
+        online_only = (
+            event is not None
+            and getattr(event, "attendance_format", None) == "online_only"
+        )
         if mode == self.AttendanceMode.ONSITE:
             if self.attendance_venue_id:
                 raise ValidationError(
@@ -72,7 +77,35 @@ class AttendanceRecord(models.Model):
                         )
                     }
                 )
+            if online_only:
+                raise ValidationError(
+                    {
+                        "attendance_mode": (
+                            "This event is online only; use online attendance."
+                        )
+                    }
+                )
         elif mode == self.AttendanceMode.ONLINE:
+            if event is not None and getattr(event, "attendance_format", None) == (
+                "onsite_only"
+            ):
+                raise ValidationError(
+                    {
+                        "attendance_mode": (
+                            "This event is onsite only; use onsite attendance."
+                        )
+                    }
+                )
+            if online_only:
+                if self.attendance_venue_id:
+                    raise ValidationError(
+                        {
+                            "attendance_venue": (
+                                "Online-only events do not use an online venue."
+                            )
+                        }
+                    )
+                return
             if not self.attendance_venue_id:
                 raise ValidationError(
                     {

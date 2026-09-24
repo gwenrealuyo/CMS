@@ -317,6 +317,7 @@ export default function EventSelfCheckInView() {
   const session: SelfCheckInSessionDetails | null = payload?.session ?? null;
   const selectedEventId =
     eventParam || (session ? String(eventIdFromOption(session.event)) : "");
+  const requiresVenue = payload?.requires_online_venue ?? true;
 
   const activeVenues = useMemo(() => {
     const venues = payload?.attendance_venues ?? [];
@@ -442,10 +443,14 @@ export default function EventSelfCheckInView() {
   };
 
   const requireVenue = () => {
+    if (!requiresVenue) return true;
     if (attendanceVenue.trim()) return true;
     setError("Select an online venue before checking in.");
     return false;
   };
+
+  const venuePayload = () =>
+    requiresVenue ? { attendance_venue: attendanceVenue } : {};
 
   const togglePerson = (id: number) => {
     setSelectedIds((current) =>
@@ -471,7 +476,7 @@ export default function EventSelfCheckInView() {
       const response = await eventsApi.selfCheckIn({
         person_ids: selectedHousehold.map((person) => person.id),
         event_id: eventIdFromOption(session.event),
-        attendance_venue: attendanceVenue,
+        ...venuePayload(),
       });
       applySession(response.data);
       setLastCheckInIds(selectedHousehold.map((person) => person.id));
@@ -508,7 +513,7 @@ export default function EventSelfCheckInView() {
           ? { prospect_id: person.prospect_id ?? person.id }
           : { person_id: person.id }),
         event_id: selectedEventId ? Number(selectedEventId) : undefined,
-        attendance_venue: attendanceVenue,
+        ...venuePayload(),
       });
       const checkedPerson = response.data.person;
       setSuccessNames([checkedPerson?.full_name || person.full_name]);
@@ -593,7 +598,7 @@ export default function EventSelfCheckInView() {
         phone: phoneLocal ? `${phoneCountryCode}${phoneLocal}` : undefined,
         email: encode.email.trim() || undefined,
         event_id: selectedEventId ? Number(selectedEventId) : undefined,
-        attendance_venue: attendanceVenue,
+        ...venuePayload(),
         first_time_attending: firstTimeAttending,
       });
       setSuccessNames([response.data.person.full_name]);
@@ -653,7 +658,10 @@ export default function EventSelfCheckInView() {
               Online Check-In
             </h1>
             <p className="mt-1 text-sm text-muted-foreground">
-              Only if you are attending Sunday Service online
+              {payload?.session?.event?.attendance_format === "online_only" ||
+              payload?.requires_online_venue === false
+                ? "Check in for today’s online event"
+                : "Only if you are attending online"}
             </p>
           </div>
           {children}
@@ -685,7 +693,7 @@ export default function EventSelfCheckInView() {
         <p className="text-sm text-muted-foreground">
           {payload?.reason === "restricted"
             ? "Online check-in is not open to members yet."
-            : "Online check-in is only available on Sunday Service days."}
+            : "Online check-in is only available when an event is open today."}
         </p>
         <Link href="/dashboard" className="mt-5 inline-block w-full">
           <Button className="w-full">Back to dashboard</Button>
@@ -819,7 +827,9 @@ export default function EventSelfCheckInView() {
           </h2>
         </div>
         <p className="text-sm text-muted-foreground">
-          Check in only if they are attending this service online.
+          {requiresVenue
+            ? "Check in only if they are attending this service online."
+            : "Check in household members for this online event."}
         </p>
         <div className="space-y-2">
           {session.household.map((person) => (
@@ -835,20 +845,24 @@ export default function EventSelfCheckInView() {
             />
           ))}
         </div>
-        <OnlineVenuePicker
-          venues={activeVenues}
-          value={attendanceVenue}
-          disabled={submitting}
-          onChange={(code) => {
-            setAttendanceVenue(code);
-            setError(null);
-          }}
-        />
+        {requiresVenue ? (
+          <OnlineVenuePicker
+            venues={activeVenues}
+            value={attendanceVenue}
+            disabled={submitting}
+            onChange={(code) => {
+              setAttendanceVenue(code);
+              setError(null);
+            }}
+          />
+        ) : null}
         {actionError}
         <Button
           className="w-full min-h-12"
           disabled={
-            submitting || selectedHousehold.length === 0 || !attendanceVenue
+            submitting ||
+            selectedHousehold.length === 0 ||
+            (requiresVenue && !attendanceVenue)
           }
           onClick={() => void handleHouseholdCheckIn()}
         >
@@ -922,18 +936,24 @@ export default function EventSelfCheckInView() {
         </div>
         {visitorResults.some((person) => !person.already_checked_in) && (
           <>
-            <OnlineVenuePicker
-              venues={activeVenues}
-              value={attendanceVenue}
-              disabled={submitting}
-              onChange={(code) => {
-                setAttendanceVenue(code);
-                setError(null);
-              }}
-            />
+            {requiresVenue ? (
+              <OnlineVenuePicker
+                venues={activeVenues}
+                value={attendanceVenue}
+                disabled={submitting}
+                onChange={(code) => {
+                  setAttendanceVenue(code);
+                  setError(null);
+                }}
+              />
+            ) : null}
             <Button
               className="w-full min-h-12"
-              disabled={submitting || !selectedVisitor || !attendanceVenue}
+              disabled={
+                submitting ||
+                !selectedVisitor ||
+                (requiresVenue && !attendanceVenue)
+              }
               onClick={() => void handleConfirmVisitorCheckIn()}
             >
               {submitting
@@ -1154,15 +1174,17 @@ export default function EventSelfCheckInView() {
         <p className="text-sm text-muted-foreground">
           Inviter is you. This guest is recorded as attending online with you.
         </p>
-        <OnlineVenuePicker
-          venues={activeVenues}
-          value={attendanceVenue}
-          disabled={submitting}
-          onChange={(code) => {
-            setAttendanceVenue(code);
-            setError(null);
-          }}
-        />
+        {requiresVenue ? (
+          <OnlineVenuePicker
+            venues={activeVenues}
+            value={attendanceVenue}
+            disabled={submitting}
+            onChange={(code) => {
+              setAttendanceVenue(code);
+              setError(null);
+            }}
+          />
+        ) : null}
         {duplicateMatches.length > 0 && (
           <div className="space-y-2">
             <p className="text-sm font-medium">Existing matches</p>
@@ -1185,7 +1207,11 @@ export default function EventSelfCheckInView() {
               <Button
                 type="button"
                 className="w-full min-h-12"
-                disabled={submitting || !selectedVisitor || !attendanceVenue}
+                disabled={
+                  submitting ||
+                  !selectedVisitor ||
+                  (requiresVenue && !attendanceVenue)
+                }
                 onClick={() => void handleConfirmVisitorCheckIn()}
               >
                 {submitting
@@ -1201,7 +1227,7 @@ export default function EventSelfCheckInView() {
         <Button
           type="submit"
           className="w-full min-h-12"
-          disabled={submitting || !attendanceVenue}
+          disabled={submitting || (requiresVenue && !attendanceVenue)}
         >
           {submitting ? "Saving…" : "Check in guest online"}
         </Button>

@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime
 
 from django.utils.timezone import make_aware
 from rest_framework.test import APITestCase
@@ -45,6 +45,7 @@ class EventExpectedAttendeeFlagsTests(APITestCase):
             role="MEMBER",
             status="ACTIVE",
             branch=self.hq,
+            water_baptism_date=date(2020, 1, 1),
         )
         ModuleCoordinator.objects.create(
             person=self.coordinator,
@@ -75,6 +76,8 @@ class EventExpectedAttendeeFlagsTests(APITestCase):
         self.assertTrue(response.data["expected_include_semiactive"])
         self.assertTrue(response.data["expected_include_inactive"])
         self.assertTrue(response.data["expected_include_ongoing_visitors"])
+        self.assertFalse(response.data["track_expected_attendees"])
+        self.assertFalse(response.data["allow_cross_branch_attendance"])
         self.assertEqual(response.data["tardy_grace_minutes"], 0)
 
         event = Event.objects.get(pk=response.data["id"])
@@ -82,6 +85,8 @@ class EventExpectedAttendeeFlagsTests(APITestCase):
         self.assertTrue(event.expected_include_semiactive)
         self.assertTrue(event.expected_include_inactive)
         self.assertTrue(event.expected_include_ongoing_visitors)
+        self.assertFalse(event.track_expected_attendees)
+        self.assertFalse(event.allow_cross_branch_attendance)
         self.assertEqual(event.tardy_grace_minutes, 0)
 
     def test_update_expected_flags_round_trip(self):
@@ -103,6 +108,7 @@ class EventExpectedAttendeeFlagsTests(APITestCase):
                 "expected_include_semiactive": True,
                 "expected_include_inactive": False,
                 "expected_include_ongoing_visitors": False,
+                "track_expected_attendees": True,
             },
             format="json",
         )
@@ -111,12 +117,72 @@ class EventExpectedAttendeeFlagsTests(APITestCase):
         self.assertTrue(response.data["expected_include_semiactive"])
         self.assertFalse(response.data["expected_include_inactive"])
         self.assertFalse(response.data["expected_include_ongoing_visitors"])
+        self.assertTrue(response.data["track_expected_attendees"])
 
         event.refresh_from_db()
         self.assertFalse(event.expected_include_active)
         self.assertTrue(event.expected_include_semiactive)
         self.assertFalse(event.expected_include_inactive)
         self.assertFalse(event.expected_include_ongoing_visitors)
+        self.assertTrue(event.track_expected_attendees)
+
+    def test_create_with_track_expected_attendees_true(self):
+        self.client.force_authenticate(user=self.coordinator)
+        start = make_aware_local(2026, 8, 16, 9)
+        end = make_aware_local(2026, 8, 16, 11)
+        response = self.client.post(
+            "/api/events/",
+            {
+                "title": "Sunday Service",
+                "description": "",
+                "type": "SUNDAY_SERVICE",
+                "location": "Main Hall",
+                "branch": self.hq.id,
+                "start_date": start.isoformat(),
+                "end_date": end.isoformat(),
+                "is_recurring": False,
+                "track_expected_attendees": True,
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, 201, response.data)
+        self.assertTrue(response.data["track_expected_attendees"])
+        event = Event.objects.get(pk=response.data["id"])
+        self.assertTrue(event.track_expected_attendees)
+
+    def test_create_and_update_allow_cross_branch_attendance(self):
+        self.client.force_authenticate(user=self.coordinator)
+        start = make_aware_local(2026, 8, 23, 9)
+        end = make_aware_local(2026, 8, 23, 11)
+        response = self.client.post(
+            "/api/events/",
+            {
+                "title": "Anniversary Sunday",
+                "description": "",
+                "type": "SUNDAY_SERVICE",
+                "location": "Convention Center",
+                "branch": self.hq.id,
+                "start_date": start.isoformat(),
+                "end_date": end.isoformat(),
+                "is_recurring": False,
+                "allow_cross_branch_attendance": True,
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, 201, response.data)
+        self.assertTrue(response.data["allow_cross_branch_attendance"])
+        event = Event.objects.get(pk=response.data["id"])
+        self.assertTrue(event.allow_cross_branch_attendance)
+
+        response = self.client.patch(
+            f"/api/events/{event.id}/",
+            {"allow_cross_branch_attendance": False},
+            format="json",
+        )
+        self.assertEqual(response.status_code, 200, response.data)
+        self.assertFalse(response.data["allow_cross_branch_attendance"])
+        event.refresh_from_db()
+        self.assertFalse(event.allow_cross_branch_attendance)
 
     def test_create_defaults_tardy_grace_minutes_zero(self):
         self.client.force_authenticate(user=self.coordinator)

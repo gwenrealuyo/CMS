@@ -1028,7 +1028,7 @@ export const eventsApi = {
   selfCheckIn: (payload: {
     person_ids: Array<number | string>;
     event_id?: number | string;
-    attendance_venue: string;
+    attendance_venue?: string;
   }) =>
     api.post<SelfCheckInSessionResponse>("/events/self-check-in/", payload),
   undoSelfCheckIn: (payload: {
@@ -1138,7 +1138,7 @@ export const publicSelfCheckInApi = {
     ),
   checkIn: (payload: {
     member_id: string;
-    attendance_venue: string;
+    attendance_venue?: string;
     event_id?: number | string;
   }) =>
     publicApi.post<PublicSelfCheckInSessionResponse>(
@@ -2270,6 +2270,7 @@ export interface User {
   branch_name?: string | null;
   branch_is_headquarters?: boolean;
   can_see_all_branches?: boolean;
+  can_manage_national_events?: boolean;
   must_change_password?: boolean;
   first_login?: boolean;
   module_coordinator_assignments?: ModuleCoordinator[];

@@ -17,6 +17,23 @@ export function getEligibleMembers(people: Person[], event: Event): Person[] {
     (person) =>
       isSelectablePerson(person) && normalizeStatus(person.status) !== "DECEASED"
   );
+  if (
+    event.branch == null ||
+    event.allow_cross_branch_attendance === true
+  ) {
+    return selectable;
+  }
+  return selectable.filter(
+    (person) => Number(person.branch) === Number(event.branch)
+  );
+}
+
+/** Host-branch candidates for the expected pool (ignores cross-branch eligibility). */
+function getHostBranchCandidates(people: Person[], event: Event): Person[] {
+  const selectable = people.filter(
+    (person) =>
+      isSelectablePerson(person) && normalizeStatus(person.status) !== "DECEASED"
+  );
   if (event.branch == null) {
     return selectable;
   }
@@ -33,15 +50,24 @@ function isOngoingVisitor(person: Person): boolean {
 }
 
 /**
+ * Whether this event uses a duty-style expected pool for Total / Remaining /
+ * report Expected / Surprises. Open events are headcount-only.
+ */
+export function tracksExpectedAttendees(event: Event): boolean {
+  return event.track_expected_attendees === true;
+}
+
+/**
  * Expected attendees for Total / Remaining.
- * Sunday Service uses status/visitor flags; other types use the full eligible pool.
+ * Uses status/visitor flags on the event (defaults all true).
+ * Returns [] when the event is open (not tracking expected).
+ * Host branch only when the event has a branch (cross-branch guests are not expected).
  */
 export function getExpectedMembers(people: Person[], event: Event): Person[] {
-  const candidates = getEligibleMembers(people, event);
-  if (event.type !== "SUNDAY_SERVICE") {
-    return candidates;
+  if (!tracksExpectedAttendees(event)) {
+    return [];
   }
-
+  const candidates = getHostBranchCandidates(people, event);
   const includeActive = event.expected_include_active ?? true;
   const includeSemiactive = event.expected_include_semiactive ?? true;
   const includeInactive = event.expected_include_inactive ?? true;
@@ -64,10 +90,10 @@ export function countExpectedOngoingVisitors(
   people: Person[],
   event: Event
 ): number {
-  if (
-    event.type !== "SUNDAY_SERVICE" ||
-    !(event.expected_include_ongoing_visitors ?? true)
-  ) {
+  if (!tracksExpectedAttendees(event)) {
+    return 0;
+  }
+  if (!(event.expected_include_ongoing_visitors ?? true)) {
     return 0;
   }
   return getExpectedMembers(people, event).filter(isOngoingVisitor).length;

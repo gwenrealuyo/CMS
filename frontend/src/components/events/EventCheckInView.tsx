@@ -35,6 +35,7 @@ import {
   getExpectedMembers,
   resolvePersonFromEntry,
   resolvePersonFromMemberId,
+  tracksExpectedAttendees,
 } from "@/src/lib/events/checkInUtils";
 import { formatPersonName } from "@/src/lib/name";
 import { getPersonRoleColor } from "@/src/lib/personRole";
@@ -239,6 +240,14 @@ export default function EventCheckInView({
       const response = await eventsApi.getById(eventId);
       setEvent(response.data);
       setEventError(null);
+      const format = response.data.attendance_format ?? "hybrid";
+      if (format === "online_only") {
+        setStationMode("ONLINE");
+        setOnlineVenueCode("");
+      } else if (format === "onsite_only") {
+        setStationMode("ONSITE");
+        setOnlineVenueCode("");
+      }
     } catch {
       setEventError("Unable to load this event. Please try again.");
     } finally {
@@ -339,6 +348,7 @@ export default function EventCheckInView({
   const remainingCount = Array.from(expectedIds).filter(
     (id) => !checkedInIds.has(id),
   ).length;
+  const showsExpectedStats = event ? tracksExpectedAttendees(event) : false;
   const ongoingVisitorExpectedCount = useMemo(() => {
     if (!event) return 0;
     return countExpectedOngoingVisitors(people, event);
@@ -475,7 +485,11 @@ export default function EventCheckInView({
       return;
     }
 
-    if (stationMode === "ONLINE" && !onlineVenueCode) {
+    if (
+      stationMode === "ONLINE" &&
+      !onlineVenueCode &&
+      (event?.attendance_format ?? "hybrid") !== "online_only"
+    ) {
       setActionBanner({
         kind: "error",
         message: "Select an online venue before checking in.",
@@ -493,7 +507,11 @@ export default function EventCheckInView({
         occurrence_date: occurrenceDate,
         status: "PRESENT",
         attendance_mode: stationMode,
-        attendance_venue: stationMode === "ONLINE" ? onlineVenueCode : null,
+        attendance_venue:
+          stationMode === "ONLINE" &&
+          (event?.attendance_format ?? "hybrid") !== "online_only"
+            ? onlineVenueCode
+            : null,
       });
       await fetchAttendance();
       setEntryValue("");
@@ -726,7 +744,7 @@ export default function EventCheckInView({
               </p>
             </div>
             <div className="flex w-full shrink-0 flex-col gap-2 sm:w-auto sm:flex-row">
-              {event.type === "SUNDAY_SERVICE" ? (
+              {event.type !== "MEETING" ? (
                 <Link
                   href={`/events/guest?event=${eventId}&occurrence=${encodeURIComponent(occurrenceDate)}`}
                   className="inline-flex min-h-[44px] items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-blue-700"
@@ -748,38 +766,40 @@ export default function EventCheckInView({
           </div>
         </div>
 
-        <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
-          <StatCard
-            label="Total"
-            value={totalCount}
-            description={
-              ongoingVisitorExpectedCount > 0
-                ? `Expected attendees · Includes ${ongoingVisitorExpectedCount} ongoing visitor${
-                    ongoingVisitorExpectedCount === 1 ? "" : "s"
-                  }`
-                : event.type === "SUNDAY_SERVICE"
-                  ? "Expected attendees for this service"
-                  : event.branch_name
-                    ? `People in ${event.branch_name} who can be checked in`
-                    : "People who can be checked in for this event"
-            }
-            iconClassName="bg-primary/10 text-primary"
-            icon={
-              <svg
-                className="h-5 w-5"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a2 2 0 110 4v3a2 2 0 002 2h14a2 2 0 002-2v-3a2 2 0 110-4V7a2 2 0 00-2-2H5z"
-                />
-              </svg>
-            }
-          />
+        <div
+          className={`mb-6 grid grid-cols-1 gap-4 ${
+            showsExpectedStats ? "sm:grid-cols-3" : "sm:grid-cols-1"
+          }`}
+        >
+          {showsExpectedStats ? (
+            <StatCard
+              label="Total"
+              value={totalCount}
+              description={
+                ongoingVisitorExpectedCount > 0
+                  ? `Expected attendees · Includes ${ongoingVisitorExpectedCount} ongoing visitor${
+                      ongoingVisitorExpectedCount === 1 ? "" : "s"
+                    }`
+                  : "Expected attendees for this event"
+              }
+              iconClassName="bg-primary/10 text-primary"
+              icon={
+                <svg
+                  className="h-5 w-5"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a2 2 0 110 4v3a2 2 0 002 2h14a2 2 0 002-2v-3a2 2 0 110-4V7a2 2 0 00-2-2H5z"
+                  />
+                </svg>
+              }
+            />
+          ) : null}
           <StatCard
             label="Checked In"
             value={checkedInCount}
@@ -801,55 +821,66 @@ export default function EventCheckInView({
               </svg>
             }
           />
-          <StatCard
-            label="Remaining"
-            value={remainingCount}
-            description="Expected attendees not yet checked in"
-            iconClassName="bg-amber-100 text-lighthouse-gold"
-            icon={
-              <svg
-                className="h-5 w-5"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"
-                />
-              </svg>
-            }
-          />
+          {showsExpectedStats ? (
+            <StatCard
+              label="Remaining"
+              value={remainingCount}
+              description="Expected attendees not yet checked in"
+              iconClassName="bg-amber-100 text-lighthouse-gold"
+              icon={
+                <svg
+                  className="h-5 w-5"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"
+                  />
+                </svg>
+              }
+            />
+          ) : null}
         </div>
 
-        <div className="mb-5 flex rounded-lg border border-primary/10 bg-muted p-1">
-          <button
-            type="button"
-            onClick={() => handleStationModeChange("ONSITE")}
-            className={`flex-1 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
-              stationMode === "ONSITE"
-                ? "bg-white text-primary shadow-sm"
-                : "text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            Onsite
-          </button>
-          <button
-            type="button"
-            onClick={() => handleStationModeChange("ONLINE")}
-            className={`flex-1 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
-              stationMode === "ONLINE"
-                ? "bg-white text-primary shadow-sm"
-                : "text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            Online
-          </button>
-        </div>
+        {(event.attendance_format ?? "hybrid") === "hybrid" ? (
+          <div className="mb-5 flex rounded-lg border border-primary/10 bg-muted p-1">
+            <button
+              type="button"
+              onClick={() => handleStationModeChange("ONSITE")}
+              className={`flex-1 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
+                stationMode === "ONSITE"
+                  ? "bg-white text-primary shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              Onsite
+            </button>
+            <button
+              type="button"
+              onClick={() => handleStationModeChange("ONLINE")}
+              className={`flex-1 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
+                stationMode === "ONLINE"
+                  ? "bg-white text-primary shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              Online
+            </button>
+          </div>
+        ) : (
+          <div className="mb-5 rounded-lg border border-primary/10 bg-muted px-3 py-2 text-sm text-muted-foreground">
+            {(event.attendance_format ?? "hybrid") === "online_only"
+              ? "This event is online only — check-ins are recorded as Online (no venue)."
+              : "This event is onsite only — check-ins are recorded as Onsite."}
+          </div>
+        )}
 
-        {stationMode === "ONLINE" ? (
+        {stationMode === "ONLINE" &&
+        (event.attendance_format ?? "hybrid") === "hybrid" ? (
           <div className="mb-5 rounded-xl border border-primary/20 bg-white p-4 shadow-sm">
             <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               Online venue

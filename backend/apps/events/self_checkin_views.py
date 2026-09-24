@@ -1,4 +1,4 @@
-"""Authenticated Sunday Service self check-in API."""
+"""Authenticated event self check-in API."""
 
 from __future__ import annotations
 
@@ -16,13 +16,12 @@ from apps.authentication.permissions import (
     IsMemberOrAbove,
     IsAdmin,
 )
-from apps.events.models import AttendanceVenue, EventSetting, EventType
+from apps.events.models import AttendanceVenue, Event, EventSetting
 from apps.evangelism.models import Prospect
 from apps.evangelism.services import mark_prospect_attended
 from apps.events.serializers import AttendanceVenueSerializer, EventSettingSerializer
 from apps.events.services.self_checkin import (
     REASON_RESTRICTED,
-    SUNDAY_SERVICE_TYPE,
     checked_in_person_ids,
     create_visitor_guest_person,
     exact_name_matches,
@@ -63,13 +62,31 @@ def _active_venues_payload():
     return AttendanceVenueSerializer(venues, many=True).data
 
 
-def _resolve_online_venue(request):
+def _resolve_online_venue(request, event=None):
+    """Resolve venue for hybrid online check-in; online-only skips venue."""
+    if event is not None and (
+        getattr(event, "attendance_format", None)
+        == Event.AttendanceFormat.ONLINE_ONLY
+    ):
+        raw = None
+        if hasattr(request, "data"):
+            raw = request.data.get("attendance_venue")
+        if raw not in (None, ""):
+            return None, {
+                "attendance_venue": [
+                    "Online-only events do not use an online venue."
+                ]
+            }
+        return None, None
+
     raw = None
     if hasattr(request, "data"):
         raw = request.data.get("attendance_venue")
     if raw in (None, ""):
         return None, {
-            "attendance_venue": ["Select an online venue (e.g. Home altar or Cluster house)."]
+            "attendance_venue": [
+                "Select an online venue (e.g. Home altar or Cluster house)."
+            ]
         }
     code = str(raw).strip().upper()
     try:
@@ -81,9 +98,27 @@ def _resolve_online_venue(request):
     return venue, None
 
 
-def _with_venues(payload: dict) -> dict:
+def _session_requires_online_venue(resolved) -> bool:
+    event = getattr(resolved, "event", None)
+    if event is not None:
+        return bool(getattr(event, "requires_online_venue", True))
+    options = getattr(resolved, "options", None) or []
+    if not options:
+        return True
+    return any(getattr(ev, "requires_online_venue", True) for ev, _occ in options)
+
+
+def _with_venues(payload: dict, resolved=None) -> dict:
     payload = dict(payload)
-    payload["attendance_venues"] = _active_venues_payload()
+    requires = True
+    if resolved is not None:
+        requires = _session_requires_online_venue(resolved)
+    elif "requires_online_venue" in payload:
+        requires = bool(payload["requires_online_venue"])
+    payload["requires_online_venue"] = requires
+    payload["attendance_venues"] = (
+        _active_venues_payload() if requires else []
+    )
     return payload
 
 
@@ -134,7 +169,8 @@ def _unavailable_payload(resolved) -> dict:
             "can_encode_visitors": resolved.can_encode_visitors,
             "session": None,
             "options": [],
-        }
+        },
+        resolved=resolved,
     )
 
 
@@ -169,7 +205,8 @@ def _options_payload(resolved) -> dict:
             "options": [
                 serialize_event_option(event, occ) for event, occ in resolved.options
             ],
-        }
+        },
+        resolved=resolved,
     )
 
 
@@ -203,7 +240,8 @@ def _session_payload(resolved, user, request) -> dict:
                 "household": household,
             },
             "options": [serialize_event_option(event, occ)],
-        }
+        },
+        resolved=resolved,
     )
 
 
@@ -220,7 +258,7 @@ def build_session_response(request, resolved):
     return Response(_session_payload(resolved, request.user, request))
 
 
-def _upsert_present(event, person, occurrence_date, request, venue: AttendanceVenue):
+def _upsert_present(event, person, occurrence_date, request, venue: AttendanceVenue | None):
     serializer = AttendanceRecordSerializer(
         data={
             "event_id": event.pk,
@@ -228,7 +266,7 @@ def _upsert_present(event, person, occurrence_date, request, venue: AttendanceVe
             "occurrence_date": occurrence_date.isoformat(),
             "status": "PRESENT",
             "attendance_mode": AttendanceRecord.AttendanceMode.ONLINE,
-            "attendance_venue": venue.code,
+            "attendance_venue": venue.code if venue is not None else None,
         },
         context={"request": request},
     )
@@ -256,7 +294,7 @@ class SelfCheckInView(APIView):
             if resolved.needs_selection:
                 return Response(
                     {
-                        "detail": "Select a Sunday Service to check in online.",
+                        "detail": "Select an event to check in online.",
                         **_options_payload(resolved),
                     },
                     status=status.HTTP_400_BAD_REQUEST,
@@ -272,7 +310,7 @@ class SelfCheckInView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        venue, venue_errors = _resolve_online_venue(request)
+        venue, venue_errors = _resolve_online_venue(request, resolved.event)
         if venue_errors:
             return Response(venue_errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -323,7 +361,7 @@ class SelfCheckInUndoView(APIView):
             if resolved.needs_selection:
                 return Response(
                     {
-                        "detail": "Select a Sunday Service first.",
+                        "detail": "Select an event first.",
                         **_options_payload(resolved),
                     },
                     status=status.HTTP_400_BAD_REQUEST,
@@ -378,7 +416,7 @@ class SelfCheckInVisitorsView(APIView):
             if resolved.needs_selection:
                 return Response(
                     {
-                        "detail": "Select a Sunday Service first.",
+                        "detail": "Select an event first.",
                         **_options_payload(resolved),
                     },
                     status=status.HTTP_400_BAD_REQUEST,
@@ -433,7 +471,7 @@ class SelfCheckInVisitorsView(APIView):
             if resolved.needs_selection:
                 return Response(
                     {
-                        "detail": "Select a Sunday Service first.",
+                        "detail": "Select an event first.",
                         **_options_payload(resolved),
                     },
                     status=status.HTTP_400_BAD_REQUEST,
@@ -448,7 +486,7 @@ class SelfCheckInVisitorsView(APIView):
 
         person_id = parse_event_id(request.data.get("person_id"))
         prospect_id = parse_event_id(request.data.get("prospect_id"))
-        venue, venue_errors = _resolve_online_venue(request)
+        venue, venue_errors = _resolve_online_venue(request, resolved.event)
         if venue_errors:
             return Response(venue_errors, status=status.HTTP_400_BAD_REQUEST)
         if prospect_id:
@@ -466,7 +504,7 @@ class SelfCheckInVisitorsView(APIView):
                 {"detail": "Invited visitor not found for this service."},
                 status=status.HTTP_404_NOT_FOUND,
             )
-        event_type = EventType.objects.filter(code=SUNDAY_SERVICE_TYPE).first()
+        event_type = resolved.event.event_type
         try:
             prospect = mark_prospect_attended(
                 prospect,
@@ -594,6 +632,7 @@ class SelfCheckInVisitorsView(APIView):
                 )
                 else None
             ),
+            first_activity_attended=resolved.event.event_type,
         )
 
         record, _created, _already = _upsert_present(
@@ -624,7 +663,7 @@ class SelfCheckInInvitersView(APIView):
             if resolved.needs_selection:
                 return Response(
                     {
-                        "detail": "Select a Sunday Service first.",
+                        "detail": "Select an event first.",
                         **_options_payload(resolved),
                     },
                     status=status.HTTP_400_BAD_REQUEST,
@@ -730,7 +769,7 @@ def _public_payload(resolved, extra=None) -> dict:
         }
     if extra:
         payload.update(extra)
-    return _with_venues(payload)
+    return _with_venues(payload, resolved=resolved)
 
 
 def _public_restricted_payload() -> dict:
@@ -852,7 +891,7 @@ class PublicSelfCheckInView(APIView):
             payload = _public_payload(
                 resolved,
                 {
-                    "detail": "Select a Sunday Service to check in online.",
+                    "detail": "Select an event to check in online.",
                     "person": serialize_public_person(
                         person,
                         already_checked_in=False,
@@ -862,7 +901,7 @@ class PublicSelfCheckInView(APIView):
             )
             return Response(payload, status=status.HTTP_400_BAD_REQUEST)
 
-        venue, venue_errors = _resolve_online_venue(request)
+        venue, venue_errors = _resolve_online_venue(request, resolved.event)
         if venue_errors:
             return Response(venue_errors, status=status.HTTP_400_BAD_REQUEST)
 

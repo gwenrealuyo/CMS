@@ -12,7 +12,7 @@ import { publicSelfCheckInApi } from "@/src/lib/api";
 export default function Home() {
   const { isAuthenticated, isLoading } = useAuth();
   const router = useRouter();
-  const [sundayCheckInOpen, setSundayCheckInOpen] = useState(false);
+  const [selfCheckInOpen, setSelfCheckInOpen] = useState(false);
 
   useEffect(() => {
     if (!isLoading && isAuthenticated) {
@@ -26,10 +26,10 @@ export default function Home() {
     publicSelfCheckInApi
       .session()
       .then((response) => {
-        if (!cancelled) setSundayCheckInOpen(Boolean(response.data.available));
+        if (!cancelled) setSelfCheckInOpen(Boolean(response.data.available));
       })
       .catch(() => {
-        if (!cancelled) setSundayCheckInOpen(false);
+        if (!cancelled) setSelfCheckInOpen(false);
       });
     return () => {
       cancelled = true;
@@ -68,7 +68,7 @@ export default function Home() {
         <p className="text-sm sm:text-base text-muted-foreground mb-8">
           Shepherd every person from first visit to faithful service.
         </p>
-        {sundayCheckInOpen ? (
+        {selfCheckInOpen ? (
           <div className="space-y-3">
             <p className="inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-amber-800">
               <span className="relative flex h-2 w-2">
@@ -82,7 +82,7 @@ export default function Home() {
               className="flex min-h-14 w-full items-center justify-center gap-2 rounded-md bg-lighthouse-gold px-4 py-3.5 text-base font-semibold text-[#5f2b0d] shadow-sm hover:bg-lighthouse-gold/90"
             >
               <QrCodeIcon className="h-5 w-5 shrink-0" />
-              Sunday online check-in
+              Online check-in
             </Link>
             <Link href="/login" className="block w-full">
               <Button

@@ -54,6 +54,7 @@ class OnsiteGuestAPITests(APITestCase):
             status="ACTIVE",
             branch=self.hq,
             member_id="LAMP20001",
+            water_baptism_date=date(2020, 1, 1),
         )
         self.coordinator = Person.objects.create_user(
             username="osgcoord",
@@ -63,6 +64,7 @@ class OnsiteGuestAPITests(APITestCase):
             role="MEMBER",
             status="ACTIVE",
             branch=self.hq,
+            water_baptism_date=date(2020, 1, 1),
         )
         ModuleCoordinator.objects.create(
             person=self.coordinator,
@@ -84,6 +86,7 @@ class OnsiteGuestAPITests(APITestCase):
                 "through": "2026-12-27",
                 "excluded_dates": [],
             },
+            self_checkin_enabled=True,
             created_by=self.coordinator,
         )
         self.church_today_patch = patch(
@@ -314,3 +317,83 @@ class OnsiteGuestAPITests(APITestCase):
         self.assertEqual(response.status_code, 200, response.data)
         ids = {row["id"] for row in response.data["results"]}
         self.assertIn(self.member.id, ids)
+
+
+    def test_staff_guest_from_checkin_without_self_checkin_flag(self):
+        """Staff may encode guests for any approved activity via event+occurrence."""
+        concert_type, _ = EventType.objects.get_or_create(
+            code="CONCERT_CRUSADE",
+            defaults={
+                "label": "Concert/Crusade",
+                "sort_order": 150,
+                "color": "#7c2d12",
+                "is_system": True,
+                "counts_as_activity": True,
+            },
+        )
+        concert = Event.objects.create(
+            title="Crusade Onsite",
+            description="",
+            start_date=manila_dt(2026, 9, 13, 18),
+            end_date=manila_dt(2026, 9, 13, 21),
+            event_type=concert_type,
+            location="Arena",
+            branch=self.hq,
+            is_recurring=False,
+            self_checkin_enabled=False,
+            created_by=self.coordinator,
+        )
+        self.client.force_authenticate(self.coordinator)
+        session = self.client.get(
+            "/api/events/onsite-guest/session/",
+            {"event": concert.id, "occurrence": TODAY.isoformat()},
+        )
+        self.assertEqual(session.status_code, 200, session.data)
+        self.assertTrue(session.data["available"])
+        self.assertEqual(session.data["session"]["event"]["id"], concert.id)
+
+        response = self.client.post(
+            f"/api/events/onsite-guest/visitors/?event={concert.id}&occurrence={TODAY.isoformat()}",
+            {
+                "first_name": "arena",
+                "last_name": "guest",
+                "gender": "MALE",
+                "age_group": "YOUTH",
+                "event_id": concert.id,
+                "occurrence_date": TODAY.isoformat(),
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, 201, response.data)
+        visitor = Person.objects.get(first_name="Arena", last_name="Guest")
+        self.assertEqual(visitor.first_activity_attended_id, "CONCERT_CRUSADE")
+        record = AttendanceRecord.objects.get(
+            event=concert, person=visitor, occurrence_date=TODAY
+        )
+        self.assertEqual(record.attendance_mode, "ONSITE")
+
+
+    def test_online_only_guest_writes_online_without_venue(self):
+        self.event.attendance_format = "online_only"
+        self.event.save(update_fields=["attendance_format"])
+        self.client.force_authenticate(self.coordinator)
+        response = self.client.post(
+            "/api/events/onsite-guest/visitors/",
+            {
+                "first_name": "online",
+                "last_name": "guest",
+                "gender": "FEMALE",
+                "age_group": "ADULT",
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, 201, response.data)
+        visitor = Person.objects.get(first_name="Online", last_name="Guest")
+        record = AttendanceRecord.objects.get(
+            event=self.event, person=visitor, occurrence_date=TODAY
+        )
+        self.assertEqual(record.attendance_mode, "ONLINE")
+        self.assertIsNone(record.attendance_venue_id)
+        self.assertEqual(
+            response.data["attendance_record"]["attendance_mode"], "ONLINE"
+        )

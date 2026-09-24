@@ -40,8 +40,20 @@ class EventAdmin(admin.ModelAdmin):
         "event_type",
         "start_date",
         "booking_status",
+        "attendance_format",
+        "self_checkin_enabled",
+        "track_expected_attendees",
+        "allow_cross_branch_attendance",
         "branch",
         "room",
     ]
-    list_filter = ["booking_status", "event_type", "is_recurring"]
+    list_filter = [
+        "booking_status",
+        "event_type",
+        "is_recurring",
+        "attendance_format",
+        "self_checkin_enabled",
+        "track_expected_attendees",
+        "allow_cross_branch_attendance",
+    ]
     search_fields = ["title", "location"]

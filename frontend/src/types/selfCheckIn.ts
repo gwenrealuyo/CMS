@@ -15,6 +15,8 @@ export interface SelfCheckInEventOption {
   occurrence_date: string | null;
   type?: string;
   type_display?: string;
+  attendance_format?: "hybrid" | "online_only" | "onsite_only";
+  requires_online_venue?: boolean;
 }
 
 export interface SelfCheckInPerson {
@@ -49,6 +51,7 @@ export interface SelfCheckInSessionResponse {
   session: SelfCheckInSessionDetails | null;
   options: SelfCheckInEventOption[];
   attendance_venues?: AttendanceVenueOption[];
+  requires_online_venue?: boolean;
   detail?: string;
   attendance_records?: unknown[];
   removed_person_ids?: number[];
@@ -90,7 +93,7 @@ export interface SelfCheckInVisitorWrite {
   email?: string;
   inviter_id?: number;
   event_id?: number;
-  attendance_venue: string;
+  attendance_venue?: string;
   first_time_attending?: boolean;
 }
 
@@ -121,6 +124,7 @@ export interface PublicSelfCheckInSessionResponse {
   session: PublicSelfCheckInSessionDetails | null;
   options: SelfCheckInEventOption[];
   attendance_venues?: AttendanceVenueOption[];
+  requires_online_venue?: boolean;
   detail?: string;
   person?: PublicSelfCheckInPerson | null;
   already_checked_in?: boolean;

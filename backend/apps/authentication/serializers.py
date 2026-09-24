@@ -64,6 +64,7 @@ class UserSerializer(serializers.ModelSerializer):
     branch_name = serializers.SerializerMethodField()
     branch_is_headquarters = serializers.SerializerMethodField()
     can_see_all_branches = serializers.SerializerMethodField()
+    can_manage_national_events = serializers.SerializerMethodField()
     module_coordinator_assignments = ModuleCoordinatorSerializer(
         many=True, read_only=True
     )
@@ -89,6 +90,7 @@ class UserSerializer(serializers.ModelSerializer):
             "branch_name",
             "branch_is_headquarters",
             "can_see_all_branches",
+            "can_manage_national_events",
             "module_coordinator_assignments",
             "ncc_lessons_role",
             "ncc_primary_at_headquarters",
@@ -105,6 +107,7 @@ class UserSerializer(serializers.ModelSerializer):
             "branch_name",
             "branch_is_headquarters",
             "can_see_all_branches",
+            "can_manage_national_events",
             "module_coordinator_assignments",
             "ncc_lessons_role",
             "ncc_primary_at_headquarters",
@@ -126,6 +129,11 @@ class UserSerializer(serializers.ModelSerializer):
 
     def get_can_see_all_branches(self, obj):
         return obj.can_see_all_branches()
+
+    def get_can_manage_national_events(self, obj):
+        from apps.events.permissions import can_manage_national_events
+
+        return can_manage_national_events(obj)
 
     def get_ncc_lessons_role(self, obj):
         from apps.lessons.coordinator_access import ncc_lessons_role

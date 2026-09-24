@@ -10,13 +10,14 @@
 ### Attendance mode and online venues
 
 - **Onsite** — physical church check-in (staff QR / manual station). No venue subtype.
-- **Online** — remote check-in (self-check-in or staff Online station). Requires an active `AttendanceVenue` (e.g. Home altar, Cluster house).
+- **Online** — remote check-in (self-check-in or staff Online station). For **hybrid** events, requires an active `AttendanceVenue` (e.g. Home altar, Cluster house). For **online-only** events, Online with no venue is enough.
+- **Attendance format** (`Event.attendance_format`): `hybrid` (default), `online_only`, or `onsite_only`. Controls which modes are allowed and whether online venues apply.
 - Venues are admin-managed at `/api/attendance-venues/` (seeded system rows: `HOME_ALTAR`, `CLUSTER_HOUSE`). Admins can add/edit labels, colors, sort order, and active flag; system venues and venues in use cannot be deleted.
 - **First check-in is final** for mode/venue on **POST** (QR, self-check-in, re-add): a second Present write for the same person/occurrence returns **409** and does not change mode/venue.
-- Staff can **correct** mode/venue afterward via `PATCH /api/events/{id}/attendance/{attendance_id}/` with `attendance_mode` and (when Online) `attendance_venue`. UI: **Edit mode** on the Event attendance list and on Check-In Recent Check-Ins. Switching to Onsite clears venue; Online requires an active venue.
-- Staff check-in station: **Onsite** (default, QR + manual) or **Online** (manual only + required venue picker).
-- Event detail **Add attendee** also accepts Onsite/Online (+ venue when Online).
-- Self-check-in is always **Online** and requires `attendance_venue` on every POST (public LAMP ID, household, and visitor flows). Session payloads include `attendance_venues` for the picker.
+- Staff can **correct** mode/venue afterward via `PATCH /api/events/{id}/attendance/{attendance_id}/` with `attendance_mode` and (when Online on a hybrid event) `attendance_venue`. UI: **Edit mode** on the Event attendance list and on Check-In Recent Check-Ins. Switching to Onsite clears venue; Online on hybrid requires an active venue.
+- Staff check-in station: Hybrid — **Onsite** (default, QR + manual) or **Online** (manual + venue). Online-only — Online locked, no venue. Onsite-only — Onsite locked.
+- Event detail **Add attendee** also accepts Onsite/Online (+ venue when Online on hybrid).
+- Self-check-in is always **Online**. Hybrid requires `attendance_venue` on every POST; online-only omits venue. Session payloads include `requires_online_venue` and `attendance_venues` (empty when not required).
 - Manage venues in **Admin Settings → Events → Manage venues**.
 
 ## Recurrence Pattern Format
@@ -95,26 +96,55 @@ The recurrence service expands this pattern on demand in `apps.events.services.r
   - provides an **Open Check-In** action that opens `/events/check-in?event={id}&occurrence=YYYY-MM-DD` in a new tab for a focused check-in station UI;
   - for **today or past** occurrences (occurrence date on or before today, local calendar), also shows **Generate Report**, which opens the attendance report modal (same as on the check-in page).
 
-### Expected Attendees (Sunday Service)
+### Expected Attendees
 
-Sunday Service events store expected-attendee flags on `Event`:
+Activity events can run in two attendance-tracking modes (Meeting room holds do not show these controls):
 
-- `expected_include_active` (default `true`)
-- `expected_include_semiactive` (default `true`)
-- `expected_include_inactive` (default `true`)
-- `expected_include_ongoing_visitors` (default `true`) — includes people with role `VISITOR` and status `ONGOING`
+- **Who can edit on the form:** Admin, Pastor, and Events Coordinator / Senior Coordinator only (`canWriteEvents`). The Expected Attendees / Track expected attendees block is hidden on booking-request forms (other-module coordinators); those submits still use form defaults or existing values unchanged.
+- **`track_expected_attendees`** (model default `false` for new API creates; existing events were backfilled to `true`)
+  - **On (status-based / duty):** check-in shows Total / Remaining; the attendance report includes Expected, Remaining, Surprises, and attendance rate vs the expected pool.
+  - **Off (open / headcount):** check-in shows Checked In only; the report keeps checked-in roster + Onsite / Online / Tardy / by-status / by-cluster breakdowns, but omits Expected, Remaining, Surprises, and expected-based rates.
+- Form defaults on **create:** Sunday Service (`SUNDAY_SERVICE`) starts with tracking **on**; all other activity types (including AWTA) start **off**. Changing type on create resets this default; editing an existing event does not auto-reset it.
+- When tracking is on, status flags further define the expected pool:
+  - `expected_include_active` (default `true`)
+  - `expected_include_semiactive` (default `true`)
+  - `expected_include_inactive` (default `true`)
+  - `expected_include_ongoing_visitors` (default `true`) — includes people with role `VISITOR` and status `ONGOING`
 
-The Event form shows these toggles only when the type is Sunday Service. Other event types keep the broader check-in pool for now (non-admin, branch-scoped). AWTA registration is planned separately.
+Manual Entry and Camera Scan still allow anyone in the broader eligible pool (branch or church-wide), whether or not expected tracking is enabled.
+
+### Cross-branch attendance (host branch)
+
+Branch-hosted activity events can set **`allow_cross_branch_attendance`** (default `false`):
+
+- **On:** people from other branches may use door check-in and self-check-in (same visibility as church-wide for self-check-in matching). When expected tracking is on, **Expected / Remaining still use only the event’s branch**; other-branch check-ins count as Surprises (or plain headcount if tracking is off).
+- **Off:** eligible pool stays branch-scoped (existing behavior).
+- Church-wide events (`branch = null`, e.g. AWTA) ignore this flag (everyone is already eligible); the API forces it off.
+- Form control is Events write–only, hidden for room holds, booking requests, and church-wide.
+- Typical use: HQ anniversary Sunday at a dedicated off-site venue (hybrid), open to satellites who may attend without joining the expected pool.
+- **Onsite registration / capacity (food, seat limits) is deferred** to a future plan.
+
+### AWTA (national / church-wide)
+
+**AWTA** is a seeded activity type that HQ leadership can run as a national event:
+
+- **Who can create/edit:** Admin, HQ Pastor, and Events Coordinator / Senior Coordinator whose person branch is headquarters (`can_manage_national_events` on the auth user). Satellite Events coordinators cannot select AWTA or clear the branch.
+- **Church-wide:** `Event.branch = null` is allowed only for AWTA (shown as **Church-wide** on the Event form). Non-AWTA events still require a branch.
+- **Dedicated venue:** Church-wide AWTA must use Other / off-site with a free-text `location` (no `EventRoom`). Branch-scoped AWTA may still use a building room.
+- **Attendance:** Same hybrid / online-only / onsite-only rules as other activity events. Online hybrid still uses Home altar / Cluster house — there is no separate AWTA attendance venue. Self-check-in and expected-attendee pools already treat `branch=null` as visible to all branches.
+- AWTA registration / enrollment remains out of scope.
 
 ### Check-In Page
 
 - Route: `/events/check-in?event={id}&occurrence=YYYY-MM-DD` (requires auth via `ProtectedRoute`, plus Events write: Admin, Pastor, Events Coordinator / Senior Coordinator). Other members see an access message and should use self-check-in when it is enabled.
 - Layout: full-width, centered column without the dashboard sidebar — intended for tablets or a dedicated check-in tab.
 - Stats (branch-aware when `event.branch` is set):
-  - **Total** — expected attendees for the event. For Sunday Service this uses the expected-attendee flags (Active / Semi-active / Inactive / optional Ongoing visitors). For other types, non-admin people in the event branch (or all when church-wide). Deceased people are excluded. When Ongoing visitors are included, Total notes how many of them are in the count;
-  - **Checked In** — unique people with attendance records for the occurrence (expected plus any extras);
-  - **Remaining** — expected people not yet checked in (not `Total − Checked In` when extras are present).
-- Manual Entry and Camera Scan look up anyone in the broader check-in candidate pool (non-admin, branch-scoped), so people outside Total can still check in.
+  - When **`track_expected_attendees`** is on:
+    - **Total** — expected attendees using the expected-include flags (Active / Semi-active / Inactive / optional Ongoing visitors), scoped to the event branch (or all when church-wide). Deceased people are excluded. When Ongoing visitors are included, Total notes how many of them are in the count;
+    - **Checked In** — unique people with attendance records for the occurrence (expected plus any extras);
+    - **Remaining** — expected people not yet checked in (not `Total − Checked In` when extras are present).
+  - When tracking is **off** (open event): **Checked In** only (headcount).
+- Manual Entry and Camera Scan look up anyone in the broader check-in candidate pool (non-admin, branch-scoped, or all branches when church-wide / `allow_cross_branch_attendance`).
 - **Manual Entry** tab accepts name or LAMP ID; Enter key submits.
 - **Camera Scan** tab (Onsite station only) uses the device camera (`@zxing/browser`) to read a QR code whose payload is the LAMP ID (`member_id`), for example `LAMP12345`. A match auto-checks the person in. Success, already-checked-in, and unknown IDs show a large status banner on the page (green / amber / red) **and** a larger toast. Camera access requires HTTPS or localhost.
 - Station toggle: **Onsite** (default) posts `attendance_mode: ONSITE`; **Online** requires a venue and posts `ONLINE` + venue. Switching the station also sets the Recent Check-Ins mode filter to Onsite or Online. Recent Check-Ins show mode/venue chips, **Edit mode** (PATCH correction), and can still filter by mode and cluster.
@@ -122,14 +152,14 @@ The Event form shows these toggles only when the type is Sunday Service. Other e
 - For **today or past** occurrences, **Generate Report** opens the same client-side attendance report as Event Details.
 - **New guest** opens `/events/guest?event={id}&occurrence=YYYY-MM-DD` for encoding walk-ins / new visitors with **ONSITE** attendance (Events write only).
 
-### Guest (onsite Sunday)
+### Guest (onsite)
 
 Staff page at `/events/guest` (no sidebar). Events write only (same as check-in: Admin, Pastor, Events Coordinator / Senior Coordinator).
 
-- Resolves today’s approved `SUNDAY_SERVICE` (branch-aware picker when needed), or uses `?event=` + `?occurrence=` when opened from the check-in station.
-- Search first: existing `VISITOR` people and Invited prospects in the event branch; check-in existing matches as **ONSITE** (no venue).
+- Resolves today’s **approved activity** events that have `self_checkin_enabled` and are not onsite-only (branch-aware picker when needed), or uses `?event=` + `?occurrence=` when opened from the check-in station (any approved activity event, even if self-check-in is off).
+- Search first: existing `VISITOR` people and Invited prospects in the event branch; check-in existing matches as **ONSITE** for hybrid/onsite-only events, or **ONLINE** (no venue) for online-only events.
 - Encode new guest: first/last name, optional phone/email, gender, age group, **First time attending** (default on — sets `date_first_attended` and `date_first_invited` to the occurrence date; off leaves invited null), **optional inviter** (member search). Blank inviter = walk-in (`inviter=null` — do not invent a staff inviter).
-- Creates `VISITOR` / `ONGOING` with the same title-case / first-activity / age-group Journey note rules as online guest encode, then Present with `attendance_mode: ONSITE`.
+- Creates `VISITOR` / `ONGOING` with first activity set to the **event’s type**, then Present with the mode above.
 - Duplicate first+last in the branch returns 409 with matches.
 
 API (Events write):
@@ -138,7 +168,7 @@ API (Events write):
 - `GET|POST /api/events/onsite-guest/visitors/` — search / check in existing, prospect, or create (`inviter_id` optional)
 - `GET /api/events/onsite-guest/inviters/?q=` — member search for optional inviter (empty query returns no results)
 
-### Self Check-In (Sunday Service)
+### Self Check-In
 
 Mobile-first page at `/events/self-check-in` (no sidebar). **Online attendance only** — onsite members use the staff station at `/events/check-in`; onsite guests use `/events/guest` (linked from check-in). Both write the same `AttendanceRecord` + `EVENT_ATTENDANCE` journey.
 
@@ -149,40 +179,55 @@ There are two UIs on the same URL:
 
 The member QR payload stays the LAMP ID (`member_id`), for example `LAMP12345`. The shared page URL is not encoded in that QR.
 
-- **Availability:** church-local today (`CHURCH_TIME_ZONE`) must have an **approved** `SUNDAY_SERVICE` occurrence. Pending room bookings do not open check-in. If none, the page is unavailable (no last-week fallback). Public identify prefers the person’s branch (and includes church-wide services). Logged-in users still prefer their branch; admins / HQ pastors get a picker when more than one branch or time matches.
-- **Who can use the public link:** **Member self-check-in** in Admin Settings → Module controls is off by default. Turn the switch on to open the public LAMP ID page. While off, the public APIs return `available: false`, `reason: restricted`; admins and Events coordinators still use the logged-in household/guest page.
+**Per-event eligibility** (all required):
+
+1. `Event.self_checkin_enabled` is on (organizer opt-in on the Event form for any activity type; Meeting room holds cannot enable it)
+2. Event type has `counts_as_activity` (not Meeting)
+3. `attendance_format` is not `onsite_only`
+4. `booking_status` is **approved**
+5. Church-local today has an occurrence of that event
+
+New Sunday Service creates default `self_checkin_enabled=True` and `attendance_format=hybrid`; other types default self-check-in off and hybrid. Existing Sunday Service rows were migrated to self-check-in enabled.
+
+- **Availability:** church-local today (`CHURCH_TIME_ZONE`) must have at least one eligible event above. Pending room bookings do not open check-in. If none, the page is unavailable (no last-week fallback). Public identify prefers the person’s branch (and includes church-wide events). Logged-in users still prefer their branch; admins / HQ pastors get a picker when more than one branch or time matches.
+- **Who can use the public link:** **Member self-check-in** in Admin Settings → Module controls is off by default. Turn the switch on to open the public LAMP ID page for eligible events. While off, the public APIs return `available: false`, `reason: restricted`; admins and Events coordinators still use the logged-in household/guest page.
 - **Public identify:** `POST` with `{ member_id }` (also accepts digits-only, e.g. `10001` for `LAMP10001`). Unknown / admin / deceased → generic 404. Duplicate LAMP IDs → 409 asking staff. Check-in re-resolves from `member_id` (does not trust a client `person_id`).
 - **Logged-in members:** any allowed authenticated non-visitor attending **online** can check in themselves and household members on the same `Family` record(s). Deceased and other admin accounts are skipped. Does **not** require Events write.
 - **Online guests (logged-in only):** any allowed member can search first (existing `VISITOR` records **and Invited prospects** in the event branch), then check them in or add a new guest. Inviter is always the logged-in host (not editable). Duplicate first+last name in the branch returns 409 with matches instead of creating a second person. This does **not** grant People-module visitor create rights. New-guest encode includes **First time attending** (default on): checked sets both `date_first_attended` and `date_first_invited` to the occurrence date; unchecked sets attended only.
-- Checking in an Invited prospect uses the same `mark_prospect_attended` path as Evangelism / cluster reports: creates a `VISITOR` / `ONGOING` Person, sets first activity to Sunday Service, then marks Present. Undo still only removes attendance.
-- New guests: `VISITOR` / `ONGOING`, `date_first_attended` = occurrence date, optional `date_first_invited` when **First time attending** is checked (default), `first_activity_attended=SUNDAY_SERVICE`, event branch, age group stored as a visitor note. First and last names use the same title-case rules as Add Person.
-- Dashboard and My record show a Sunday-aware **Check in online** banner when a logged-in session is open, labelled as online-only. The unauthenticated home page shows **Sunday online check-in** when the public session is available.
-- After a successful logged-in check-in, **I made a mistake** undoes that attendance for this service (household or guests you invited). Admins and Events coordinators can also undo other visitors in the event branch. It does not delete the person record. The public page has no undo.
+- Checking in an Invited prospect uses the same `mark_prospect_attended` path as Evangelism / cluster reports: creates a `VISITOR` / `ONGOING` Person, sets first activity to the **event’s type**, then marks Present. Undo still only removes attendance.
+- New guests: `VISITOR` / `ONGOING`, `date_first_attended` = occurrence date, optional `date_first_invited` when **First time attending** is checked (default), `first_activity_attended` = event type, event branch, age group stored as a visitor note. First and last names use the same title-case rules as Add Person.
+- Dashboard and My record show a **Check in online** banner when a logged-in session is open, labelled as online-only. The unauthenticated home page shows **Online check-in** when the public session is available.
+- After a successful logged-in check-in, **I made a mistake** undoes that attendance for this event (household or guests you invited). Admins and Events coordinators can also undo other visitors in the event branch. It does not delete the person record. The public page has no undo.
 
 API:
 
-- `GET|PATCH /api/events/settings/` — ADMIN. `member_self_checkin_enabled` opens the **public** Sunday link (default off). Logged-in staff keep household/guest check-in either way.
+- `GET|PATCH /api/events/settings/` — ADMIN. `member_self_checkin_enabled` opens the **public** self-check-in link (default off). Logged-in staff keep household/guest check-in either way.
 - `GET|POST|PATCH|DELETE /api/attendance-venues/` — list/manage online venues (`?active=true` for pickers). Write/delete is ADMIN.
 - Public (`AllowAny`, no JWT; identify/check-in throttled):
-  - `GET /api/events/self-check-in/public/session/` — whether today is open, service options, `attendance_venues`. No household.
+  - `GET /api/events/self-check-in/public/session/` — whether today is open, event options, `attendance_venues`. No household.
   - `POST /api/events/self-check-in/public/identify/` — `{ member_id, event_id? }` slim confirm payload (name, nickname, photo, LAMP ID, already checked in).
-  - `POST /api/events/self-check-in/public/` — `{ member_id, attendance_venue, event_id? }` Present upsert as **Online**. Same first-check-in-is-final 409.
+  - `POST /api/events/self-check-in/public/` — `{ member_id, attendance_venue?, event_id? }` Present upsert as **Online**. Hybrid requires venue; online-only omits it. Same first-check-in-is-final 409.
 - Authenticated, non-visitor:
-  - `GET /api/events/self-check-in/session/` — today’s session, household, `can_encode_visitors`, `attendance_venues`. `?event=` selects among options. Members get `available: false`, `reason: restricted` while the setting is off.
-  - `POST /api/events/self-check-in/` — `{ person_ids, attendance_venue, event_id? }` household Present upsert as **Online**.
+  - `GET /api/events/self-check-in/session/` — today’s session, household, `can_encode_visitors`, `requires_online_venue`, `attendance_venues`. `?event=` selects among options. Members get `available: false`, `reason: restricted` while the setting is off.
+  - `POST /api/events/self-check-in/` — `{ person_ids, attendance_venue?, event_id? }` household Present upsert as **Online**.
   - `POST /api/events/self-check-in/undo/` — `{ person_ids, event_id? }` remove today’s Present records you are allowed to undo (household, guests you invited; staff may undo any visitor in the event branch).
-  - `GET|POST /api/events/self-check-in/visitors/` — name search (visitors + Invited prospects) / check in existing person, check in prospect (`prospect_id`), or add a guest. POSTs require `attendance_venue`. Inviter is the logged-in user.
+  - `GET|POST /api/events/self-check-in/visitors/` — name search (visitors + Invited prospects) / check in existing person, check in prospect (`prospect_id`), or add a guest. POSTs require `attendance_venue` when the event is hybrid.
 
 ### Attendance Report (today and past occurrences)
 
 Available from Event Details and the check-in page when the selected occurrence date is today or earlier (local calendar day). Future occurrences keep Open Check-In only. No new backend report API — the report is computed in the browser from people + attendance for that occurrence.
 
-- **Summary:** Expected, Checked In, **Onsite**, **Online**, Remaining, Surprises; optional **Online by venue** breakdown.
-- **Breakdowns:** Checked-in and remaining counts by person status (Active, Semi-active, Inactive, Ongoing, No Response, etc.).
-- **Surprises list** and a searchable **checked-in roster** with mode/venue chips (filters for mode, venue, and cluster).
-- **Download CSV** with event title, occurrence date, summary counts (including Onsite/Online), and rows for checked-in / remaining / surprises (name, LAMP ID, role, status, cluster, attendance mode, online venue, category, check-in time when present).
+- When **`track_expected_attendees`** is on:
+  - **Summary:** Expected, Checked In, **Onsite**, **Online**, Remaining, Surprises, Tardy; optional **Online by venue** breakdown; attendance rate vs expected pool.
+  - **Breakdowns:** Checked-in and remaining counts by person status and cluster.
+  - **Surprises list** and a searchable **checked-in roster** with mode/venue chips.
+  - **Download CSV** includes Expected / Remaining / Surprises summary rows and `checked_in` / `surprise` / `remaining` person categories.
+- When tracking is **off** (open):
+  - **Summary:** Checked In, Onsite, Online, Tardy (no Expected / Remaining / Surprises or attendance rate).
+  - Checked-in by status / by cluster and searchable roster remain; remaining and surprises sections are omitted.
+  - **Download CSV** omits expected/remaining/surprises fields; all present people are `checked_in`.
 
-Sunday Service uses expected-attendee flags for Expected/Remaining/Surprises; other types use the full eligible pool as expected (same as check-in). Deceased people are excluded from Expected / Remaining in all cases.
+Expected/Remaining/Surprises (when tracking) use the expected-include flags (same as check-in Total). Deceased people are excluded from Expected / Remaining in all cases.
 
 ## Room booking and approvals
 
@@ -206,7 +251,7 @@ Events does **not** use Teacher or Bible Sharer. Reporters, Teachers, Bible Shar
 Pending events:
 
 - Visible to the requester and to approvers; hidden from ordinary members on the agenda/calendar.
-- Do not open Sunday Service self-check-in until approved.
+- Do not open self-check-in until approved.
 - Requester may edit or cancel their own pending request (still conflict-checked). They cannot edit other people’s events, manage types/rooms, or split-edit someone else’s series.
 - If a requester changes room or time on an event they created that is already approved, it returns to `pending`. Approvers can edit approved events without re-approval.
 
@@ -214,7 +259,7 @@ Existing rows migrated as `approved`. Duplicate historical Sunday Services are n
 
 ## Testing
 
-Recurring frequencies, skip/end/split, and series `DELETE` are covered by `apps.events.tests.test_recurrence` and `apps.events.tests.test_recurrence_delete`. Self check-in is covered by `apps.events.tests.test_self_checkin`. Attendance mode/venues are covered by `apps.events.tests.test_attendance_mode_venues`. Sunday Service uniqueness is covered by `apps.events.tests.test_sunday_service_uniqueness`. Room booking, requester permissions, and approve/reject are covered by `apps.events.tests.test_room_booking`. Meeting room holds and First Activity exclusion are covered by `apps.events.tests.test_meeting_type`.
+Recurring frequencies, skip/end/split, and series `DELETE` are covered by `apps.events.tests.test_recurrence` and `apps.events.tests.test_recurrence_delete`. Self check-in is covered by `apps.events.tests.test_self_checkin`. Attendance mode/venues are covered by `apps.events.tests.test_attendance_mode_venues`. Sunday Service uniqueness is covered by `apps.events.tests.test_sunday_service_uniqueness`. Room booking, requester permissions, and approve/reject are covered by `apps.events.tests.test_room_booking`. Meeting room holds and First Activity exclusion are covered by `apps.events.tests.test_meeting_type`. AWTA church-wide / HQ national permissions are covered by `apps.events.tests.test_national_awta`.
 
 Run them (uses SQLite to avoid Postgres permissions):
 

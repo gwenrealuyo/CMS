@@ -1,4 +1,4 @@
-"""Staff onsite Sunday guest encode API (Events write)."""
+"""Staff onsite guest encode API (Events write)."""
 
 from __future__ import annotations
 
@@ -12,10 +12,9 @@ from apps.attendance.serializers import AttendanceRecordSerializer
 from apps.authentication.permissions import IsAuthenticatedAndNotVisitor
 from apps.evangelism.models import Prospect
 from apps.evangelism.services import mark_prospect_attended
-from apps.events.models import EventType
 from apps.events.permissions import has_events_write
+from apps.events.models import Event
 from apps.events.services.self_checkin import (
-    SUNDAY_SERVICE_TYPE,
     checked_in_person_ids,
     create_visitor_guest_person,
     exact_name_matches,
@@ -146,7 +145,7 @@ def _resolve_or_error(request):
         if resolved.needs_selection:
             return None, Response(
                 {
-                    "detail": "Select a Sunday Service first.",
+                    "detail": "Select an event first.",
                     **_options_payload(resolved),
                 },
                 status=status.HTTP_400_BAD_REQUEST,
@@ -167,13 +166,17 @@ def _resolve_or_error(request):
 
 
 def _upsert_onsite_present(event, person, occurrence_date, request):
+    if event.attendance_format == Event.AttendanceFormat.ONLINE_ONLY:
+        mode = AttendanceRecord.AttendanceMode.ONLINE
+    else:
+        mode = AttendanceRecord.AttendanceMode.ONSITE
     serializer = AttendanceRecordSerializer(
         data={
             "event_id": event.pk,
             "person_id": person.pk,
             "occurrence_date": occurrence_date.isoformat(),
             "status": "PRESENT",
-            "attendance_mode": AttendanceRecord.AttendanceMode.ONSITE,
+            "attendance_mode": mode,
             "attendance_venue": None,
         },
         context={"request": request},
@@ -256,7 +259,7 @@ class OnsiteGuestVisitorsView(APIView):
                 {"detail": "Invited visitor not found for this service."},
                 status=status.HTTP_404_NOT_FOUND,
             )
-        event_type = EventType.objects.filter(code=SUNDAY_SERVICE_TYPE).first()
+        event_type = resolved.event.event_type
         try:
             prospect = mark_prospect_attended(
                 prospect,
@@ -408,6 +411,7 @@ class OnsiteGuestVisitorsView(APIView):
                 )
                 else None
             ),
+            first_activity_attended=resolved.event.event_type,
         )
 
         record, _created, _already = _upsert_onsite_present(

@@ -35,9 +35,7 @@ function ClusterCodeChip({ option }: { option: SelectOption }) {
   if (!option.clusterCode) return null;
   if (option.clusterCode === "NO CLUSTER") {
     return (
-      <span className="inline-flex shrink-0 items-center rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-semibold text-red-600">
-        NO CLUSTER
-      </span>
+      <span className="chip-red-sm shrink-0">NO CLUSTER</span>
     );
   }
   return (

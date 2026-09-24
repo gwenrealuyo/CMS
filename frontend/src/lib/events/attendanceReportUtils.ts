@@ -46,6 +46,13 @@ export type VenueCount = {
   percent: number | null;
 };
 
+export type ClusterCount = {
+  code: string;
+  label: string;
+  count: number;
+  percent: number | null;
+};
+
 export type AttendanceReport = {
   expectedCount: number;
   checkedInCount: number;
@@ -65,6 +72,8 @@ export type AttendanceReport = {
   onlineByVenue: VenueCount[];
   checkedInByStatus: StatusCount[];
   remainingByStatus: StatusCount[];
+  checkedInByCluster: ClusterCount[];
+  remainingByCluster: ClusterCount[];
   surprises: AttendanceReportPerson[];
   checkedInRoster: AttendanceReportPerson[];
   remainingRoster: AttendanceReportPerson[];
@@ -88,6 +97,21 @@ function normalizeStatus(status?: string | null): string {
   return (status || "").trim().toUpperCase() || "UNSET";
 }
 
+function normalizeRole(role?: string | null): string {
+  return (role || "").trim().toUpperCase();
+}
+
+/** Cluster label for attendance reports; pastors without a cluster are exempt. */
+export function resolveAttendanceClusterLabel(
+  clusterCodes?: string[] | null,
+  role?: string | null
+): string {
+  const code = clusterCodes?.[0]?.trim();
+  if (code) return code;
+  if (normalizeRole(role) === "PASTOR") return "—";
+  return "NO CLUSTER";
+}
+
 function modeFromRecord(record?: EventAttendanceRecord): AttendanceMode {
   return record?.attendance_mode === "ONLINE" ? "ONLINE" : "ONSITE";
 }
@@ -101,7 +125,10 @@ function toReportPersonFromPerson(person: Person): AttendanceReportPerson {
     role: (person.role || "").trim().toUpperCase(),
     status,
     statusLabel: formatPersonStatusLabel(person.status),
-    clusterLabel: person.cluster_codes?.[0] || "NO CLUSTER",
+    clusterLabel: resolveAttendanceClusterLabel(
+      person.cluster_codes,
+      person.role
+    ),
     // Remaining / not checked in — no attendance mode yet
     attendanceMode: "ONSITE",
     attendanceModeLabel: "",
@@ -125,7 +152,10 @@ function toReportPersonFromRecord(
     role: (person.role || "").trim().toUpperCase(),
     status,
     statusLabel: formatPersonStatusLabel(person.status),
-    clusterLabel: person.cluster_codes?.[0] || "NO CLUSTER",
+    clusterLabel: resolveAttendanceClusterLabel(
+      person.cluster_codes,
+      person.role
+    ),
     attendanceMode: mode,
     attendanceModeLabel: mode === "ONLINE" ? "Online" : "Onsite",
     venueCode: record.attendance_venue || "",
@@ -200,6 +230,31 @@ function countOnlineByVenue(
       percent: computeRatePercent(venue.count, onlineTotal),
     }))
     .sort((a, b) => a.label.localeCompare(b.label));
+}
+
+function countByCluster(
+  people: AttendanceReportPerson[],
+  total: number
+): ClusterCount[] {
+  const counts = new Map<string, number>();
+  for (const person of people) {
+    const label = person.clusterLabel || "NO CLUSTER";
+    // Pastors without a cluster use "—" and are exempt from cluster flags.
+    if (label === "—") continue;
+    counts.set(label, (counts.get(label) || 0) + 1);
+  }
+  return Array.from(counts.entries())
+    .map(([label, count]) => ({
+      code: label === "NO CLUSTER" ? "NO_CLUSTER" : label,
+      label,
+      count,
+      percent: computeRatePercent(count, total),
+    }))
+    .sort((a, b) => {
+      if (a.label === "NO CLUSTER") return 1;
+      if (b.label === "NO CLUSTER") return -1;
+      return a.label.localeCompare(b.label);
+    });
 }
 
 /** Clear labels for report breakdowns (members vs visitors). */
@@ -365,6 +420,8 @@ export function buildAttendanceReport(
     onlineByVenue: countOnlineByVenue(checkedInRoster, onlineCount),
     checkedInByStatus: countByStatus(checkedInRoster, checkedInCount),
     remainingByStatus: countByStatus(remainingRoster, remainingCount),
+    checkedInByCluster: countByCluster(checkedInRoster, checkedInCount),
+    remainingByCluster: countByCluster(remainingRoster, remainingCount),
     surprises,
     checkedInRoster,
     remainingRoster,
@@ -419,6 +476,22 @@ export function buildAttendanceReportCsv(
       [
         `Online venue: ${venue.label}`,
         `${venue.count} (${formatRatePercent(venue.percent)})`,
+      ]
+        .map(escapeCsvValue)
+        .join(",")
+    ),
+    ...report.checkedInByCluster.map((cluster) =>
+      [
+        `Cluster checked in: ${cluster.label}`,
+        `${cluster.count} (${formatRatePercent(cluster.percent)})`,
+      ]
+        .map(escapeCsvValue)
+        .join(",")
+    ),
+    ...report.remainingByCluster.map((cluster) =>
+      [
+        `Cluster remaining: ${cluster.label}`,
+        `${cluster.count} (${formatRatePercent(cluster.percent)})`,
       ]
         .map(escapeCsvValue)
         .join(",")

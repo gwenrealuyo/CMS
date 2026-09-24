@@ -22,7 +22,10 @@ import ScalableSelect from "@/src/components/ui/ScalableSelect";
 import { usePeople } from "@/src/hooks/usePeople";
 import { attendanceVenuesApi, eventsApi } from "@/src/lib/api";
 import { XMarkIcon } from "@heroicons/react/24/solid";
-import { isAttendanceReportAvailable } from "@/src/lib/events/attendanceReportUtils";
+import {
+  isAttendanceReportAvailable,
+  resolveAttendanceClusterLabel,
+} from "@/src/lib/events/attendanceReportUtils";
 import {
   countExpectedOngoingVisitors,
   filterEligibleMembersByQuery,
@@ -354,11 +357,14 @@ export default function EventCheckInView({
     const codes = new Set<string>();
     let hasNoCluster = false;
     for (const record of recentCheckIns) {
-      const code = record.person.cluster_codes?.[0];
-      if (code) {
-        codes.add(code);
-      } else {
+      const label = resolveAttendanceClusterLabel(
+        record.person.cluster_codes,
+        record.person.role
+      );
+      if (label === "NO CLUSTER") {
         hasNoCluster = true;
+      } else if (label !== "—") {
+        codes.add(label);
       }
     }
     return {
@@ -388,10 +394,20 @@ export default function EventCheckInView({
     }
 
     if (clusterFilter === "NO_CLUSTER") {
-      filtered = filtered.filter((record) => !record.person.cluster_codes?.[0]);
+      filtered = filtered.filter(
+        (record) =>
+          resolveAttendanceClusterLabel(
+            record.person.cluster_codes,
+            record.person.role
+          ) === "NO CLUSTER"
+      );
     } else if (clusterFilter) {
       filtered = filtered.filter(
-        (record) => record.person.cluster_codes?.[0] === clusterFilter,
+        (record) =>
+          resolveAttendanceClusterLabel(
+            record.person.cluster_codes,
+            record.person.role
+          ) === clusterFilter
       );
     }
 
@@ -1199,11 +1215,14 @@ export default function EventCheckInView({
                           <span className="chip-primary-sm shrink-0">
                             {record.person.cluster_codes[0]}
                           </span>
-                        ) : (
-                          <span className="inline-flex shrink-0 items-center rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-semibold text-red-600">
+                        ) : resolveAttendanceClusterLabel(
+                            record.person.cluster_codes,
+                            record.person.role
+                          ) === "NO CLUSTER" ? (
+                          <span className="chip-red-sm shrink-0">
                             NO CLUSTER
                           </span>
-                        )}
+                        ) : null}
                       </div>
                       <div className="flex shrink-0 items-center gap-1">
                         <span className="text-xs text-muted-foreground transition-transform duration-200 group-hover:-translate-x-1">

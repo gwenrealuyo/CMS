@@ -372,6 +372,7 @@ class ClusterViewSet(viewsets.ModelViewSet):
         )
         people_qs = (
             people_qs.exclude(id__in=assigned_ids)
+            .exclude(role="PASTOR")
             .exclude(username="admin")
             .exclude(Q(first_name="") | Q(last_name=""))
             .exclude(first_name__isnull=True)
@@ -418,6 +419,7 @@ class ClusterViewSet(viewsets.ModelViewSet):
         )
         unassigned_count = (
             people_qs.exclude(id__in=assigned_ids)
+            .exclude(role="PASTOR")
             .exclude(username="admin")
             .exclude(Q(first_name="") | Q(last_name=""))
             .exclude(first_name__isnull=True)

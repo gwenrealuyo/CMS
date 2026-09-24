@@ -220,8 +220,11 @@ def build_status_tally_rows(
         )
 
     if include_unassigned:
+        # Pastors may be unclustered without being flagged as Unassigned.
         unassigned_ids = set(
-            people_qs.filter(clusters__isnull=True).values_list("id", flat=True)
+            people_qs.filter(clusters__isnull=True)
+            .exclude(role="PASTOR")
+            .values_list("id", flat=True)
         )
         if unassigned_ids:
             total_ids |= unassigned_ids
@@ -283,7 +286,9 @@ def people_ids_for_status_tally_detail(
 
     if unassigned:
         selected_ids = set(
-            people_qs.filter(clusters__isnull=True).values_list("id", flat=True)
+            people_qs.filter(clusters__isnull=True)
+            .exclude(role="PASTOR")
+            .values_list("id", flat=True)
         )
     elif cluster_id is not None:
         selected_ids = {
@@ -299,7 +304,9 @@ def people_ids_for_status_tally_detail(
             }
         if include_unassigned:
             selected_ids |= set(
-                people_qs.filter(clusters__isnull=True).values_list("id", flat=True)
+                people_qs.filter(clusters__isnull=True)
+                .exclude(role="PASTOR")
+                .values_list("id", flat=True)
             )
 
     wanted = set(MEMBER_STATUSES) if status == "members" else {status}

@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime
 
 from django.utils import timezone
 from rest_framework.test import APITestCase
@@ -45,15 +45,20 @@ class ClusterStatusTallyAPITests(APITestCase):
         self.client.force_authenticate(self.admin)
 
     def _person(self, username, role="MEMBER", **kwargs):
-        return Person.objects.create_user(
-            username=username,
-            password="pass12345",
-            first_name=kwargs.get("first_name", username.title()),
-            last_name=kwargs.get("last_name", "Test"),
-            role=role,
-            status=kwargs.get("status", "ACTIVE"),
-            branch=kwargs.get("branch", self.branch),
-        )
+        create_kwargs = {
+            "username": username,
+            "password": "pass12345",
+            "first_name": kwargs.get("first_name", username.title()),
+            "last_name": kwargs.get("last_name", "Test"),
+            "role": role,
+            "status": kwargs.get("status", "ACTIVE"),
+            "branch": kwargs.get("branch", self.branch),
+        }
+        if role == "MEMBER" and "water_baptism_date" not in kwargs:
+            create_kwargs["water_baptism_date"] = date(2020, 1, 1)
+        elif "water_baptism_date" in kwargs:
+            create_kwargs["water_baptism_date"] = kwargs["water_baptism_date"]
+        return Person.objects.create_user(**create_kwargs)
 
     def _set_status_change(self, person, from_status, to_status, when):
         change = PersonStatusChange.objects.create(
@@ -244,6 +249,44 @@ class ClusterStatusTallyAPITests(APITestCase):
         names = [row["first_name"] for row in detail.data["results"]]
         self.assertEqual(names, ["Una"])
         self.assertEqual(detail.data["count"], 1)
+
+    def test_unclustered_pastor_excluded_from_unassigned(self):
+        clustered = self._person("statclusp", first_name="Clem")
+        unassigned_member = self._person("statunassm", first_name="Una")
+        unclustered_pastor = self._person(
+            "statpastorfree", role="PASTOR", first_name="Paul"
+        )
+        self.east.members.add(clustered)
+
+        response = self.client.get(
+            TALLY_URL,
+            {
+                "year": self.year,
+                "branch_id": self.branch.id,
+                "months": "9",
+            },
+        )
+        self.assertEqual(response.status_code, 200, response.data)
+        unassigned_row = self._row_for_kind(response.data, "unassigned")
+        total = self._row_for_kind(response.data, "total")
+        self.assertEqual(unassigned_row["active_count"], 1)
+        # Clustered member + unassigned member only; pastor is exempt.
+        self.assertEqual(total["active_count"], 2)
+
+        detail = self.client.get(
+            DETAIL_URL,
+            {
+                "year": self.year,
+                "branch_id": self.branch.id,
+                "months": "9",
+                "status": "ACTIVE",
+                "cluster": "unassigned",
+            },
+        )
+        self.assertEqual(detail.status_code, 200, detail.data)
+        names = [row["first_name"] for row in detail.data["results"]]
+        self.assertEqual(names, ["Una"])
+        self.assertNotIn(unclustered_pastor.first_name, names)
 
     def test_detail_includes_transition_and_in_window_flag(self):
         member = self._person("statmodal", first_name="Mia")

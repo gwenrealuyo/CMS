@@ -510,9 +510,7 @@ export default function EventAttendancePanel({
                                 {record.person.cluster_codes[0]}
                               </span>
                             ) : (
-                              <span className="inline-flex items-center rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-semibold text-red-600">
-                                No Cluster
-                              </span>
+                              <span className="chip-red-sm">No Cluster</span>
                             )}
                             {record.person.family_names &&
                             record.person.family_names.length > 0 ? (

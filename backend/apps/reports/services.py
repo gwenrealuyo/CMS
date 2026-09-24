@@ -473,7 +473,13 @@ def build_people_summary(
         .filter(_cluster_count__gt=0)
         .count()
     )
-    without_cluster = total_people - in_cluster
+    # Pastors may be unclustered without being flagged in without_cluster.
+    without_cluster = (
+        people_qs.exclude(role="PASTOR")
+        .annotate(_cluster_count=Count("clusters"))
+        .filter(_cluster_count=0)
+        .count()
+    )
 
     summary = {
         "total_people": total_people,

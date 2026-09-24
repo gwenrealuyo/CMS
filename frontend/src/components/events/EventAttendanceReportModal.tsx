@@ -10,6 +10,7 @@ import {
   downloadAttendanceReportCsv,
   formatRatePercent,
   type AttendanceReportPerson,
+  type ClusterCount,
   type StatusCount,
 } from "@/src/lib/events/attendanceReportUtils";
 import { formatLampIdDisplay } from "@/src/lib/events/checkInUtils";
@@ -76,13 +77,17 @@ function getAttendanceRateTone(rate: number | null): {
 function StatusBreakdown({
   title,
   counts,
+  titleClassName = "text-gray-600",
 }: {
   title: string;
   counts: StatusCount[];
+  titleClassName?: string;
 }) {
   return (
     <div className="rounded-lg border border-gray-200 p-3">
-      <h4 className="text-xs font-semibold uppercase tracking-wide text-gray-600">
+      <h4
+        className={`text-xs font-semibold uppercase tracking-wide ${titleClassName}`}
+      >
         {title}
       </h4>
       {counts.length === 0 ? (
@@ -101,6 +106,52 @@ function StatusBreakdown({
               >
                 {item.label}
               </span>
+              <span className="flex shrink-0 items-baseline justify-end gap-2.5 text-right">
+                <span className="text-xs text-muted-foreground">
+                  {formatRatePercent(item.percent)}
+                </span>
+                <span className="font-semibold text-lighthouse-navy">
+                  {item.count}
+                </span>
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+function ClusterBreakdown({
+  title,
+  counts,
+  titleClassName = "text-gray-600",
+}: {
+  title: string;
+  counts: ClusterCount[];
+  titleClassName?: string;
+}) {
+  return (
+    <div className="rounded-lg border border-gray-200 p-3">
+      <h4
+        className={`text-xs font-semibold uppercase tracking-wide ${titleClassName}`}
+      >
+        {title}
+      </h4>
+      {counts.length === 0 ? (
+        <p className="mt-2 text-sm text-gray-500">None</p>
+      ) : (
+        <ul className="mt-2 space-y-1.5">
+          {counts.map((item) => (
+            <li
+              key={item.code}
+              className="flex items-center justify-between gap-2 text-sm"
+            >
+              {item.label === "NO CLUSTER" ? (
+                <span className="chip-red-sm shrink-0">NO CLUSTER</span>
+              ) : (
+                <span className="chip-primary-sm shrink-0">{item.label}</span>
+              )}
               <span className="flex shrink-0 items-baseline justify-end gap-2.5 text-right">
                 <span className="text-xs text-muted-foreground">
                   {formatRatePercent(item.percent)}
@@ -214,12 +265,10 @@ function RosterRow({ person }: { person: AttendanceReportPerson }) {
         </span>
       ) : null}
       {person.clusterLabel === "NO CLUSTER" ? (
-        <span className="inline-flex shrink-0 items-center rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-semibold text-red-600">
-          NO CLUSTER
-        </span>
-      ) : (
+        <span className="chip-red-sm shrink-0">NO CLUSTER</span>
+      ) : person.clusterLabel && person.clusterLabel !== "—" ? (
         <span className="chip-primary-sm shrink-0">{person.clusterLabel}</span>
-      )}
+      ) : null}
       {checkInTime ? (
         <span className="text-xs text-muted-foreground tabular-nums">
           {checkInTime}
@@ -310,7 +359,7 @@ export default function EventAttendanceReportModal({
     for (const person of report.checkedInRoster) {
       if (person.clusterLabel === "NO CLUSTER") {
         hasNoCluster = true;
-      } else if (person.clusterLabel) {
+      } else if (person.clusterLabel && person.clusterLabel !== "—") {
         codes.add(person.clusterLabel);
       }
     }
@@ -513,6 +562,19 @@ export default function EventAttendanceReportModal({
           <StatusBreakdown
             title="Remaining (no-shows) by status"
             counts={report.remainingByStatus}
+            titleClassName="text-red-600"
+          />
+        </div>
+
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <ClusterBreakdown
+            title="Checked in by cluster"
+            counts={report.checkedInByCluster}
+          />
+          <ClusterBreakdown
+            title="Remaining (no-shows) by cluster"
+            counts={report.remainingByCluster}
+            titleClassName="text-red-600"
           />
         </div>
 

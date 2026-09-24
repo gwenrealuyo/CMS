@@ -28,6 +28,7 @@ INSTALLED_APPS = [
     "rest_framework",
     "corsheaders",
     "django_filters",
+    "rest_framework_simplejwt.token_blacklist",
     # Local apps
     "apps.authentication.apps.AuthenticationConfig",
     "apps.people.apps.PeopleConfig",
@@ -156,11 +157,13 @@ REST_FRAMEWORK = {
 }
 
 # JWT Settings
+# Refresh default is 2 days; login with Remember Me extends to 14 days
+# (see apps.authentication login + RememberMeTokenRefreshSerializer).
 SIMPLE_JWT = {
     "ACCESS_TOKEN_LIFETIME": timedelta(minutes=15),
-    "REFRESH_TOKEN_LIFETIME": timedelta(days=7),
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=2),
     "ROTATE_REFRESH_TOKENS": True,
-    "BLACKLIST_AFTER_ROTATION": False,  # Set to True if implementing token blacklist
+    "BLACKLIST_AFTER_ROTATION": True,
     "UPDATE_LAST_LOGIN": True,
     "ALGORITHM": "HS256",
     "SIGNING_KEY": os.getenv("JWT_SECRET_KEY", SECRET_KEY),

@@ -8,8 +8,8 @@ Base URL: `/api/people/`
 - **Base URL**: `/api/auth/`
 - **Endpoints**:
   - `POST /api/auth/login/` - Login (returns access + refresh tokens)
-  - `POST /api/auth/logout/` - Logout (clears tokens)
-  - `POST /api/auth/token/refresh/` - Refresh access token
+  - `POST /api/auth/logout/` - Logout (blacklists refresh token when provided; client clears storage)
+  - `POST /api/auth/token/refresh/` - Refresh access token (rotates refresh; returns new access + refresh)
   - `GET /api/auth/me/` - Get current authenticated user
 - **Role-Based Access**: Different modules have different permission requirements
 - **VISITOR Exclusion**: VISITOR role cannot log in

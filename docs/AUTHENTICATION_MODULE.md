@@ -18,9 +18,10 @@ The Authentication module provides JWT-based authentication and role-based acces
 The system uses **JWT (JSON Web Tokens)** for stateless authentication:
 
 - **Access Token**: Short-lived (15 minutes) for security
-- **Refresh Token**: Longer-lived (7 days default, 30 days with "Remember Me")
+- **Refresh Token**: Longer-lived (2 days default, 14 days with "Remember Me")
 - **Token Storage**: Client-side (localStorage)
-- **Token Rotation**: Enabled for refresh tokens
+- **Token Rotation**: Enabled for refresh tokens; old refresh tokens are blacklisted after rotation
+- **Logout blacklist**: Refresh token is blacklisted server-side when logout sends it
 
 ### Why JWT?
 
@@ -104,13 +105,19 @@ The system uses **JWT (JSON Web Tokens)** for stateless authentication:
 #### Logout
 - **Endpoint**: `POST /api/auth/logout/`
 - **Authentication**: Required (IsAuthenticated)
+- **Request Body** (preferred):
+  ```json
+  {
+    "refresh": "eyJ0eXAiOiJKV1QiLCJhbGc..."
+  }
+  ```
 - **Response** (200 OK):
   ```json
   {
     "message": "Successfully logged out"
   }
   ```
-- **Note**: Tokens are cleared client-side. Database blacklisting can be implemented later if needed.
+- **Note**: When `refresh` is provided and valid for the current user, it is blacklisted. The client still clears localStorage. Missing or invalid refresh still returns 200.
 
 #### Token Refresh
 - **Endpoint**: `POST /api/auth/token/refresh/`
@@ -124,9 +131,11 @@ The system uses **JWT (JSON Web Tokens)** for stateless authentication:
 - **Response** (200 OK):
   ```json
   {
-    "access": "eyJ0eXAiOiJKV1QiLCJhbGc..."
+    "access": "eyJ0eXAiOiJKV1QiLCJhbGc...",
+    "refresh": "eyJ0eXAiOiJKV1QiLCJhbGc..."
   }
   ```
+- **Note**: Refresh tokens rotate on each successful refresh. The new refresh must replace the old one client-side. Tokens issued with Remember Me keep a ~14-day lifetime and a `remember_me` claim across rotation.
 
 #### Current User
 - **Endpoint**: `GET /api/auth/me/`
@@ -196,9 +205,9 @@ The system uses **JWT (JSON Web Tokens)** for stateless authentication:
 ```python
 SIMPLE_JWT = {
     "ACCESS_TOKEN_LIFETIME": timedelta(minutes=15),
-    "REFRESH_TOKEN_LIFETIME": timedelta(days=7),
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=2),
     "ROTATE_REFRESH_TOKENS": True,
-    "BLACKLIST_AFTER_ROTATION": False,
+    "BLACKLIST_AFTER_ROTATION": True,
     "UPDATE_LAST_LOGIN": True,
     "ALGORITHM": "HS256",
     "SIGNING_KEY": os.getenv("JWT_SECRET_KEY", SECRET_KEY),
@@ -211,12 +220,15 @@ SIMPLE_JWT = {
 }
 ```
 
+`rest_framework_simplejwt.token_blacklist` is in `INSTALLED_APPS`. Login with Remember Me sets refresh lifetime to **14 days** and a `remember_me` claim; `RememberMeTokenRefreshSerializer` preserves that on rotation.
+
 ### Remember Me Functionality
 
 When a user checks "Remember Me" during login:
-- Refresh token lifetime extends to **30 days** (instead of 7 days)
+- Refresh token lifetime extends to **14 days** (instead of 2 days)
 - Preference is stored in localStorage
 - Access token lifetime remains 15 minutes (security)
+- The longer lifetime survives refresh rotation via the `remember_me` JWT claim
 
 ## Frontend Implementation
 
@@ -519,14 +531,10 @@ curl -X POST http://localhost:8000/api/auth/token/refresh/ \
    - Currently: Admin-only password reset
    - Future: Email with reset link when email server is configured
 
-2. **Token Blacklisting** (Optional)
-   - Currently: Client-side token clearing
-   - Future: Database blacklist for immediate token invalidation
-
-3. **Two-Factor Authentication** (Optional)
+2. **Two-Factor Authentication** (Optional)
    - Additional security layer for sensitive accounts
 
-4. **Session Management**
+3. **Session Management**
    - View active sessions
    - Revoke specific sessions
 

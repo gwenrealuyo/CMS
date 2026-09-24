@@ -1,6 +1,8 @@
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
-from rest_framework_simplejwt.tokens import RefreshToken
+from datetime import timedelta
+from rest_framework_simplejwt.serializers import TokenRefreshSerializer
+from rest_framework_simplejwt.settings import api_settings
 from apps.people.serializers import (
     ModuleCoordinatorSerializer,
     delete_person_photo_if_cleared,
@@ -14,6 +16,40 @@ from .models import PasswordResetRequest, AccountLockout, AuditLog
 from .password_validators import PasswordStrengthValidator
 
 User = get_user_model()
+
+# Refresh lifetimes (access stays 15 minutes via SIMPLE_JWT).
+REFRESH_TOKEN_LIFETIME_DEFAULT = timedelta(days=2)
+REFRESH_TOKEN_LIFETIME_REMEMBER_ME = timedelta(days=14)
+REMEMBER_ME_CLAIM = "remember_me"
+
+
+class RememberMeTokenRefreshSerializer(TokenRefreshSerializer):
+    """Rotate refresh tokens while preserving Remember Me lifetime + claim."""
+
+    def validate(self, attrs):
+        refresh = self.token_class(attrs["refresh"])
+        remember_me = bool(refresh.get(REMEMBER_ME_CLAIM))
+
+        data = {"access": str(refresh.access_token)}
+
+        if api_settings.ROTATE_REFRESH_TOKENS:
+            if api_settings.BLACKLIST_AFTER_ROTATION:
+                try:
+                    refresh.blacklist()
+                except AttributeError:
+                    pass
+
+            refresh.set_jti()
+            if remember_me:
+                refresh[REMEMBER_ME_CLAIM] = True
+                refresh.set_exp(lifetime=REFRESH_TOKEN_LIFETIME_REMEMBER_ME)
+            else:
+                refresh.set_exp(lifetime=REFRESH_TOKEN_LIFETIME_DEFAULT)
+            refresh.set_iat()
+
+            data["refresh"] = str(refresh)
+
+        return data
 
 
 class LoginSerializer(serializers.Serializer):

@@ -2,13 +2,23 @@ from django.urls import path
 from rest_framework_simplejwt.views import TokenRefreshView
 
 from . import views
+from .serializers import RememberMeTokenRefreshSerializer
 
 app_name = "authentication"
+
+
+class RememberMeTokenRefreshView(TokenRefreshView):
+    serializer_class = RememberMeTokenRefreshSerializer
+
 
 urlpatterns = [
     path("login/", views.login_view, name="login"),
     path("logout/", views.logout_view, name="logout"),
-    path("token/refresh/", TokenRefreshView.as_view(), name="token_refresh"),
+    path(
+        "token/refresh/",
+        RememberMeTokenRefreshView.as_view(),
+        name="token_refresh",
+    ),
     path("me/", views.current_user_view, name="current_user"),
     path("change-password/", views.change_password_view, name="change_password"),
     path(
@@ -53,4 +63,3 @@ urlpatterns = [
         name="admin_dashboard_stats",
     ),
 ]
-

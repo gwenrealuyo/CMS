@@ -4,6 +4,7 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.settings import api_settings
+from rest_framework_simplejwt.exceptions import TokenError
 from datetime import timedelta
 from django.utils import timezone
 
@@ -18,6 +19,9 @@ from .serializers import (
     AdminPasswordResetSerializer,
     AccountLockoutSerializer,
     AuditLogSerializer,
+    REMEMBER_ME_CLAIM,
+    REFRESH_TOKEN_LIFETIME_DEFAULT,
+    REFRESH_TOKEN_LIFETIME_REMEMBER_ME,
 )
 from .permissions import IsAuthenticatedAndNotVisitor, IsAdmin
 from .models import AccountLockout, PasswordResetRequest, AuditLog
@@ -111,11 +115,10 @@ def login_view(request):
 
         # Set refresh token lifetime based on "Remember Me"
         if remember_me:
-            # 30 days for "Remember Me"
-            refresh.set_exp(lifetime=timedelta(days=30))
+            refresh[REMEMBER_ME_CLAIM] = True
+            refresh.set_exp(lifetime=REFRESH_TOKEN_LIFETIME_REMEMBER_ME)
         else:
-            # 7 days default
-            refresh.set_exp(lifetime=timedelta(days=7))
+            refresh.set_exp(lifetime=REFRESH_TOKEN_LIFETIME_DEFAULT)
 
         # Serialize user data (prefetch coordinator assignments for /auth/me parity)
         user = (
@@ -249,18 +252,27 @@ def login_view(request):
 @permission_classes([IsAuthenticated])
 def logout_view(request):
     """
-    Logout endpoint. For client-side token blacklisting, just clear tokens.
-    Can be upgraded to database blacklisting later if needed.
+    Logout endpoint. Blacklists the refresh token when provided, then client
+    clears local tokens. Always returns 200 so the client can clear storage.
     """
-    # Log logout event
     log_audit_event(
         request.user,
         "LOGOUT",
         request,
         {},
     )
-    # Client-side blacklisting: tokens are cleared on frontend
-    # If database blacklisting is needed later, implement here
+    refresh_raw = None
+    if hasattr(request, "data"):
+        refresh_raw = request.data.get("refresh")
+    if refresh_raw:
+        try:
+            token = RefreshToken(str(refresh_raw))
+            user_id_claim = api_settings.USER_ID_CLAIM
+            token_user_id = token.get(user_id_claim)
+            if token_user_id is None or int(token_user_id) == int(request.user.pk):
+                token.blacklist()
+        except (TokenError, ValueError, TypeError, AttributeError):
+            pass
     return Response({"message": "Successfully logged out"}, status=status.HTTP_200_OK)
 
 

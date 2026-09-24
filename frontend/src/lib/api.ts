@@ -267,8 +267,13 @@ api.interceptors.response.use(
           `${api.defaults.baseURL}/auth/token/refresh/`,
           { refresh: refreshToken }
         );
-        const { access } = response.data;
-        tokenStorage.setTokens(access, refreshToken);
+        const { access, refresh: newRefresh } = response.data;
+        const rememberMe = tokenStorage.getRememberMe();
+        tokenStorage.setTokens(
+          access,
+          newRefresh || refreshToken,
+          rememberMe
+        );
         originalRequest.headers.Authorization = `Bearer ${access}`;
         processQueue(null, access);
         return api(originalRequest);
@@ -2342,10 +2347,10 @@ export const authApi = {
       }),
 
   logout: () => {
-    // Call logout API first (requires auth token for audit logging)
-    // If token is expired/invalid, this will fail with 401, but AuthContext will handle it
-    // AuthContext will clear tokens in its finally block regardless of API call success/failure
-    return api.post("/auth/logout/");
+    // Prefer blacklisting the refresh token server-side before clearing storage.
+    // AuthContext still clears tokens in finally even if this fails.
+    const refresh = tokenStorage.getRefreshToken();
+    return api.post("/auth/logout/", refresh ? { refresh } : {});
   },
 
   refreshToken: () => {
@@ -2354,10 +2359,13 @@ export const authApi = {
       return Promise.reject(new Error("No refresh token available"));
     }
     return api
-      .post<{ access: string }>("/auth/token/refresh/", { refresh })
+      .post<{ access: string; refresh?: string }>("/auth/token/refresh/", {
+        refresh,
+      })
       .then((response) => {
         const rememberMe = tokenStorage.getRememberMe();
-        tokenStorage.setTokens(response.data.access, refresh, rememberMe);
+        const nextRefresh = response.data.refresh || refresh;
+        tokenStorage.setTokens(response.data.access, nextRefresh, rememberMe);
         return response.data.access;
       });
   },

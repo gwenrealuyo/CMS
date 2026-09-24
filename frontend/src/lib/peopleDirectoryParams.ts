@@ -1,8 +1,15 @@
 import type { FilterCondition } from "@/src/components/people/FilterBar";
 import type { PeopleListParams } from "@/src/lib/api";
 
-const TEXT_FIELDS = new Set(["first_name", "last_name", "email", "phone"]);
+const TEXT_FIELDS = new Set([
+  "first_name",
+  "last_name",
+  "email",
+  "phone",
+  "member_id",
+]);
 const DATE_FIELDS = new Set(["date_first_attended", "date_of_birth", "birth_date"]);
+const EMPTY_OPERATORS = new Set(["is_empty", "is_not_empty"]);
 
 function resolveDateField(field: string): "date_first_attended" | "date_of_birth" {
   if (field === "birth_date" || field === "date_of_birth") {
@@ -81,7 +88,16 @@ export function filtersToPeopleListParams(
     }
 
     if (TEXT_FIELDS.has(field)) {
-      const key = field as "first_name" | "last_name" | "email" | "phone";
+      const key = field as
+        | "first_name"
+        | "last_name"
+        | "email"
+        | "phone"
+        | "member_id";
+      if (field === "member_id" && EMPTY_OPERATORS.has(filter.operator)) {
+        params.has_member_id = filter.operator === "is_not_empty";
+        continue;
+      }
       switch (filter.operator) {
         case "contains":
           params[`${key}__icontains`] = scalar;

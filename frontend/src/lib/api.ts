@@ -347,6 +347,11 @@ export type PeopleListParams = {
   phone__istartswith?: string;
   phone__iendswith?: string;
   phone_ne?: string;
+  member_id?: string;
+  member_id__icontains?: string;
+  member_id__istartswith?: string;
+  member_id__iendswith?: string;
+  member_id_ne?: string;
   date_first_attended?: string;
   date_first_attended_before?: string;
   date_first_attended_after?: string;
@@ -360,6 +365,7 @@ export type PeopleListParams = {
   date_of_birth_min?: string;
   date_of_birth_max?: string;
   has_name?: boolean;
+  has_member_id?: boolean;
   exclude_username?: string;
   /** Same-branch people for weekly-report attendee pickers (Bible Sharers). */
   for_report?: boolean | string;

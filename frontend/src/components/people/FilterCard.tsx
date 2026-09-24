@@ -24,6 +24,15 @@ const OPERATORS = {
     { value: "starts_with", label: "Starts with" },
     { value: "ends_with", label: "Ends with" },
   ],
+  member_id: [
+    { value: "contains", label: "Contains" },
+    { value: "is", label: "Is" },
+    { value: "is_not", label: "Is not" },
+    { value: "starts_with", label: "Starts with" },
+    { value: "ends_with", label: "Ends with" },
+    { value: "is_empty", label: "Is empty" },
+    { value: "is_not_empty", label: "Is not empty" },
+  ],
   select: [
     { value: "is", label: "Is" },
     { value: "is_not", label: "Is not" },
@@ -63,8 +72,13 @@ function operatorsForField(field: FilterCardField) {
   if (field.key === "branch" || field.type === "branch") {
     return OPERATORS.branch;
   }
+  if (field.key === "member_id") {
+    return OPERATORS.member_id;
+  }
   return OPERATORS[field.type];
 }
+
+const EMPTY_OPERATORS = new Set(["is_empty", "is_not_empty"]);
 
 export default function FilterCard({
   field,
@@ -90,6 +104,7 @@ export default function FilterCard({
 
   const isBranchField = field.key === "branch" || field.type === "branch";
   const isClusterField = field.key === "cluster";
+  const isEmptyOperator = EMPTY_OPERATORS.has(operator);
   const branchMultiMode =
     isBranchField && (operator === "is" || operator === "is_not");
 
@@ -178,6 +193,8 @@ export default function FilterCard({
       filterValue = [...selectedBranchIds].sort(
         (a, b) => Number(a) - Number(b),
       );
+    } else if (isEmptyOperator) {
+      filterValue = "";
     } else {
       if (!value.trim()) return;
       filterValue = isBetween
@@ -392,14 +409,16 @@ export default function FilterCard({
         </div>
         )}
 
+        {!isEmptyOperator && (
         <div>
           <label className="block text-xs font-medium text-gray-700 mb-1">
             Value
           </label>
           {renderInput()}
         </div>
+        )}
 
-        {isBetween && (
+        {isBetween && !isEmptyOperator && (
           <div>
             <label className="block text-xs font-medium text-gray-700 mb-1">
               To
@@ -443,11 +462,13 @@ export default function FilterCard({
           type="button"
           onClick={handleApply}
           disabled={
-            branchMultiMode
-              ? selectedBranchIds.length === 0
-              : isClusterField
-                ? selectedClusterIds.length === 0
-                : !value.trim() || (isBetween && !value2.trim())
+            isEmptyOperator
+              ? false
+              : branchMultiMode
+                ? selectedBranchIds.length === 0
+                : isClusterField
+                  ? selectedClusterIds.length === 0
+                  : !value.trim() || (isBetween && !value2.trim())
           }
           className="px-3 py-2 text-sm font-medium text-white bg-primary border border-transparent rounded-lg hover:bg-lighthouse-navy focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-ring disabled:opacity-50 disabled:cursor-not-allowed"
         >

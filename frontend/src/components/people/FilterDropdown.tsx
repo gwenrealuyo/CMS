@@ -40,6 +40,11 @@ const FILTER_FIELDS: FilterField[] = [
     type: "text",
   },
   {
+    key: "member_id",
+    label: "LAMP ID",
+    type: "text",
+  },
+  {
     key: "role",
     label: "Role",
     type: "select",

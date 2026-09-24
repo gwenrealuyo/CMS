@@ -96,6 +96,20 @@ class PersonFilter(django_filters.FilterSet):
         field_name="phone", lookup_expr="iexact", exclude=True
     )
 
+    member_id = django_filters.CharFilter(field_name="member_id", lookup_expr="iexact")
+    member_id__icontains = django_filters.CharFilter(
+        field_name="member_id", lookup_expr="icontains"
+    )
+    member_id__istartswith = django_filters.CharFilter(
+        field_name="member_id", lookup_expr="istartswith"
+    )
+    member_id__iendswith = django_filters.CharFilter(
+        field_name="member_id", lookup_expr="iendswith"
+    )
+    member_id_ne = django_filters.CharFilter(
+        field_name="member_id", lookup_expr="iexact", exclude=True
+    )
+
     date_first_attended = django_filters.DateFilter(
         field_name="date_first_attended", lookup_expr="exact"
     )
@@ -149,6 +163,7 @@ class PersonFilter(django_filters.FilterSet):
     )
 
     has_name = django_filters.BooleanFilter(method="filter_has_name")
+    has_member_id = django_filters.BooleanFilter(method="filter_has_member_id")
     exclude_username = django_filters.CharFilter(method="filter_exclude_username")
 
     class Meta:
@@ -167,6 +182,13 @@ class PersonFilter(django_filters.FilterSet):
                 | Q(first_name__isnull=True)
                 | Q(last_name__isnull=True)
             )
+        return queryset
+
+    def filter_has_member_id(self, queryset, name, value):
+        if value is True:
+            return queryset.exclude(member_id="").exclude(member_id__isnull=True)
+        if value is False:
+            return queryset.filter(Q(member_id="") | Q(member_id__isnull=True))
         return queryset
 
     def filter_exclude_username(self, queryset, name, value):

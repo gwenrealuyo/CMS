@@ -173,6 +173,8 @@ export default function FilterBar({
         return "bg-orange-100 text-orange-800 border-orange-200";
       case "phone":
         return "bg-pink-100 text-pink-800 border-pink-200";
+      case "member_id":
+        return "bg-teal-100 text-teal-800 border-teal-200";
       default:
         return "bg-gray-100 text-gray-800 border-gray-200";
     }
@@ -192,12 +194,19 @@ export default function FilterBar({
         return "before";
       case "after":
         return "after";
+      case "is_empty":
+        return "is empty";
+      case "is_not_empty":
+        return "is not empty";
       default:
         return operator;
     }
   };
 
   const formatFilterValue = (filter: FilterCondition) => {
+    if (filter.operator === "is_empty" || filter.operator === "is_not_empty") {
+      return "";
+    }
     if (filter.field === "branch" && Array.isArray(filter.value)) {
       const ids = branchValueToIds(filter.value);
       return ids.map((id) => branchIdToDisplayName(id, branches)).join(", ");

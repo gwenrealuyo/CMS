@@ -186,3 +186,65 @@ class BaptismRoleAPITests(APITestCase):
         created = Person.objects.get(pk=response.data["id"])
         self.assertEqual(created.role, "MEMBER")
         self.assertEqual(created.status, "ACTIVE")
+
+    def test_create_member_without_baptism_coerces_to_visitor(self):
+        response = self.client.post(
+            "/api/people/people/",
+            {
+                "first_name": "No",
+                "last_name": "Baptism",
+                "role": "MEMBER",
+                "status": "ACTIVE",
+                "branch": self.branch.id,
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, 201, response.data)
+        self.assertEqual(response.data["role"], "VISITOR")
+        self.assertEqual(response.data["status"], "NO_RESPONSE")
+        created = Person.objects.get(pk=response.data["id"])
+        self.assertEqual(created.role, "VISITOR")
+        self.assertEqual(created.status, "NO_RESPONSE")
+
+    def test_create_member_without_baptism_with_attendance_uses_ongoing(self):
+        response = self.client.post(
+            "/api/people/people/",
+            {
+                "first_name": "Attended",
+                "last_name": "NoBap",
+                "role": "MEMBER",
+                "status": "ACTIVE",
+                "branch": self.branch.id,
+                "date_first_attended": date(2024, 5, 1).isoformat(),
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, 201, response.data)
+        self.assertEqual(response.data["role"], "VISITOR")
+        self.assertEqual(response.data["status"], "ONGOING")
+
+    def test_patch_member_role_without_baptism_coerces_to_visitor(self):
+        visitor = self._create_visitor(date_first_attended=date(2024, 1, 10))
+        response = self.client.patch(
+            f"/api/people/people/{visitor.id}/",
+            {"role": "MEMBER", "status": "ACTIVE"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, 200, response.data)
+        visitor.refresh_from_db()
+        self.assertEqual(visitor.role, "VISITOR")
+        self.assertEqual(visitor.status, "ONGOING")
+
+    def test_orm_create_member_without_baptism_demotes_to_visitor(self):
+        person = Person.objects.create_user(
+            username="ormmember",
+            password="pass12345",
+            first_name="Orm",
+            last_name="Member",
+            role="MEMBER",
+            status="ACTIVE",
+            branch=self.branch,
+        )
+        person.refresh_from_db()
+        self.assertEqual(person.role, "VISITOR")
+        self.assertEqual(person.status, "NO_RESPONSE")

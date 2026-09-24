@@ -1,3 +1,4 @@
+from datetime import date
 from unittest.mock import patch
 
 from rest_framework.test import APITestCase
@@ -35,6 +36,7 @@ class PersonStatusChangeAPITests(APITestCase):
             first_name="Mina",
             last_name="Member",
             role="MEMBER",
+            water_baptism_date=date(2020, 1, 1),
             status="ACTIVE",
             branch=self.branch,
         )

@@ -31,6 +31,9 @@ export function getCreatableRoles(
     if (!roles.includes("MEMBER")) {
       roles = ["MEMBER", ...roles];
     }
+  } else {
+    // MEMBER requires water baptism date.
+    roles = roles.filter((role) => role !== "MEMBER");
   }
   return roles;
 }

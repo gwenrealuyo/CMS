@@ -1,3 +1,4 @@
+from datetime import date
 from unittest.mock import patch
 
 from rest_framework.test import APITestCase
@@ -36,6 +37,7 @@ class MemberCareCaseTests(APITestCase):
             first_name="Cora",
             last_name="Coord",
             role="MEMBER",
+            water_baptism_date=date(2020, 1, 1),
             status="ACTIVE",
             branch=self.branch,
         )
@@ -45,6 +47,7 @@ class MemberCareCaseTests(APITestCase):
             first_name="Omar",
             last_name="Other",
             role="MEMBER",
+            water_baptism_date=date(2020, 1, 1),
             status="ACTIVE",
             branch=self.branch,
         )
@@ -54,6 +57,7 @@ class MemberCareCaseTests(APITestCase):
             first_name="Mina",
             last_name="Member",
             role="MEMBER",
+            water_baptism_date=date(2020, 1, 1),
             status="ACTIVE",
             branch=self.branch,
         )
@@ -63,6 +67,7 @@ class MemberCareCaseTests(APITestCase):
             first_name="Ned",
             last_name="Neighbor",
             role="MEMBER",
+            water_baptism_date=date(2020, 1, 1),
             status="ACTIVE",
             branch=self.branch,
         )
@@ -81,6 +86,7 @@ class MemberCareCaseTests(APITestCase):
             first_name="Pam",
             last_name="Plain",
             role="MEMBER",
+            water_baptism_date=date(2020, 1, 1),
             status="ACTIVE",
             branch=self.branch,
         )
@@ -90,6 +96,7 @@ class MemberCareCaseTests(APITestCase):
             first_name="Rita",
             last_name="Reporter",
             role="MEMBER",
+            water_baptism_date=date(2020, 1, 1),
             status="ACTIVE",
             branch=self.branch,
         )
@@ -212,6 +219,7 @@ class MemberCareCaseTests(APITestCase):
             first_name="Dee",
             last_name="Ceased",
             role="MEMBER",
+            water_baptism_date=date(2020, 1, 1),
             status="ACTIVE",
             branch=self.branch,
         )

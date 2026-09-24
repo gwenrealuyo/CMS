@@ -187,14 +187,18 @@ export function mapImportRowToPerson(
   const member_id = pickString(row, "member_id");
   if (member_id) payload.member_id = member_id;
 
-  const roleRaw = (pickString(row, "role") || "MEMBER").toUpperCase();
+  const roleRaw = (pickString(row, "role") || "").toUpperCase();
   payload.role = (
-    ROLE_VALUES.has(roleRaw) ? roleRaw : "MEMBER"
+    ROLE_VALUES.has(roleRaw) ? roleRaw : "VISITOR"
   ) as PersonRole;
 
-  const statusRaw = (pickString(row, "status") || "ACTIVE").toUpperCase();
+  const statusRaw = (pickString(row, "status") || "").toUpperCase();
   payload.status = (
-    STATUS_VALUES.has(statusRaw) ? statusRaw : "ACTIVE"
+    STATUS_VALUES.has(statusRaw)
+      ? statusRaw
+      : payload.role === "VISITOR"
+        ? "ONGOING"
+        : "ACTIVE"
   ) as PersonStatus;
 
   const branchRaw = pickString(row, "branch");
@@ -217,6 +221,11 @@ export function mapImportRowToPerson(
     payload.role = "MEMBER";
     if (payload.status === "ONGOING" || payload.status === "NO_RESPONSE") {
       payload.status = "ACTIVE";
+    }
+  } else if (!payload.water_baptism_date && payload.role === "MEMBER") {
+    payload.role = "VISITOR";
+    if (payload.status !== "DECEASED") {
+      payload.status = payload.date_first_attended ? "ONGOING" : "NO_RESPONSE";
     }
   }
 
@@ -249,8 +258,8 @@ export function getPeopleImportTemplateCsv(options?: {
     maiden_name: "",
     email: "person@example.com",
     phone: "",
-    role: "MEMBER",
-    status: "ACTIVE",
+    role: "VISITOR",
+    status: "ONGOING",
     country: "",
     address: "",
     date_of_birth: "",

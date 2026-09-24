@@ -8,7 +8,7 @@
   - Tabs: People | Families
   - People: search, filter (role, date range), table listing via `PeopleTable`
   - Create person via `PersonForm` (uses `usePeople` hook → backend)
-  - Person form fields include optional `maiden_name`; visitor status options are Ongoing / No Response / Deceased (member statuses unchanged). A filled water baptism date promotes Visitor → Member and hides Visitor from the role dropdown.
+  - Person form fields include optional `maiden_name`; visitor status options are Ongoing / No Response / Deceased (member statuses unchanged). A filled water baptism date promotes Visitor → Member and hides Visitor from the role dropdown. Member requires water baptism: the Member role option is hidden when the baptism date is empty, and create defaults to Visitor.
   - **Families tab:** `FamilyManagementDashboard` with stacked mobile toolbar (search, branch, Table/Cards, Sort, Filter), filter chips in toolbar card, responsive unassigned-members grid
 - `src/app/evangelism/page.tsx`: Evangelism hub — Groups, Prospects (senior coordinators+), Each 1 Reach 1, Tally, Reports, Bible Sharers
 - `src/app/clusters/page.tsx`: Clusters hub via `ClustersPageView` — tabs **Clusters | Tally | Care | Reports | Compliance**. Same stacked list toolbar on the Clusters tab (search, branch, Table/Cards, Select, Bulk, Sort, Filter). **Tally** (`ClusterStatusTallyReport`) is a current-month snapshot of member statuses by cluster (branch from the Clusters page; click a count for the producing transition). Cluster detail includes a Prospects section (invited visitors for that cluster).

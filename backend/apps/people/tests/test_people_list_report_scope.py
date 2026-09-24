@@ -3,6 +3,7 @@ from rest_framework.test import APITestCase
 from apps.clusters.models import Cluster
 from apps.evangelism.models import EvangelismGroup
 from apps.people.models import Branch, ModuleCoordinator, Person
+from datetime import date
 
 
 class PeopleListReportScopeAPITests(APITestCase):
@@ -23,6 +24,7 @@ class PeopleListReportScopeAPITests(APITestCase):
             first_name="Bea",
             last_name="Sharer",
             role="MEMBER",
+            water_baptism_date=date(2020, 1, 1),
             status="ACTIVE",
             branch=self.branch,
         )
@@ -32,6 +34,7 @@ class PeopleListReportScopeAPITests(APITestCase):
             first_name="Mia",
             last_name="Member",
             role="MEMBER",
+            water_baptism_date=date(2020, 1, 1),
             status="ACTIVE",
             branch=self.branch,
         )
@@ -41,6 +44,7 @@ class PeopleListReportScopeAPITests(APITestCase):
             first_name="Pam",
             last_name="Plain",
             role="MEMBER",
+            water_baptism_date=date(2020, 1, 1),
             status="ACTIVE",
             branch=self.branch,
         )

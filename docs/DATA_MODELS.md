@@ -14,7 +14,7 @@
 - Demographics: `gender?` (MALE|FEMALE), `date_of_birth?`, `country?` (full country name, max 100 chars; person form offers a complete country list)
 - Contact: `phone?`, `address?`, `facebook_name?`
 - Role: `role` (MEMBER|VISITOR|PASTOR|ADMIN) — coordinator capability is granted via `ModuleCoordinator` assignments, not a base role
-  - If `water_baptism_date` is set and role is `VISITOR`, the person is promoted to `MEMBER` with status `ACTIVE` (including existing baptized visitors). Visitor is not a valid role while the date is set; clearing the date demotes a `MEMBER` back to `VISITOR` (Ongoing if `date_first_attended` is set, otherwise No Response). `PASTOR` / `ADMIN` are unchanged.
+  - If `water_baptism_date` is set and role is `VISITOR`, the person is promoted to `MEMBER` with status `ACTIVE` (including existing baptized visitors). Visitor is not a valid role while the date is set. Conversely, `MEMBER` requires a water baptism date: assigning or creating `MEMBER` without one coerces to `VISITOR` (Ongoing if `date_first_attended` is set, otherwise No Response; Deceased is preserved). Clearing the baptism date demotes a `MEMBER` the same way. `PASTOR` / `ADMIN` are unchanged.
 - Church-specific: `date_first_attended?`, `member_id?`, `status?` (ACTIVE|SEMIACTIVE|INACTIVE|DORMANT|FALLAWAY|DECEASED|ONGOING|NO_RESPONSE)
 - Relations: `inviter` → Person (nullable), `branch` → Branch (nullable), standard `groups` and `user_permissions` with custom related_names
 - Media: `photo` (ImageField → `profiles/`)

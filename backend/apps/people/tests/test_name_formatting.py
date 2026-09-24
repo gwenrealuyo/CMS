@@ -1,3 +1,5 @@
+from datetime import date
+
 from rest_framework.test import APITestCase
 
 from apps.people.models import Branch, Person
@@ -81,6 +83,7 @@ class NicknameValidationAPITests(APITestCase):
             first_name="Juan",
             last_name="Cruz",
             role="MEMBER",
+            water_baptism_date=date(2020, 1, 1),
             status="ACTIVE",
             branch=self.branch,
         )

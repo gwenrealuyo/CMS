@@ -1,3 +1,5 @@
+from datetime import date
+
 from rest_framework.test import APITestCase
 
 from apps.people.models import Branch, ModuleCoordinator, Person
@@ -45,6 +47,7 @@ class PersonRoleAssignmentAPITests(APITestCase):
             role="MEMBER",
             status="ACTIVE",
             branch=self.branch,
+            water_baptism_date=date(2020, 1, 1),
         )
         self.coord = Person.objects.create_user(
             username="rolecoord",
@@ -54,6 +57,7 @@ class PersonRoleAssignmentAPITests(APITestCase):
             role="MEMBER",
             status="ACTIVE",
             branch=self.branch,
+            water_baptism_date=date(2020, 1, 1),
         )
         ModuleCoordinator.objects.create(
             person=self.coord,

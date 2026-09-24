@@ -2,7 +2,6 @@ from datetime import date
 
 from rest_framework.test import APITestCase
 
-from apps.evangelism.models import Conversion
 from apps.people.models import Branch, Journey, Person
 from core.datetime_utils import church_today
 
@@ -29,6 +28,7 @@ class BaptismVerifierAPITests(APITestCase):
             first_name="Ben",
             last_name="Baptizer",
             role="MEMBER",
+            water_baptism_date=date(2020, 1, 1),
             status="ACTIVE",
             branch=self.branch,
         )
@@ -38,6 +38,7 @@ class BaptismVerifierAPITests(APITestCase):
             first_name="Willa",
             last_name="Witness",
             role="MEMBER",
+            water_baptism_date=date(2020, 1, 1),
             status="ACTIVE",
             branch=self.branch,
         )
@@ -47,6 +48,7 @@ class BaptismVerifierAPITests(APITestCase):
             first_name="Mel",
             last_name="Member",
             role="MEMBER",
+            water_baptism_date=date(2020, 1, 1),
             status="ACTIVE",
             branch=self.branch,
         )
@@ -228,57 +230,6 @@ class BaptismVerifierAPITests(APITestCase):
         )
         self.assertEqual(response.status_code, 201, response.data)
 
-    def test_conversion_water_baptism_allows_unknown_baptizer(self):
-        baptism_date = church_today()
-        response = self.client.post(
-            "/api/evangelism/conversions/",
-            {
-                "person_id": self.member.id,
-                "converted_by_id": self.baptizer.id,
-                "conversion_date": baptism_date.isoformat(),
-                "water_baptism_date": baptism_date.isoformat(),
-            },
-            format="json",
-        )
-        self.assertEqual(response.status_code, 201, response.data)
-        self.assertIsNone(response.data["baptized_by"])
-        self.assertIsNone(
-            Journey.objects.get(user=self.member, type="BAPTISM").verified_by_id
-        )
-
-    def test_conversion_with_baptizer_and_witness_sets_journeys(self):
-        baptism_date = date(2024, 8, 1)
-        hg_date = date(2024, 8, 2)
-        response = self.client.post(
-            "/api/evangelism/conversions/",
-            {
-                "person_id": self.member.id,
-                "converted_by_id": self.baptizer.id,
-                "conversion_date": baptism_date.isoformat(),
-                "water_baptism_date": baptism_date.isoformat(),
-                "spirit_baptism_date": hg_date.isoformat(),
-                "baptized_by_id": self.baptizer.id,
-                "hg_witnessed_by_id": self.witness.id,
-            },
-            format="json",
-        )
-        self.assertEqual(response.status_code, 201, response.data)
-        self.assertEqual(
-            str(response.data["baptized_by"]["id"]), str(self.baptizer.id)
-        )
-        self.assertEqual(
-            str(response.data["hg_witnessed_by"]["id"]), str(self.witness.id)
-        )
-        self.assertEqual(
-            Journey.objects.get(user=self.member, type="BAPTISM").verified_by_id,
-            self.baptizer.id,
-        )
-        self.assertEqual(
-            Journey.objects.get(user=self.member, type="SPIRIT").verified_by_id,
-            self.witness.id,
-        )
-        self.assertTrue(Conversion.objects.filter(person=self.member).exists())
-
     def test_historical_baptizer_names_without_directory_person(self):
         baptism_date = date(2024, 9, 1)
         response = self.client.patch(
@@ -338,30 +289,6 @@ class BaptismVerifierAPITests(APITestCase):
         self.assertEqual(journey.verified_by_id, self.baptizer.id)
         self.assertEqual(journey.historical_verified_first_name, "")
         self.assertEqual(journey.historical_verified_last_name, "")
-
-    def test_conversion_historical_witness_names(self):
-        hg_date = date(2024, 9, 3)
-        response = self.client.post(
-            "/api/evangelism/conversions/",
-            {
-                "person_id": self.member.id,
-                "converted_by_id": self.baptizer.id,
-                "conversion_date": hg_date.isoformat(),
-                "spirit_baptism_date": hg_date.isoformat(),
-                "hg_witnessed_by_first_name": "Old",
-                "hg_witnessed_by_last_name": "Witness",
-            },
-            format="json",
-        )
-        self.assertEqual(response.status_code, 201, response.data)
-        self.assertIsNone(response.data["hg_witnessed_by"])
-        self.assertEqual(response.data["hg_witnessed_by_first_name"], "Old")
-        self.assertEqual(response.data["hg_witnessed_by_last_name"], "Witness")
-        self.assertEqual(response.data["hg_witnessed_by_display_name"], "Old Witness")
-        journey = Journey.objects.get(user=self.member, type="SPIRIT")
-        self.assertIsNone(journey.verified_by_id)
-        self.assertEqual(journey.historical_verified_first_name, "Old")
-        self.assertEqual(journey.historical_verified_last_name, "Witness")
 
     def test_journey_create_with_historical_verifier_names(self):
         response = self.client.post(

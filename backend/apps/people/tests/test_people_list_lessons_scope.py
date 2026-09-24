@@ -2,6 +2,7 @@ from rest_framework.test import APITestCase
 
 from apps.ministries.ncc import ensure_ncc_ministry
 from apps.people.models import Branch, ModuleCoordinator, Person
+from datetime import date
 
 
 class PeopleListLessonsScopeAPITests(APITestCase):
@@ -22,6 +23,7 @@ class PeopleListLessonsScopeAPITests(APITestCase):
             first_name="Cora",
             last_name="Coord",
             role="MEMBER",
+            water_baptism_date=date(2020, 1, 1),
             status="ACTIVE",
             branch=self.branch,
         )
@@ -31,6 +33,7 @@ class PeopleListLessonsScopeAPITests(APITestCase):
             first_name="Mina",
             last_name="Member",
             role="MEMBER",
+            water_baptism_date=date(2020, 1, 1),
             status="ACTIVE",
             branch=self.branch,
         )
@@ -49,6 +52,7 @@ class PeopleListLessonsScopeAPITests(APITestCase):
             first_name="Omar",
             last_name="Other",
             role="MEMBER",
+            water_baptism_date=date(2020, 1, 1),
             status="ACTIVE",
             branch=self.other_branch,
         )
@@ -58,6 +62,7 @@ class PeopleListLessonsScopeAPITests(APITestCase):
             first_name="Tessa",
             last_name="Teacher",
             role="MEMBER",
+            water_baptism_date=date(2020, 1, 1),
             status="ACTIVE",
             branch=self.branch,
         )
@@ -67,6 +72,7 @@ class PeopleListLessonsScopeAPITests(APITestCase):
             first_name="Pam",
             last_name="Plain",
             role="MEMBER",
+            water_baptism_date=date(2020, 1, 1),
             status="ACTIVE",
             branch=self.branch,
         )

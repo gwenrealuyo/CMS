@@ -31,6 +31,7 @@ class PersonLessonTeacherAPITests(APITestCase):
             first_name="Tessa",
             last_name="Teacher",
             role="MEMBER",
+            water_baptism_date=date(2020, 1, 1),
             status="ACTIVE",
             branch=self.branch,
         )
@@ -40,6 +41,7 @@ class PersonLessonTeacherAPITests(APITestCase):
             first_name="Owen",
             last_name="Other",
             role="MEMBER",
+            water_baptism_date=date(2020, 1, 1),
             status="ACTIVE",
             branch=self.branch,
         )
@@ -49,6 +51,7 @@ class PersonLessonTeacherAPITests(APITestCase):
             first_name="Sam",
             last_name="Student",
             role="MEMBER",
+            water_baptism_date=date(2020, 1, 1),
             status="ACTIVE",
             branch=self.branch,
             has_finished_lessons=False,
@@ -105,6 +108,7 @@ class PersonLessonTeacherAPITests(APITestCase):
             first_name="Out",
             last_name="Sider",
             role="MEMBER",
+            water_baptism_date=date(2020, 1, 1),
             status="ACTIVE",
             branch=self.branch,
         )

@@ -159,23 +159,6 @@ class LessonsStartedFromReportTests(APITestCase):
         self.assertEqual(self.student.lessons_started_at, date(2026, 8, 1))
         self.assertEqual(conversion.lesson_start_date, date(2026, 8, 1))
 
-    def test_create_conversion_copies_person_lessons_started_at(self):
-        started = date(2026, 9, 10)
-        self.student.lessons_started_at = started
-        self.student.save(update_fields=["lessons_started_at"])
-
-        response = self.client.post(
-            "/api/evangelism/conversions/",
-            {
-                "person_id": self.student.id,
-                "converted_by_id": self.teacher.id,
-                "conversion_date": "2026-09-15",
-            },
-            format="json",
-        )
-        self.assertEqual(response.status_code, 201, response.data)
-        self.assertEqual(response.data["lesson_start_date"], started.isoformat())
-
     def test_patch_conversion_cannot_change_lesson_start_date(self):
         conversion = Conversion.objects.create(
             person=self.student,

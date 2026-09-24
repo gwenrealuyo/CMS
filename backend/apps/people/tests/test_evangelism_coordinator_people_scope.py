@@ -1,6 +1,7 @@
 from rest_framework.test import APITestCase
 
 from apps.people.models import Branch, ModuleCoordinator, Person
+from datetime import date
 
 
 class EvangelismCoordinatorPeopleScopeTests(APITestCase):
@@ -21,6 +22,7 @@ class EvangelismCoordinatorPeopleScopeTests(APITestCase):
             first_name="Cora",
             last_name="Coord",
             role="MEMBER",
+            water_baptism_date=date(2020, 1, 1),
             status="ACTIVE",
             branch=self.branch,
         )
@@ -30,6 +32,7 @@ class EvangelismCoordinatorPeopleScopeTests(APITestCase):
             first_name="Mina",
             last_name="Member",
             role="MEMBER",
+            water_baptism_date=date(2020, 1, 1),
             status="ACTIVE",
             branch=self.branch,
         )
@@ -39,6 +42,7 @@ class EvangelismCoordinatorPeopleScopeTests(APITestCase):
             first_name="Omar",
             last_name="Other",
             role="MEMBER",
+            water_baptism_date=date(2020, 1, 1),
             status="ACTIVE",
             branch=self.other_branch,
         )

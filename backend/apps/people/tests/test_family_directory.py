@@ -1,3 +1,5 @@
+from datetime import date
+
 from rest_framework.test import APITestCase
 
 from apps.clusters.models import Cluster
@@ -31,6 +33,7 @@ class FamilyDirectoryAPITests(APITestCase):
             first_name="Mina",
             last_name="Member",
             role="MEMBER",
+            water_baptism_date=date(2020, 1, 1),
             status="ACTIVE",
             branch=self.muntinlupa,
         )
@@ -69,15 +72,18 @@ class FamilyDirectoryAPITests(APITestCase):
         self.assertEqual(response.data["count"], 1)
 
     def _person(self, username, role, branch, **kwargs):
-        return Person.objects.create_user(
-            username=username,
-            password="pass12345",
-            first_name=kwargs.get("first_name", username.title()),
-            last_name=kwargs.get("last_name", "Test"),
-            role=role,
-            status="ACTIVE",
-            branch=branch,
-        )
+        create_kwargs = {
+            "username": username,
+            "password": "pass12345",
+            "first_name": kwargs.get("first_name", username.title()),
+            "last_name": kwargs.get("last_name", "Test"),
+            "role": role,
+            "status": "ACTIVE",
+            "branch": branch,
+        }
+        if role == "MEMBER":
+            create_kwargs["water_baptism_date"] = date(2020, 1, 1)
+        return Person.objects.create_user(**create_kwargs)
 
     def _antonio_household(self):
         """Pastor + members + visitor + admin (admin should never be counted)."""

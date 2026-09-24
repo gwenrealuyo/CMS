@@ -274,7 +274,7 @@ export default function PersonForm({
         ? "MEMBER"
         : undefined;
   const defaultRole =
-    normalizedRole ?? (visitorOnlyCreate ? "VISITOR" : "MEMBER");
+    normalizedRole ?? "VISITOR";
   const initialPersonId = initialData?.id ? String(initialData.id) : undefined;
   const initialFamilyIds = useMemo(() => {
     if (initialData?.family_ids) {
@@ -301,7 +301,7 @@ export default function PersonForm({
 
   const [formData, setFormData] = useState<Partial<Person>>(() => {
     const next: Partial<Person> = {
-      status: "ACTIVE",
+      status: isCreating ? "ONGOING" : "ACTIVE",
       journeys: [],
       country: initialData?.country || DEFAULT_COUNTRY,
       ...initialData,
@@ -318,11 +318,8 @@ export default function PersonForm({
       historical_teacher_first_name: "",
       historical_teacher_last_name: "",
     };
-    const baptismDate = next.water_baptism_date || "";
-    if (baptismDate && next.role === "VISITOR") {
-      return { ...next, role: "MEMBER", status: "ACTIVE" };
-    }
-    return next;
+    const baptismDate = String(next.water_baptism_date || "");
+    return applyWaterBaptismRoleRules(next, baptismDate);
   });
   const [teacherMode, setTeacherMode] = useState<"select" | "historical">(
     "select",
@@ -645,10 +642,10 @@ export default function PersonForm({
       }
       if (name === "water_baptism_date") {
         next = applyWaterBaptismRoleRules(next, value);
-      } else if (name === "role" && next.water_baptism_date) {
+      } else if (name === "role") {
         next = applyWaterBaptismRoleRules(
           next,
-          String(next.water_baptism_date),
+          String(next.water_baptism_date || ""),
         );
       }
       return next;

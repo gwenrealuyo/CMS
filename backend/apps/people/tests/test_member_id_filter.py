@@ -1,6 +1,7 @@
 from rest_framework.test import APITestCase
 
 from apps.people.models import Branch, Person
+from datetime import date
 
 
 class MemberIdFilterAPITests(APITestCase):
@@ -26,6 +27,7 @@ class MemberIdFilterAPITests(APITestCase):
             first_name="With",
             last_name="LampId",
             role="MEMBER",
+            water_baptism_date=date(2020, 1, 1),
             status="ACTIVE",
             branch=self.branch,
             member_id="LAMP12345",
@@ -36,6 +38,7 @@ class MemberIdFilterAPITests(APITestCase):
             first_name="No",
             last_name="LampId",
             role="MEMBER",
+            water_baptism_date=date(2020, 1, 1),
             status="ACTIVE",
             branch=self.branch,
             member_id="",
@@ -46,6 +49,7 @@ class MemberIdFilterAPITests(APITestCase):
             first_name="Other",
             last_name="LampId",
             role="MEMBER",
+            water_baptism_date=date(2020, 1, 1),
             status="ACTIVE",
             branch=self.branch,
             member_id="LAMP99999",

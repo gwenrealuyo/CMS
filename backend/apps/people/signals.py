@@ -222,21 +222,37 @@ def _handle_baptism_role_update(person, current_date, original_date):
         )
         return
 
-    if date_cleared and person.role == "MEMBER":
+    # MEMBER requires water_baptism_date. Demote when baptism is cleared, or when
+    # created/assigned as MEMBER without a baptism date. Legacy MEMBER rows without
+    # baptism are corrected by data migration (not on every unrelated save).
+    if current_date is None and person.role == "MEMBER":
+        original_role = getattr(person, "_original_role", None)
+        becoming_member_without_baptism = original_role != "MEMBER"
+        if not (date_cleared or becoming_member_without_baptism):
+            return
+
         old_status = person.status
         person.role = "VISITOR"
-        new_status = "ONGOING" if person.date_first_attended else "NO_RESPONSE"
+        if old_status == "DECEASED":
+            new_status = "DECEASED"
+        else:
+            new_status = "ONGOING" if person.date_first_attended else "NO_RESPONSE"
         person.status = new_status
         person.save(update_fields=["role", "status"])
         from apps.people.models import PersonStatusChange
         from apps.people.utils import record_person_status_change
 
+        reason = (
+            "Status set after water baptism date was cleared."
+            if date_cleared
+            else "Status set because Member requires water baptism date."
+        )
         record_person_status_change(
             person=person,
             from_status=old_status,
             to_status=new_status,
             source=PersonStatusChange.Source.SYSTEM,
-            reason="Status set after water baptism date was cleared.",
+            reason=reason,
         )
 
 

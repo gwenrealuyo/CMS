@@ -149,9 +149,11 @@ export function findScheduleConflict(args: {
           existing.type === "SUNDAY_SERVICE" &&
           branchesConflict(branchId, existing.branch)
         ) {
+          const title = (existing.title || "another Sunday Service").trim();
+          const range = `${existingInterval.start.toISOString()} → ${existingInterval.end.toISOString()}`;
           return {
             kind: "sunday",
-            message: `A Sunday Service already exists for this branch at this time on ${day}. Edit the existing event instead of creating another.`,
+            message: `A Sunday Service already exists for this branch at this time on ${day} (conflicts with "${title}", ${range}). Edit the existing event instead of creating another.`,
           };
         }
         if (

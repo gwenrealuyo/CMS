@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 
 from django.utils.timezone import make_aware
 from rest_framework.test import APITestCase
@@ -51,6 +51,7 @@ class SundayServiceUniquenessAPITests(APITestCase):
             role="MEMBER",
             status="ACTIVE",
             branch=self.hq,
+            water_baptism_date=date(2020, 1, 1),
         )
         ModuleCoordinator.objects.create(
             person=self.coordinator,
@@ -172,3 +173,233 @@ class SundayServiceUniquenessAPITests(APITestCase):
         )
         self.assertEqual(updated.status_code, 200, updated.data)
         self.assertEqual(updated.data["location"], "Main Sanctuary")
+
+    def test_allows_same_time_one_off_on_following_thursday(self):
+        """User report: non-recurring Thu + same time next Thu must both succeed."""
+        # 2026-09-17 and 2026-09-24 are both Thursdays
+        previous = make_aware_local(2026, 9, 17, 9)
+        following = make_aware_local(2026, 9, 24, 9)
+
+        first = self.client.post(
+            "/api/events/",
+            self._payload(previous, title="Thursday test (week 1)"),
+            format="json",
+        )
+        self.assertEqual(first.status_code, 201, first.data)
+        self.assertFalse(first.data.get("is_recurring"))
+
+        second = self.client.post(
+            "/api/events/",
+            self._payload(
+                following,
+                title="Thursday test (week 2)",
+                location="HQ Uniq",
+            ),
+            format="json",
+        )
+        self.assertEqual(
+            second.status_code,
+            201,
+            f"Expected create to succeed; got {second.status_code}: {second.data}",
+        )
+        self.assertEqual(
+            Event.objects.filter(event_type=self.sunday, is_recurring=False).count(),
+            2,
+        )
+
+    def test_weekly_sunday_series_allows_thursday_one_off(self):
+        """Official weekly Sundays must not block a Thursday test service."""
+        sunday_start = make_aware_local(2026, 9, 13, 9)  # Sunday
+        series = self.client.post(
+            "/api/events/",
+            self._payload(
+                sunday_start,
+                title="Official Sunday Service",
+                is_recurring=True,
+                recurrence_pattern={
+                    "frequency": "weekly",
+                    "weekdays": [6],
+                    "through": "2026-12-31",
+                    "excluded_dates": [],
+                },
+            ),
+            format="json",
+        )
+        self.assertEqual(series.status_code, 201, series.data)
+
+        thursday = make_aware_local(2026, 9, 24, 9)
+        one_off = self.client.post(
+            "/api/events/",
+            self._payload(thursday, title="Thursday test event"),
+            format="json",
+        )
+        self.assertEqual(
+            one_off.status_code,
+            201,
+            f"Expected Thursday one-off beside weekly Sundays; "
+            f"got {one_off.status_code}: {one_off.data}",
+        )
+
+    def test_weekly_sunday_series_plus_prior_thursday_allows_next_thursday(self):
+        """Exact user setup: weekly Sundays + prior Thu one-off + new Thu one-off."""
+        sunday_start = make_aware_local(2026, 9, 13, 9)
+        series = self.client.post(
+            "/api/events/",
+            self._payload(
+                sunday_start,
+                title="Official Sunday Service",
+                is_recurring=True,
+                recurrence_pattern={
+                    "frequency": "weekly",
+                    "weekdays": [6],
+                    "through": "2026-12-31",
+                    "excluded_dates": [],
+                },
+            ),
+            format="json",
+        )
+        self.assertEqual(series.status_code, 201, series.data)
+
+        prior_thursday = make_aware_local(2026, 9, 17, 9)
+        prior = self.client.post(
+            "/api/events/",
+            self._payload(prior_thursday, title="Prior Thursday one-off"),
+            format="json",
+        )
+        self.assertEqual(prior.status_code, 201, prior.data)
+
+        next_thursday = make_aware_local(2026, 9, 24, 9)
+        nxt = self.client.post(
+            "/api/events/",
+            self._payload(next_thursday, title="Next Thursday test"),
+            format="json",
+        )
+        self.assertEqual(
+            nxt.status_code,
+            201,
+            f"Expected next Thursday to succeed; got {nxt.status_code}: {nxt.data}",
+        )
+
+    def test_long_end_date_one_off_blocks_following_thursday(self):
+        """Multi-day end_date (UI often hides end date) correctly conflicts.
+
+        Matches the screenshot: calendar dots only on the start day (Sep 17),
+        agenda shows empty Sep 24, but create on Sep 24 still errors.
+        """
+        previous = make_aware_local(2026, 9, 17, 9)
+        # Looks like "9am–11am" in time-only UI if end clock is also 11:00
+        long_end = make_aware_local(2026, 9, 24, 11)
+        first = self.client.post(
+            "/api/events/",
+            self._payload(
+                previous,
+                title="Spanning Thursday service",
+                end_date=long_end.isoformat(),
+            ),
+            format="json",
+        )
+        self.assertEqual(first.status_code, 201, first.data)
+
+        following = make_aware_local(2026, 9, 24, 9)
+        blocked = self.client.post(
+            "/api/events/",
+            self._payload(following, title="Thursday test"),
+            format="json",
+        )
+        self.assertEqual(blocked.status_code, 400, blocked.data)
+        details = blocked.data.get("details", {})
+        self.assertIn("start_date", details)
+        message = str(details["start_date"])
+        self.assertIn("2026-09-24", message)
+        self.assertIn("Spanning Thursday service", message)
+        self.assertIn("→", message)
+
+    def test_screenshot_calendar_healthy_data_allows_sep_24(self):
+        """Sep 13 Sundays + Sep 17 Thu one-off + Sep 20 Sunday; Sep 24 free."""
+        series = self.client.post(
+            "/api/events/",
+            self._payload(
+                make_aware_local(2026, 9, 13, 9),
+                title="Official Sunday Service",
+                is_recurring=True,
+                recurrence_pattern={
+                    "frequency": "weekly",
+                    "weekdays": [6],
+                    "through": "2026-12-31",
+                    "excluded_dates": [],
+                },
+            ),
+            format="json",
+        )
+        self.assertEqual(series.status_code, 201, series.data)
+
+        # Second dot on Sep 13 (other type) — same as screenshot "2 events"
+        clustering = self.client.post(
+            "/api/events/",
+            self._payload(
+                make_aware_local(2026, 9, 13, 14),
+                type="CLUSTERING",
+                title="Clustering",
+            ),
+            format="json",
+        )
+        self.assertEqual(clustering.status_code, 201, clustering.data)
+
+        prior = self.client.post(
+            "/api/events/",
+            self._payload(
+                make_aware_local(2026, 9, 17, 9),
+                title="Prior Thursday one-off",
+            ),
+            format="json",
+        )
+        self.assertEqual(prior.status_code, 201, prior.data)
+
+        create_sep_24 = self.client.post(
+            "/api/events/",
+            self._payload(
+                make_aware_local(2026, 9, 24, 9),
+                title="Thursday test",
+            ),
+            format="json",
+        )
+        self.assertEqual(
+            create_sep_24.status_code,
+            201,
+            f"Screenshot-healthy data must allow Sep 24; got {create_sep_24.data}",
+        )
+
+    def test_week_long_sunday_occurrence_blocks_thursday(self):
+        """Sunday series whose duration spans a week covers mid-week Thursdays."""
+        sunday_start = make_aware_local(2026, 9, 20, 9)  # Sunday before target Thu
+        sunday_end = make_aware_local(2026, 9, 27, 11)  # following Sunday
+        series = self.client.post(
+            "/api/events/",
+            self._payload(
+                sunday_start,
+                title="Official Sunday Service",
+                end_date=sunday_end.isoformat(),
+                is_recurring=True,
+                recurrence_pattern={
+                    "frequency": "weekly",
+                    "weekdays": [6],
+                    "through": "2026-12-31",
+                    "excluded_dates": [],
+                },
+            ),
+            format="json",
+        )
+        self.assertEqual(series.status_code, 201, series.data)
+
+        thursday = make_aware_local(2026, 9, 24, 9)
+        blocked = self.client.post(
+            "/api/events/",
+            self._payload(thursday, title="Thursday test"),
+            format="json",
+        )
+        self.assertEqual(blocked.status_code, 400, blocked.data)
+        details = blocked.data.get("details", {})
+        self.assertIn("start_date", details)
+        message = str(details["start_date"])
+        self.assertIn("2026-09-24", message)
+        self.assertIn("Official Sunday Service", message)

@@ -8,11 +8,28 @@ import Button from "../components/ui/Button";
 import AppLogo from "@/src/components/brand/AppLogo";
 import { useAuth } from "@/src/contexts/AuthContext";
 import { publicSelfCheckInApi } from "@/src/lib/api";
+import type { PublicSelfCheckInSessionResponse } from "@/src/types/selfCheckIn";
+
+function selfCheckInButtonLabel(
+  data: PublicSelfCheckInSessionResponse,
+): string {
+  const typeLabels = [
+    data.session?.event.type_display,
+    ...data.options.map((option) => option.type_display),
+  ].filter((label): label is string => Boolean(label?.trim()));
+  const unique = Array.from(new Set(typeLabels));
+  // "Online only" sits above the button — keep the CTA short for narrow phones.
+  if (unique.length === 1) {
+    return `${unique[0]} check\u2011in`;
+  }
+  return "Online check\u2011in";
+}
 
 export default function Home() {
   const { isAuthenticated, isLoading } = useAuth();
   const router = useRouter();
   const [selfCheckInOpen, setSelfCheckInOpen] = useState(false);
+  const [checkInLabel, setCheckInLabel] = useState("Online check\u2011in");
 
   useEffect(() => {
     if (!isLoading && isAuthenticated) {
@@ -26,7 +43,11 @@ export default function Home() {
     publicSelfCheckInApi
       .session()
       .then((response) => {
-        if (!cancelled) setSelfCheckInOpen(Boolean(response.data.available));
+        if (cancelled) return;
+        setSelfCheckInOpen(Boolean(response.data.available));
+        if (response.data.available) {
+          setCheckInLabel(selfCheckInButtonLabel(response.data));
+        }
       })
       .catch(() => {
         if (!cancelled) setSelfCheckInOpen(false);
@@ -79,10 +100,12 @@ export default function Home() {
             </p>
             <Link
               href="/events/self-check-in"
-              className="flex min-h-14 w-full items-center justify-center gap-2 rounded-md bg-lighthouse-gold px-4 py-3.5 text-base font-semibold text-[#5f2b0d] shadow-sm hover:bg-lighthouse-gold/90"
+              className="flex min-h-12 w-full items-center justify-center gap-2 rounded-md bg-lighthouse-gold px-3 py-3 text-sm font-semibold leading-snug text-[#5f2b0d] shadow-sm hover:bg-lighthouse-gold/90 sm:min-h-14 sm:gap-2.5 sm:px-4 sm:py-3.5 sm:text-base"
             >
               <QrCodeIcon className="h-5 w-5 shrink-0" />
-              Online check-in
+              <span className="min-w-0 text-balance text-center">
+                {checkInLabel}
+              </span>
             </Link>
             <Link href="/login" className="block w-full">
               <Button

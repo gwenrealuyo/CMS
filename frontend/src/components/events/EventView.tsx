@@ -35,6 +35,7 @@ interface EventViewProps {
   initialOccurrenceDate?: string | null;
   showAuditMetadata?: boolean;
   canManageAttendance?: boolean;
+  canManageRegistration?: boolean;
   onEdit?: (payload: { occurrenceDate: string }) => void;
   onDelete?: (payload: { occurrenceDate: string }) => void;
   onApprove?: () => void;
@@ -64,6 +65,7 @@ export default function EventView({
   initialOccurrenceDate,
   showAuditMetadata = false,
   canManageAttendance = false,
+  canManageRegistration = false,
   onEdit,
   onDelete,
   onApprove,
@@ -401,6 +403,37 @@ export default function EventView({
               addAttendance={addAttendance}
               removeAttendance={removeAttendance}
             />
+          ) : null}
+
+          {isActivityEvent &&
+          canManageAttendance &&
+          canManageRegistration &&
+          selectedOccurrenceDate ? (
+            <div className="bg-white rounded-lg border border-gray-200 p-4 shadow-sm">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wide">
+                    Registration
+                  </h3>
+                  <p className="text-sm text-gray-600">
+                    {event.registration_enabled
+                      ? "Manage paid registrations and payments for this occurrence."
+                      : "Open the desk to record registrations (enable paid registration in event settings)."}
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  className="w-full sm:w-auto gap-2"
+                  onClick={() => {
+                    const url = `/events/registrations?event=${event.id}&occurrence=${selectedOccurrenceDate}`;
+                    window.open(url, "_blank", "noopener,noreferrer");
+                  }}
+                >
+                  Registration desk
+                </Button>
+              </div>
+            </div>
           ) : null}
         </div>
       </div>

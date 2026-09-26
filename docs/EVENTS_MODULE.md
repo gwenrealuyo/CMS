@@ -122,7 +122,18 @@ Branch-hosted activity events can set **`allow_cross_branch_attendance`** (defau
 - Church-wide events (`branch = null`, e.g. AWTA) ignore this flag (everyone is already eligible); the API forces it off.
 - Form control is Events write–only, hidden for room holds, booking requests, and church-wide.
 - Typical use: HQ anniversary Sunday at a dedicated off-site venue (hybrid), open to satellites who may attend without joining the expected pool.
-- **Onsite registration / capacity (food, seat limits) is deferred** to a future plan.
+
+### Paid registration (D1 + tiers)
+
+Events-owned paid registration (not Finance donations/pledges; no payment gateway):
+
+- **Event settings:** `registration_enabled`, `onsite_registration_required`, `online_registration_required`, optional `onsite_capacity` / `online_capacity`.
+- **Tiers** (`EventRegistrationTier`): per-mode offered flags + fixed `onsite_price` / `online_price` (0 = free for that mode).
+- **Registration:** person + mode + tier; status `pending_payment` → `confirmed` (or cancelled/refunded). Free amount confirms immediately. `pending_payment` holds a seat against capacity.
+- **Payments:** staff-recorded lines (`CASH`, `CHECK`, `BANK_TRANSFER`, `CARD`, `DIGITAL_WALLET`); auto-confirm when paid ≥ due. Manual GCash = digital wallet. No unattended/gateway pay.
+- **Check-in:** when registration is enabled and the mode is required, door/self-check-in need a **confirmed** registration for that mode. Admin may override on staff door check-in only.
+- **Access (test phase):** Admin-only APIs and UI (Event form settings/tiers, Registration desk at `/events/registrations?event=&occurrence=`). Member-request API exists (`POST .../registrations/request/`) but **no public/member register UI**. Widen roles later.
+- Distinct from Expected attendees and from AWTA curriculum/school enrollment (out of scope).
 
 ### AWTA (national / church-wide)
 
@@ -132,7 +143,7 @@ Branch-hosted activity events can set **`allow_cross_branch_attendance`** (defau
 - **Church-wide:** `Event.branch = null` is allowed only for AWTA (shown as **Church-wide** on the Event form). Non-AWTA events still require a branch.
 - **Dedicated venue:** Church-wide AWTA must use Other / off-site with a free-text `location` (no `EventRoom`). Branch-scoped AWTA may still use a building room.
 - **Attendance:** Same hybrid / online-only / onsite-only rules as other activity events. Online hybrid still uses Home altar / Cluster house — there is no separate AWTA attendance venue. Self-check-in and expected-attendee pools already treat `branch=null` as visible to all branches.
-- AWTA registration / enrollment remains out of scope.
+- **Paid registration** uses the same Events registration engine when enabled; AWTA curriculum / class enrollment remains out of scope.
 
 ### Check-In Page
 
@@ -259,7 +270,7 @@ Existing rows migrated as `approved`. Duplicate historical Sunday Services are n
 
 ## Testing
 
-Recurring frequencies, skip/end/split, and series `DELETE` are covered by `apps.events.tests.test_recurrence` and `apps.events.tests.test_recurrence_delete`. Self check-in is covered by `apps.events.tests.test_self_checkin`. Attendance mode/venues are covered by `apps.events.tests.test_attendance_mode_venues`. Sunday Service uniqueness is covered by `apps.events.tests.test_sunday_service_uniqueness`. Room booking, requester permissions, and approve/reject are covered by `apps.events.tests.test_room_booking`. Meeting room holds and First Activity exclusion are covered by `apps.events.tests.test_meeting_type`. AWTA church-wide / HQ national permissions are covered by `apps.events.tests.test_national_awta`.
+Recurring frequencies, skip/end/split, and series `DELETE` are covered by `apps.events.tests.test_recurrence` and `apps.events.tests.test_recurrence_delete`. Self check-in is covered by `apps.events.tests.test_self_checkin`. Attendance mode/venues are covered by `apps.events.tests.test_attendance_mode_venues`. Sunday Service uniqueness is covered by `apps.events.tests.test_sunday_service_uniqueness`. Room booking, requester permissions, and approve/reject are covered by `apps.events.tests.test_room_booking`. Meeting room holds and First Activity exclusion are covered by `apps.events.tests.test_meeting_type`. AWTA church-wide / HQ national permissions are covered by `apps.events.tests.test_national_awta`. Paid registration (tiers, payments, check-in gate) is covered by `apps.events.tests.test_registration`.
 
 Run them (uses SQLite to avoid Postgres permissions):
 

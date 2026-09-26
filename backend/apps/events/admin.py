@@ -1,6 +1,14 @@
 from django.contrib import admin
 
-from .models import AttendanceVenue, Event, EventRoom, EventType
+from .models import (
+    AttendanceVenue,
+    Event,
+    EventRegistration,
+    EventRegistrationPayment,
+    EventRegistrationTier,
+    EventRoom,
+    EventType,
+)
 
 
 @admin.register(EventType)
@@ -42,6 +50,7 @@ class EventAdmin(admin.ModelAdmin):
         "booking_status",
         "attendance_format",
         "self_checkin_enabled",
+        "registration_enabled",
         "track_expected_attendees",
         "allow_cross_branch_attendance",
         "branch",
@@ -53,7 +62,66 @@ class EventAdmin(admin.ModelAdmin):
         "is_recurring",
         "attendance_format",
         "self_checkin_enabled",
+        "registration_enabled",
         "track_expected_attendees",
         "allow_cross_branch_attendance",
     ]
     search_fields = ["title", "location"]
+
+
+@admin.register(EventRegistrationTier)
+class EventRegistrationTierAdmin(admin.ModelAdmin):
+    list_display = [
+        "label",
+        "code",
+        "event",
+        "is_active",
+        "onsite_price",
+        "online_price",
+        "sort_order",
+    ]
+    list_filter = ["is_active", "onsite_offered", "online_offered"]
+    search_fields = ["code", "label", "event__title"]
+    ordering = ["event", "sort_order", "id"]
+
+
+class EventRegistrationPaymentInline(admin.TabularInline):
+    model = EventRegistrationPayment
+    extra = 0
+    readonly_fields = ["created_at"]
+
+
+@admin.register(EventRegistration)
+class EventRegistrationAdmin(admin.ModelAdmin):
+    list_display = [
+        "id",
+        "event",
+        "person",
+        "mode",
+        "status",
+        "amount_due",
+        "amount_paid",
+        "occurrence_date",
+    ]
+    list_filter = ["status", "mode"]
+    search_fields = [
+        "person__first_name",
+        "person__last_name",
+        "person__username",
+        "event__title",
+    ]
+    inlines = [EventRegistrationPaymentInline]
+
+
+@admin.register(EventRegistrationPayment)
+class EventRegistrationPaymentAdmin(admin.ModelAdmin):
+    list_display = [
+        "id",
+        "registration",
+        "amount",
+        "method",
+        "paid_at",
+        "recorded_by",
+    ]
+    list_filter = ["method"]
+    search_fields = ["provider_ref", "note"]

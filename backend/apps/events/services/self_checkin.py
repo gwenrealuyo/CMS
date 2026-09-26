@@ -491,6 +491,23 @@ def checked_in_person_ids(event: Event, occurrence_date: date) -> set[int]:
     )
 
 
+def assert_registration_for_self_checkin(
+    event: Event,
+    person: Person,
+    occurrence_date: date,
+) -> None:
+    """Self-check-in never uses admin override for registration gates."""
+    from apps.events.services.registration import require_registration_for_checkin
+
+    require_registration_for_checkin(
+        event,
+        person,
+        AttendanceRecord.AttendanceMode.ONLINE,
+        occurrence_date,
+        is_admin_override=False,
+    )
+
+
 def people_scope_for_event(user, event: Event) -> QuerySet[Person]:
     qs = Person.objects.exclude(role="ADMIN").exclude(status="DECEASED")
     if event.branch_id:

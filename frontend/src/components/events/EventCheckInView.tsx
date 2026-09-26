@@ -22,6 +22,7 @@ import ScalableSelect from "@/src/components/ui/ScalableSelect";
 import { usePeople } from "@/src/hooks/usePeople";
 import { attendanceVenuesApi, eventsApi } from "@/src/lib/api";
 import { XMarkIcon } from "@heroicons/react/24/solid";
+import { formatApiErrorMessage } from "@/src/lib/apiErrors";
 import {
   isAttendanceReportAvailable,
   resolveAttendanceClusterLabel,
@@ -548,14 +549,15 @@ export default function EventCheckInView({
         triggerFlash("already");
         await fetchAttendance();
       } else {
-        setActionBanner({
-          kind: "error",
-          message: "Unable to check in this person. Please try again.",
-        });
-        showCheckInToast(
-          "error",
+        const message = formatApiErrorMessage(
+          error,
           "Unable to check in this person. Please try again.",
         );
+        setActionBanner({
+          kind: "error",
+          message,
+        });
+        showCheckInToast("error", message);
         triggerFlash("error");
       }
     } finally {

@@ -34,6 +34,10 @@ import {
   AttendanceVenueOption,
   EventTypeOption,
   EventRoom,
+  EventRegistration,
+  EventRegistrationTier,
+  EventRegistrationPayment,
+  EventRegistrationPaymentMethod,
 } from "@/src/types/event";
 import {
   SelfCheckInInviter,
@@ -1149,6 +1153,85 @@ export const publicSelfCheckInApi = {
     publicApi.post<PublicSelfCheckInSessionResponse>(
       "/events/self-check-in/public/",
       payload
+    ),
+};
+
+export const eventRegistrationApi = {
+  listTiers: (eventId: number | string) =>
+    api.get<EventRegistrationTier[]>(
+      `/events/${eventId}/registration-tiers/`
+    ),
+  createTier: (
+    eventId: number | string,
+    data: Partial<EventRegistrationTier>
+  ) =>
+    api.post<EventRegistrationTier>(
+      `/events/${eventId}/registration-tiers/`,
+      data
+    ),
+  updateTier: (
+    eventId: number | string,
+    tierId: number | string,
+    data: Partial<EventRegistrationTier>
+  ) =>
+    api.patch<EventRegistrationTier>(
+      `/events/${eventId}/registration-tiers/${tierId}/`,
+      data
+    ),
+  deleteTier: (eventId: number | string, tierId: number | string) =>
+    api.delete(`/events/${eventId}/registration-tiers/${tierId}/`),
+  listRegistrations: (eventId: number | string) =>
+    api.get<EventRegistration[]>(`/events/${eventId}/registrations/`),
+  requestRegistration: (
+    eventId: number | string,
+    data: {
+      person: number;
+      mode: AttendanceMode;
+      tier?: number | null;
+      occurrence_date?: string | null;
+      allow_capacity_override?: boolean;
+    }
+  ) =>
+    api.post<EventRegistration>(
+      `/events/${eventId}/registrations/request/`,
+      data
+    ),
+  getRegistration: (registrationId: number | string) =>
+    api.get<EventRegistration>(`/events/registrations/${registrationId}/`),
+  updateRegistration: (
+    registrationId: number | string,
+    data: Partial<EventRegistration>
+  ) =>
+    api.patch<EventRegistration>(
+      `/events/registrations/${registrationId}/`,
+      data
+    ),
+  cancelRegistration: (registrationId: number | string) =>
+    api.post<EventRegistration>(
+      `/events/registrations/${registrationId}/cancel/`,
+      {}
+    ),
+  refundRegistration: (registrationId: number | string) =>
+    api.post<EventRegistration>(
+      `/events/registrations/${registrationId}/refund/`,
+      {}
+    ),
+  listPayments: (registrationId: number | string) =>
+    api.get<EventRegistrationPayment[]>(
+      `/events/registrations/${registrationId}/payments/`
+    ),
+  addPayment: (
+    registrationId: number | string,
+    data: {
+      amount: string | number;
+      method: EventRegistrationPaymentMethod;
+      paid_at?: string;
+      note?: string;
+    }
+  ) =>
+    api.post<EventRegistrationPayment>(
+      `/events/registrations/${registrationId}/payments/`,
+      data
     ),
 };
 

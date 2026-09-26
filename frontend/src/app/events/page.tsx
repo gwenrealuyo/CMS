@@ -1066,6 +1066,7 @@ export default function EventsPage() {
             initialOccurrenceDate={viewOccurrenceDate}
             showAuditMetadata={canWriteEventsAccess}
             canManageAttendance={canWriteEventsAccess}
+            canManageRegistration={user?.role === "ADMIN"}
             onEdit={
               canEditViewEvent
                 ? ({ occurrenceDate }) => {

@@ -5,6 +5,10 @@ from .onsite_guest_views import (
     OnsiteGuestSessionView,
     OnsiteGuestVisitorsView,
 )
+from .registration_views import (
+    EventRegistrationTierViewSet,
+    EventRegistrationViewSet,
+)
 from .self_checkin_views import (
     EventSettingView,
     PublicSelfCheckInIdentifyView,
@@ -22,6 +26,30 @@ app_name = "events"
 
 router = DefaultRouter()
 router.register(r"", EventViewSet, basename="event")
+
+registration_tier_list = EventRegistrationTierViewSet.as_view(
+    {"get": "list", "post": "create"}
+)
+registration_tier_detail = EventRegistrationTierViewSet.as_view(
+    {
+        "get": "retrieve",
+        "put": "update",
+        "patch": "partial_update",
+        "delete": "destroy",
+    }
+)
+registration_list = EventRegistrationViewSet.as_view({"get": "list"})
+registration_request = EventRegistrationViewSet.as_view(
+    {"post": "request_registration"}
+)
+registration_detail = EventRegistrationViewSet.as_view(
+    {"get": "retrieve", "put": "update", "patch": "partial_update"}
+)
+registration_cancel = EventRegistrationViewSet.as_view({"post": "cancel"})
+registration_refund = EventRegistrationViewSet.as_view({"post": "refund"})
+registration_payments = EventRegistrationViewSet.as_view(
+    {"get": "payments", "post": "payments"}
+)
 
 urlpatterns = [
     path(
@@ -80,5 +108,45 @@ urlpatterns = [
         name="self-check-in-undo",
     ),
     path("self-check-in/", SelfCheckInView.as_view(), name="self-check-in"),
+    path(
+        "<int:event_pk>/registration-tiers/",
+        registration_tier_list,
+        name="event-registration-tiers",
+    ),
+    path(
+        "<int:event_pk>/registration-tiers/<int:pk>/",
+        registration_tier_detail,
+        name="event-registration-tier-detail",
+    ),
+    path(
+        "<int:event_pk>/registrations/request/",
+        registration_request,
+        name="event-registration-request",
+    ),
+    path(
+        "<int:event_pk>/registrations/",
+        registration_list,
+        name="event-registrations",
+    ),
+    path(
+        "registrations/<int:pk>/cancel/",
+        registration_cancel,
+        name="event-registration-cancel",
+    ),
+    path(
+        "registrations/<int:pk>/refund/",
+        registration_refund,
+        name="event-registration-refund",
+    ),
+    path(
+        "registrations/<int:pk>/payments/",
+        registration_payments,
+        name="event-registration-payments",
+    ),
+    path(
+        "registrations/<int:pk>/",
+        registration_detail,
+        name="event-registration-detail",
+    ),
     path("", include(router.urls)),
 ]

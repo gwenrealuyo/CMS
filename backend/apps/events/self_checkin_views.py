@@ -22,6 +22,7 @@ from apps.evangelism.services import mark_prospect_attended
 from apps.events.serializers import AttendanceVenueSerializer, EventSettingSerializer
 from apps.events.services.self_checkin import (
     REASON_RESTRICTED,
+    assert_registration_for_self_checkin,
     checked_in_person_ids,
     create_visitor_guest_person,
     exact_name_matches,
@@ -259,6 +260,7 @@ def build_session_response(request, resolved):
 
 
 def _upsert_present(event, person, occurrence_date, request, venue: AttendanceVenue | None):
+    assert_registration_for_self_checkin(event, person, occurrence_date)
     serializer = AttendanceRecordSerializer(
         data={
             "event_id": event.pk,

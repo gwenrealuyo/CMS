@@ -2,6 +2,7 @@ from rest_framework import serializers
 from rest_framework.exceptions import ValidationError
 
 from apps.events.models import AttendanceVenue, Event
+from apps.events.services.registration import require_registration_for_checkin
 from apps.people.models import Person
 from apps.people.name_formatting import format_person_display_name
 from core.datetime_utils import church_calendar_date
@@ -195,6 +196,36 @@ class AttendanceRecordSerializer(serializers.ModelSerializer):
                     }
                 )
         attrs["attendance_mode"] = mode
+
+        status_value = attrs.get(
+            "status",
+            getattr(self.instance, "status", None)
+            or AttendanceRecord.AttendanceStatus.PRESENT,
+        )
+        if (
+            self.instance is None
+            and status_value == AttendanceRecord.AttendanceStatus.PRESENT
+        ):
+            event = attrs.get("event") or getattr(self.instance, "event", None)
+            person = attrs.get("person") or getattr(self.instance, "person", None)
+            occurrence_date = attrs.get("occurrence_date")
+            if event is not None and person is not None:
+                request = self.context.get("request") if self.context else None
+                user = getattr(request, "user", None) if request else None
+                is_admin_override = (
+                    getattr(user, "role", None) == "ADMIN"
+                    if user and getattr(user, "is_authenticated", False)
+                    else False
+                )
+                if not event.is_recurring and occurrence_date is None:
+                    occurrence_date = church_calendar_date(event.start_date)
+                require_registration_for_checkin(
+                    event,
+                    person,
+                    mode,
+                    occurrence_date,
+                    is_admin_override=is_admin_override,
+                )
         return attrs
 
     def create(self, validated_data):

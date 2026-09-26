@@ -118,6 +118,11 @@ export interface Event {
   expected_include_ongoing_visitors?: boolean;
   track_expected_attendees?: boolean;
   allow_cross_branch_attendance?: boolean;
+  registration_enabled?: boolean;
+  onsite_registration_required?: boolean;
+  online_registration_required?: boolean;
+  onsite_capacity?: number | null;
+  online_capacity?: number | null;
   tardy_grace_minutes?: number;
   self_checkin_enabled?: boolean;
   attendance_format?: "hybrid" | "online_only" | "onsite_only";
@@ -138,4 +143,65 @@ export interface Event {
   updated_by?: number | null;
   updated_by_name?: string | null;
   updated_at?: string;
+}
+
+export type EventRegistrationStatus =
+  | "pending_payment"
+  | "confirmed"
+  | "cancelled"
+  | "refunded"
+  | "waitlisted";
+
+export type EventRegistrationPaymentMethod =
+  | "CASH"
+  | "CHECK"
+  | "BANK_TRANSFER"
+  | "CARD"
+  | "DIGITAL_WALLET";
+
+export interface EventRegistrationTier {
+  id: number;
+  event: number;
+  code: string;
+  label: string;
+  sort_order: number;
+  is_active: boolean;
+  onsite_offered: boolean;
+  online_offered: boolean;
+  onsite_price: string;
+  online_price: string;
+  available_from?: string | null;
+  available_until?: string | null;
+}
+
+export interface EventRegistrationPayment {
+  id: number;
+  registration: number;
+  amount: string;
+  method: EventRegistrationPaymentMethod;
+  paid_at: string;
+  recorded_by?: number | null;
+  recorded_by_name?: string | null;
+  note?: string;
+  provider?: string;
+  provider_ref?: string;
+  created_at: string;
+}
+
+export interface EventRegistration {
+  id: number;
+  event: number;
+  person: number;
+  person_name?: string | null;
+  occurrence_date?: string | null;
+  mode: AttendanceMode;
+  tier?: number | null;
+  tier_label?: string | null;
+  status: EventRegistrationStatus;
+  amount_due: string;
+  amount_paid: string;
+  payments?: EventRegistrationPayment[];
+  created_by?: number | null;
+  created_at: string;
+  updated_at: string;
 }

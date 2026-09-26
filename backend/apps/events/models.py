@@ -191,6 +191,11 @@ class Event(models.Model):
             "Onsite only is door/station check-in only."
         ),
     )
+    registration_enabled = models.BooleanField(default=False)
+    onsite_registration_required = models.BooleanField(default=False)
+    online_registration_required = models.BooleanField(default=False)
+    onsite_capacity = models.PositiveIntegerField(null=True, blank=True)
+    online_capacity = models.PositiveIntegerField(null=True, blank=True)
     volunteers = models.ManyToManyField(
         settings.AUTH_USER_MODEL, related_name="volunteered_events"
     )
@@ -231,6 +236,140 @@ class Event(models.Model):
             self.AttendanceFormat.HYBRID,
             self.AttendanceFormat.ONLINE_ONLY,
         )
+
+
+class EventRegistrationTier(models.Model):
+    event = models.ForeignKey(
+        Event,
+        on_delete=models.CASCADE,
+        related_name="registration_tiers",
+    )
+    code = models.CharField(max_length=50)
+    label = models.CharField(max_length=100)
+    sort_order = models.PositiveSmallIntegerField(default=0)
+    is_active = models.BooleanField(default=True)
+    onsite_offered = models.BooleanField(default=True)
+    online_offered = models.BooleanField(default=True)
+    onsite_price = models.DecimalField(
+        max_digits=10, decimal_places=2, default=0
+    )
+    online_price = models.DecimalField(
+        max_digits=10, decimal_places=2, default=0
+    )
+    available_from = models.DateTimeField(null=True, blank=True)
+    available_until = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["sort_order", "id"]
+        unique_together = ("event", "code")
+        verbose_name = "Event Registration Tier"
+        verbose_name_plural = "Event Registration Tiers"
+
+    def __str__(self):
+        return f"{self.label} ({self.event_id})"
+
+
+class EventRegistration(models.Model):
+    class AttendanceMode(models.TextChoices):
+        ONSITE = "ONSITE", "Onsite"
+        ONLINE = "ONLINE", "Online"
+
+    class Status(models.TextChoices):
+        PENDING_PAYMENT = "pending_payment", "Pending payment"
+        CONFIRMED = "confirmed", "Confirmed"
+        CANCELLED = "cancelled", "Cancelled"
+        REFUNDED = "refunded", "Refunded"
+        WAITLISTED = "waitlisted", "Waitlisted"
+
+    event = models.ForeignKey(
+        Event,
+        on_delete=models.CASCADE,
+        related_name="registrations",
+    )
+    person = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="event_registrations",
+    )
+    occurrence_date = models.DateField(null=True, blank=True)
+    mode = models.CharField(
+        max_length=20,
+        choices=AttendanceMode.choices,
+    )
+    tier = models.ForeignKey(
+        EventRegistrationTier,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="registrations",
+    )
+    status = models.CharField(
+        max_length=20,
+        choices=Status.choices,
+        default=Status.PENDING_PAYMENT,
+        db_index=True,
+    )
+    amount_due = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    amount_paid = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="event_registrations_created",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-created_at", "id"]
+        indexes = [
+            models.Index(fields=["event", "person", "occurrence_date"]),
+            models.Index(fields=["event", "status"]),
+            models.Index(fields=["event", "mode", "status"]),
+        ]
+        verbose_name = "Event Registration"
+        verbose_name_plural = "Event Registrations"
+
+    def __str__(self):
+        return f"{self.person_id} @ {self.event_id} ({self.status})"
+
+
+class EventRegistrationPayment(models.Model):
+    class Method(models.TextChoices):
+        CASH = "CASH", "Cash"
+        CHECK = "CHECK", "Check"
+        BANK_TRANSFER = "BANK_TRANSFER", "Bank transfer"
+        CARD = "CARD", "Card"
+        DIGITAL_WALLET = "DIGITAL_WALLET", "Digital wallet"
+
+    registration = models.ForeignKey(
+        EventRegistration,
+        on_delete=models.CASCADE,
+        related_name="payments",
+    )
+    amount = models.DecimalField(max_digits=10, decimal_places=2)
+    method = models.CharField(max_length=20, choices=Method.choices)
+    paid_at = models.DateTimeField()
+    recorded_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="event_registration_payments_recorded",
+    )
+    note = models.TextField(blank=True)
+    provider = models.CharField(max_length=100, blank=True, default="")
+    provider_ref = models.CharField(max_length=100, blank=True, default="")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-paid_at", "-id"]
+        verbose_name = "Event Registration Payment"
+        verbose_name_plural = "Event Registration Payments"
+
+    def __str__(self):
+        return f"{self.amount} for registration {self.registration_id}"
 
 
 class EventSetting(models.Model):

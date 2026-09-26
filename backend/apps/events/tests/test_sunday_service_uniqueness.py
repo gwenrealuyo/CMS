@@ -312,7 +312,6 @@ class SundayServiceUniquenessAPITests(APITestCase):
         message = str(details["start_date"])
         self.assertIn("2026-09-24", message)
         self.assertIn("Spanning Thursday service", message)
-        self.assertIn("→", message)
 
     def test_screenshot_calendar_healthy_data_allows_sep_24(self):
         """Sep 13 Sundays + Sep 17 Thu one-off + Sep 20 Sunday; Sep 24 free."""

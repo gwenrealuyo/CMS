@@ -34,6 +34,36 @@ export function isSameLocalDay(a: Date, b: Date): boolean {
   );
 }
 
+/** True when [start, end) overlaps the local calendar day of `day`. */
+export function occurrenceTouchesLocalDay(
+  start: Date | string,
+  end: Date | string | null | undefined,
+  day: Date
+): boolean {
+  const startDate = typeof start === "string" ? new Date(start) : start;
+  if (Number.isNaN(startDate.getTime())) return false;
+
+  const endDate =
+    end == null || end === ""
+      ? startDate
+      : typeof end === "string"
+        ? new Date(end)
+        : end;
+  const resolvedEnd =
+    Number.isNaN(endDate.getTime()) || endDate.getTime() < startDate.getTime()
+      ? startDate
+      : endDate;
+
+  const dayStart = startOfLocalDay(day);
+  const dayEnd = new Date(
+    dayStart.getFullYear(),
+    dayStart.getMonth(),
+    dayStart.getDate() + 1
+  );
+
+  return startDate < dayEnd && resolvedEnd > dayStart;
+}
+
 function sortByStartAsc(items: EventCardItem[]): EventCardItem[] {
   return [...items].sort((a, b) => {
     const dateA = new Date(a.occurrence.start_date).getTime();
@@ -118,10 +148,13 @@ export function buildAgendaGroups(
   const sorted = sortByStartAsc(items);
 
   if (options.selectedDate) {
-    const dayItems = sorted.filter((item) => {
-      const occurrenceDate = new Date(item.occurrence.start_date);
-      return isSameLocalDay(occurrenceDate, options.selectedDate!);
-    });
+    const dayItems = sorted.filter((item) =>
+      occurrenceTouchesLocalDay(
+        item.occurrence.start_date,
+        item.occurrence.end_date,
+        options.selectedDate!
+      )
+    );
 
     return {
       mode: "day",

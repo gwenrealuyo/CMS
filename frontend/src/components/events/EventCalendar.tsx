@@ -2,9 +2,11 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useEventTypeStyles } from "@/src/contexts/EventTypeStylesContext";
+import { occurrenceTouchesLocalDay } from "@/src/lib/events/agenda";
 
 export type CalendarEventItem = {
   start_date: string;
+  end_date?: string | null;
   type: string;
   type_display?: string;
   viewerPresent?: boolean;
@@ -34,7 +36,8 @@ function dayHasViewerPresent(
 ): boolean {
   return events.some(
     (event) =>
-      event.viewerPresent && isSameLocalDay(new Date(event.start_date), date),
+      event.viewerPresent &&
+      occurrenceTouchesLocalDay(event.start_date, event.end_date, date),
   );
 }
 
@@ -44,10 +47,9 @@ function getUniqueTypesForDate(
   sortTypes: (codes: string[]) => string[]
 ): string[] {
   const types = events
-    .filter((event) => {
-      const eventDate = new Date(event.start_date);
-      return isSameLocalDay(eventDate, date);
-    })
+    .filter((event) =>
+      occurrenceTouchesLocalDay(event.start_date, event.end_date, date)
+    )
     .map((event) => event.type);
 
   return sortTypes(types);
@@ -101,12 +103,21 @@ export default function EventCalendar({
 
   const typesInMonth = useMemo(() => {
     const labels = new Map<string, string>();
+    const monthStart = new Date(year, month, 1);
+    const monthEnd = new Date(year, month + 1, 1);
 
     for (const event of events) {
-      const eventDate = new Date(event.start_date);
-      if (eventDate.getFullYear() !== year || eventDate.getMonth() !== month) {
-        continue;
-      }
+      const start = new Date(event.start_date);
+      const end =
+        event.end_date != null && event.end_date !== ""
+          ? new Date(event.end_date)
+          : start;
+      const resolvedEnd =
+        Number.isNaN(end.getTime()) || end.getTime() < start.getTime()
+          ? start
+          : end;
+      if (Number.isNaN(start.getTime())) continue;
+      if (!(start < monthEnd && resolvedEnd > monthStart)) continue;
       if (!labels.has(event.type)) {
         labels.set(event.type, event.type_display || event.type);
       }

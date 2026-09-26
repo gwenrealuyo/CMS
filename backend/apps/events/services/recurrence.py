@@ -327,6 +327,27 @@ def generate_occurrences(
     if interval < 1:
         interval = 1
 
+    # If end_date was saved as the series through date, duration spans months
+    # and every weekly occurrence falsely covers mid-week days.
+    end_day = church_calendar_date(base_end)
+    if (
+        frequency == "weekly"
+        and end_day is not None
+        and through is not None
+        and end_day >= through
+        and duration.days >= 7
+    ):
+        same_day_end = base_start.replace(
+            hour=base_end.hour,
+            minute=base_end.minute,
+            second=base_end.second,
+            microsecond=base_end.microsecond,
+        )
+        if same_day_end > base_start:
+            duration = same_day_end - base_start
+        else:
+            duration = timedelta(hours=2)
+
     weekdays = pattern.get("weekdays") or [base_day.weekday()]
 
     if frequency == "monthly":

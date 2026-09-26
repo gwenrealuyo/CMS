@@ -1,4 +1,4 @@
-import { Event } from "@/src/types/event";
+import { Event, RecurrencePattern } from "@/src/types/event";
 
 export type ScheduleConflict = {
   kind: "sunday" | "room";
@@ -32,28 +32,58 @@ function branchesConflict(
 
 type Interval = { start: Date; end: Date };
 
-function draftIntervals(payload: Partial<Event>): Interval[] {
-  const start = parseDate(payload.start_date);
-  const end = parseDate(payload.end_date);
-  if (!start || !end) return [];
+/** When end_date was saved as the series through date, duration spans months. */
+function occurrenceDurationMs(
+  start: Date,
+  end: Date,
+  pattern?: RecurrencePattern | null
+): number {
+  let durationMs = end.getTime() - start.getTime();
+  if (durationMs <= 0) return 0;
 
-  const pattern = payload.recurrence_pattern;
-  if (!payload.is_recurring || !pattern?.through) {
-    return [{ start, end }];
+  if (pattern?.frequency === "weekly" && pattern.through) {
+    const endDay = toDayKey(end);
+    const spanDays = Math.floor(durationMs / (24 * 60 * 60 * 1000));
+    if (spanDays >= 7 && endDay >= pattern.through) {
+      const sameDayEnd = new Date(start);
+      sameDayEnd.setHours(
+        end.getHours(),
+        end.getMinutes(),
+        end.getSeconds(),
+        end.getMilliseconds()
+      );
+      if (sameDayEnd.getTime() > start.getTime()) {
+        durationMs = sameDayEnd.getTime() - start.getTime();
+      } else {
+        durationMs = 2 * 60 * 60 * 1000;
+      }
+    }
+  }
+
+  return durationMs;
+}
+
+function expandRecurringIntervals(
+  start: Date,
+  end: Date,
+  pattern: RecurrencePattern
+): Interval[] {
+  const durationMs = occurrenceDurationMs(start, end, pattern);
+  if (durationMs <= 0) return [];
+
+  if (pattern.frequency === "monthly" || !pattern.through) {
+    return [{ start, end: new Date(start.getTime() + durationMs) }];
   }
 
   const excluded = new Set(pattern.excluded_dates ?? []);
-  const durationMs = end.getTime() - start.getTime();
   const through = parseDate(`${pattern.through}T23:59:59`);
-  if (!through) return [{ start, end }];
+  if (!through) {
+    return [{ start, end: new Date(start.getTime() + durationMs) }];
+  }
 
   const intervals: Interval[] = [];
   const intervalWeeks = Math.max(1, pattern.interval ?? 1);
   const cursor = new Date(start);
-
-  if (pattern.frequency === "monthly") {
-    return [{ start, end }];
-  }
 
   while (cursor.getTime() <= through.getTime()) {
     const key = toDayKey(cursor);
@@ -68,17 +98,59 @@ function draftIntervals(payload: Partial<Event>): Interval[] {
   return intervals;
 }
 
+function draftIntervals(payload: Partial<Event>): Interval[] {
+  const start = parseDate(payload.start_date);
+  const end = parseDate(payload.end_date);
+  if (!start || !end) return [];
+
+  const pattern = payload.recurrence_pattern;
+  if (!payload.is_recurring || !pattern?.through) {
+    return [{ start, end }];
+  }
+
+  return expandRecurringIntervals(start, end, pattern);
+}
+
 function eventIntervals(event: Event): Interval[] {
+  const pattern = event.recurrence_pattern;
+
+  // Prefer expanding the recurrence pattern so we never treat a weekly
+  // series as one continuous block from first start → through/end.
+  if (event.is_recurring && pattern?.through) {
+    const start = parseDate(event.start_date);
+    const end = parseDate(event.end_date);
+    if (start && end) {
+      return expandRecurringIntervals(start, end, pattern);
+    }
+  }
+
   if (event.occurrences && event.occurrences.length > 0) {
+    const durationHint =
+      pattern && event.start_date && event.end_date
+        ? (() => {
+            const s = parseDate(event.start_date);
+            const e = parseDate(event.end_date);
+            return s && e ? occurrenceDurationMs(s, e, pattern) : null;
+          })()
+        : null;
+
     return event.occurrences
       .map((occurrence) => {
         const start = parseDate(occurrence.start_date);
         const end = parseDate(occurrence.end_date);
         if (!start || !end) return null;
+        if (
+          durationHint != null &&
+          durationHint > 0 &&
+          end.getTime() - start.getTime() > durationHint
+        ) {
+          return { start, end: new Date(start.getTime() + durationHint) };
+        }
         return { start, end };
       })
       .filter((interval): interval is Interval => interval != null);
   }
+
   const start = parseDate(event.start_date);
   const end = parseDate(event.end_date);
   if (!start || !end) return [];
@@ -150,10 +222,9 @@ export function findScheduleConflict(args: {
           branchesConflict(branchId, existing.branch)
         ) {
           const title = (existing.title || "another Sunday Service").trim();
-          const range = `${existingInterval.start.toISOString()} → ${existingInterval.end.toISOString()}`;
           return {
             kind: "sunday",
-            message: `A Sunday Service already exists for this branch at this time on ${day} (conflicts with "${title}", ${range}). Edit the existing event instead of creating another.`,
+            message: `A Sunday Service already exists for this branch at this time on ${day} (conflicts with "${title}"). Edit the existing event instead of creating another.`,
           };
         }
         if (

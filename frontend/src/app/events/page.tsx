@@ -318,8 +318,11 @@ export default function EventsPage() {
     const yearValue = Number(filterYear);
     if (!Number.isNaN(yearValue)) {
       filtered = filtered.filter((item) => {
-        const occurrenceDate = new Date(item.occurrence.start_date);
-        return occurrenceDate.getFullYear() === yearValue;
+        const start = new Date(item.occurrence.start_date);
+        const end = new Date(item.occurrence.end_date || item.occurrence.start_date);
+        const yearStart = new Date(yearValue, 0, 1);
+        const yearEnd = new Date(yearValue + 1, 0, 1);
+        return start < yearEnd && end > yearStart;
       });
     }
 
@@ -327,8 +330,13 @@ export default function EventsPage() {
       const month = Number(filterMonth);
       if (!Number.isNaN(month)) {
         filtered = filtered.filter((item) => {
-          const occurrenceDate = new Date(item.occurrence.start_date);
-          return occurrenceDate.getMonth() === month;
+          const start = new Date(item.occurrence.start_date);
+          const end = new Date(
+            item.occurrence.end_date || item.occurrence.start_date
+          );
+          const monthStart = new Date(yearValue, month, 1);
+          const monthEnd = new Date(yearValue, month + 1, 1);
+          return start < monthEnd && end > monthStart;
         });
       }
     }
@@ -344,6 +352,7 @@ export default function EventsPage() {
     () =>
       baseFilteredItems.map((item) => ({
         start_date: item.occurrence.start_date,
+        end_date: item.occurrence.end_date,
         type: item.event.type,
         type_display: item.event.type_display,
         viewerPresent: viewerAttendanceForOccurrence(

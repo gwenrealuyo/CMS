@@ -279,14 +279,11 @@ def validate_sunday_service_uniqueness(
     other, overlap_day = conflict
     day_label = overlap_day.isoformat() if overlap_day else "that day"
     other_title = (other.title or "another Sunday Service").strip()
-    other_start = other.start_date.isoformat() if other.start_date else "?"
-    other_end = other.end_date.isoformat() if other.end_date else "?"
     raise ValidationError(
         {
             "start_date": (
                 "A Sunday Service already exists for this branch at this time "
-                f"on {day_label} (conflicts with \"{other_title}\", "
-                f"stored {other_start} → {other_end}). "
+                f"on {day_label} (conflicts with \"{other_title}\"). "
                 "Edit the existing event instead of creating another."
             )
         }

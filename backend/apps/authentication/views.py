@@ -126,7 +126,7 @@ def login_view(request):
             .prefetch_related("module_coordinator_assignments")
             .get(pk=user.pk)
         )
-        user_serializer = UserSerializer(user)
+        user_serializer = UserSerializer(user, context={"request": request})
         user_data = user_serializer.data
 
         # Add must_change_password flag to response
@@ -290,7 +290,7 @@ def current_user_view(request):
             .prefetch_related("module_coordinator_assignments")
             .get(pk=request.user.pk)
         )
-        serializer = UserSerializer(user)
+        serializer = UserSerializer(user, context={"request": request})
         return Response(serializer.data, status=status.HTTP_200_OK)
     elif request.method == "PATCH":
         serializer = ProfileUpdateSerializer(
@@ -304,7 +304,7 @@ def current_user_view(request):
                 .prefetch_related("module_coordinator_assignments")
                 .get(pk=request.user.pk)
             )
-            user_serializer = UserSerializer(user)
+            user_serializer = UserSerializer(user, context={"request": request})
             return Response(user_serializer.data, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 

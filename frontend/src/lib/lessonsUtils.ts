@@ -9,6 +9,7 @@ import {
   PersonProgressSummary,
 } from "@/src/types/lesson";
 import { formatPersonName } from "@/src/lib/name";
+import { resolveMediaUrl } from "@/src/lib/mediaUrl";
 import { isSelectablePerson } from "@/src/lib/peopleSelectors";
 
 export type LessonPersonLike = {
@@ -549,23 +550,7 @@ export function getPersonLastActivityIso(
 export function resolveLessonMediaUrl(
   url: string | null | undefined,
 ): string {
-  if (!url) return "";
-  const apiBase =
-    process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api";
-  try {
-    const apiOrigin = new URL(apiBase).origin;
-    const parsed = new URL(url, apiOrigin);
-    const mediaIndex = parsed.pathname.indexOf("/media/");
-    if (mediaIndex >= 0) {
-      return `${apiOrigin}${parsed.pathname.slice(mediaIndex)}${parsed.search}`;
-    }
-    if (parsed.pathname.startsWith("media/")) {
-      return `${apiOrigin}/${parsed.pathname}${parsed.search}`;
-    }
-    return parsed.href;
-  } catch {
-    return url;
-  }
+  return resolveMediaUrl(url);
 }
 
 /** @deprecated Use resolveLessonMediaUrl */

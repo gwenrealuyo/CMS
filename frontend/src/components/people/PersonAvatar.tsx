@@ -3,6 +3,7 @@
 import { KeyboardEvent, MouseEvent, useEffect, useState } from "react";
 import { Person } from "@/src/types/person";
 import ModalOverlay from "@/src/components/ui/ModalOverlay";
+import { resolveMediaUrl } from "@/src/lib/mediaUrl";
 
 type PersonAvatarSize = "xs" | "sm" | "md" | "lg";
 
@@ -42,7 +43,8 @@ export default function PersonAvatar({
   const sizeClass = sizeClasses[size];
   const initials = getPersonInitials(person);
   const alt = `${person.first_name ?? ""} ${person.last_name ?? ""}`.trim();
-  const canEnlarge = Boolean(person.photo && !imageFailed && enlargeable);
+  const photoSrc = resolveMediaUrl(person.photo);
+  const canEnlarge = Boolean(photoSrc && !imageFailed && enlargeable);
 
   useEffect(() => {
     setImageFailed(false);
@@ -63,7 +65,7 @@ export default function PersonAvatar({
     setIsEnlarged(true);
   };
 
-  const lightbox = canEnlarge && person.photo ? (
+  const lightbox = canEnlarge && photoSrc ? (
     <ModalOverlay
       isOpen={isEnlarged}
       onClose={() => setIsEnlarged(false)}
@@ -72,7 +74,7 @@ export default function PersonAvatar({
       zIndex={80}
     >
       <img
-        src={person.photo}
+        src={photoSrc}
         alt={alt || "Profile photo"}
         className="max-h-[85vh] max-w-[90vw] object-contain rounded-lg"
         onClick={(e) => e.stopPropagation()}
@@ -80,11 +82,11 @@ export default function PersonAvatar({
     </ModalOverlay>
   ) : null;
 
-  if (person.photo && !imageFailed) {
+  if (photoSrc && !imageFailed) {
     return (
       <>
         <img
-          src={person.photo}
+          src={photoSrc}
           alt={alt || "Profile photo"}
           className={`${sizeClass} rounded-full object-cover flex-shrink-0 ${canEnlarge ? "cursor-pointer" : ""} ${className}`}
           onError={() => setImageFailed(true)}

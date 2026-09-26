@@ -22,6 +22,7 @@ import {
 
 import AppLogo from "@/src/components/brand/AppLogo";
 import CheckInQrScanner from "@/src/components/events/CheckInQrScanner";
+import PersonAvatar from "@/src/components/people/PersonAvatar";
 import Button from "@/src/components/ui/Button";
 import LoadingSpinner from "@/src/components/ui/LoadingSpinner";
 import ScalableSelect from "@/src/components/ui/ScalableSelect";
@@ -513,20 +514,16 @@ export default function PublicSelfCheckInView() {
       <div className="space-y-5">
         {sessionEvent ? <ServiceCard event={sessionEvent} /> : null}
         <div className="flex items-center gap-3 rounded-2xl border border-gray-200 px-4 py-3">
-          {person.photo ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={person.photo}
-              alt=""
-              className="h-14 w-14 shrink-0 rounded-full object-cover"
-            />
-          ) : (
-            <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-primary/10 text-lg font-semibold text-primary">
-              {(person.first_name || person.full_name || "?")
-                .charAt(0)
-                .toUpperCase()}
-            </span>
-          )}
+          <PersonAvatar
+            person={{
+              id: person.id,
+              first_name: person.first_name,
+              last_name: person.last_name,
+              photo: person.photo,
+            }}
+            size="lg"
+            enlargeable={false}
+          />
           <div className="min-w-0">
             <p className="truncate font-semibold text-lighthouse-navy">
               {person.full_name || formatPersonName(person)}

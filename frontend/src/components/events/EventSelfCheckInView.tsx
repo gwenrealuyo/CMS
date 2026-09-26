@@ -23,6 +23,7 @@ import {
 import { CheckIcon } from "@heroicons/react/24/solid";
 
 import AppLogo from "@/src/components/brand/AppLogo";
+import PersonAvatar from "@/src/components/people/PersonAvatar";
 import Button from "@/src/components/ui/Button";
 import LoadingSpinner from "@/src/components/ui/LoadingSpinner";
 import ScalableSelect from "@/src/components/ui/ScalableSelect";
@@ -219,16 +220,22 @@ function PersonRow({
             : "border-gray-200 bg-white hover:border-primary/40"
       }`}
     >
-      <span
-        className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-sm font-semibold ${
-          already ? "bg-emerald-600 text-white" : "bg-primary/10 text-primary"
-        }`}
-      >
+      <span className="relative shrink-0">
+        <PersonAvatar
+          person={{
+            id: person.id,
+            first_name: person.first_name,
+            last_name: person.last_name,
+            photo: person.photo,
+          }}
+          size="md"
+          enlargeable={false}
+        />
         {already ? (
-          <CheckIcon className="h-5 w-5" />
-        ) : (
-          (person.first_name || person.full_name || "?").charAt(0).toUpperCase()
-        )}
+          <span className="absolute -bottom-0.5 -right-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-emerald-600 text-white ring-2 ring-white">
+            <CheckIcon className="h-3 w-3" />
+          </span>
+        ) : null}
       </span>
       <span className="min-w-0 flex-1">
         <span className="block truncate font-medium text-lighthouse-navy">

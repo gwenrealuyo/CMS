@@ -82,8 +82,11 @@ export default function EventAttendancePanel({
   const [actionError, setActionError] = useState<string | null>(null);
   const [selectedPersonId, setSelectedPersonId] = useState("");
   const [selectedStatus] = useState<AttendanceStatus>("PRESENT");
-  const [addAttendanceMode, setAddAttendanceMode] =
-    useState<AttendanceMode>("ONSITE");
+  const attendanceFormat = event.attendance_format ?? "hybrid";
+  const requiresOnlineVenue = attendanceFormat === "hybrid";
+  const [addAttendanceMode, setAddAttendanceMode] = useState<AttendanceMode>(
+    () => (attendanceFormat === "online_only" ? "ONLINE" : "ONSITE")
+  );
   const [addAttendanceVenue, setAddAttendanceVenue] = useState("");
   const [venues, setVenues] = useState<AttendanceVenueOption[]>([]);
   const [attendanceSearchTerm, setAttendanceSearchTerm] = useState("");
@@ -112,6 +115,20 @@ export default function EventAttendancePanel({
   };
 
   useEffect(() => {
+    if (attendanceFormat === "online_only") {
+      setAddAttendanceMode("ONLINE");
+      setAddAttendanceVenue("");
+    } else if (attendanceFormat === "onsite_only") {
+      setAddAttendanceMode("ONSITE");
+      setAddAttendanceVenue("");
+    }
+  }, [attendanceFormat]);
+
+  useEffect(() => {
+    if (!requiresOnlineVenue) {
+      setVenues([]);
+      return;
+    }
     let cancelled = false;
     void (async () => {
       try {
@@ -128,7 +145,7 @@ export default function EventAttendancePanel({
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [requiresOnlineVenue]);
 
   useEffect(() => {
     setAttendanceRecords(
@@ -210,7 +227,11 @@ export default function EventAttendancePanel({
 
   const addAttendeeById = async (personId: string) => {
     if (!selectedOccurrenceDate || !personId || actionLoading) return;
-    if (addAttendanceMode === "ONLINE" && !addAttendanceVenue) {
+    if (
+      requiresOnlineVenue &&
+      addAttendanceMode === "ONLINE" &&
+      !addAttendanceVenue
+    ) {
       setActionError("Select an online venue before adding attendance.");
       return;
     }
@@ -222,7 +243,9 @@ export default function EventAttendancePanel({
         status: selectedStatus,
         attendance_mode: addAttendanceMode,
         attendance_venue:
-          addAttendanceMode === "ONLINE" ? addAttendanceVenue : null,
+          requiresOnlineVenue && addAttendanceMode === "ONLINE"
+            ? addAttendanceVenue
+            : null,
       });
       await fetchAttendance(selectedOccurrenceDate);
       setSelectedPersonId("");
@@ -376,6 +399,7 @@ export default function EventAttendancePanel({
               }}
               onVenueChange={setAddAttendanceVenue}
               disabled={actionLoading}
+              attendanceFormat={attendanceFormat}
             />
           </div>
           <Button
@@ -384,7 +408,9 @@ export default function EventAttendancePanel({
               actionLoading ||
               !selectedOccurrenceDate ||
               !selectedPersonId ||
-              (addAttendanceMode === "ONLINE" && !addAttendanceVenue)
+              (requiresOnlineVenue &&
+                addAttendanceMode === "ONLINE" &&
+                !addAttendanceVenue)
             }
             className="w-full sm:w-auto min-h-[44px] md:self-center md:px-6"
           >
@@ -561,6 +587,7 @@ export default function EventAttendancePanel({
                           eventId={String(event.id)}
                           record={record}
                           venues={venues}
+                          attendanceFormat={attendanceFormat}
                           disabled={actionLoading || removeConfirmation.loading}
                           onSaved={async () => {
                             if (selectedOccurrenceDate) {

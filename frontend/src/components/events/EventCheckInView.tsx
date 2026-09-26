@@ -1268,6 +1268,7 @@ export default function EventCheckInView({
                           eventId={eventId}
                           record={record}
                           venues={venues}
+                          attendanceFormat={event.attendance_format ?? "hybrid"}
                           disabled={submitting || removeConfirmation.loading}
                           iconOnly
                           buttonClassName="flex h-8 w-8 translate-x-2 items-center justify-center rounded-full text-blue-600 opacity-100 transition-all duration-200 hover:bg-blue-50 disabled:opacity-50 md:translate-x-3 md:opacity-0 md:group-hover:translate-x-0 md:group-hover:opacity-100"

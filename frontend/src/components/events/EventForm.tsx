@@ -285,7 +285,7 @@ function withExpectedAttendeeDefaults(
     track_expected_attendees: defaults.type === "SUNDAY_SERVICE",
     allow_cross_branch_attendance: false,
     tardy_grace_minutes: 0,
-    self_checkin_enabled: defaults.type === "SUNDAY_SERVICE",
+    self_checkin_enabled: true,
     attendance_format: "hybrid",
     registration_enabled: false,
     onsite_registration_required: false,
@@ -430,9 +430,7 @@ export default function EventForm({
         allow_cross_branch_attendance:
           initialData.allow_cross_branch_attendance ?? false,
         tardy_grace_minutes: initialData.tardy_grace_minutes ?? 0,
-        self_checkin_enabled:
-          initialData.self_checkin_enabled ??
-          (initialData.type || "SUNDAY_SERVICE") === "SUNDAY_SERVICE",
+        self_checkin_enabled: initialData.self_checkin_enabled ?? true,
         attendance_format: initialData.attendance_format ?? "hybrid",
         registration_enabled: initialData.registration_enabled ?? false,
         onsite_registration_required:
@@ -684,11 +682,20 @@ export default function EventForm({
           nextState.online_registration_required = false;
           nextState.onsite_capacity = "";
           nextState.online_capacity = "";
-        } else if (value === "SUNDAY_SERVICE") {
-          nextState.self_checkin_enabled = true;
-          nextState.attendance_format = "hybrid";
-        } else if (prev.type === "SUNDAY_SERVICE") {
-          nextState.self_checkin_enabled = false;
+        } else {
+          // Room holds can't self-check-in; restore the default when leaving them.
+          const prevWasRoomHold =
+            (
+              visibleTypeOptions.find((option) => option.value === prev.type) ||
+              eventTypeOptions.find((option) => option.value === prev.type)
+            )?.counts_as_activity === false;
+          if (prevWasRoomHold) {
+            nextState.self_checkin_enabled =
+              nextState.attendance_format !== "onsite_only";
+          }
+          if (value === "SUNDAY_SERVICE") {
+            nextState.attendance_format = "hybrid";
+          }
         }
         if (!initialData) {
           nextState.track_expected_attendees = value === "SUNDAY_SERVICE";
@@ -707,6 +714,8 @@ export default function EventForm({
         } else if (value === "online_only") {
           nextState.self_checkin_enabled = true;
           nextState.onsite_registration_required = false;
+          nextState.room = OFFSITE_ROOM;
+          nextState.location = "Zoom";
         }
       }
 
@@ -1257,205 +1266,16 @@ export default function EventForm({
             </div>
           </div>
 
-          {/* Schedule Section */}
-          <div>
-            <div className="p-0">
-              <h3 className="text-sm font-semibold text-gray-900 mb-2">
-                Schedule
-              </h3>
-              <p className="text-xs text-gray-500 mb-4">
-                When the event will take place.
-              </p>
-              <div className="space-y-4">
-                {/* Date and Time */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Start Date & Time *
-                    </label>
-                    <input
-                      type="datetime-local"
-                      name="start_date"
-                      required
-                      value={formatDateTimeLocal(formData.start_date)}
-                      onChange={(e) => {
-                        const value = e.target.value;
-                        const nextEnd = endDateFromStart(value);
-                        setFormData((prev) => {
-                          const next = {
-                            ...prev,
-                            start_date: value,
-                            end_date: nextEnd || prev.end_date,
-                          };
-                          if (prev.is_recurring) {
-                            setRecurrencePattern((current) =>
-                              buildPattern(value, current),
-                            );
-                          }
-                          return next;
-                        });
-                      }}
-                      className="w-full px-3 py-2 min-h-[44px] border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      End Date & Time *
-                    </label>
-                    <input
-                      type="datetime-local"
-                      name="end_date"
-                      required
-                      value={formatDateTimeLocal(formData.end_date)}
-                      onChange={(e) => {
-                        const value = e.target.value;
-                        setFormData((prev) => ({ ...prev, end_date: value }));
-                      }}
-                      className="w-full px-3 py-2 min-h-[44px] border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent"
-                    />
-                  </div>
-                </div>
-
-                {/* Recurring Event */}
-                <div className="flex items-center">
-                  <input
-                    id="is_recurring"
-                    type="checkbox"
-                    name="is_recurring"
-                    checked={formData.is_recurring}
-                    onChange={handleChange}
-                    disabled={lockRecurrence}
-                    className="h-4 w-4 text-primary focus:ring-ring border-gray-300 rounded disabled:opacity-50"
-                  />
-                  <label
-                    htmlFor="is_recurring"
-                    className="ml-2 block text-sm text-gray-700"
-                  >
-                    This is a recurring event
-                  </label>
-                </div>
-
-                {formData.is_recurring && (
-                  <div className="ml-6 mt-3 space-y-3 border-l border-gray-200 pl-4">
-                    <p className="text-xs text-gray-500">
-                      {formatRecurrenceSummary(
-                        liveRecurrencePattern,
-                        activeStartDateObj.toLocaleDateString("en-US", {
-                          weekday: "long",
-                        }),
-                      )}
-                    </p>
-
-                    <div>
-                      <label
-                        htmlFor="recurrence_repeat"
-                        className="block text-xs font-medium text-gray-600 mb-1"
-                      >
-                        Repeat
-                      </label>
-                      <select
-                        id="recurrence_repeat"
-                        value={repeatOption}
-                        disabled={lockRecurrence}
-                        onChange={(e) =>
-                          handleRepeatOptionChange(
-                            e.target.value as RepeatOption,
-                          )
-                        }
-                        className="w-full md:w-64 px-3 py-2 min-h-[44px] border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent text-sm disabled:opacity-50"
-                      >
-                        <option value="weekly">Weekly</option>
-                        <option value="every_2_weeks">Every 2 weeks</option>
-                        <option value="monthly">Monthly</option>
-                      </select>
-                    </div>
-
-                    {repeatOption === "monthly" && (
-                      <fieldset className="space-y-2" disabled={lockRecurrence}>
-                        <legend className="text-xs font-medium text-gray-600">
-                          Monthly on
-                        </legend>
-                        <label className="flex items-center gap-2 text-sm text-gray-700">
-                          <input
-                            type="radio"
-                            name="monthly_mode"
-                            checked={
-                              liveRecurrencePattern?.monthly_mode !==
-                              "by_weekday"
-                            }
-                            onChange={() => handleMonthlyModeChange("by_date")}
-                            className="h-4 w-4 text-primary focus:ring-ring border-gray-300"
-                          />
-                          {monthlyDateOptionLabel(activeStartDateObj)}
-                        </label>
-                        <label className="flex items-center gap-2 text-sm text-gray-700">
-                          <input
-                            type="radio"
-                            name="monthly_mode"
-                            checked={
-                              liveRecurrencePattern?.monthly_mode ===
-                              "by_weekday"
-                            }
-                            onChange={() =>
-                              handleMonthlyModeChange("by_weekday")
-                            }
-                            className="h-4 w-4 text-primary focus:ring-ring border-gray-300"
-                          />
-                          {monthlyWeekdayOptionLabel(activeStartDateObj)}
-                        </label>
-                      </fieldset>
-                    )}
-
-                    <div>
-                      <label className="block text-xs font-medium text-gray-600 mb-1">
-                        Repeat until
-                      </label>
-                      <input
-                        type="date"
-                        value={recurrenceThroughValue}
-                        min={recurrenceMinThroughValue}
-                        max={recurrenceMaxThroughValue}
-                        onChange={(e) =>
-                          handleRecurrenceThroughChange(e.target.value)
-                        }
-                        className="w-full md:w-64 px-3 py-2 min-h-[44px] border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent text-sm"
-                      />
-                      <p className="text-[11px] text-gray-400 mt-1">
-                        Schedule can be adjusted anytime. You can skip an
-                        individual date later without removing the series.
-                      </p>
-                    </div>
-                  </div>
-                )}
-
-                <div className="rounded-lg border border-gray-200 bg-gray-50 p-4 space-y-2">
-                  <div>
-                    <h4 className="text-sm font-semibold text-gray-800">
-                      Tardy grace period
-                    </h4>
-                    <p className="mt-1 text-xs text-gray-500">
-                      Minutes after the event start before a check-in counts as
-                      tardy. Use 0 for no grace (default for Sunday Service).
-                    </p>
-                  </div>
-                  <label className="block text-sm text-gray-700">
-                    <span className="sr-only">Tardy grace minutes</span>
-                    <input
-                      type="number"
-                      name="tardy_grace_minutes"
-                      min={0}
-                      step={1}
-                      value={formData.tardy_grace_minutes}
-                      onChange={handleChange}
-                      className="w-full md:w-40 px-3 py-2 min-h-[44px] border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent text-sm"
-                    />
-                    <span className="mt-1 block text-xs text-gray-500">
-                      minutes
-                    </span>
-                  </label>
-                </div>
-
-                {!isRoomHold && (
+          {!isRoomHold && (
+            <div>
+              <div className="p-0">
+                <h3 className="text-sm font-semibold text-gray-900 mb-2">
+                  Attendance
+                </h3>
+                <p className="text-xs text-gray-500 mb-4">
+                  How people check in, and related registration options.
+                </p>
+                <div className="space-y-4">
                   <div className="rounded-lg border border-gray-200 bg-gray-50 p-4 space-y-3">
                     <div>
                       <h4 className="text-sm font-semibold text-gray-800">
@@ -1492,10 +1312,8 @@ export default function EventForm({
                       ))}
                     </div>
                   </div>
-                )}
 
-                {!isRoomHold &&
-                  formData.attendance_format !== "onsite_only" && (
+                  {formData.attendance_format !== "onsite_only" && (
                     <div className="rounded-lg border border-gray-200 bg-gray-50 p-4 space-y-2">
                       <div>
                         <h4 className="text-sm font-semibold text-gray-800">
@@ -1520,7 +1338,7 @@ export default function EventForm({
                     </div>
                   )}
 
-                {showRegistrationSettings && (
+                  {showRegistrationSettings && (
                   <div className="rounded-lg border border-gray-200 bg-gray-50 p-4 space-y-3">
                     <div>
                       <h4 className="text-sm font-semibold text-gray-800">
@@ -1783,7 +1601,7 @@ export default function EventForm({
                   </div>
                 )}
 
-                {!isRoomHold && !isBookingRequest && formData.branch !== "" && (
+                  {!isBookingRequest && formData.branch !== "" && (
                   <div className="rounded-lg border border-gray-200 bg-gray-50 p-4 space-y-3">
                     <div>
                       <h4 className="text-sm font-semibold text-gray-800">
@@ -1809,7 +1627,7 @@ export default function EventForm({
                   </div>
                 )}
 
-                {!isRoomHold && !isBookingRequest && (
+                  {!isBookingRequest && (
                   <div className="rounded-lg border border-gray-200 bg-gray-50 p-4 space-y-3">
                     <div>
                       <h4 className="text-sm font-semibold text-gray-800">
@@ -1878,6 +1696,208 @@ export default function EventForm({
                     ) : null}
                   </div>
                 )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Schedule Section */}
+          <div>
+            <div className="p-0">
+              <h3 className="text-sm font-semibold text-gray-900 mb-2">
+                Schedule
+              </h3>
+              <p className="text-xs text-gray-500 mb-4">
+                When the event will take place.
+              </p>
+              <div className="space-y-4">
+                {/* Date and Time */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Start Date & Time *
+                    </label>
+                    <input
+                      type="datetime-local"
+                      name="start_date"
+                      required
+                      value={formatDateTimeLocal(formData.start_date)}
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        const nextEnd = endDateFromStart(value);
+                        setFormData((prev) => {
+                          const next = {
+                            ...prev,
+                            start_date: value,
+                            end_date: nextEnd || prev.end_date,
+                          };
+                          if (prev.is_recurring) {
+                            setRecurrencePattern((current) =>
+                              buildPattern(value, current),
+                            );
+                          }
+                          return next;
+                        });
+                      }}
+                      className="w-full px-3 py-2 min-h-[44px] border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      End Date & Time *
+                    </label>
+                    <input
+                      type="datetime-local"
+                      name="end_date"
+                      required
+                      value={formatDateTimeLocal(formData.end_date)}
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        setFormData((prev) => ({ ...prev, end_date: value }));
+                      }}
+                      className="w-full px-3 py-2 min-h-[44px] border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent"
+                    />
+                  </div>
+                </div>
+
+                {/* Recurring Event */}
+                <div className="flex items-center">
+                  <input
+                    id="is_recurring"
+                    type="checkbox"
+                    name="is_recurring"
+                    checked={formData.is_recurring}
+                    onChange={handleChange}
+                    disabled={lockRecurrence}
+                    className="h-4 w-4 text-primary focus:ring-ring border-gray-300 rounded disabled:opacity-50"
+                  />
+                  <label
+                    htmlFor="is_recurring"
+                    className="ml-2 block text-sm text-gray-700"
+                  >
+                    This is a recurring event
+                  </label>
+                </div>
+
+                {formData.is_recurring && (
+                  <div className="ml-6 mt-3 space-y-3 border-l border-gray-200 pl-4">
+                    <p className="text-xs text-gray-500">
+                      {formatRecurrenceSummary(
+                        liveRecurrencePattern,
+                        activeStartDateObj.toLocaleDateString("en-US", {
+                          weekday: "long",
+                        }),
+                      )}
+                    </p>
+
+                    <div>
+                      <label
+                        htmlFor="recurrence_repeat"
+                        className="block text-xs font-medium text-gray-600 mb-1"
+                      >
+                        Repeat
+                      </label>
+                      <select
+                        id="recurrence_repeat"
+                        value={repeatOption}
+                        disabled={lockRecurrence}
+                        onChange={(e) =>
+                          handleRepeatOptionChange(
+                            e.target.value as RepeatOption,
+                          )
+                        }
+                        className="w-full md:w-64 px-3 py-2 min-h-[44px] border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent text-sm disabled:opacity-50"
+                      >
+                        <option value="weekly">Weekly</option>
+                        <option value="every_2_weeks">Every 2 weeks</option>
+                        <option value="monthly">Monthly</option>
+                      </select>
+                    </div>
+
+                    {repeatOption === "monthly" && (
+                      <fieldset className="space-y-2" disabled={lockRecurrence}>
+                        <legend className="text-xs font-medium text-gray-600">
+                          Monthly on
+                        </legend>
+                        <label className="flex items-center gap-2 text-sm text-gray-700">
+                          <input
+                            type="radio"
+                            name="monthly_mode"
+                            checked={
+                              liveRecurrencePattern?.monthly_mode !==
+                              "by_weekday"
+                            }
+                            onChange={() => handleMonthlyModeChange("by_date")}
+                            className="h-4 w-4 text-primary focus:ring-ring border-gray-300"
+                          />
+                          {monthlyDateOptionLabel(activeStartDateObj)}
+                        </label>
+                        <label className="flex items-center gap-2 text-sm text-gray-700">
+                          <input
+                            type="radio"
+                            name="monthly_mode"
+                            checked={
+                              liveRecurrencePattern?.monthly_mode ===
+                              "by_weekday"
+                            }
+                            onChange={() =>
+                              handleMonthlyModeChange("by_weekday")
+                            }
+                            className="h-4 w-4 text-primary focus:ring-ring border-gray-300"
+                          />
+                          {monthlyWeekdayOptionLabel(activeStartDateObj)}
+                        </label>
+                      </fieldset>
+                    )}
+
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">
+                        Repeat until
+                      </label>
+                      <input
+                        type="date"
+                        value={recurrenceThroughValue}
+                        min={recurrenceMinThroughValue}
+                        max={recurrenceMaxThroughValue}
+                        onChange={(e) =>
+                          handleRecurrenceThroughChange(e.target.value)
+                        }
+                        className="w-full md:w-64 px-3 py-2 min-h-[44px] border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent text-sm"
+                      />
+                      <p className="text-[11px] text-gray-400 mt-1">
+                        Schedule can be adjusted anytime. You can skip an
+                        individual date later without removing the series.
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                <div className="rounded-lg border border-gray-200 bg-gray-50 p-4 space-y-2">
+                  <div>
+                    <h4 className="text-sm font-semibold text-gray-800">
+                      Tardy grace period
+                    </h4>
+                    <p className="mt-1 text-xs text-gray-500">
+                      Minutes after the event start before a check-in counts as
+                      tardy. Use 0 for no grace (default for Sunday Service).
+                    </p>
+                  </div>
+                  <label className="block text-sm text-gray-700">
+                    <span className="sr-only">Tardy grace minutes</span>
+                    <input
+                      type="number"
+                      name="tardy_grace_minutes"
+                      min={0}
+                      step={1}
+                      value={formData.tardy_grace_minutes}
+                      onChange={handleChange}
+                      className="w-full md:w-40 px-3 py-2 min-h-[44px] border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent text-sm"
+                    />
+                    <span className="mt-1 block text-xs text-gray-500">
+                      minutes
+                    </span>
+                  </label>
+                </div>
               </div>
             </div>
           </div>

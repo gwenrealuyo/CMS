@@ -15,6 +15,8 @@ import {
   EventAttendanceRecord,
 } from "@/src/types/event";
 
+export type AttendanceFormat = "hybrid" | "online_only" | "onsite_only";
+
 export function AttendanceModeVenueFields({
   mode,
   venueCode,
@@ -22,6 +24,7 @@ export function AttendanceModeVenueFields({
   onModeChange,
   onVenueChange,
   disabled,
+  attendanceFormat = "hybrid",
 }: {
   mode: AttendanceMode;
   venueCode: string;
@@ -29,6 +32,7 @@ export function AttendanceModeVenueFields({
   onModeChange: (mode: AttendanceMode) => void;
   onVenueChange: (code: string) => void;
   disabled?: boolean;
+  attendanceFormat?: AttendanceFormat;
 }) {
   const venueOptions = useMemo(
     () =>
@@ -38,6 +42,22 @@ export function AttendanceModeVenueFields({
       })),
     [venues]
   );
+
+  if (attendanceFormat === "online_only") {
+    return (
+      <div className="rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-600">
+        This event is online only — check-ins are recorded as Online (no venue).
+      </div>
+    );
+  }
+
+  if (attendanceFormat === "onsite_only") {
+    return (
+      <div className="rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-600">
+        This event is onsite only — check-ins are recorded as Onsite.
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-3">
@@ -105,6 +125,7 @@ export default function EditAttendanceModeControl({
   buttonClassName,
   compact,
   iconOnly,
+  attendanceFormat = "hybrid",
 }: {
   eventId: string;
   record: EventAttendanceRecord;
@@ -114,6 +135,7 @@ export default function EditAttendanceModeControl({
   buttonClassName?: string;
   compact?: boolean;
   iconOnly?: boolean;
+  attendanceFormat?: AttendanceFormat;
 }) {
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -121,6 +143,7 @@ export default function EditAttendanceModeControl({
   const [venueCode, setVenueCode] = useState("");
   const [venues, setVenues] = useState<AttendanceVenueOption[]>(venuesProp ?? []);
   const [error, setError] = useState<string | null>(null);
+  const requiresOnlineVenue = attendanceFormat === "hybrid";
 
   useEffect(() => {
     if (venuesProp) {
@@ -130,11 +153,19 @@ export default function EditAttendanceModeControl({
 
   useEffect(() => {
     if (!open) return;
-    setMode(record.attendance_mode || "ONSITE");
-    setVenueCode(record.attendance_venue || "");
+    if (attendanceFormat === "online_only") {
+      setMode("ONLINE");
+      setVenueCode("");
+    } else if (attendanceFormat === "onsite_only") {
+      setMode("ONSITE");
+      setVenueCode("");
+    } else {
+      setMode(record.attendance_mode || "ONSITE");
+      setVenueCode(record.attendance_venue || "");
+    }
     setError(null);
 
-    if (venuesProp) return;
+    if (venuesProp || !requiresOnlineVenue) return;
 
     let cancelled = false;
     void (async () => {
@@ -152,7 +183,7 @@ export default function EditAttendanceModeControl({
     return () => {
       cancelled = true;
     };
-  }, [open, record, venuesProp]);
+  }, [open, record, venuesProp, attendanceFormat, requiresOnlineVenue]);
 
   const handleModeChange = (next: AttendanceMode) => {
     setMode(next);
@@ -162,7 +193,7 @@ export default function EditAttendanceModeControl({
   };
 
   const handleSave = async () => {
-    if (mode === "ONLINE" && !venueCode) {
+    if (requiresOnlineVenue && mode === "ONLINE" && !venueCode) {
       setError("Select an online venue.");
       return;
     }
@@ -171,7 +202,8 @@ export default function EditAttendanceModeControl({
     try {
       await eventsApi.updateAttendance(eventId, record.id, {
         attendance_mode: mode,
-        attendance_venue: mode === "ONLINE" ? venueCode : null,
+        attendance_venue:
+          requiresOnlineVenue && mode === "ONLINE" ? venueCode : null,
       });
       toast.success(
         `${formatPersonName(record.person)} updated to ${
@@ -244,6 +276,7 @@ export default function EditAttendanceModeControl({
             onModeChange={handleModeChange}
             onVenueChange={setVenueCode}
             disabled={saving}
+            attendanceFormat={attendanceFormat}
           />
           {error ? (
             <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-md px-3 py-2">

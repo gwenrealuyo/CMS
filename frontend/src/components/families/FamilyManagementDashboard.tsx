@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useEffect, useCallback } from "react";
 import { Family, Person, PersonUI } from "@/src/types/person";
 import Button from "@/src/components/ui/Button";
+import Pagination from "@/src/components/ui/Pagination";
 import ToolbarSearch from "@/src/components/ui/ToolbarSearch";
 import ViewModeToggle from "@/src/components/ui/ViewModeToggle";
 import {
@@ -146,7 +147,7 @@ export default function FamilyManagementDashboard({
   const [unassignedPage, setUnassignedPage] = useState(1);
   const UNASSIGNED_PAGE_SIZE = 24; // 3 cols * 8 rows fits most screens
   const [familyPage, setFamilyPage] = useState(1);
-  const FAMILY_PAGE_SIZE = 10; // Show 10 families per page
+  const [familyItemsPerPage, setFamilyItemsPerPage] = useState(25);
   const [sortBy, setSortBy] = useState("name");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
   const [viewMode, setViewMode] = useState<"cards" | "table">("cards");
@@ -397,7 +398,7 @@ export default function FamilyManagementDashboard({
     search: searchQuery,
     filters: directoryFilters,
     page: familyPage,
-    pageSize: FAMILY_PAGE_SIZE,
+    pageSize: familyItemsPerPage,
     ordering: directoryOrdering,
     enabled: branchFilterReady,
   });
@@ -428,10 +429,9 @@ export default function FamilyManagementDashboard({
   );
   const visibleUnassignedMembers = unassignedPeopleUI;
   const visibleFamilies = families;
-  const sortedFamilies = families;
   const totalFamilyPages = Math.max(
     1,
-    Math.ceil(familiesTotalCount / FAMILY_PAGE_SIZE),
+    Math.ceil(familiesTotalCount / familyItemsPerPage) || 1,
   );
 
   const refetchDirectory = useCallback(async () => {
@@ -1409,61 +1409,19 @@ export default function FamilyManagementDashboard({
           </div>
         )}
 
-        {/* Family Pagination Controls */}
-        {sortedFamilies.length > FAMILY_PAGE_SIZE && (
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 mt-6">
-            <span className="text-sm text-gray-600">
-              Page {familyPage} of {totalFamilyPages} • Showing{" "}
-              {visibleFamilies.length} of {sortedFamilies.length} families
-            </span>
-            <div className="flex items-center space-x-2">
-              <button
-                onClick={() => setFamilyPage((p) => Math.max(1, p - 1))}
-                disabled={familyPage === 1}
-                className="px-3 py-2 text-sm rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors min-h-[44px] md:min-h-0 min-w-[44px] md:min-w-0 flex items-center justify-center"
-                aria-label="Previous page"
-              >
-                <svg
-                  className="w-4 h-4"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M15 19l-7-7 7-7"
-                  />
-                </svg>
-              </button>
-              <span className="px-3 py-2 text-sm text-gray-700 min-h-[44px] md:min-h-0 flex items-center">
-                Page {familyPage} of {totalFamilyPages}
-              </span>
-              <button
-                onClick={() =>
-                  setFamilyPage((p) => Math.min(totalFamilyPages, p + 1))
-                }
-                disabled={familyPage === totalFamilyPages}
-                className="px-3 py-2 text-sm rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors min-h-[44px] md:min-h-0 min-w-[44px] md:min-w-0 flex items-center justify-center"
-                aria-label="Next page"
-              >
-                <svg
-                  className="w-4 h-4"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M9 5l7 7-7 7"
-                  />
-                </svg>
-              </button>
-            </div>
-          </div>
+        {familiesTotalCount > 0 && (
+          <Pagination
+            currentPage={familyPage}
+            totalPages={totalFamilyPages}
+            onPageChange={setFamilyPage}
+            itemsPerPage={familyItemsPerPage}
+            totalItems={familiesTotalCount}
+            onItemsPerPageChange={(size) => {
+              setFamilyItemsPerPage(size);
+              setFamilyPage(1);
+            }}
+            showItemsPerPage
+          />
         )}
       </div>
     </div>

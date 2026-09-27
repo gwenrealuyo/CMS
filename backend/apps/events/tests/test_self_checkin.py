@@ -388,6 +388,32 @@ class SelfCheckInAPITests(APITestCase):
         )
         self.assertEqual(blocked.status_code, 404)
 
+    def test_visitor_search_matches_legal_first_name_when_nickname_differs(self):
+        visitor = Person.objects.create_user(
+            username="nickvis",
+            password="pass12345",
+            first_name="Christopher",
+            last_name="Santos",
+            nickname="Topher",
+            role="VISITOR",
+            status="ONGOING",
+            branch=self.hq,
+        )
+        self.client.force_authenticate(self.coordinator)
+
+        def result_ids(query: str) -> set:
+            response = self.client.get(
+                "/api/events/self-check-in/visitors/",
+                {"q": query},
+            )
+            self.assertEqual(response.status_code, 200, response.data)
+            return {row["id"] for row in response.data["results"]}
+
+        self.assertIn(visitor.id, result_ids("christopher"))
+        self.assertIn(visitor.id, result_ids("Christopher Santos"))
+        self.assertIn(visitor.id, result_ids("topher"))
+        self.assertIn(visitor.id, result_ids("Topher Santos"))
+
     def test_search_includes_invited_prospects_same_branch(self):
         cluster = Cluster.objects.create(
             name="HQ Cluster SCI", code="HQCLSCI", branch=self.hq
@@ -935,6 +961,34 @@ class SelfCheckInAPITests(APITestCase):
         self.assertEqual(numeric.status_code, 200, numeric.data)
         self.assertEqual(numeric.data["person"]["member_id"], "GUEST20001")
 
+    def test_public_identify_by_temp_id(self):
+        temp = Person.objects.create_user(
+            username="scitempid",
+            password="pass12345",
+            first_name="Tina",
+            last_name="Temp",
+            role="VISITOR",
+            status="ONGOING",
+            branch=self.hq,
+            member_id="TEMP30001",
+        )
+        full = self.client.post(
+            "/api/events/self-check-in/public/identify/",
+            {"member_id": "TEMP30001"},
+            format="json",
+        )
+        self.assertEqual(full.status_code, 200, full.data)
+        self.assertEqual(full.data["person"]["member_id"], "TEMP30001")
+        self.assertEqual(full.data["person"]["id"], temp.id)
+
+        numeric = self.client.post(
+            "/api/events/self-check-in/public/identify/",
+            {"member_id": "30001"},
+            format="json",
+        )
+        self.assertEqual(numeric.status_code, 200, numeric.data)
+        self.assertEqual(numeric.data["person"]["member_id"], "TEMP30001")
+
     def test_public_identify_unknown_and_ineligible(self):
         unknown = self.client.post(
             "/api/events/self-check-in/public/identify/",
@@ -943,6 +997,26 @@ class SelfCheckInAPITests(APITestCase):
         )
         self.assertEqual(unknown.status_code, 404, unknown.data)
         self.assertEqual(unknown.data["detail"], "No member found for this LAMP ID.")
+
+        unknown_guest = self.client.post(
+            "/api/events/self-check-in/public/identify/",
+            {"member_id": "GUEST99999"},
+            format="json",
+        )
+        self.assertEqual(unknown_guest.status_code, 404, unknown_guest.data)
+        self.assertEqual(
+            unknown_guest.data["detail"], "No member found for this GUEST ID."
+        )
+
+        unknown_temp = self.client.post(
+            "/api/events/self-check-in/public/identify/",
+            {"member_id": "TEMP99999"},
+            format="json",
+        )
+        self.assertEqual(unknown_temp.status_code, 404, unknown_temp.data)
+        self.assertEqual(
+            unknown_temp.data["detail"], "No member found for this TEMP ID."
+        )
 
         self.admin.member_id = "LAMPADMIN1"
         self.admin.save(update_fields=["member_id"])

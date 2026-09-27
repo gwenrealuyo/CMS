@@ -117,6 +117,24 @@ export function personNameSearchText(person: PersonLike): string {
     .toLowerCase();
 }
 
+/**
+ * True when the query matches the display name, nickname, or legal first name.
+ * Each word can hit a different name part, so "Christopher Santos" still matches
+ * when the label shows nickname "Topher Santos".
+ */
+export function personMatchesNameQuery(
+  person: PersonLike,
+  query: string,
+): boolean {
+  const trimmedQuery = trimmed(query).toLowerCase();
+  if (!trimmedQuery) return false;
+  const haystack = personNameSearchText(person);
+  if (!haystack) return false;
+  if (haystack.includes(trimmedQuery)) return true;
+  const tokens = trimmedQuery.split(/\s+/).filter(Boolean);
+  return tokens.length > 1 && tokens.every((token) => haystack.includes(token));
+}
+
 export function nicknameMatchesFirstName(
   firstName?: string | null,
   nickname?: string | null,

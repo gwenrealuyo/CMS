@@ -153,6 +153,7 @@ def member_id_lookup_values(raw: str) -> List[str]:
     if trimmed.isdigit():
         values.append(f"LAMP{trimmed}")
         values.append(f"GUEST{trimmed}")
+        values.append(f"TEMP{trimmed}")
     elif upper.startswith("LAMP"):
         rest = trimmed[4:]
         if rest.isdigit():
@@ -163,6 +164,11 @@ def member_id_lookup_values(raw: str) -> List[str]:
         if rest.isdigit():
             values.append(rest)
             values.append(f"GUEST{rest}")
+    elif upper.startswith("TEMP"):
+        rest = trimmed[4:]
+        if rest.isdigit():
+            values.append(rest)
+            values.append(f"TEMP{rest}")
     seen = set()
     unique: List[str] = []
     for value in values:
@@ -583,9 +589,10 @@ def search_people_by_name(qs: QuerySet[Person], query: str, limit: int = 15):
     )
     parts = trimmed.split()
     if len(parts) >= 2:
+        given, family = parts[0], parts[-1]
         name_filter |= Q(
-            first_name__icontains=parts[0], last_name__icontains=parts[-1]
-        )
+            first_name__icontains=given, last_name__icontains=family
+        ) | Q(nickname__icontains=given, last_name__icontains=family)
     return qs.filter(name_filter).order_by("last_name", "first_name", "id")[:limit]
 
 

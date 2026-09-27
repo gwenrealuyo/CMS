@@ -40,7 +40,20 @@ import {
 const SCAN_COOLDOWN_MS = 2000;
 
 type Step = "identify" | "select-event" | "confirm" | "success";
-type IdPrefix = "LAMP" | "GUEST";
+const ID_PREFIXES = ["LAMP", "GUEST", "TEMP"] as const;
+type IdPrefix = (typeof ID_PREFIXES)[number];
+
+/** TEMP IDs are exactly five digits (for example TEMP12345). */
+const TEMP_DIGIT_COUNT = 5;
+
+function digitsForPrefix(prefix: IdPrefix, digits: string): string {
+  if (prefix !== "TEMP") return digits;
+  return digits.replace(/\D/g, "").slice(0, TEMP_DIGIT_COUNT);
+}
+
+function idKindLabel(prefix: IdPrefix): string {
+  return `${prefix} ID`;
+}
 
 function composeMemberId(prefix: IdPrefix, digits: string): string {
   const rest = digits.trim().replace(/\s+/g, "");
@@ -58,10 +71,16 @@ function parseScannedMemberId(
   if (upper.startsWith("GUEST")) {
     return { prefix: "GUEST", digits: trimmed.slice(5) };
   }
+  if (upper.startsWith("TEMP")) {
+    return {
+      prefix: "TEMP",
+      digits: digitsForPrefix("TEMP", trimmed.slice(4)),
+    };
+  }
   if (upper.startsWith("LAMP")) {
     return { prefix: "LAMP", digits: trimmed.slice(4) };
   }
-  return { prefix: currentPrefix, digits: trimmed };
+  return { prefix: currentPrefix, digits: digitsForPrefix(currentPrefix, trimmed) };
 }
 
 function formatServiceWhen(iso: string) {
@@ -251,7 +270,7 @@ export default function PublicSelfCheckInView() {
   const identifyMember = async (rawMemberId: string, eventId?: string) => {
     const trimmed = rawMemberId.trim();
     if (!trimmed) {
-      setError("Enter your LAMP ID.");
+      setError(`Enter your ${idKindLabel(idPrefix)}.`);
       return;
     }
     setSubmitting(true);
@@ -276,7 +295,10 @@ export default function PublicSelfCheckInView() {
       setPerson(null);
       setError(
         axiosDetail(err) ||
-          formatApiErrorMessage(err, "Unable to find this LAMP ID."),
+          formatApiErrorMessage(
+            err,
+            `Unable to find this ${idKindLabel(idPrefix)}.`,
+          ),
       );
     } finally {
       setSubmitting(false);
@@ -294,7 +316,7 @@ export default function PublicSelfCheckInView() {
     scanCooldownUntilRef.current = now + SCAN_COOLDOWN_MS;
     const scanned = text.trim();
     if (!scanned) {
-      setError("No LAMP ID found in this QR code.");
+      setError(`No ${idKindLabel(idPrefix)} found in this QR code.`);
       return;
     }
     const parsed = parseScannedMemberId(scanned, idPrefix);
@@ -316,7 +338,7 @@ export default function PublicSelfCheckInView() {
       const text = await decodeQrFromFile(file);
       if (!text) {
         setError(
-          "Couldn't read a QR code from that photo. Try typing your LAMP ID.",
+          `Couldn't read a QR code from that photo. Try typing your ${idKindLabel(idPrefix)}.`,
         );
         return;
       }
@@ -326,7 +348,7 @@ export default function PublicSelfCheckInView() {
       await identifyMember(composeMemberId(parsed.prefix, parsed.digits));
     } catch {
       setError(
-        "Couldn't read a QR code from that photo. Try typing your LAMP ID.",
+        `Couldn't read a QR code from that photo. Try typing your ${idKindLabel(idPrefix)}.`,
       );
     } finally {
       setDecodingPhoto(false);
@@ -342,7 +364,7 @@ export default function PublicSelfCheckInView() {
   const handleCheckIn = async () => {
     const trimmed = memberId.trim();
     if (!trimmed) {
-      setError("Enter your LAMP ID.");
+      setError(`Enter your ${idKindLabel(idPrefix)}.`);
       return;
     }
     if (requiresVenue && !attendanceVenue) {
@@ -503,7 +525,7 @@ export default function PublicSelfCheckInView() {
           </button>
         ))}
         <Button variant="tertiary" className="w-full" onClick={resetIdentify}>
-          Use a different LAMP ID
+          Use a different {idKindLabel(idPrefix)}
         </Button>
       </div>,
     );
@@ -555,7 +577,7 @@ export default function PublicSelfCheckInView() {
             disabled={submitting}
             onClick={resetIdentify}
           >
-            Use a different LAMP ID
+            Use a different {idKindLabel(idPrefix)}
           </Button>
         </div>
       </div>,
@@ -570,15 +592,18 @@ export default function PublicSelfCheckInView() {
           <p className="mb-1.5 text-sm font-medium text-lighthouse-navy">
             Prefix on your card
           </p>
-          <div className="grid grid-cols-2 gap-2">
-            {(["LAMP", "GUEST"] as const).map((prefix) => {
+          <div className="grid grid-cols-3 gap-2">
+            {ID_PREFIXES.map((prefix) => {
               const selected = idPrefix === prefix;
               return (
                 <button
                   key={prefix}
                   type="button"
                   disabled={submitting || decodingPhoto}
-                  onClick={() => setIdPrefix(prefix)}
+                  onClick={() => {
+                    setIdPrefix(prefix);
+                    setIdNumber((current) => digitsForPrefix(prefix, current));
+                  }}
                   aria-pressed={selected}
                   className={`min-h-12 rounded-md border px-3 py-2.5 text-sm font-semibold transition ${
                     selected
@@ -603,7 +628,10 @@ export default function PublicSelfCheckInView() {
               inputMode="numeric"
               autoComplete="off"
               value={idNumber}
-              onChange={(event) => setIdNumber(event.target.value)}
+              onChange={(event) =>
+                setIdNumber(digitsForPrefix(idPrefix, event.target.value))
+              }
+              maxLength={idPrefix === "TEMP" ? TEMP_DIGIT_COUNT : undefined}
               placeholder="12345"
               className="min-w-0 flex-1 border-0 px-3 py-2.5 text-lg font-medium tracking-wide text-lighthouse-navy outline-none focus:ring-0"
             />

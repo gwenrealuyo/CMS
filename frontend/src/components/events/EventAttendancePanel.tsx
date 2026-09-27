@@ -19,7 +19,7 @@ import {
   Event,
   EventAttendanceRecord,
 } from "@/src/types/event";
-import { formatPersonName } from "@/src/lib/name";
+import { formatPersonName, personMatchesNameQuery } from "@/src/lib/name";
 import { isAttendanceReportAvailable } from "@/src/lib/events/attendanceReportUtils";
 import { formatLampIdDisplay } from "@/src/lib/events/checkInUtils";
 import { recordsForOccurrence } from "@/src/lib/events/viewerAttendance";
@@ -188,11 +188,10 @@ export default function EventAttendancePanel({
       if (!term) {
         return true;
       }
-      const name = formatPersonName(record.person).toLowerCase();
       const memberId = (record.person.member_id || "").toLowerCase();
       const displayId = formatLampIdDisplay(record.person.member_id).toLowerCase();
       return (
-        name.includes(term) ||
+        personMatchesNameQuery(record.person, term) ||
         memberId.includes(term) ||
         displayId.includes(term)
       );

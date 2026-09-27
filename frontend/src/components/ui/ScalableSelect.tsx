@@ -106,19 +106,27 @@ export default function ScalableSelect({
   const filteredOptions = useMemo(() => {
     if (!searchQuery.trim()) return options;
 
-    const query = searchQuery.toLowerCase();
-    return options.filter(
-      (option) =>
-        option.label.toLowerCase().includes(query) ||
-        String(option.value).toLowerCase().includes(query) ||
-        (option.memberId?.toLowerCase().includes(query) ?? false) ||
-        (option.nickname?.toLowerCase().includes(query) ?? false) ||
-        (option.firstName?.toLowerCase().includes(query) ?? false) ||
-        (option.clusterCode?.toLowerCase().includes(query) ?? false) ||
-        (option.branchCode?.toLowerCase().includes(query) ?? false) ||
-        (option.roleLabel?.toLowerCase().includes(query) ?? false) ||
-        (option.statusLabel?.toLowerCase().includes(query) ?? false)
-    );
+    const tokens = searchQuery
+      .toLowerCase()
+      .split(/\s+/)
+      .filter(Boolean);
+    return options.filter((option) => {
+      const haystack = [
+        option.label,
+        String(option.value),
+        option.memberId,
+        option.nickname,
+        option.firstName,
+        option.clusterCode,
+        option.branchCode,
+        option.roleLabel,
+        option.statusLabel,
+      ]
+        .filter((part) => part != null && String(part).trim() !== "")
+        .join(" ")
+        .toLowerCase();
+      return tokens.every((token) => haystack.includes(token));
+    });
   }, [options, searchQuery]);
 
   // Determine if we should use virtualization

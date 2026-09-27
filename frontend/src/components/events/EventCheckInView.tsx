@@ -38,7 +38,7 @@ import {
   resolvePersonFromMemberId,
   tracksExpectedAttendees,
 } from "@/src/lib/events/checkInUtils";
-import { formatPersonName } from "@/src/lib/name";
+import { formatPersonName, personMatchesNameQuery } from "@/src/lib/name";
 import { getPersonRoleColor } from "@/src/lib/personRole";
 import {
   formatPersonStatusLabel,
@@ -429,13 +429,12 @@ export default function EventCheckInView({
     const term = trimmed.toLowerCase();
     const termWithoutLampPrefix = term.replace(/^lamp/, "");
     return filtered.filter((record) => {
-      const name = formatPersonName(record.person).toLowerCase();
       const memberId = (record.person.member_id || "").toLowerCase();
       const displayId = formatLampIdDisplay(
         record.person.member_id,
       ).toLowerCase();
       return (
-        name.includes(term) ||
+        personMatchesNameQuery(record.person, term) ||
         memberId.includes(term) ||
         displayId.includes(term) ||
         (termWithoutLampPrefix.length > 0 &&
@@ -1013,7 +1012,7 @@ export default function EventCheckInView({
                       setShowSuggestions(true);
                     }
                   }}
-                  placeholder="Name or LAMP ID..."
+                      placeholder="Name or LAMP ID..."
                   autoComplete="off"
                   className="input-field text-base"
                 />

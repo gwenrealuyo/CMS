@@ -736,10 +736,24 @@ class PublicSelfCheckInThrottle(AnonRateThrottle):
     rate = "30/min"
 
 
-PUBLIC_MEMBER_NOT_FOUND = "No member found for this LAMP ID."
-PUBLIC_MEMBER_AMBIGUOUS = (
-    "This LAMP ID matches more than one person. Please ask an Events coordinator for help."
-)
+def _public_id_kind(raw: str) -> str:
+    upper = str(raw or "").strip().upper()
+    if upper.startswith("GUEST"):
+        return "GUEST ID"
+    if upper.startswith("TEMP"):
+        return "TEMP ID"
+    return "LAMP ID"
+
+
+def _public_member_not_found(raw: str) -> str:
+    return f"No member found for this {_public_id_kind(raw)}."
+
+
+def _public_member_ambiguous(raw: str) -> str:
+    return (
+        f"This {_public_id_kind(raw)} matches more than one person. "
+        "Please ask an Events coordinator for help."
+    )
 
 
 def _public_payload(resolved, extra=None) -> dict:
@@ -802,12 +816,12 @@ def _lookup_public_person(request):
     people = list(find_people_by_member_id(raw)[:8])
     if not people:
         return None, Response(
-            {"detail": PUBLIC_MEMBER_NOT_FOUND},
+            {"detail": _public_member_not_found(raw)},
             status=status.HTTP_404_NOT_FOUND,
         )
     if len(people) > 1:
         return None, Response(
-            {"detail": PUBLIC_MEMBER_AMBIGUOUS},
+            {"detail": _public_member_ambiguous(raw)},
             status=status.HTTP_409_CONFLICT,
         )
     return people[0], None

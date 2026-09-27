@@ -1,4 +1,4 @@
-import { formatPersonName } from "@/src/lib/name";
+import { personMatchesNameQuery } from "@/src/lib/name";
 import { isSelectablePerson } from "@/src/lib/peopleSelectors";
 import { Event } from "@/src/types/event";
 import { Person } from "@/src/types/person";
@@ -116,9 +116,8 @@ export function filterEligibleMembersByQuery(
   const normalized = trimmed.toLowerCase();
   return eligibleMembers
     .filter((person) => {
-      const name = formatPersonName(person).toLowerCase();
       const lampId = person.member_id?.toLowerCase() || "";
-      return name.includes(normalized) || lampId.includes(normalized);
+      return personMatchesNameQuery(person, normalized) || lampId.includes(normalized);
     })
     .slice(0, limit);
 }
@@ -147,7 +146,7 @@ export function resolvePersonFromEntry(
   }
 
   const nameMatches = eligibleMembers.filter((person) =>
-    formatPersonName(person).toLowerCase().includes(normalized)
+    personMatchesNameQuery(person, normalized)
   );
 
   if (nameMatches.length === 1) {

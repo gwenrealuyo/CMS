@@ -169,8 +169,9 @@ class Event(models.Model):
     tardy_grace_minutes = models.PositiveIntegerField(
         default=0,
         help_text=(
-            "Minutes after occurrence start before a check-in counts as tardy. "
-            "0 means any check-in after start is tardy."
+            "Minutes after occurrence start before an onsite check-in counts "
+            "as tardy. Online check-ins are not marked tardy. 0 means any "
+            "onsite check-in after start is tardy."
         ),
     )
     self_checkin_enabled = models.BooleanField(

@@ -291,6 +291,16 @@ Backend helpers in `apps.clusters.permissions`:
 - Object-level mutations still use `ClusterCoordinatorScopedPermission` / `ClusterWeeklyReportScopedPermission`.
 - **Cluster Reporter** can submit weekly reports and nested `new_prospects` / `prospects_attended` for assigned clusters, but **cannot** create Prospects via `/api/evangelism/prospects/` unless they also have EVANGELISM write.
 
+### Sunday service catch-up
+
+Coordinators, reporters, admins, pastors, and cluster senior coordinators can mark a cluster member **Present online** for the latest approved Sunday Service on that cluster’s branch. The window stays open through the following Saturday (service day plus 6 days, church timezone). Onsite check-in stays at the door.
+
+- `GET|POST /api/clusters/clusters/{id}/sunday-catchup/` and `DELETE .../sunday-catchup/{attendance_id}/`
+- Reasons: `REPLAY`, `TIMEZONE`, `FORGOT_CHECKIN`, `OTHER` (note required). Hybrid services store venue `HOME_ALTAR`. Online-only services store no venue. Onsite-only services are read-only.
+- Eligible people are living `MEMBER`s of that cluster. An existing check-in is left unchanged (409). Only a catch-up row can be removed, and only while the window is open.
+- The cluster view shows the roster when a recent Sunday exists. Each row uses the member’s nickname, or first name when nickname is blank. The events attendance report counts those rows as **Added later** while they still count as Present. Removing a catch-up asks for confirmation first.
+- A senior coordinator of a module other than Cluster does not get this unless they are also admin, pastor, or assigned on that cluster.
+
 **Module coordinator assignments** (People admin): Coordinators on Cluster, Evangelism, or Sunday School must have a resource in the assignee's branch; module-wide rows are **Senior Coordinator** only. **Cluster Reporter** is CLUSTER-only, resource-specific, and grants report submission without cluster management. After deploy on databases with legacy data, run once:
 
 ```bash

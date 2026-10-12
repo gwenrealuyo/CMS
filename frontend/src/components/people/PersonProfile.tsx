@@ -565,7 +565,7 @@ export default function PersonProfile({
     "!text-lighthouse-rust bg-white border border-lighthouse-rust/25 hover:bg-lighthouse-rust/10 hover:border-lighthouse-rust/40";
 
   return (
-    <div className="flex flex-col h-full space-y-0">
+    <div className="flex h-full min-h-0 flex-col space-y-0">
       {/* Header */}
       {showTopHeader && (
         <div className="flex items-center justify-between p-3 sm:p-4 border-b border-gray-200 flex-shrink-0 bg-white">
@@ -599,7 +599,7 @@ export default function PersonProfile({
       )}
 
       {/* Content */}
-      <div className="p-3 md:p-4 lg:p-6 overflow-y-auto flex-1">
+      <div className="min-h-0 flex-1 overflow-y-auto p-3 md:p-4 lg:p-6">
         <div className="space-y-4">
           {/* Profile Header Card */}
           <div className="bg-slate-50 rounded-xl p-4 border border-slate-200">

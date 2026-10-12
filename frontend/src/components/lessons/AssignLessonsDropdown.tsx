@@ -41,6 +41,8 @@ interface AssignLessonsDropdownProps {
   defaultTeacherId: string | null;
   teacherChoices: LessonPersonLike[];
   currentUserId?: string | number | null;
+  lockTeacherToSelf?: boolean;
+  pendingStudentIds?: Set<number>;
 }
 
 export default function AssignLessonsDropdown({
@@ -56,6 +58,8 @@ export default function AssignLessonsDropdown({
   defaultTeacherId,
   teacherChoices,
   currentUserId,
+  lockTeacherToSelf = false,
+  pendingStudentIds,
 }: AssignLessonsDropdownProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -82,9 +86,12 @@ export default function AssignLessonsDropdown({
       if (Number.isNaN(personId)) {
         return true;
       }
+      if (pendingStudentIds?.has(personId)) {
+        return false;
+      }
       return !assignedStudentIds.has(personId);
     });
-  }, [assignedStudentIds, currentUserId, people]);
+  }, [assignedStudentIds, currentUserId, pendingStudentIds, people]);
 
   const emptyEligibleMessage = useMemo(() => {
     const selectable = people.filter(isSelectablePerson);
@@ -165,7 +172,13 @@ export default function AssignLessonsDropdown({
       );
       setSelectedLessonIds(defaultLessonIds);
 
-      if (existingEnrollment?.teacher?.id) {
+      if (lockTeacherToSelf) {
+        setSelectedTeacherId(
+          defaultTeacherId && defaultTeacherId !== selectedPersonId
+            ? defaultTeacherId
+            : ""
+        );
+      } else if (existingEnrollment?.teacher?.id) {
         setSelectedTeacherId(existingEnrollment.teacher.id.toString());
       } else {
         const nextTeacherId = defaultTeacherId ?? "";
@@ -179,10 +192,11 @@ export default function AssignLessonsDropdown({
     allLessons,
     existingEnrollment?.teacher?.id,
     defaultTeacherId,
+    lockTeacherToSelf,
   ]);
 
   useEffect(() => {
-    if (!selectedTeacherId) {
+    if (lockTeacherToSelf || !selectedTeacherId) {
       return;
     }
     const stillValid = teacherSelectOptions.some(
@@ -191,7 +205,7 @@ export default function AssignLessonsDropdown({
     if (!stillValid) {
       setSelectedTeacherId("");
     }
-  }, [selectedTeacherId, teacherSelectOptions]);
+  }, [lockTeacherToSelf, selectedTeacherId, teacherSelectOptions]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -391,7 +405,30 @@ export default function AssignLessonsDropdown({
                     <span className="text-red-500 ml-1">*</span>
                   )}
                 </label>
-                {existingEnrollment ? (
+                {lockTeacherToSelf ? (
+                  defaultTeacherId ? (
+                    <div className="space-y-2">
+                      <p className="text-sm text-gray-600 rounded-md border border-gray-200 bg-gray-50 px-3 py-2">
+                        {formatPersonName(
+                          teacherChoices.find(
+                            (person) =>
+                              String(person.id) === String(defaultTeacherId),
+                          ) ?? { id: defaultTeacherId, username: "You" },
+                        )}
+                      </p>
+                      <p className="text-sm text-gray-600">
+                        This request is submitted for coordinator approval. The
+                        student stays unassigned until a Lessons coordinator
+                        approves it.
+                      </p>
+                    </div>
+                  ) : (
+                    <p className="text-sm text-red-600">
+                      You must be on this branch&apos;s NCC / Lessons roster
+                      before you can request a student.
+                    </p>
+                  )
+                ) : existingEnrollment ? (
                   <p className="text-sm text-gray-600 rounded-md border border-gray-200 bg-gray-50 px-3 py-2">
                     {enrollmentTeacherLabel(
                       existingEnrollment,
@@ -462,7 +499,13 @@ export default function AssignLessonsDropdown({
               disabled={assigning}
               className="w-full sm:w-auto min-h-[44px]"
             >
-              {assigning ? "Assigning..." : "Assign Selected Lessons"}
+              {assigning
+                ? lockTeacherToSelf
+                  ? "Submitting..."
+                  : "Assigning..."
+                : lockTeacherToSelf
+                  ? "Submit for approval"
+                  : "Assign Selected Lessons"}
             </Button>
           </div>
         )}

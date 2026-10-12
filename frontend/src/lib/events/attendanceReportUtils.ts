@@ -14,6 +14,7 @@ import {
   EventAttendanceRecord,
 } from "@/src/types/event";
 import { Person } from "@/src/types/person";
+import { sundayCatchupReasonLabel } from "@/src/types/sundayCatchup";
 
 export type AttendanceReportPerson = {
   id: string;
@@ -30,6 +31,8 @@ export type AttendanceReportPerson = {
   venueColor: string;
   recordedAt?: string;
   isTardy?: boolean;
+  addedLater?: boolean;
+  catchupReasonLabel?: string;
 };
 
 export type StatusCount = {
@@ -62,6 +65,7 @@ export type AttendanceReport = {
   tardyCount: number;
   onsiteCount: number;
   onlineCount: number;
+  addedLaterCount: number;
   /** Expected pool who checked in / expected (excludes surprises). */
   attendanceRate: number | null;
   remainingRate: number | null;
@@ -69,6 +73,7 @@ export type AttendanceReport = {
   surpriseRate: number | null;
   onsiteRate: number | null;
   onlineRate: number | null;
+  addedLaterRate: number | null;
   tardyRate: number | null;
   onlineByVenue: VenueCount[];
   checkedInByStatus: StatusCount[];
@@ -164,6 +169,10 @@ function toReportPersonFromRecord(
     venueColor: record.attendance_venue_color || "",
     recordedAt: record.recorded_at,
     isTardy,
+    addedLater: Boolean(record.catchup_reason),
+    catchupReasonLabel: record.catchup_reason
+      ? sundayCatchupReasonLabel(record.catchup_reason, record.catchup_note)
+      : "",
   };
 }
 
@@ -328,7 +337,7 @@ export function resolveOccurrenceStart(
   );
 }
 
-/** Tardy when check-in is strictly after occurrence start + grace minutes. */
+/** Late when check-in is strictly after occurrence start + grace minutes. Onsite only in the report. */
 export function isCheckInTardy(
   recordedAt: string | undefined,
   occurrenceStart: Date | null,
@@ -377,12 +386,13 @@ export function buildAttendanceReport(
   const graceMinutes = event.tardy_grace_minutes ?? 0;
 
   const checkedInRoster = Array.from(latestByPerson.values())
-    .map((record) =>
-      toReportPersonFromRecord(
-        record,
-        isCheckInTardy(record.recorded_at, occurrenceStart, graceMinutes)
-      )
-    )
+    .map((record) => {
+      const mode = modeFromRecord(record);
+      const tardy =
+        mode === "ONSITE" &&
+        isCheckInTardy(record.recorded_at, occurrenceStart, graceMinutes);
+      return toReportPersonFromRecord(record, tardy);
+    })
     .sort((a, b) => a.name.localeCompare(b.name));
 
   const surprises = trackingExpected
@@ -403,6 +413,9 @@ export function buildAttendanceReport(
     (person) => person.attendanceMode === "ONLINE"
   ).length;
   const tardyCount = checkedInRoster.filter((person) => person.isTardy).length;
+  const addedLaterCount = checkedInRoster.filter(
+    (person) => person.addedLater
+  ).length;
 
   const expectedCount = expectedMembers.length;
   const checkedInCount = checkedInRoster.length;
@@ -418,6 +431,7 @@ export function buildAttendanceReport(
     tardyCount,
     onsiteCount,
     onlineCount,
+    addedLaterCount,
     attendanceRate: trackingExpected
       ? computeRatePercent(expectedCheckedInCount, expectedCount)
       : null,
@@ -432,7 +446,8 @@ export function buildAttendanceReport(
       : null,
     onsiteRate: computeRatePercent(onsiteCount, checkedInCount),
     onlineRate: computeRatePercent(onlineCount, checkedInCount),
-    tardyRate: computeRatePercent(tardyCount, checkedInCount),
+    addedLaterRate: computeRatePercent(addedLaterCount, checkedInCount),
+    tardyRate: computeRatePercent(tardyCount, onsiteCount),
     onlineByVenue: countOnlineByVenue(checkedInRoster, onlineCount),
     checkedInByStatus: countByStatus(checkedInRoster, checkedInCount),
     remainingByStatus: countByStatus(remainingRoster, remainingCount),
@@ -492,6 +507,10 @@ export function buildAttendanceReportCsv(
     ["Online", String(report.onlineCount)].map(escapeCsvValue).join(","),
     ["Online % of Checked In", formatRatePercent(report.onlineRate)]
       .map(escapeCsvValue)
+      .join(","),
+    ["Added later", String(report.addedLaterCount)].map(escapeCsvValue).join(","),
+    ["Added later % of Checked In", formatRatePercent(report.addedLaterRate)]
+      .map(escapeCsvValue)
       .join(",")
   );
 
@@ -509,8 +528,8 @@ export function buildAttendanceReportCsv(
   }
 
   lines.push(
-    ["Tardy", String(report.tardyCount)].map(escapeCsvValue).join(","),
-    ["Tardy % of Checked In", formatRatePercent(report.tardyRate)]
+    ["Onsite tardy", String(report.tardyCount)].map(escapeCsvValue).join(","),
+    ["Onsite tardy % of Onsite", formatRatePercent(report.tardyRate)]
       .map(escapeCsvValue)
       .join(","),
     ...report.onlineByVenue.map((venue) =>
@@ -555,8 +574,9 @@ export function buildAttendanceReportCsv(
       "Cluster",
       "Attendance mode",
       "Online venue",
+      "Added later",
       "Checked In At",
-      "Tardy",
+      "Onsite tardy",
     ]
       .map(escapeCsvValue)
       .join(",")
@@ -577,6 +597,7 @@ export function buildAttendanceReportCsv(
           person.clusterLabel,
           person.attendanceModeLabel,
           person.venueLabel,
+          person.addedLater ? person.catchupReasonLabel || "Yes" : "",
           person.recordedAt
             ? new Date(person.recordedAt).toLocaleString()
             : "",

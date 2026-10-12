@@ -3,6 +3,7 @@ from apps.people.models import Person
 
 from .models import (
     Lesson,
+    LessonAssignmentRequest,
     LessonJourney,
     LessonSessionReport,
     LessonSettings,
@@ -107,6 +108,31 @@ class LessonTeacherTransferAdmin(admin.ModelAdmin):
         "note",
     )
     autocomplete_fields = ("enrollment", "from_teacher", "to_teacher", "transferred_by")
+    ordering = ("-created_at",)
+
+
+@admin.register(LessonAssignmentRequest)
+class LessonAssignmentRequestAdmin(admin.ModelAdmin):
+    list_display = (
+        "student",
+        "teacher",
+        "status",
+        "requested_by",
+        "reviewed_by",
+        "created_at",
+    )
+    list_filter = ("status", "created_at")
+    search_fields = (
+        "student__first_name",
+        "student__last_name",
+        "student__username",
+        "teacher__first_name",
+        "teacher__last_name",
+        "teacher__username",
+        "review_note",
+    )
+    autocomplete_fields = ("student", "teacher", "requested_by", "reviewed_by")
+    filter_horizontal = ("lessons",)
     ordering = ("-created_at",)
 
 

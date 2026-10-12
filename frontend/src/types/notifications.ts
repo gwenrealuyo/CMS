@@ -14,7 +14,8 @@ export type NotificationType =
   | "evangelism_report_submitted"
   | "event_booking_pending"
   | "event_booking_approved"
-  | "event_booking_rejected";
+  | "event_booking_rejected"
+  | "lesson_assignment_pending";
 
 export interface NotificationItem {
   key: string;

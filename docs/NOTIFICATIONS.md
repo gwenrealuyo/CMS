@@ -127,6 +127,7 @@ Returns the same shape as `GET` (typically empty `items`).
 | `follow_up_due_soon` | Same | Due within the next **3 days**; same statuses |
 | `event_booking_pending` | Admin, Pastor, Events Coordinator, Events Senior Coordinator; EVENTS module enabled | `Event.booking_status=pending` (up to 10 newest). Href `/events?booking=pending` |
 | `evangelism_group_pending` | Admin, Pastor, Evangelism Senior Coordinator; EVANGELISM module enabled | `EvangelismGroup.approval_status=pending` (up to 10 newest, branch-scoped unless HQ). Href `/evangelism?tab=groups&approval=pending` |
+| `lesson_assignment_pending` | Admin, Pastor, Lessons Coordinator / Senior, NCC primary or support; LESSONS module enabled | `LessonAssignmentRequest.status=pending` (up to 10 newest, branch-scoped unless the user can see all branches). Href `/lessons?tab=teachers&approval=pending` |
 
 **Coordinator applicability:** Cluster and evangelism due reminders are **independent**. A user who coordinates both a cluster and an evangelism group can receive **both** due alerts when neither report is filed.
 
@@ -140,6 +141,7 @@ Returns the same shape as `GET` (typically empty `items`).
 - `evangelism_report_due:{group_id}:{year}:{month}` (monthly)
 - `event_booking_pending:{event_id}`
 - `evangelism_group_pending:{group_id}`
+- `lesson_assignment_pending:{request_id}`
 - `activity:cluster_report_submitted:{report_id}`
 - `activity:event_booking_approved:{event_id}` / `activity:event_booking_rejected:{event_id}`
 - `activity:evangelism_group_approved:{group_id}` / `activity:evangelism_group_rejected:{group_id}`

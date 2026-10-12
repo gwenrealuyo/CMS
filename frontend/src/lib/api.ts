@@ -21,10 +21,12 @@ import {
   LessonProgressSummary,
   LessonSessionReport,
   LessonSessionReportInput,
+  LessonAssignmentRequest,
   LessonStudentEnrollment,
   LessonTeacherTransfer,
   LessonTeacherRosterEntry,
   PersonLessonProgress,
+  VisitorAwaitingTeacher,
 } from "@/src/types/lesson";
 import {
   Event,
@@ -39,6 +41,7 @@ import {
   EventRegistrationPayment,
   EventRegistrationPaymentMethod,
 } from "@/src/types/event";
+import { SundayCatchupPayload } from "@/src/types/sundayCatchup";
 import {
   SelfCheckInInviter,
   SelfCheckInSessionResponse,
@@ -850,6 +853,20 @@ export const clustersApi = {
   patch: (id: string | number, data: Partial<ClusterInput>) =>
     api.patch<Cluster>(`/clusters/clusters/${id}/`, data),
   delete: (id: string | number) => api.delete(`/clusters/clusters/${id}/`),
+  getSundayCatchup: (id: string | number) =>
+    api.get<SundayCatchupPayload>(`/clusters/clusters/${id}/sunday-catchup/`),
+  markSundayCatchup: (
+    id: string | number,
+    data: { person_id: number; reason: string; note?: string },
+  ) =>
+    api.post<SundayCatchupPayload>(
+      `/clusters/clusters/${id}/sunday-catchup/`,
+      data,
+    ),
+  removeSundayCatchup: (id: string | number, attendanceId: number) =>
+    api.delete<SundayCatchupPayload>(
+      `/clusters/clusters/${id}/sunday-catchup/${attendanceId}/`,
+    ),
 };
 
 export const clusterReportsApi = {
@@ -1381,6 +1398,29 @@ export const lessonsApi = {
     person_ids: Array<number | string>;
     teacher_id?: number | string;
   }) => api.post<{ created: number }>("/lessons/progress/assign/", payload),
+  listAssignmentRequests: (params?: {
+    status?: string;
+    branch_id?: string | number;
+  }) =>
+    api.get<LessonAssignmentRequest[]>("/lessons/assignment-requests/", {
+      params,
+    }),
+  createAssignmentRequest: (payload: {
+    student_id: number | string;
+    lesson_ids: Array<number | string>;
+    teacher_id?: number | string;
+  }) =>
+    api.post<LessonAssignmentRequest>("/lessons/assignment-requests/", payload),
+  approveAssignmentRequest: (id: number | string, note?: string) =>
+    api.post<LessonAssignmentRequest>(
+      `/lessons/assignment-requests/${id}/approve/`,
+      note ? { review_note: note } : {}
+    ),
+  rejectAssignmentRequest: (id: number | string, note?: string) =>
+    api.post<LessonAssignmentRequest>(
+      `/lessons/assignment-requests/${id}/reject/`,
+      note ? { review_note: note } : {}
+    ),
   listEnrollments: (params?: {
     student?: string | number;
     teacher?: string | number;
@@ -1412,6 +1452,10 @@ export const lessonsApi = {
     api.get<LessonTeacherTransfer[]>(`/lessons/enrollments/${id}/transfers/`),
   listTeachers: (params?: { branch_id?: string | number }) =>
     api.get<LessonTeacherRosterEntry[]>("/lessons/teachers/", { params }),
+  listVisitorsAwaitingTeacher: (params?: { branch_id?: string | number }) =>
+    api.get<VisitorAwaitingTeacher[]>("/lessons/visitors-awaiting-teacher/", {
+      params,
+    }),
   complete: (
     id: number | string,
     payload: {

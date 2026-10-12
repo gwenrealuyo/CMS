@@ -534,7 +534,9 @@ class EventSerializer(serializers.ModelSerializer):
         return flag.lower() in {"1", "true", "yes", "on"}
 
     def _filter_attendance_queryset(self, obj):
-        queryset = obj.attendance_records.all()
+        queryset = obj.attendance_records.select_related(
+            "person", "journey", "attendance_venue", "recorded_by"
+        )
         request = self.context.get("request") if self.context else None
         if not request:
             return queryset

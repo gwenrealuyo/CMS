@@ -6,6 +6,7 @@ export type LessonContentTab =
   | "lesson"
   | "progress"
   | "teachers"
+  | "awaiting-teacher"
   | "sessions"
   | "commitment";
 
@@ -14,6 +15,8 @@ interface LessonContentTabsProps {
   onTabChange: (tab: LessonContentTab) => void;
   hideProgress?: boolean;
   hideTeachers?: boolean;
+  hideAwaitingTeacher?: boolean;
+  awaitingTeacherCount?: number | null;
   hideSessions?: boolean;
   disableCommitment?: boolean;
   branchFilter?: ReactNode;
@@ -27,6 +30,8 @@ export default function LessonContentTabs({
   onTabChange,
   hideProgress,
   hideTeachers,
+  hideAwaitingTeacher,
+  awaitingTeacherCount,
   hideSessions,
   disableCommitment,
   branchFilter,
@@ -66,6 +71,17 @@ export default function LessonContentTabs({
             mobileLabel: "Teachers",
             disabled: false,
             minWidthClass: "min-w-[72px] md:min-w-[88px]",
+          },
+        ]
+      : []),
+    ...(!hideAwaitingTeacher
+      ? [
+          {
+            id: "awaiting-teacher" as const,
+            label: "Awaiting Teacher",
+            mobileLabel: "Awaiting",
+            disabled: false,
+            minWidthClass: "min-w-[96px] md:min-w-[150px]",
           },
         ]
       : []),
@@ -128,6 +144,12 @@ export default function LessonContentTabs({
               >
                 <span className="md:hidden">{tab.mobileLabel}</span>
                 <span className="hidden md:inline">{tab.label}</span>
+                {tab.id === "awaiting-teacher" &&
+                typeof awaitingTeacherCount === "number" ? (
+                  <span className="ml-1.5 inline-flex min-w-[1.25rem] items-center justify-center rounded-full bg-red-100 px-1.5 text-xs font-semibold text-red-700">
+                    {awaitingTeacherCount}
+                  </span>
+                ) : null}
               </button>
             );
           })}

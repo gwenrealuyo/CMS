@@ -83,7 +83,7 @@ The recurrence service expands this pattern on demand in `apps.events.services.r
 
 - `EventSerializer` exposes `attendance_count` (total records across the event) and an `attendance_records` array filtered via `attendance_date=YYYY-MM-DD` when `include_attendance=true`. The nested person (name, phone, member ID, cluster, family) and `notes` are included only for Admin, Pastor, and Events Coordinator / Senior Coordinator (`has_events_write`). Other readers still get every row so counts stay correct, but `person` is `{ "id": <viewer id> }` on their own row and `{ "id": null }` on everyone else, and `notes` is blank. The same gate applies to `GET /api/events/{id}/attendance/` and `/api/attendance/`.
 - It also derives an `attendee_badges` payload from the same records, so the frontend can render per-person badges (cluster code, family name, etc.) without the model carrying its own `ManyToMany`.
-- `POST /api/events/{id}/attendance/` accepts `person_id`, `occurrence_date`, optional `status`, and upserts an attendance record. Each successful write syncs the matching `EVENT_ATTENDANCE` journey.
+- `POST /api/events/{id}/attendance/` accepts `person_id`, `occurrence_date`, optional `status`, and upserts an attendance record. Each successful write syncs the matching `EVENT_ATTENDANCE` journey. Cluster Sunday catch-up does not use this endpoint. It writes the same `AttendanceRecord` through `POST /api/clusters/clusters/{id}/sunday-catchup/` (online only, with `catchup_reason`). Those rows still count as Present. The attendance report shows them in **Added later**, beside the checked-in total. `catchup_reason`, `catchup_note`, and `recorded_by` are on the events-write attendance payload; other readers do not see another person’s catch-up reason.
 - `DELETE /api/events/{id}/attendance/{attendance_id}/` removes the attendance record and its journey.
 - The generic `/api/attendance/` endpoints provide CRUD access plus `/api/attendance/by-event/{event_id}/` for reporting scenarios.
 - On the frontend, `EventView` includes an Attendance panel that:
@@ -103,7 +103,7 @@ Activity events can run in two attendance-tracking modes (Meeting room holds do 
 - **Who can edit on the form:** Admin, Pastor, and Events Coordinator / Senior Coordinator only (`canWriteEvents`). The Expected Attendees / Track expected attendees block is hidden on booking-request forms (other-module coordinators); those submits still use form defaults or existing values unchanged.
 - **`track_expected_attendees`** (model default `false` for new API creates; existing events were backfilled to `true`)
   - **On (status-based / duty):** check-in shows Total / Remaining; the attendance report includes Expected, Remaining, Surprises, and attendance rate vs the expected pool.
-  - **Off (open / headcount):** check-in shows Checked In only; the report keeps checked-in roster + Onsite / Online / Tardy / by-status / by-cluster breakdowns, but omits Expected, Remaining, Surprises, and expected-based rates.
+  - **Off (open / headcount):** check-in shows Checked In only; the report keeps checked-in roster + Onsite / Online / Onsite tardy / by-status / by-cluster breakdowns, but omits Expected, Remaining, Surprises, and expected-based rates.
 - Form defaults on **create:** Sunday Service (`SUNDAY_SERVICE`) starts with tracking **on**; all other activity types (including AWTA) start **off**. Changing type on create resets this default; editing an existing event does not auto-reset it.
 - When tracking is on, status flags further define the expected pool:
   - `expected_include_active` (default `true`)
@@ -229,12 +229,12 @@ API:
 Available from Event Details and the check-in page when the selected occurrence date is today or earlier (local calendar day). Future occurrences keep Open Check-In only. No new backend report API — the report is computed in the browser from people + attendance for that occurrence.
 
 - When **`track_expected_attendees`** is on:
-  - **Summary:** Expected, Checked In, **Onsite**, **Online**, Remaining, Surprises, Tardy; optional **Online by venue** breakdown; attendance rate vs expected pool.
+  - **Summary:** Expected, Checked In, **Onsite**, **Online**, Remaining, Surprises, **Onsite tardy**; optional **Online by venue** breakdown; attendance rate vs expected pool. **Onsite tardy** counts only onsite check-ins after the occurrence start plus `tardy_grace_minutes` (rate is of onsite, not of everyone checked in). Online check-ins, including Sunday catch-up, are not tardy.
   - **Breakdowns:** Checked-in and remaining counts by person status and cluster.
   - **Surprises list** and a searchable **checked-in roster** with mode/venue chips.
   - **Download CSV** includes Expected / Remaining / Surprises summary rows and `checked_in` / `surprise` / `remaining` person categories.
 - When tracking is **off** (open):
-  - **Summary:** Checked In, Onsite, Online, Tardy (no Expected / Remaining / Surprises or attendance rate).
+  - **Summary:** Checked In, Onsite, Online, Onsite tardy (no Expected / Remaining / Surprises or attendance rate).
   - Checked-in by status / by cluster and searchable roster remain; remaining and surprises sections are omitted.
   - **Download CSV** omits expected/remaining/surprises fields; all present people are `checked_in`.
 

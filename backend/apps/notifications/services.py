@@ -73,6 +73,7 @@ def build_notification_feed(user) -> List[NotificationItem]:
     items.extend(_build_admin_alerts(user))
     items.extend(_build_event_booking_pending(user))
     items.extend(_build_evangelism_group_pending(user))
+    items.extend(_build_lesson_assignment_pending(user))
     items.extend(_build_cluster_report_due(user))
     items.extend(_build_evangelism_report_due(user))
     items.extend(_build_cluster_report_overdue_oversight(user))
@@ -176,6 +177,52 @@ def _build_event_booking_pending(user) -> List[NotificationItem]:
                 body=body,
                 href="/events?booking=pending",
                 occurred_at=_aware_dt(event.created_at),
+            )
+        )
+    return items
+
+
+def _build_lesson_assignment_pending(user) -> List[NotificationItem]:
+    from apps.lessons.coordinator_access import can_review_lesson_assignment_requests
+    from apps.lessons.models import LessonAssignmentRequest
+
+    if not can_review_lesson_assignment_requests(user):
+        return []
+    if not is_module_enabled(ModuleCoordinator.ModuleType.LESSONS):
+        return []
+
+    pending = LessonAssignmentRequest.objects.filter(
+        status=LessonAssignmentRequest.Status.PENDING
+    ).select_related("student", "teacher", "requested_by")
+    if not user.can_see_all_branches():
+        branch_id = getattr(user, "branch_id", None)
+        if branch_id:
+            pending = pending.filter(student__branch_id=branch_id)
+        else:
+            pending = pending.none()
+    pending = pending.order_by("-created_at")[:10]
+
+    items: List[NotificationItem] = []
+    for assignment_request in pending:
+        student = assignment_request.student
+        student_name = student.get_full_name() or student.username
+        requester = assignment_request.requested_by or assignment_request.teacher
+        requester_name = ""
+        if requester:
+            requester_name = requester.get_full_name() or requester.username
+        body = student_name
+        if requester_name:
+            body = f"{student_name} — requested by {requester_name}"
+        items.append(
+            NotificationItem(
+                key=f"lesson_assignment_pending:{assignment_request.id}",
+                category="alert",
+                type="lesson_assignment_pending",
+                severity="warning",
+                title="Lesson assignment pending",
+                body=body,
+                href="/lessons?tab=teachers&approval=pending",
+                occurred_at=_aware_dt(assignment_request.created_at),
             )
         )
     return items

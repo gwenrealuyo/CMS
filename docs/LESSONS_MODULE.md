@@ -64,6 +64,10 @@ A person cannot be their own lessons teacher (`student_id != teacher_id`). A les
 
 Validation is enforced in `LessonBulkAssignSerializer` via `person_assignment_eligibility_error()` and `student_cannot_be_own_teacher_error()` in `apps.lessons.services`. The UI also hides students who already appear in the global progress list.
 
+**Teacher requests.** A Lessons teacher who is not also a coordinator, admin, or pastor does not assign a student directly. Assign Lessons (teacher locked to themselves) creates a `LessonAssignmentRequest` (`pending`). The student stays unassigned: no enrollment, no lesson progress, and they do not appear in that teacher's progress list, session picker, or People directory. Lessons coordinators, seniors, NCC primary/support, admins, and pastors still assign immediately.
+
+Coordinators review pending requests on the Teachers tab (**For approval**, `/lessons?tab=teachers&approval=pending`). **Approve** creates the enrollment and the requested lesson progress, and rejects any other pending requests for that student. **Reject** leaves the student unassigned; that teacher may request them again. Direct coordinator assignment also closes open requests for that student.
+
 ## Branch Scoping
 
 Student-linked data is filtered by church branch (`people.Person.branch`), consistent with Clusters and Evangelism.
@@ -91,7 +95,7 @@ Applied to:
 - Branch `<select>` on the right of the content tab row (`Lesson Content` | `Student Progress` | `Teachers` | `Session Reports` | `Files`).
 - Editable for ADMIN, PASTOR, and HQ Lessons seniors (Admin Settings **or** NCC primary coordinator). Locked with tooltip for teachers, Lessons coordinators, NCC support coordinators, and satellite seniors.
 - Changing branch refetches summary, progress, enrollments, and session reports (when that tab is active). Assign/session people dropdowns are filtered client-side to the selected branch. The filter **defaults to the user's own branch** (not “All branches”).
-- Assign Lessons and session student pickers load people with `for_lessons=1` so Lessons Coordinators (including NCC support) can search same-branch people. The People directory stays unexpanded (self + family).
+- Assign Lessons and session student pickers load people with `for_lessons=1` so Lessons Coordinators (including NCC support) and Lessons teachers can search same-branch people. The People directory stays unexpanded (self + family).
 
 ## Commitment Form & NCC Lessons PDF
 
@@ -121,7 +125,10 @@ Applied to:
 | `/api/lessons/lessons/` | CRUD for lesson definitions (includes journey config). Not branch-filtered. |
 | `/api/lessons/progress/` | List/create/update progress; filter: `person`, `lesson`, `status`, `branch_id`. |
 | `/api/lessons/progress/{id}/complete/` | Mark progress complete (optional note, timestamp, `completed_by`). |
-| `/api/lessons/progress/assign/` | Bulk assign one lesson to multiple people (eligibility rules apply). |
+| `/api/lessons/progress/assign/` | Bulk assign one lesson to multiple people (eligibility rules apply). Scoped Lessons teachers: creates or updates a pending assignment request instead of enrollment or progress. |
+| `/api/lessons/assignment-requests/` | Teacher requests to take a student (`lesson_ids` optional). List is the teacher's own requests, or branch-scoped requests for coordinators and above. |
+| `/api/lessons/assignment-requests/{id}/approve/` | Coordinator (or admin/pastor) approves a pending request: enrollment, lesson progress, sibling requests rejected. |
+| `/api/lessons/assignment-requests/{id}/reject/` | Coordinator (or admin/pastor) rejects a pending request. Student stays unassigned. |
 | `/api/lessons/progress/summary/` | Person-level status buckets (COMPLETED = finished all lessons in `year`, dated by `completed_at` else `lessons_finished_at`), lesson breakdown, `unassigned_visitors`; supports `year`, `lesson`, `include_superseded`, `branch_id`. |
 | `/api/lessons/lessons/commitment-form/` | GET/POST global commitment PDF; GET also returns the NCC booklet fields. |
 | `/api/lessons/lessons/ncc-lessons-pdf/` | POST global NCC lessons booklet PDF. |
@@ -140,7 +147,7 @@ Entry: [`frontend/src/app/lessons/page.tsx`](../frontend/src/app/lessons/page.ts
 |-----|---------|
 | **Lesson Content** | Sidebar lesson catalog + `LessonDetailPanel`; global, not branch-filtered. |
 | **Student Progress** | `MemberProgressSection` + `LessonProgressTable`; branch-scoped. Students are grouped under collapsible teacher headers with total assigned / in progress / completed / not started counts. Person column shows **status** and **cluster** chips (not member ID). Person-level `ASSIGNED` status is labeled **Not started**. Clicking a teacher on the Teachers tab opens this tab with that group expanded. |
-| **Teachers** | Coordinator overview (`TeacherOverviewSection`): per-teacher assigned / in progress / completed / not started counts. Includes NCC roster teachers with zero students. Hidden from Lessons teachers (TEACHER assignment only) and from users without Lessons write access. |
+| **Teachers** | Coordinator overview (`TeacherOverviewSection`): per-teacher assigned / in progress / completed / not started counts. Includes NCC roster teachers with zero students. **For approval** queue lists pending teacher requests (approve or reject). Hidden from Lessons teachers (TEACHER assignment only) and from users without Lessons write access. Deep link: `/lessons?tab=teachers&approval=pending`. |
 | **Session Reports** | `SessionReportsSection`; branch-scoped; see above. |
 | **Files** | `NccLessonsPdfSection` + `CommitmentFormSection`; global PDFs (NCC booklet and commitment form). Internal tab id remains `commitment`. |
 
@@ -149,7 +156,8 @@ Entry: [`frontend/src/app/lessons/page.tsx`](../frontend/src/app/lessons/page.ts
 - `LessonList` / `LessonDetailPanel` / `LessonForm` — catalog CRUD.
 - `NccLessonsPdfSection` / `CommitmentFormSection` — global booklet and commitment PDFs on the Files tab (`LessonPdfResourceCard`).
 - `LessonStatsCards` — dashboard-style metrics (ADMIN, PASTOR, senior coordinators including NCC primary, cluster coordinators, Lessons coordinators, and Lessons teachers); respects `branch_id` on summary API. Teachers see ongoing / completed / average for their assigned students only (help text says so); unassigned visitors remain branch-wide. **Completed This Year** counts students whose course finish date (`completed_at`, else `lessons_finished_at`) falls in the current year; historical bulk imports are excluded.
-- `AssignLessonsDropdown` — multi-select assign; eligible students only; status/cluster under names.
+- `AssignLessonsDropdown` — multi-select assign; eligible students only; status/cluster under names. Scoped teachers are locked to themselves and submit for coordinator approval.
+- `AssignmentRequestQueue` — teacher “Waiting for approval” list on Student Progress, and the coordinator **For approval** queue on the Teachers tab.
 - `PersonLessonProgressModal` — per-student progress, commitment toggle, teacher transfer (coordinators). Coordinators can **Assign teacher** from this modal when a student has progress (including finished / legacy) but no enrollment.
 - `LessonSessionReportForm` — log/edit sessions (lesson vs pre-lesson topic picker).
 - `LessonContentTabs` — tab bar plus optional `branchFilter` slot on the right.
@@ -159,7 +167,7 @@ Entry: [`frontend/src/app/lessons/page.tsx`](../frontend/src/app/lessons/page.ts
 
 - Lesson write / assign / session log: module coordinators, **NCC ministry primary/support coordinators**, and roles with `HasModuleAccess('LESSONS', 'write')` (see [ACCESS_CONTROL.md](./ACCESS_CONTROL.md)).
 - **Student Progress** and **Session Reports** tabs: hidden unless the user has Lessons write access. Plain Members see **Lesson Content** and **Files** only.
-- **Teachers** tab: Admin, Pastor, Lessons coordinators, and NCC primary/support coordinators only. Lessons teachers who are not coordinators stay on Student Progress (their assigned students).
+- **Teachers** tab: Admin, Pastor, Lessons coordinators, and NCC primary/support coordinators only. Lessons teachers who are not coordinators stay on Student Progress (their assigned students) and see their own requests under **Waiting for approval**.
 - Branch picker: ADMIN, PASTOR, and HQ Lessons seniors (including HQ NCC primary) only. Hidden when Progress/Reports tabs are hidden.
 
 NCC ministry roles:
@@ -177,6 +185,7 @@ Automated tests live under `apps.lessons.tests`:
 |--------|----------|
 | `test_session_reports.py` | PRE_LESSON vs LESSON progress, remarks validation, pre-lesson LESSON journeys, delete + reconcile |
 | `test_enrollments.py` | Assign eligibility, commitment, transfers |
+| `test_assignment_requests.py` | Teacher requests stay unassigned until approve or reject; coordinator assign stays immediate |
 | `test_catalog_permissions.py` | Catalog CRUD, commitment PDF, NCC booklet upload permissions |
 | `test_ncc_coordinator_access.py` | NCC primary/support Lessons access, HQ vs satellite branch picking |
 | `test_progress_summary.py` | Yearly COMPLETED cohort uses finish dates, not import-time `assigned_at` |

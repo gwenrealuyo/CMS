@@ -14,6 +14,7 @@ import { branchesApi, lessonsApi } from "@/src/lib/api";
 import { canChangeLessonsBranchFilter as canChangeLessonsBranchFilterForUser } from "@/src/lib/lessonsBranchFilter";
 import {
   Lesson,
+  LessonAssignmentRequest,
   LessonCommitmentSettings,
   LessonProgressStatus,
   LessonProgressSummary,
@@ -62,6 +63,7 @@ import {
   LessonPersonSummary,
   LessonTeacherRosterEntry,
   ProgressSortField,
+  VisitorAwaitingTeacher,
 } from "@/src/types/lesson";
 import { LessonFormValues } from "@/src/components/lessons/LessonForm";
 import { LessonContentTab } from "@/src/components/lessons/LessonContentTabs";
@@ -74,6 +76,7 @@ export default function LessonsPageContainer() {
   const router = useRouter();
   const pathname = usePathname();
   const action = searchParams.get("action");
+  const tabParam = searchParams.get("tab");
   const [lessons, setLessons] = useState<Lesson[]>([]);
   const [lessonsLoading, setLessonsLoading] = useState(true);
   const [lessonsError, setLessonsError] = useState<string | null>(null);
@@ -151,6 +154,15 @@ export default function LessonsPageContainer() {
 
   const [assigning, setAssigning] = useState(false);
   const [assignError, setAssignError] = useState<string | null>(null);
+  const [visitorsAwaitingTeacher, setVisitorsAwaitingTeacher] = useState<
+    VisitorAwaitingTeacher[]
+  >([]);
+  const [visitorsAwaitingTeacherLoading, setVisitorsAwaitingTeacherLoading] =
+    useState(false);
+  const [visitorsAwaitingTeacherError, setVisitorsAwaitingTeacherError] =
+    useState<string | null>(null);
+  const [visitorsAwaitingTeacherLoaded, setVisitorsAwaitingTeacherLoaded] =
+    useState(false);
 
   const [personProgressModal, setPersonProgressModal] = useState<{
     isOpen: boolean;
@@ -170,6 +182,16 @@ export default function LessonsPageContainer() {
     Map<number, string>
   >(() => new Map());
   const [enrollments, setEnrollments] = useState<LessonStudentEnrollment[]>([]);
+  const [assignmentRequests, setAssignmentRequests] = useState<
+    LessonAssignmentRequest[]
+  >([]);
+  const [assignmentRequestsLoading, setAssignmentRequestsLoading] =
+    useState(false);
+  const [assignmentRequestsError, setAssignmentRequestsError] = useState<
+    string | null
+  >(null);
+  const [reviewingAssignmentRequestId, setReviewingAssignmentRequestId] =
+    useState<number | null>(null);
   const [sessionReportsLoading, setSessionReportsLoading] = useState(false);
   const [sessionReportsError, setSessionReportsError] = useState<string | null>(
     null
@@ -362,6 +384,36 @@ export default function LessonsPageContainer() {
 
     return branchId ? { branch_id: branchId } : {};
   }, [user, lessonsBranchCanChangeFilter, selectedBranchId]);
+
+  const fetchVisitorsAwaitingTeacher = useCallback(async () => {
+    if (!user || !canBrowseAllLessonStudents(user) || branchApiParams === null) {
+      setVisitorsAwaitingTeacher([]);
+      setVisitorsAwaitingTeacherLoaded(false);
+      return;
+    }
+    try {
+      setVisitorsAwaitingTeacherLoading(true);
+      const response = await lessonsApi.listVisitorsAwaitingTeacher(
+        branchApiParams,
+      );
+      setVisitorsAwaitingTeacher(response.data || []);
+      setVisitorsAwaitingTeacherError(null);
+      setVisitorsAwaitingTeacherLoaded(true);
+    } catch (error) {
+      setVisitorsAwaitingTeacherError(
+        extractErrorMessage(
+          error,
+          "Failed to load visitors awaiting a lessons teacher.",
+        ),
+      );
+    } finally {
+      setVisitorsAwaitingTeacherLoading(false);
+    }
+  }, [user, branchApiParams]);
+
+  useEffect(() => {
+    fetchVisitorsAwaitingTeacher();
+  }, [fetchVisitorsAwaitingTeacher]);
 
   const peopleInBranchScope = useMemo(() => {
     if (!selectedBranchId) {
@@ -727,10 +779,17 @@ export default function LessonsPageContainer() {
   }, [action, canWriteLessonsAccess, pathname, router]);
 
   useEffect(() => {
+    if (tabParam === "teachers" && canBrowseAllLessonStudents(user)) {
+      setActiveContentTab("teachers");
+    }
+  }, [tabParam, user]);
+
+  useEffect(() => {
     if (
       !showStudentWorkflowTabs &&
       (activeContentTab === "progress" ||
         activeContentTab === "teachers" ||
+        activeContentTab === "awaiting-teacher" ||
         activeContentTab === "sessions")
     ) {
       setActiveContentTab("lesson");
@@ -739,7 +798,8 @@ export default function LessonsPageContainer() {
     if (
       showStudentWorkflowTabs &&
       !canBrowseAllLessonStudents(user) &&
-      activeContentTab === "teachers"
+      (activeContentTab === "teachers" ||
+        activeContentTab === "awaiting-teacher")
     ) {
       setActiveContentTab("progress");
     }
@@ -789,6 +849,7 @@ export default function LessonsPageContainer() {
     fetchSummary();
     fetchAllProgress();
     fetchEnrollments();
+    fetchAssignmentRequests();
     fetchLatestSessionActivity();
     if (activeContentTab === "sessions") {
       fetchSessionReports(sessionFilters);
@@ -960,6 +1021,28 @@ export default function LessonsPageContainer() {
       );
     } finally {
       setAllProgressLoading(false);
+    }
+  };
+
+  const fetchAssignmentRequests = async () => {
+    if (!isTeacherScopedSessionView && !canBrowseAllLessonStudents(user)) {
+      setAssignmentRequests([]);
+      return;
+    }
+    try {
+      setAssignmentRequestsLoading(true);
+      const response = await lessonsApi.listAssignmentRequests({
+        status: "pending",
+        ...(branchApiParams ?? {}),
+      });
+      setAssignmentRequests(response.data || []);
+      setAssignmentRequestsError(null);
+    } catch (error) {
+      setAssignmentRequestsError(
+        extractErrorMessage(error, "Failed to load assignment requests.")
+      );
+    } finally {
+      setAssignmentRequestsLoading(false);
     }
   };
 
@@ -1316,6 +1399,41 @@ export default function LessonsPageContainer() {
         .map((id) => Number(id))
         .filter((value) => !Number.isNaN(value));
 
+      if (isTeacherScopedSessionView) {
+        if (
+          user?.id == null ||
+          Number.isNaN(numericTeacherId) ||
+          numericTeacherId !== Number(user.id)
+        ) {
+          setAssignError("You can only request students for yourself.");
+          return;
+        }
+        for (const personId of numericPersonIds) {
+          await lessonsApi.createAssignmentRequest({
+            student_id: personId,
+            lesson_ids: lessonIds,
+            teacher_id: numericTeacherId,
+          });
+        }
+        await fetchAssignmentRequests();
+        const requestedNames = personIds
+          .map((personId) =>
+            people.find((person) => String(person.id) === personId)
+          )
+          .filter((person): person is NonNullable<typeof person> =>
+            Boolean(person)
+          )
+          .map((person) => formatPersonName(person));
+        if (requestedNames.length === 1) {
+          toast.success(
+            `Submitted ${requestedNames[0]} for coordinator approval.`
+          );
+        } else {
+          toast.success("Submitted for coordinator approval.");
+        }
+        return;
+      }
+
       const assignPayload: {
         lesson_id: number;
         person_ids: number[];
@@ -1357,6 +1475,70 @@ export default function LessonsPageContainer() {
       setAssignError(extractErrorMessage(error, "Failed to assign lessons."));
     } finally {
       setAssigning(false);
+    }
+  };
+
+  const handleAssignAwaitingTeacher = async (
+    personId: string,
+    teacherId: string,
+    enrollmentId: number | null,
+  ) => {
+    const lessonIds = activeLatestLessons.map((lesson) => lesson.id);
+    if (lessonIds.length === 0) {
+      setAssignError("No active lessons are available to assign.");
+      return;
+    }
+    if (enrollmentId != null) {
+      try {
+        setAssigning(true);
+        setAssignError(null);
+        await lessonsApi.transferEnrollment(enrollmentId, {
+          teacher_id: teacherId,
+        });
+      } catch (error) {
+        setAssignError(
+          extractErrorMessage(error, "Failed to assign a lessons teacher."),
+        );
+        setAssigning(false);
+        return;
+      }
+    }
+    await handleAssignLessons([personId], lessonIds, teacherId);
+    await fetchVisitorsAwaitingTeacher();
+  };
+
+  const handleApproveAssignmentRequest = async (id: number) => {
+    try {
+      setReviewingAssignmentRequestId(id);
+      setAssignmentRequestsError(null);
+      await lessonsApi.approveAssignmentRequest(id);
+      toast.success("Assignment approved.");
+      await fetchAssignmentRequests();
+      await fetchEnrollments();
+      await fetchAllProgress();
+      fetchSummary();
+    } catch (error) {
+      setAssignmentRequestsError(
+        extractErrorMessage(error, "Failed to approve the assignment request.")
+      );
+    } finally {
+      setReviewingAssignmentRequestId(null);
+    }
+  };
+
+  const handleRejectAssignmentRequest = async (id: number, note: string) => {
+    try {
+      setReviewingAssignmentRequestId(id);
+      setAssignmentRequestsError(null);
+      await lessonsApi.rejectAssignmentRequest(id, note);
+      toast.success("Assignment request rejected.");
+      await fetchAssignmentRequests();
+    } catch (error) {
+      setAssignmentRequestsError(
+        extractErrorMessage(error, "Failed to reject the assignment request.")
+      );
+    } finally {
+      setReviewingAssignmentRequestId(null);
     }
   };
 
@@ -1774,6 +1956,10 @@ export default function LessonsPageContainer() {
       allProgressError={allProgressError}
       groupedProgress={displayedGroupedProgress}
       teacherOverviewRows={teacherOverviewRows}
+      visitorsAwaitingTeacher={visitorsAwaitingTeacher}
+      visitorsAwaitingTeacherLoading={visitorsAwaitingTeacherLoading}
+      visitorsAwaitingTeacherError={visitorsAwaitingTeacherError}
+      visitorsAwaitingTeacherLoaded={visitorsAwaitingTeacherLoaded}
       assignedStudentIds={assignedStudentIds}
       studentTeacherById={studentTeacherById}
       focusTeacherKey={focusTeacherKey}
@@ -1898,11 +2084,18 @@ export default function LessonsPageContainer() {
       onCloseAlertModal={() => setAlertModal({ isOpen: false, message: "" })}
       onSetCommitmentConfirm={(confirm) => setCommitmentConfirm(confirm)}
       onAssignLessons={handleAssignLessons}
+      assignmentRequests={assignmentRequests}
+      assignmentRequestsLoading={assignmentRequestsLoading}
+      assignmentRequestsError={assignmentRequestsError}
+      reviewingAssignmentRequestId={reviewingAssignmentRequestId}
+      onApproveAssignmentRequest={handleApproveAssignmentRequest}
+      onRejectAssignmentRequest={handleRejectAssignmentRequest}
       onProgressFilterChange={handleProgressFilterChange}
       onProgressSearchQueryChange={handleProgressSearchQueryChange}
       onProgressStatusFilterChange={handleProgressStatusFilterChange}
       onProgressSortChange={handleProgressSortChange}
       onTeacherOverviewClick={handleTeacherOverviewClick}
+      onAssignAwaitingTeacher={handleAssignAwaitingTeacher}
       onOpenPersonProgressModal={openPersonProgressModal}
       onClosePersonProgressModal={closePersonProgressModal}
       onSetActiveContentTab={setActiveContentTab}

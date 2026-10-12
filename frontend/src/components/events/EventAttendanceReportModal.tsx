@@ -177,6 +177,7 @@ function SummaryCard({
   inactiveClassName = "border-gray-200 bg-white",
   countClassName,
   inactiveCountClassName = "text-gray-400",
+  rateCaption,
 }: {
   count: number;
   label: string;
@@ -186,6 +187,7 @@ function SummaryCard({
   inactiveClassName?: string;
   countClassName: string;
   inactiveCountClassName?: string;
+  rateCaption?: string;
 }) {
   return (
     <div
@@ -204,6 +206,7 @@ function SummaryCard({
       {rate !== undefined ? (
         <p className="mt-0.5 text-xs font-medium text-muted-foreground">
           {formatRatePercent(rate)}
+          {rateCaption ? ` ${rateCaption}` : ""}
         </p>
       ) : null}
     </div>
@@ -235,6 +238,12 @@ function RosterRow({ person }: { person: AttendanceReportPerson }) {
       >
         {person.attendanceModeLabel}
       </span>
+      {person.addedLater ? (
+        <span className="inline-flex shrink-0 items-center rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-800">
+          Added later
+          {person.catchupReasonLabel ? ` · ${person.catchupReasonLabel}` : ""}
+        </span>
+      ) : null}
       {person.venueLabel ? (
         <span
           className="inline-flex shrink-0 items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold"
@@ -276,7 +285,7 @@ function RosterRow({ person }: { person: AttendanceReportPerson }) {
       ) : null}
       {person.isTardy ? (
         <span className="inline-flex shrink-0 items-center rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-800">
-          Tardy
+          Onsite tardy
         </span>
       ) : null}
     </li>
@@ -328,6 +337,7 @@ function filterRoster(
       person.statusLabel.toLowerCase().includes(trimmed) ||
       person.role.toLowerCase().includes(trimmed) ||
       person.attendanceModeLabel.toLowerCase().includes(trimmed) ||
+      (person.catchupReasonLabel || "").toLowerCase().includes(trimmed) ||
       person.venueLabel.toLowerCase().includes(trimmed)
     );
   });
@@ -471,6 +481,14 @@ export default function EventAttendanceReportModal({
             activeClassName="border-sky-200 bg-sky-50/80"
             countClassName="text-sky-700"
           />
+          <SummaryCard
+            count={report.addedLaterCount}
+            label="Added later"
+            rate={report.addedLaterRate}
+            active={report.addedLaterCount > 0}
+            activeClassName="border-amber-200 bg-amber-50/80"
+            countClassName="text-amber-800"
+          />
           {trackingExpected ? (
             <>
               <SummaryCard
@@ -495,8 +513,9 @@ export default function EventAttendanceReportModal({
           ) : null}
           <SummaryCard
             count={report.tardyCount}
-            label="Tardy"
+            label="Onsite tardy"
             rate={report.tardyRate}
+            rateCaption="of onsite"
             active={report.tardyCount > 0}
             activeClassName="border-amber-200 bg-amber-50/80"
             countClassName="text-amber-700"

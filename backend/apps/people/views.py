@@ -150,9 +150,10 @@ class PersonViewSet(viewsets.ModelViewSet):
         list/search to same-branch people so weekly-report attendee pickers can
         include existing visitor Person profiles. Profile access stays narrow.
 
-        Lessons coordinators (including NCC support) keep the narrow directory,
-        but `for_lessons=True` widens list/search to same-branch people for
-        Assign Lessons and session pickers. Profile access stays narrow.
+        Lessons coordinators (including NCC support) and Lessons teachers keep
+        the narrow directory, but `for_lessons=True` widens list/search to
+        same-branch people for Assign Lessons and session pickers. Profile
+        access stays narrow.
         """
         user = self.request.user
         queryset = super().get_queryset()
@@ -345,12 +346,16 @@ class PersonViewSet(viewsets.ModelViewSet):
             if can_submit_evangelism_report:
                 people_querysets.append(queryset)
 
-        # 6. Lessons coordinators / NCC support: same-branch people for Lessons
-        # pickers only (for_lessons=1). Directory and profile stay narrow.
+        # 6. Lessons coordinators, NCC support, and Lessons teachers: same-branch
+        # people for Lessons pickers only (for_lessons=1). Directory and profile
+        # stay narrow.
         if for_lessons and not for_profile:
-            from apps.lessons.coordinator_access import has_lessons_browse_all
+            from apps.lessons.coordinator_access import (
+                has_lessons_browse_all,
+                has_lessons_teacher_assignment,
+            )
 
-            if has_lessons_browse_all(user):
+            if has_lessons_browse_all(user) or has_lessons_teacher_assignment(user):
                 people_querysets.append(queryset)
 
         # Combine all querysets using union

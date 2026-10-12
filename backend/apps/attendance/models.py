@@ -13,6 +13,12 @@ class AttendanceRecord(models.Model):
         ONSITE = "ONSITE", "Onsite"
         ONLINE = "ONLINE", "Online"
 
+    class CatchupReason(models.TextChoices):
+        REPLAY = "REPLAY", "Watched the replay"
+        TIMEZONE = "TIMEZONE", "Another timezone"
+        FORGOT_CHECKIN = "FORGOT_CHECKIN", "Forgot to check in"
+        OTHER = "OTHER", "Other"
+
     event = models.ForeignKey(
         "events.Event",
         on_delete=models.CASCADE,
@@ -44,6 +50,20 @@ class AttendanceRecord(models.Model):
         related_name="attendance_records",
     )
     notes = models.TextField(blank=True)
+    recorded_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="attendance_records_recorded",
+    )
+    catchup_reason = models.CharField(
+        max_length=20,
+        choices=CatchupReason.choices,
+        blank=True,
+        default="",
+    )
+    catchup_note = models.CharField(max_length=200, blank=True, default="")
     journey = models.OneToOneField(
         "people.Journey",
         on_delete=models.SET_NULL,
@@ -60,8 +80,54 @@ class AttendanceRecord(models.Model):
         verbose_name = "Attendance Record"
         verbose_name_plural = "Attendance Records"
 
+    def catchup_summary(self) -> str:
+        """Short label for a coordinator/reporter catch-up, or empty."""
+        reason = self.catchup_reason or ""
+        if not reason:
+            return ""
+        if reason == self.CatchupReason.OTHER:
+            note = (self.catchup_note or "").strip()
+            return note or "Other"
+        return self.get_catchup_reason_display()
+
+    def _clean_catchup(self):
+        reason = (self.catchup_reason or "").strip()
+        note = (self.catchup_note or "").strip()
+        if not reason:
+            if note:
+                raise ValidationError(
+                    {
+                        "catchup_note": (
+                            "A catch-up note requires a catch-up reason."
+                        )
+                    }
+                )
+            return
+        mode = self.attendance_mode or self.AttendanceMode.ONSITE
+        if mode != self.AttendanceMode.ONLINE:
+            raise ValidationError(
+                {
+                    "catchup_reason": (
+                        "Catch-up attendance must be online."
+                    )
+                }
+            )
+        if reason == self.CatchupReason.OTHER and not note:
+            raise ValidationError(
+                {"catchup_note": "Describe the reason when you choose Other."}
+            )
+        if reason != self.CatchupReason.OTHER and note:
+            raise ValidationError(
+                {
+                    "catchup_note": (
+                        "A note is only used when the reason is Other."
+                    )
+                }
+            )
+
     def clean(self):
         super().clean()
+        self._clean_catchup()
         mode = self.attendance_mode or self.AttendanceMode.ONSITE
         event = self.event
         online_only = (

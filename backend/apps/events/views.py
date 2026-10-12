@@ -450,7 +450,7 @@ class EventViewSet(viewsets.ModelViewSet):
         event = self.get_object()
         occurrence_date_param = request.query_params.get("occurrence_date")
         records = event.attendance_records.select_related(
-            "person", "journey", "attendance_venue"
+            "person", "journey", "attendance_venue", "recorded_by"
         )
         if occurrence_date_param:
             parsed_date = parse_date(occurrence_date_param)
@@ -513,7 +513,7 @@ class EventViewSet(viewsets.ModelViewSet):
         event = self.get_object()
         try:
             record = event.attendance_records.select_related(
-                "person", "journey", "attendance_venue"
+                "person", "journey", "attendance_venue", "recorded_by"
             ).get(pk=attendance_id)
         except AttendanceRecord.DoesNotExist:
             return Response(

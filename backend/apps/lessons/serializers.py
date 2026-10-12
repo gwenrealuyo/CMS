@@ -4,11 +4,13 @@ from typing import Any, Dict
 
 from django.utils import timezone
 from rest_framework import serializers
+from rest_framework.exceptions import PermissionDenied
 
 from apps.people.models import Person
 
 from .models import (
     Lesson,
+    LessonAssignmentRequest,
     LessonJourney,
     LessonSessionReport,
     LessonSettings,
@@ -24,6 +26,7 @@ from .services import (
     mark_progress_completed,
     revert_progress_completion,
     student_cannot_be_own_teacher_error,
+    submit_lesson_assignment_request,
     transfer_lesson_teacher,
 )
 
@@ -668,3 +671,81 @@ class LessonBulkAssignSerializer(serializers.Serializer):
             for person in needs_teacher:
                 _reject_student_as_own_teacher(person, teacher)
         return attrs
+
+
+class LessonAssignmentLessonSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Lesson
+        fields = ["id", "title", "order", "version_label"]
+
+
+class LessonAssignmentRequestSerializer(serializers.ModelSerializer):
+    student = PersonNestedSerializer(read_only=True)
+    student_id = serializers.PrimaryKeyRelatedField(
+        queryset=Person.objects.all(),
+        source="student",
+        write_only=True,
+    )
+    teacher = PersonNestedSerializer(read_only=True)
+    teacher_id = serializers.PrimaryKeyRelatedField(
+        queryset=Person.objects.exclude(role="VISITOR").exclude(role="ADMIN"),
+        source="teacher",
+        write_only=True,
+        required=False,
+        allow_null=True,
+    )
+    requested_by = PersonNestedSerializer(read_only=True)
+    lessons = LessonAssignmentLessonSerializer(many=True, read_only=True)
+    lesson_ids = serializers.PrimaryKeyRelatedField(
+        queryset=Lesson.objects.all(),
+        many=True,
+        source="lessons",
+        write_only=True,
+        required=False,
+    )
+    reviewed_by = PersonNestedSerializer(read_only=True, allow_null=True)
+
+    class Meta:
+        model = LessonAssignmentRequest
+        fields = [
+            "id",
+            "student",
+            "student_id",
+            "teacher",
+            "teacher_id",
+            "requested_by",
+            "lessons",
+            "lesson_ids",
+            "status",
+            "reviewed_by",
+            "reviewed_at",
+            "review_note",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = [
+            "status",
+            "reviewed_by",
+            "reviewed_at",
+            "review_note",
+            "created_at",
+            "updated_at",
+        ]
+
+    def create(self, validated_data: Dict[str, Any]) -> LessonAssignmentRequest:
+        request = self.context.get("request")
+        user = request.user if request and isinstance(request.user, Person) else None
+        if user is None:
+            raise serializers.ValidationError("Authentication is required.")
+        teacher = validated_data.pop("teacher", None)
+        if teacher is not None and teacher.pk != user.pk:
+            raise PermissionDenied(
+                "Lessons teachers can only request students for themselves."
+            )
+        lessons = validated_data.pop("lessons", [])
+        return submit_lesson_assignment_request(
+            student=validated_data["student"],
+            teacher=user,
+            requested_by=user,
+            lessons=lessons,
+        )

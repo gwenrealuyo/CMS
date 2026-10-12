@@ -61,6 +61,8 @@ interface MemberProgressSectionProps {
   defaultTeacherId: string | null;
   teacherChoices: LessonPersonLike[];
   currentUserId?: string | number | null;
+  lockTeacherToSelf?: boolean;
+  pendingStudentIds?: Set<number>;
   onPersonClick: (person: LessonPersonSummary) => void;
   focusTeacherKey?: string | null;
 }
@@ -93,6 +95,8 @@ export default function MemberProgressSection({
   defaultTeacherId,
   teacherChoices,
   currentUserId,
+  lockTeacherToSelf = false,
+  pendingStudentIds,
   onPersonClick,
   focusTeacherKey = null,
 }: MemberProgressSectionProps) {
@@ -181,6 +185,8 @@ export default function MemberProgressSection({
                   defaultTeacherId={defaultTeacherId}
                   teacherChoices={teacherChoices}
                   currentUserId={currentUserId}
+                  lockTeacherToSelf={lockTeacherToSelf}
+                  pendingStudentIds={pendingStudentIds}
                 />
               </div>
             )}

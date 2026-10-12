@@ -149,10 +149,8 @@ export default function TeacherOverviewSection({
     </span>
   );
 
-  const teacherTitle = (row: TeacherProgressGroup) => {
-    const name = row.teacher ? formatPersonName(row.teacher) : "No teacher";
-    return row.number != null ? `${row.number}. ${name}` : name;
-  };
+  const teacherTitle = (row: TeacherProgressGroup) =>
+    row.teacher ? formatPersonName(row.teacher) : "No teacher";
 
   if (loading) {
     return (

@@ -92,6 +92,29 @@ export function userCanManageCluster(
   return isModuleCoordinator("CLUSTER", "COORDINATOR", cluster.id);
 }
 
+/**
+ * Sunday catch-up for one cluster. Mirrors backend `user_can_sunday_catchup`:
+ * admin, pastor, cluster senior, or that cluster's coordinator or reporter.
+ * A senior coordinator of another module is not included.
+ */
+export function userCanSundayCatchup(
+  cluster: Cluster,
+  auth: ManageClusterAuth & { moduleCoordinatorAssignments?: ModuleCoordinator[] },
+): boolean {
+  const { userId, role, isSeniorCoordinator, isModuleCoordinator } = auth;
+  if (!userId) return false;
+  if (role === "ADMIN" || role === "PASTOR") return true;
+  if (isSeniorCoordinator("CLUSTER")) return true;
+  const cid = cluster.coordinator?.id ?? cluster.coordinator_id ?? undefined;
+  if (cid != null && Number(cid) === Number(userId)) return true;
+  if (isModuleCoordinator("CLUSTER", "COORDINATOR", Number(cluster.id))) {
+    return true;
+  }
+  return reporterClusterIdsFromAssignments(
+    auth.moduleCoordinatorAssignments,
+  ).includes(Number(cluster.id));
+}
+
 /** Mirrors backend `user_can_submit_cluster_report`. */
 export function userCanSubmitClusterReport(
   cluster: Cluster,

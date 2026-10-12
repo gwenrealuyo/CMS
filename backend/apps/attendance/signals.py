@@ -40,6 +40,9 @@ def _build_journey_defaults(record: AttendanceRecord) -> dict:
     ]
     if event.location:
         description_parts.append(f"at {event.location}")
+    catchup = record.catchup_summary()
+    if catchup:
+        description_parts.append(f"Catch-up: {catchup}.")
     description = " ".join(part for part in description_parts if part)
 
     return {

@@ -10,7 +10,7 @@ def is_check_in_tardy(
     occurrence_start: Optional[datetime],
     grace_minutes: int = 0,
 ) -> bool:
-    """Mirror of frontend isCheckInTardy: late when strictly after start + grace."""
+    """Mirror of frontend isCheckInTardy. The report applies this to onsite rows only."""
     if recorded_at is None or occurrence_start is None:
         return False
     grace = max(0, grace_minutes)

@@ -3,10 +3,10 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Iterable
 
-from django.db.models import Count, Prefetch, Q
+from django.db.models import Count, Exists, OuterRef, Prefetch, Q
 from django.utils import timezone
 from rest_framework import mixins, status, viewsets
-from rest_framework.exceptions import ValidationError
+from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.response import Response
@@ -27,12 +27,15 @@ from apps.ministries.ncc import (
 )
 from apps.lessons.branch_scope import can_pick_lessons_branch
 from apps.lessons.coordinator_access import (
+    can_review_lesson_assignment_requests,
     has_lessons_browse_all,
     has_lessons_teacher_assignment,
+    is_scoped_lessons_teacher,
 )
 
 from .models import (
     Lesson,
+    LessonAssignmentRequest,
     LessonSessionReport,
     LessonSettings,
     LessonStudentEnrollment,
@@ -40,6 +43,7 @@ from .models import (
 )
 from .serializers import (
     EnrollmentCommitmentSerializer,
+    LessonAssignmentRequestSerializer,
     LessonBulkAssignSerializer,
     LessonCompletionSerializer,
     LessonSerializer,
@@ -52,12 +56,15 @@ from .serializers import (
 )
 from .branch_scope import apply_branch_to_person_queryset, apply_lessons_branch_filter
 from .services import (
+    approve_lesson_assignment_request,
     bulk_assign_lessons,
     build_lesson_progress_summary,
     clear_pre_lesson_session_journey,
     mark_progress_completed,
     reconcile_student_progress_from_reports,
+    reject_lesson_assignment_request,
     student_cannot_be_own_teacher_error,
+    submit_lesson_assignment_request,
     sync_pre_lesson_session_journey,
 )
 
@@ -153,6 +160,95 @@ def lesson_teacher_roster(request):
         )
     )
     return Response(_ncc_roster_rows(memberships))
+
+
+def _visitor_since(person: Person) -> str | None:
+    if person.date_first_attended:
+        return person.date_first_attended.isoformat()
+    joined = person.date_joined
+    if not joined:
+        return None
+    if timezone.is_aware(joined):
+        joined = timezone.localtime(joined)
+    return joined.date().isoformat()
+
+
+def _can_list_visitors_awaiting_teacher(user: Person) -> bool:
+    if getattr(user, "role", None) in ("ADMIN", "PASTOR"):
+        return True
+    return has_lessons_browse_all(user)
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticatedAndNotVisitor])
+def visitors_awaiting_teacher(request):
+    """
+    Visitors with no live lessons teacher.
+
+    Includes people with no enrollment and enrollments that only have a
+    historical teacher name. Excludes deceased visitors and anyone who has
+    already finished lessons.
+    """
+    user = request.user
+    if not isinstance(user, Person) or not _can_list_visitors_awaiting_teacher(user):
+        raise PermissionDenied(
+            "You do not have permission to view visitors awaiting a lessons teacher."
+        )
+
+    from apps.clusters.models import Cluster
+
+    live_teacher = LessonStudentEnrollment.objects.filter(
+        student_id=OuterRef("pk"),
+        teacher__isnull=False,
+    )
+    queryset = (
+        Person.objects.filter(role="VISITOR")
+        .exclude(status="DECEASED")
+        .exclude(has_finished_lessons=True)
+        .exclude(Exists(live_teacher))
+        .select_related("branch")
+        .prefetch_related(
+            Prefetch(
+                "clusters",
+                queryset=Cluster.objects.order_by("code", "name", "id"),
+            )
+        )
+        .order_by("last_name", "first_name", "id")
+    )
+    queryset = apply_branch_to_person_queryset(queryset, user, request)
+    people = list(queryset)
+    enrollment_ids = dict(
+        LessonStudentEnrollment.objects.filter(
+            student_id__in=[person.id for person in people],
+            teacher__isnull=True,
+        ).values_list("student_id", "id")
+    )
+
+    payload = []
+    for person in people:
+        cluster_codes = []
+        for cluster in person.clusters.all():
+            code = (cluster.code or "").strip()
+            if code:
+                cluster_codes.append(code)
+        branch_code = ""
+        if person.branch_id and person.branch is not None:
+            branch_code = (person.branch.code or "").strip()
+        payload.append(
+            {
+                "id": person.id,
+                "name": person.get_full_name() or person.username,
+                "first_name": person.first_name or "",
+                "last_name": person.last_name or "",
+                "branch_id": person.branch_id,
+                "branch_code": branch_code,
+                "cluster_codes": cluster_codes,
+                "phone": person.phone or "",
+                "visitor_since": _visitor_since(person),
+                "enrollment_id": enrollment_ids.get(person.id),
+            }
+        )
+    return Response(payload)
 
 
 class LessonViewSet(viewsets.ModelViewSet):
@@ -335,6 +431,30 @@ class PersonLessonProgressViewSet(
         assigned_by = request.user if isinstance(request.user, Person) else None
 
         teacher = serializer.validated_data.get("teacher")
+        if is_scoped_lessons_teacher(assigned_by):
+            if teacher is None or teacher.pk != assigned_by.pk:
+                return Response(
+                    {
+                        "detail": (
+                            "Lessons teachers can only request students for themselves."
+                        )
+                    },
+                    status=status.HTTP_403_FORBIDDEN,
+                )
+            person_list = list(persons)
+            for person in person_list:
+                submit_lesson_assignment_request(
+                    student=person,
+                    teacher=assigned_by,
+                    requested_by=assigned_by,
+                    lessons=[lesson],
+                    add_lessons_if_pending=True,
+                )
+            return Response(
+                {"created": 0, "requests": len(person_list)},
+                status=status.HTTP_201_CREATED,
+            )
+
         created_count = bulk_assign_lessons(
             lesson,
             persons,
@@ -601,6 +721,33 @@ class LessonStudentEnrollmentViewSet(viewsets.ModelViewSet):
             return [IsAuthenticatedAndNotVisitor(), IsMemberOrAbove()]
         return [IsAuthenticatedAndNotVisitor(), HasModuleAccess("LESSONS", "write")]
 
+    def create(self, request, *args, **kwargs):
+        if is_scoped_lessons_teacher(request.user):
+            serializer = self.get_serializer(data=request.data)
+            serializer.is_valid(raise_exception=True)
+            teacher = serializer.validated_data["teacher"]
+            student = serializer.validated_data["student"]
+            if teacher.pk != request.user.pk:
+                return Response(
+                    {
+                        "detail": (
+                            "Lessons teachers can only request students for themselves."
+                        )
+                    },
+                    status=status.HTTP_403_FORBIDDEN,
+                )
+            assignment_request = submit_lesson_assignment_request(
+                student=student,
+                teacher=request.user,
+                requested_by=request.user,
+                lessons=[],
+            )
+            output = LessonAssignmentRequestSerializer(
+                assignment_request, context={"request": request}
+            )
+            return Response(output.data, status=status.HTTP_201_CREATED)
+        return super().create(request, *args, **kwargs)
+
     @action(detail=True, methods=["post"])
     def transfer(self, request, pk=None):
         enrollment = self.get_object()
@@ -642,3 +789,93 @@ class LessonStudentEnrollmentViewSet(viewsets.ModelViewSet):
             ).data,
             status=status.HTTP_200_OK,
         )
+
+
+class LessonAssignmentRequestViewSet(
+    mixins.CreateModelMixin,
+    mixins.ListModelMixin,
+    mixins.RetrieveModelMixin,
+    viewsets.GenericViewSet,
+):
+    serializer_class = LessonAssignmentRequestSerializer
+
+    def get_queryset(self):
+        user = self.request.user
+        queryset = LessonAssignmentRequest.objects.select_related(
+            "student", "teacher", "requested_by", "reviewed_by"
+        ).prefetch_related("lessons")
+
+        if getattr(user, "role", None) in ["ADMIN", "PASTOR"] or has_lessons_browse_all(
+            user
+        ):
+            pass
+        elif has_lessons_teacher_assignment(user):
+            queryset = queryset.filter(teacher=user)
+        else:
+            queryset = queryset.none()
+
+        status_param = self.request.query_params.get("status")
+        if status_param:
+            queryset = queryset.filter(status=status_param)
+
+        queryset = apply_lessons_branch_filter(
+            queryset, user, self.request, person_lookup="student"
+        )
+        return queryset.order_by("-created_at")
+
+    def get_permissions(self):
+        if self.action == "create":
+            return [
+                IsAuthenticatedAndNotVisitor(),
+                HasModuleAccess("LESSONS", "write"),
+            ]
+        return [IsAuthenticatedAndNotVisitor(), IsMemberOrAbove()]
+
+    def create(self, request, *args, **kwargs):
+        if not is_scoped_lessons_teacher(request.user):
+            return Response(
+                {
+                    "detail": (
+                        "Only Lessons teachers submit assignment requests. "
+                        "Coordinators assign students directly."
+                    )
+                },
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        return super().create(request, *args, **kwargs)
+
+    def _deny_unless_reviewer(self, request):
+        if can_review_lesson_assignment_requests(request.user):
+            return None
+        return Response(
+            {
+                "detail": (
+                    "You do not have permission to review lesson assignment requests."
+                )
+            },
+            status=status.HTTP_403_FORBIDDEN,
+        )
+
+    @action(detail=True, methods=["post"])
+    def approve(self, request, pk=None):
+        denied = self._deny_unless_reviewer(request)
+        if denied is not None:
+            return denied
+        assignment_request = self.get_object()
+        note = request.data.get("review_note") or request.data.get("note") or ""
+        updated = approve_lesson_assignment_request(
+            assignment_request, request.user, note=note
+        )
+        return Response(self.get_serializer(updated).data)
+
+    @action(detail=True, methods=["post"], url_path="reject")
+    def reject(self, request, pk=None):
+        denied = self._deny_unless_reviewer(request)
+        if denied is not None:
+            return denied
+        assignment_request = self.get_object()
+        note = request.data.get("review_note") or request.data.get("note") or ""
+        updated = reject_lesson_assignment_request(
+            assignment_request, request.user, note=note
+        )
+        return Response(self.get_serializer(updated).data)

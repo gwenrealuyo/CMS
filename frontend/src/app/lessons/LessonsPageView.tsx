@@ -16,8 +16,10 @@ import LessonSessionReportForm from "@/src/components/lessons/LessonSessionRepor
 import LessonContentTabs, {
   LessonContentTab,
 } from "@/src/components/lessons/LessonContentTabs";
+import AssignmentRequestQueue from "@/src/components/lessons/AssignmentRequestQueue";
 import MemberProgressSection from "@/src/components/lessons/MemberProgressSection";
 import TeacherOverviewSection from "@/src/components/lessons/TeacherOverviewSection";
+import AwaitingTeacherSection from "@/src/components/lessons/AwaitingTeacherSection";
 import SessionReportsSection, {
   LessonPersonLike,
 } from "@/src/components/lessons/SessionReportsSection";
@@ -37,6 +39,7 @@ import { canWriteLessons, canManageLessonCatalog, canBrowseAllLessonStudents, is
 import { TeacherProgressGroup } from "@/src/lib/lessonsUtils";
 import {
   Lesson,
+  LessonAssignmentRequest,
   LessonCommitmentSettings,
   LessonProgressStatus,
   LessonProgressSummary,
@@ -47,6 +50,7 @@ import {
   LessonPersonSummary,
   LessonStudentEnrollment,
   ProgressSortField,
+  VisitorAwaitingTeacher,
 } from "@/src/types/lesson";
 import PersonLessonProgressModal from "@/src/components/lessons/PersonLessonProgressModal";
 import { Person } from "@/src/types/person";
@@ -118,6 +122,10 @@ interface LessonsPageViewProps {
   allProgressError: string | null;
   groupedProgress: PersonProgressSummary[];
   teacherOverviewRows: TeacherProgressGroup[];
+  visitorsAwaitingTeacher: VisitorAwaitingTeacher[];
+  visitorsAwaitingTeacherLoading: boolean;
+  visitorsAwaitingTeacherError: string | null;
+  visitorsAwaitingTeacherLoaded: boolean;
   assignedStudentIds: Set<number>;
   studentTeacherById: Map<number, LessonPersonSummary>;
   progressFilterLessonId: number | null;
@@ -224,6 +232,12 @@ interface LessonsPageViewProps {
     lessonIds: number[],
     teacherId: string
   ) => void;
+  assignmentRequests?: LessonAssignmentRequest[];
+  assignmentRequestsLoading?: boolean;
+  assignmentRequestsError?: string | null;
+  reviewingAssignmentRequestId?: number | null;
+  onApproveAssignmentRequest?: (id: number) => void;
+  onRejectAssignmentRequest?: (id: number, note: string) => void;
   enrollmentByStudent: Map<number, LessonStudentEnrollment>;
   enrollmentByStudentForAssign: Map<number, LessonStudentEnrollment>;
   defaultAssignTeacherId: string | null;
@@ -242,6 +256,11 @@ interface LessonsPageViewProps {
   onProgressStatusFilterChange: (value: ProgressStatusFilter) => void;
   onProgressSortChange: (field: ProgressSortField) => void;
   onTeacherOverviewClick: (group: TeacherProgressGroup) => void;
+  onAssignAwaitingTeacher: (
+    personId: string,
+    teacherId: string,
+    enrollmentId: number | null,
+  ) => void;
   onOpenPersonProgressModal: (person: LessonPersonSummary) => void;
   onClosePersonProgressModal: () => void;
   onSetActiveContentTab: (tab: LessonContentTab) => void;
@@ -371,6 +390,12 @@ export default function LessonsPageView({
   onCloseAlertModal,
   onSetCommitmentConfirm,
   onAssignLessons,
+  assignmentRequests = [],
+  assignmentRequestsLoading = false,
+  assignmentRequestsError = null,
+  reviewingAssignmentRequestId = null,
+  onApproveAssignmentRequest,
+  onRejectAssignmentRequest,
   enrollmentByStudent,
   enrollmentByStudentForAssign,
   defaultAssignTeacherId,
@@ -381,6 +406,7 @@ export default function LessonsPageView({
   onProgressStatusFilterChange,
   onProgressSortChange,
   onTeacherOverviewClick,
+  onAssignAwaitingTeacher,
   onOpenPersonProgressModal,
   onClosePersonProgressModal,
   allProgress,
@@ -388,6 +414,10 @@ export default function LessonsPageView({
   allProgressError,
   groupedProgress,
   teacherOverviewRows,
+  visitorsAwaitingTeacher,
+  visitorsAwaitingTeacherLoading,
+  visitorsAwaitingTeacherError,
+  visitorsAwaitingTeacherLoaded,
   assignedStudentIds,
   studentTeacherById,
   progressFilterLessonId,
@@ -418,6 +448,20 @@ export default function LessonsPageView({
   const { user, isModuleCoordinator, isSeniorCoordinator } = useAuth();
   const { moduleEnabled } = useModuleSettings();
   const canWriteLessonsAccess = canWriteLessons({ user, moduleEnabled });
+  const lockAssignTeacherToSelf = isLessonsTeacherScoped(user);
+  const pendingAssignStudentIds = useMemo(() => {
+    const ids = new Set<number>();
+    if (!lockAssignTeacherToSelf) {
+      return ids;
+    }
+    for (const request of assignmentRequests) {
+      const studentId = Number(request.student?.id);
+      if (!Number.isNaN(studentId)) {
+        ids.add(studentId);
+      }
+    }
+    return ids;
+  }, [assignmentRequests, lockAssignTeacherToSelf]);
   const canManageLessonCatalogAccess = canManageLessonCatalog({
     user,
     moduleEnabled,
@@ -550,6 +594,12 @@ export default function LessonsPageView({
             onTabChange={onSetActiveContentTab}
             hideProgress={!showStudentWorkflowTabs}
             hideTeachers={!showTeachersTab}
+            hideAwaitingTeacher={!showTeachersTab}
+            awaitingTeacherCount={
+              visitorsAwaitingTeacherLoaded
+                ? visitorsAwaitingTeacher.length
+                : null
+            }
             hideSessions={!showStudentWorkflowTabs}
             branchFilter={
               showStudentWorkflowTabs ? renderLessonsBranchSelect() : undefined
@@ -603,6 +653,15 @@ export default function LessonsPageView({
           <div
             className={activeContentTab === "progress" ? "space-y-6" : "hidden"}
           >
+            {lockAssignTeacherToSelf && (
+              <AssignmentRequestQueue
+                title="Waiting for approval"
+                description="Students you requested stay unassigned until a Lessons coordinator approves them. You cannot log sessions for them yet."
+                requests={assignmentRequests}
+                loading={assignmentRequestsLoading}
+                error={assignmentRequestsError}
+              />
+            )}
             <MemberProgressSection
               allLessons={lessons}
               groupedProgress={groupedProgress}
@@ -631,6 +690,8 @@ export default function LessonsPageView({
               defaultTeacherId={defaultAssignTeacherId}
               teacherChoices={teacherChoices}
               currentUserId={currentUserId}
+              lockTeacherToSelf={lockAssignTeacherToSelf}
+              pendingStudentIds={pendingAssignStudentIds}
               onPersonClick={onOpenPersonProgressModal}
               focusTeacherKey={focusTeacherKey}
             />
@@ -642,11 +703,45 @@ export default function LessonsPageView({
                 activeContentTab === "teachers" ? "space-y-6" : "hidden"
               }
             >
+              <AssignmentRequestQueue
+                title="For approval"
+                description="Teachers requested these students for themselves. Approving assigns the student and the selected lessons. Rejecting leaves the student unassigned."
+                requests={assignmentRequests}
+                loading={assignmentRequestsLoading}
+                error={assignmentRequestsError}
+                canReview
+                reviewingId={reviewingAssignmentRequestId}
+                onApprove={onApproveAssignmentRequest}
+                onReject={onRejectAssignmentRequest}
+              />
               <TeacherOverviewSection
                 rows={teacherOverviewRows}
                 loading={allProgressLoading}
                 error={allProgressError}
                 onTeacherClick={onTeacherOverviewClick}
+              />
+            </div>
+          ) : null}
+
+          {showTeachersTab ? (
+            <div
+              className={
+                activeContentTab === "awaiting-teacher"
+                  ? "space-y-6"
+                  : "hidden"
+              }
+            >
+              <AwaitingTeacherSection
+                rows={visitorsAwaitingTeacher}
+                loading={visitorsAwaitingTeacherLoading}
+                error={visitorsAwaitingTeacherError}
+                assigning={assigning}
+                assignError={assignError}
+                teacherChoices={teacherChoices}
+                hasActiveLessons={activeLatestLessons.length > 0}
+                showBranchColumn={!lessonsBranchSelectedId}
+                formatDateOnly={formatDateOnly}
+                onAssign={onAssignAwaitingTeacher}
               />
             </div>
           ) : null}

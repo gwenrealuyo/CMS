@@ -49,6 +49,19 @@ export interface LessonPersonSummary {
   branch?: number | null;
 }
 
+export interface VisitorAwaitingTeacher {
+  id: number;
+  name: string;
+  first_name: string;
+  last_name: string;
+  branch_id: number | null;
+  branch_code: string;
+  cluster_codes: string[];
+  phone: string;
+  visitor_since: string | null;
+  enrollment_id: number | null;
+}
+
 export interface LessonTeacherRosterEntry {
   id: number;
   username: string;
@@ -185,4 +198,27 @@ export interface LessonTeacherTransfer {
   transferred_by: LessonPersonSummary | null;
   note: string;
   created_at: string;
+}
+
+export type LessonAssignmentRequestStatus = "pending" | "approved" | "rejected";
+
+export interface LessonAssignmentLesson {
+  id: number;
+  title: string;
+  order: number;
+  version_label: string;
+}
+
+export interface LessonAssignmentRequest {
+  id: number;
+  student: LessonPersonSummary;
+  teacher: LessonPersonSummary | null;
+  requested_by: LessonPersonSummary | null;
+  lessons: LessonAssignmentLesson[];
+  status: LessonAssignmentRequestStatus;
+  reviewed_by: LessonPersonSummary | null;
+  reviewed_at: string | null;
+  review_note: string;
+  created_at: string;
+  updated_at: string;
 }

@@ -468,6 +468,28 @@
     scrollbar-width: none;
   }
 
+  .scrollbar-visible {
+    overflow-y: auto;
+    scrollbar-gutter: stable;
+    scrollbar-width: thin;
+    scrollbar-color: #64748b #e2e8f0;
+  }
+
+  .scrollbar-visible::-webkit-scrollbar {
+    width: 10px;
+  }
+
+  .scrollbar-visible::-webkit-scrollbar-track {
+    background: #e2e8f0;
+    border-radius: 999px;
+  }
+
+  .scrollbar-visible::-webkit-scrollbar-thumb {
+    background: #64748b;
+    border-radius: 999px;
+    border: 2px solid #e2e8f0;
+  }
+
   /* Analytics hub — improved contrast for secondary text */
   .analytics-hub {
     --analytics-muted: 215 20% 35%;

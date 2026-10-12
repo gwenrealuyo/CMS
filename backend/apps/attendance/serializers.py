@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from rest_framework import serializers
 from rest_framework.exceptions import ValidationError
 
@@ -50,6 +52,12 @@ class AttendancePersonSerializer(serializers.ModelSerializer):
         return obj.families.values_list("name", flat=True).first()
 
 
+def _person_display_name(person: Person | None) -> str | None:
+    if person is None:
+        return None
+    return format_person_display_name(person) or person.username
+
+
 class AttendanceRecordSerializer(serializers.ModelSerializer):
     person = AttendancePersonSerializer(read_only=True)
     person_id = serializers.PrimaryKeyRelatedField(
@@ -74,6 +82,7 @@ class AttendanceRecordSerializer(serializers.ModelSerializer):
     attendance_venue_color = serializers.CharField(
         source="attendance_venue.color", read_only=True, allow_null=True
     )
+    recorded_by_name = serializers.SerializerMethodField()
 
     class Meta:
         model = AttendanceRecord
@@ -90,6 +99,10 @@ class AttendanceRecordSerializer(serializers.ModelSerializer):
             "attendance_venue_label",
             "attendance_venue_color",
             "notes",
+            "recorded_by",
+            "recorded_by_name",
+            "catchup_reason",
+            "catchup_note",
             "journey_id",
             "recorded_at",
             "updated_at",
@@ -97,6 +110,10 @@ class AttendanceRecordSerializer(serializers.ModelSerializer):
         read_only_fields = [
             "event",
             "journey_id",
+            "recorded_by",
+            "recorded_by_name",
+            "catchup_reason",
+            "catchup_note",
             "recorded_at",
             "updated_at",
             "attendance_venue_label",
@@ -124,6 +141,10 @@ class AttendanceRecordSerializer(serializers.ModelSerializer):
             representation["person"] = {"id": person_id}
         else:
             representation["person"] = {"id": None}
+            representation["catchup_reason"] = ""
+            representation["catchup_note"] = ""
+            representation["recorded_by"] = None
+            representation["recorded_by_name"] = None
         representation["notes"] = ""
 
     def to_representation(self, instance):
@@ -138,6 +159,9 @@ class AttendanceRecordSerializer(serializers.ModelSerializer):
         if self._should_redact_attendance_person():
             self._redact_attendance_person(representation)
         return representation
+
+    def get_recorded_by_name(self, obj: AttendanceRecord) -> str | None:
+        return _person_display_name(getattr(obj, "recorded_by", None))
 
     def validate(self, attrs):
         attrs = super().validate(attrs)

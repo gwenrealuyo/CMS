@@ -140,7 +140,7 @@ export const faqCategories: FaqCategory[] = [
         id: "lessons-tabs",
         question: "What are the Lessons tabs for?",
         answer:
-          "Lesson Content shows the course lessons (read-only for most users). Student Progress lists who is assigned which lesson and their completion status. Teachers (coordinators only) shows each teacher's student load, including roster teachers with no students yet; click a teacher to open their group on Student Progress. Session Reports is for one-on-one teaching sessions. Files has the downloadable NCC lessons booklet and the commitment form PDF. Members without a Lessons assignment only see Lesson Content and Files. Lessons teachers do not see the Teachers tab.",
+          "Lesson Content shows the course lessons (read-only for most users). Student Progress lists who is assigned which lesson and their completion status. Teachers (coordinators only) shows each teacher's student load, including roster teachers with no students yet; click a teacher to open their group on Student Progress. Awaiting Teacher (admins, pastors, and Lessons coordinators) lists visitors who do not have a lessons teacher yet; assigning one also enrolls them in the current lessons. Session Reports is for one-on-one teaching sessions. Files has the downloadable NCC lessons booklet and the commitment form PDF. Members without a Lessons assignment only see Lesson Content and Files. Lessons teachers do not see the Teachers or Awaiting Teacher tabs.",
       },
       {
         id: "assign-and-log",

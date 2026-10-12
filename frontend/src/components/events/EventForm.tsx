@@ -1878,8 +1878,9 @@ export default function EventForm({
                       Tardy grace period
                     </h4>
                     <p className="mt-1 text-xs text-gray-500">
-                      Minutes after the event start before a check-in counts as
-                      tardy. Use 0 for no grace (default for Sunday Service).
+                      Minutes after the event start before an onsite check-in
+                      counts as tardy. Online check-ins are not marked tardy.
+                      Use 0 for no grace (default for Sunday Service).
                     </p>
                   </div>
                   <label className="block text-sm text-gray-700">

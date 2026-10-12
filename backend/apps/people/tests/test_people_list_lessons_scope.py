@@ -127,7 +127,7 @@ class PeopleListLessonsScopeAPITests(APITestCase):
         self.assertIn(self.same_branch_visitor.id, ids)
         self.assertNotIn(self.other_branch_person.id, ids)
 
-    def test_lessons_teacher_for_lessons_does_not_widen(self):
+    def test_lessons_teacher_for_lessons_includes_same_branch_people(self):
         ModuleCoordinator.objects.create(
             person=self.teacher,
             module=ModuleCoordinator.ModuleType.LESSONS,
@@ -135,10 +135,15 @@ class PeopleListLessonsScopeAPITests(APITestCase):
             resource_id=None,
         )
         self.client.force_authenticate(self.teacher)
+        directory_ids = self._list_ids(page_size=100)
+        self.assertIn(self.teacher.id, directory_ids)
+        self.assertNotIn(self.same_branch.id, directory_ids)
+
         ids = self._list_ids(for_lessons="true", page_size=100)
         self.assertIn(self.teacher.id, ids)
-        self.assertNotIn(self.same_branch.id, ids)
-        self.assertNotIn(self.same_branch_visitor.id, ids)
+        self.assertIn(self.same_branch.id, ids)
+        self.assertIn(self.same_branch_visitor.id, ids)
+        self.assertNotIn(self.other_branch_person.id, ids)
 
     def test_member_for_lessons_does_not_widen(self):
         self.client.force_authenticate(self.plain_member)

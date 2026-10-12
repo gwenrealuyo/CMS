@@ -91,6 +91,26 @@ def has_lessons_teacher_assignment(user: Optional[Person]) -> bool:
     )
 
 
+def is_scoped_lessons_teacher(user: Optional[Person]) -> bool:
+    """Lessons TEACHER who is not an admin, pastor, or Lessons coordinator."""
+    if user is None or not getattr(user, "pk", None):
+        return False
+    if getattr(user, "role", None) in ("ADMIN", "PASTOR"):
+        return False
+    if has_lessons_browse_all(user):
+        return False
+    return has_lessons_teacher_assignment(user)
+
+
+def can_review_lesson_assignment_requests(user: Optional[Person]) -> bool:
+    """Admin, pastor, Lessons coordinators, and NCC primary/support."""
+    if user is None or not getattr(user, "pk", None):
+        return False
+    if getattr(user, "role", None) in ("ADMIN", "PASTOR"):
+        return True
+    return has_lessons_browse_all(user)
+
+
 def has_lessons_write_access(user: Optional[Person]) -> bool:
     """Create/update Lessons data (not hard-delete)."""
     return has_lessons_browse_all(user) or has_lessons_teacher_assignment(user)

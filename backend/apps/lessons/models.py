@@ -251,6 +251,73 @@ class LessonTeacherTransfer(models.Model):
         return f"Transfer #{self.pk} for enrollment {self.enrollment_id}"
 
 
+class LessonAssignmentRequest(models.Model):
+    """
+    A Lessons teacher asking to take a student.
+    The student stays unassigned until a coordinator approves.
+    """
+
+    class Status(models.TextChoices):
+        PENDING = "pending", "Pending"
+        APPROVED = "approved", "Approved"
+        REJECTED = "rejected", "Rejected"
+
+    student = models.ForeignKey(
+        Person,
+        on_delete=models.CASCADE,
+        related_name="lesson_assignment_requests",
+    )
+    teacher = models.ForeignKey(
+        Person,
+        on_delete=models.CASCADE,
+        related_name="lesson_assignment_requests_as_teacher",
+        limit_choices_to=~Q(role="VISITOR"),
+    )
+    requested_by = models.ForeignKey(
+        Person,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="lesson_assignment_requests_submitted",
+    )
+    lessons = models.ManyToManyField(
+        Lesson,
+        blank=True,
+        related_name="assignment_requests",
+    )
+    status = models.CharField(
+        max_length=20,
+        choices=Status.choices,
+        default=Status.PENDING,
+    )
+    reviewed_by = models.ForeignKey(
+        Person,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="lesson_assignment_requests_reviewed",
+    )
+    reviewed_at = models.DateTimeField(null=True, blank=True)
+    review_note = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["student", "teacher"],
+                condition=Q(status="pending"),
+                name="unique_pending_lesson_assignment_per_student_teacher",
+            )
+        ]
+
+    def __str__(self) -> str:
+        student_name = self.student.get_full_name() or self.student.username
+        teacher_name = self.teacher.get_full_name() or self.teacher.username
+        return f"{student_name} → {teacher_name} ({self.status})"
+
+
 class LessonSettings(models.Model):
     """
     Stores global configuration for the lessons module, including the commitment

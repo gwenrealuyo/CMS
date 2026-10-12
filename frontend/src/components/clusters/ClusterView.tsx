@@ -29,6 +29,7 @@ import type {
   ClusterRosterPerson,
 } from "@/src/lib/clusterRoster";
 import ClusterProspectsSection from "@/src/components/clusters/ClusterProspectsSection";
+import ClusterSundayCatchup from "@/src/components/clusters/ClusterSundayCatchup";
 import ClusterCareRoster from "@/src/components/clusters/ClusterCareRoster";
 import ChangePersonStatusModal from "@/src/components/people/ChangePersonStatusModal";
 import { useAuth } from "@/src/contexts/AuthContext";
@@ -775,6 +776,8 @@ export default function ClusterView({
               <p className="text-sm text-gray-600">{cluster.description}</p>
             </div>
           )}
+
+          <ClusterSundayCatchup cluster={cluster} />
 
           {/* Members & visitors */}
           {(sortedCoreMembers.length > 0 || sortedVisitors.length > 0) && (

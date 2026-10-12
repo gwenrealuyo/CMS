@@ -65,6 +65,13 @@ from apps.authentication.permissions import (
 from apps.people.models import ModuleCoordinator, Person
 from apps.people.views import PersonViewSet, PersonPagination
 from apps.people.serializers import PersonListSerializer
+from apps.clusters.sunday_catchup import (
+    SundayCatchupError,
+    build_sunday_catchup,
+    mark_sunday_catchup,
+    remove_sunday_catchup,
+    user_can_sunday_catchup,
+)
 from apps.clusters.permissions import (
     ClusterCoordinatorScopedPermission,
     ClusterMutationAttemptPermission,
@@ -187,6 +194,9 @@ class ClusterViewSet(viewsets.ModelViewSet):
         """
         Override to set permissions based on action.
         """
+        if self.action in ("sunday_catchup", "sunday_catchup_remove"):
+            # Reporters do not have cluster write. Scope is checked in the action.
+            return [IsAuthenticatedAndNotVisitor()]
         if self.action == "create":
             # Only ADMIN, PASTOR, or Senior Coordinator can create
             return [IsAuthenticatedAndNotVisitor(), HasModuleAccess("CLUSTER", "create")]
@@ -442,6 +452,50 @@ class ClusterViewSet(viewsets.ModelViewSet):
                 "unassigned_count": unassigned_count,
             }
         )
+
+    def _sunday_catchup_cluster_or_error(self, request):
+        cluster = self.get_object()
+        if not user_can_sunday_catchup(request.user, cluster):
+            raise PermissionDenied(
+                "Sunday catch-up is limited to admin, pastor, a cluster senior coordinator, or this cluster's coordinator or reporter."
+            )
+        return cluster
+
+    @staticmethod
+    def _sunday_catchup_error(exc: SundayCatchupError):
+        if isinstance(exc.detail, dict):
+            return Response(exc.detail, status=exc.status_code)
+        return Response({"detail": exc.detail}, status=exc.status_code)
+
+    @action(detail=True, methods=["get", "post"], url_path="sunday-catchup")
+    def sunday_catchup(self, request, pk=None):
+        cluster = self._sunday_catchup_cluster_or_error(request)
+        if request.method.lower() == "get":
+            return Response(build_sunday_catchup(cluster))
+        try:
+            mark_sunday_catchup(
+                cluster,
+                request.user,
+                request.data.get("person_id"),
+                request.data.get("reason"),
+                request.data.get("note") or "",
+            )
+        except SundayCatchupError as exc:
+            return self._sunday_catchup_error(exc)
+        return Response(build_sunday_catchup(cluster), status=status.HTTP_201_CREATED)
+
+    @action(
+        detail=True,
+        methods=["delete"],
+        url_path="sunday-catchup/(?P<attendance_id>[^/.]+)",
+    )
+    def sunday_catchup_remove(self, request, pk=None, attendance_id=None):
+        cluster = self._sunday_catchup_cluster_or_error(request)
+        try:
+            remove_sunday_catchup(cluster, attendance_id)
+        except SundayCatchupError as exc:
+            return self._sunday_catchup_error(exc)
+        return Response(build_sunday_catchup(cluster))
 
 
 class ClusterWeeklyReportPagination(PageNumberPagination):

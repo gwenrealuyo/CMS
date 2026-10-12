@@ -4,15 +4,17 @@ from datetime import date, datetime, time
 from dataclasses import dataclass
 from typing import Iterable, Optional
 
-from django.db import transaction
+from django.db import IntegrityError, transaction
 from django.db.models import Count, Q
 from django.utils import timezone
+from rest_framework.exceptions import ValidationError
 
 from apps.people.models import Journey, Person
 from core.datetime_utils import church_calendar_date, get_church_timezone
 
 from .models import (
     Lesson,
+    LessonAssignmentRequest,
     LessonJourney,
     LessonStudentEnrollment,
     LessonSessionReport,
@@ -464,6 +466,11 @@ def ensure_lesson_enrollment(
         transferred_by=assigned_by,
         note=transfer_note,
     )
+    reject_pending_lesson_assignment_requests(
+        student,
+        reviewed_by=assigned_by,
+        note="A lessons teacher was assigned.",
+    )
     return enrollment
 
 
@@ -498,6 +505,191 @@ def transfer_lesson_teacher(
         ]
     )
     return transfer
+
+
+def reject_pending_lesson_assignment_requests(
+    student: Person,
+    *,
+    reviewed_by: Optional[Person] = None,
+    note: str = "",
+    exclude_id: Optional[int] = None,
+) -> int:
+    """Mark open teacher requests for this student as rejected."""
+    now = timezone.now()
+    queryset = LessonAssignmentRequest.objects.filter(
+        student=student,
+        status=LessonAssignmentRequest.Status.PENDING,
+    )
+    if exclude_id is not None:
+        queryset = queryset.exclude(pk=exclude_id)
+    return queryset.update(
+        status=LessonAssignmentRequest.Status.REJECTED,
+        reviewed_by=reviewed_by,
+        reviewed_at=now,
+        review_note=note or "",
+        updated_at=now,
+    )
+
+
+def _assert_teacher_on_student_ncc_roster(teacher: Person, student: Person) -> None:
+    from apps.ministries.ncc import ensure_ncc_ministry, person_on_ncc_roster
+
+    branch = getattr(student, "branch", None)
+    if branch is None:
+        raise ValidationError(
+            {
+                "student_id": (
+                    "Student must have a branch before assigning a lessons teacher."
+                )
+            }
+        )
+    ensure_ncc_ministry(branch)
+    if not person_on_ncc_roster(teacher, branch):
+        raise ValidationError(
+            {
+                "teacher_id": (
+                    "Select a teacher from this branch's NCC / Lessons roster "
+                    "(Ministries). Inactive teachers remain selectable."
+                )
+            }
+        )
+
+
+def submit_lesson_assignment_request(
+    *,
+    student: Person,
+    teacher: Person,
+    requested_by: Optional[Person] = None,
+    lessons: Optional[Iterable[Lesson]] = None,
+    add_lessons_if_pending: bool = False,
+) -> LessonAssignmentRequest:
+    """
+    Record a teacher's request to take a student.
+    Does not create an enrollment or lesson progress.
+    """
+    lesson_list = list(lessons or [])
+    if not getattr(teacher, "branch_id", None):
+        raise ValidationError(
+            {"teacher_id": "You must belong to a branch to request a student."}
+        )
+    if student.branch_id != teacher.branch_id:
+        raise ValidationError({"student_id": "Student must be in your branch."})
+
+    reason = student_cannot_be_own_teacher_error(student, teacher)
+    if reason:
+        raise ValidationError({"teacher_id": reason})
+    if student.has_finished_lessons:
+        raise ValidationError({"student_id": "This person has finished lessons."})
+    if LessonStudentEnrollment.objects.filter(student=student).exists():
+        raise ValidationError(
+            {"student_id": "This student already has a lessons teacher assigned."}
+        )
+    _assert_teacher_on_student_ncc_roster(teacher, student)
+
+    ineligible = []
+    for lesson in lesson_list:
+        lesson_reason = person_assignment_eligibility_error(student, lesson=lesson)
+        if lesson_reason:
+            title = lesson.title or f"Lesson {lesson.pk}"
+            ineligible.append(f"{title} ({lesson_reason})")
+    if ineligible:
+        raise ValidationError(
+            {"lesson_ids": "Cannot assign lessons: " + "; ".join(ineligible) + "."}
+        )
+
+    existing = LessonAssignmentRequest.objects.filter(
+        student=student,
+        teacher=teacher,
+        status=LessonAssignmentRequest.Status.PENDING,
+    ).first()
+    if existing:
+        if add_lessons_if_pending:
+            if lesson_list:
+                existing.lessons.add(*lesson_list)
+            return existing
+        raise ValidationError(
+            {"student_id": "You already have a pending request for this student."}
+        )
+
+    try:
+        assignment_request = LessonAssignmentRequest.objects.create(
+            student=student,
+            teacher=teacher,
+            requested_by=requested_by,
+        )
+    except IntegrityError as exc:
+        raise ValidationError(
+            {"student_id": "You already have a pending request for this student."}
+        ) from exc
+    if lesson_list:
+        assignment_request.lessons.set(lesson_list)
+    return assignment_request
+
+
+@transaction.atomic
+def approve_lesson_assignment_request(
+    assignment_request: LessonAssignmentRequest,
+    reviewer: Person,
+    *,
+    note: str = "",
+) -> LessonAssignmentRequest:
+    """Create the enrollment and lesson progress, then close sibling requests."""
+    locked = (
+        LessonAssignmentRequest.objects.select_for_update()
+        .select_related("student", "teacher")
+        .get(pk=assignment_request.pk)
+    )
+    if locked.status != LessonAssignmentRequest.Status.PENDING:
+        raise ValidationError("Only pending requests can be approved.")
+    if LessonStudentEnrollment.objects.filter(student_id=locked.student_id).exists():
+        raise ValidationError("This student already has a lessons teacher assigned.")
+
+    now = timezone.now()
+    locked.status = LessonAssignmentRequest.Status.APPROVED
+    locked.reviewed_by = reviewer
+    locked.reviewed_at = now
+    locked.review_note = note or ""
+    locked.save(
+        update_fields=["status", "reviewed_by", "reviewed_at", "review_note", "updated_at"]
+    )
+    ensure_lesson_enrollment(
+        locked.student,
+        locked.teacher,
+        assigned_by=reviewer,
+        note=note or "Approved teacher assignment request.",
+    )
+    for lesson in locked.lessons.all():
+        bulk_assign_lessons(
+            lesson,
+            [locked.student],
+            assigned_by=reviewer,
+            teacher=locked.teacher,
+        )
+    return locked
+
+
+@transaction.atomic
+def reject_lesson_assignment_request(
+    assignment_request: LessonAssignmentRequest,
+    reviewer: Person,
+    *,
+    note: str = "",
+) -> LessonAssignmentRequest:
+    """Leave the student unassigned and mark the request rejected."""
+    locked = LessonAssignmentRequest.objects.select_for_update().get(
+        pk=assignment_request.pk
+    )
+    if locked.status != LessonAssignmentRequest.Status.PENDING:
+        raise ValidationError("Only pending requests can be rejected.")
+    now = timezone.now()
+    locked.status = LessonAssignmentRequest.Status.REJECTED
+    locked.reviewed_by = reviewer
+    locked.reviewed_at = now
+    locked.review_note = note or ""
+    locked.save(
+        update_fields=["status", "reviewed_by", "reviewed_at", "review_note", "updated_at"]
+    )
+    return locked
 
 
 STUDENT_CANNOT_BE_OWN_TEACHER_MESSAGE = (

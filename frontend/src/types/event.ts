@@ -64,6 +64,10 @@ export interface EventAttendanceRecord {
   attendance_venue_label?: string | null;
   attendance_venue_color?: string | null;
   notes?: string;
+  recorded_by?: number | null;
+  recorded_by_name?: string | null;
+  catchup_reason?: string;
+  catchup_note?: string;
   journey_id?: number | null;
   recorded_at: string;
   updated_at: string;

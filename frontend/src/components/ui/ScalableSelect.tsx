@@ -71,6 +71,8 @@ interface ScalableSelectProps {
   onValuesChange?: (values: string[]) => void;
   /** Option to bring into view when the menu opens. */
   scrollToValue?: string;
+  /** Shown above the scrolling list and kept visible while the list moves. */
+  pinnedOption?: SelectOption;
 }
 
 export default function ScalableSelect({
@@ -92,6 +94,7 @@ export default function ScalableSelect({
   values = [],
   onValuesChange,
   scrollToValue,
+  pinnedOption,
 }: ScalableSelectProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -147,8 +150,18 @@ export default function ScalableSelect({
   const selectedOptions = useMemo(() => {
     if (!multiple) return [];
     const selected = new Set(selectedValues);
-    return options.filter((option) => selected.has(String(option.value)));
-  }, [multiple, options, selectedValues]);
+    const matched = options.filter((option) =>
+      selected.has(String(option.value)),
+    );
+    if (
+      pinnedOption &&
+      selected.has(String(pinnedOption.value)) &&
+      !matched.some((option) => option.value === pinnedOption.value)
+    ) {
+      return [pinnedOption, ...matched];
+    }
+    return matched;
+  }, [multiple, options, pinnedOption, selectedValues]);
 
   const triggerLabel = multiple
     ? selectedOptions.length === 0
@@ -497,6 +510,15 @@ export default function ScalableSelect({
         )}
 
         {/* Options List */}
+        {pinnedOption &&
+          (!searchQuery.trim() ||
+            pinnedOption.label
+              .toLowerCase()
+              .includes(searchQuery.trim().toLowerCase())) && (
+            <div className="border-b border-gray-200">
+              {renderOptionRow(pinnedOption)}
+            </div>
+          )}
         <div
           ref={optionsContainerRef}
           className="overflow-y-auto"

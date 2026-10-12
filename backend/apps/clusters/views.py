@@ -52,6 +52,7 @@ from .utils import (
     get_weeks_in_range,
     parse_iso_weeks,
     previous_iso_weeks,
+    recent_iso_weeks,
     week_span,
 )
 from apps.authentication.permissions import (
@@ -955,9 +956,15 @@ class ClusterWeeklyReportViewSet(viewsets.ModelViewSet):
                 cluster, start_date, end_date, weeks=selected_weeks
             )
 
-            # Calculate trend (compare with previous period)
+            # Trend stays on the latest four weeks versus the four before them,
+            # even when the table is filtered to other weeks.
             if selected_weeks:
-                prior_weeks = previous_iso_weeks(selected_weeks)
+                trend_weeks = recent_iso_weeks(4)
+                prior_weeks = previous_iso_weeks(trend_weeks)
+                trend_start, trend_end = week_span(trend_weeks)
+                current_for_trend = calculate_cluster_compliance(
+                    cluster, trend_start, trend_end, weeks=trend_weeks
+                )
                 previous_start, previous_end = week_span(prior_weeks)
                 previous_compliance = calculate_cluster_compliance(
                     cluster,
@@ -966,10 +973,11 @@ class ClusterWeeklyReportViewSet(viewsets.ModelViewSet):
                     weeks=prior_weeks,
                 )
             else:
+                current_for_trend = cluster_compliance
                 previous_start = start_date - timedelta(days=(end_date - start_date).days + 1)
                 previous_end = start_date - timedelta(days=1)
                 previous_compliance = calculate_cluster_compliance(cluster, previous_start, previous_end)
-            trend = calculate_trend(cluster_compliance, previous_compliance)
+            trend = calculate_trend(current_for_trend, previous_compliance)
             
             # Get compliance notes for this period
             notes = ClusterComplianceNote.objects.filter(

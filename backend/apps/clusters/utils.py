@@ -48,6 +48,19 @@ def previous_iso_weeks(weeks):
     return previous
 
 
+def recent_iso_weeks(count=4, today=None):
+    """The current ISO week and the ``count - 1`` weeks before it."""
+    today = today or church_today()
+    iso = today.isocalendar()
+    monday = date.fromisocalendar(iso.year, iso.week, 1)
+    weeks = []
+    for offset in range(count - 1, -1, -1):
+        day = monday - timedelta(days=7 * offset)
+        parts = day.isocalendar()
+        weeks.append((parts.year, parts.week))
+    return weeks
+
+
 def get_weeks_in_range(start_date, end_date):
     """Get list of ISO week numbers in a date range"""
     weeks = []
@@ -64,7 +77,8 @@ def calculate_cluster_compliance(cluster, start_date, end_date, weeks=None):
     Calculate compliance metrics for a cluster in a given date range.
 
     When ``weeks`` is a list of ``(iso_year, week_number)`` pairs, only those
-    weeks are expected and only reports for those weeks are counted.
+    weeks are expected and only reports for those weeks are counted. The last
+    report date still comes from the cluster's latest report of any week.
 
     Returns:
         dict with compliance metrics
@@ -138,8 +152,16 @@ def calculate_cluster_compliance(cluster, start_date, end_date, weeks=None):
     else:
         status = "PARTIAL"
 
-    # Get last report date
-    last_report = reports.order_by("-meeting_date").first()
+    # Last report is the cluster's latest meeting, not only reports in the
+    # selected weeks. Submitted/expected counts stay limited to those weeks.
+    if weeks is not None:
+        last_report = (
+            ClusterWeeklyReport.objects.filter(cluster=cluster)
+            .order_by("-meeting_date", "-year", "-week_number")
+            .first()
+        )
+    else:
+        last_report = reports.order_by("-meeting_date").first()
     last_report_date = last_report.meeting_date if last_report else None
 
     # Calculate days since last report

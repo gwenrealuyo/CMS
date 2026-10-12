@@ -3,7 +3,9 @@ from datetime import date
 from rest_framework.test import APITestCase
 
 from apps.clusters.models import Cluster, ClusterWeeklyReport
+from apps.clusters.utils import previous_iso_weeks, recent_iso_weeks
 from apps.people.models import Branch, Person
+from core.datetime_utils import church_today
 
 COMPLIANCE_URL = "/api/clusters/cluster-weekly-reports/compliance/"
 
@@ -65,6 +67,20 @@ class ComplianceWeekFilterTests(APITestCase):
         self.assertEqual(row["status"], "PARTIAL")
         self.assertEqual(response.data["summary"]["period"]["weeks_expected"], 2)
 
+    def test_last_report_is_not_limited_to_selected_weeks(self):
+        response = self.client.get(
+            COMPLIANCE_URL,
+            {"year": 2026, "week_number": "40"},
+        )
+        self.assertEqual(response.status_code, 200)
+        row = self._row(response)
+        self.assertEqual(row["reports_submitted"], 1)
+        self.assertEqual(row["last_report_date"], "2026-10-12")
+        self.assertEqual(
+            row["days_since_last_report"],
+            (church_today() - date(2026, 10, 12)).days,
+        )
+
     def test_single_submitted_week_is_compliant(self):
         response = self.client.get(
             COMPLIANCE_URL,
@@ -82,3 +98,55 @@ class ComplianceWeekFilterTests(APITestCase):
             {"year": 2026, "week_number": "99"},
         )
         self.assertEqual(response.status_code, 400)
+
+    def test_branch_filter_limits_clusters(self):
+        other_branch = Branch.objects.create(
+            name="Bacolod",
+            code="BACCOMP",
+            is_active=True,
+        )
+        other_cluster = Cluster.objects.create(
+            name="West Cluster",
+            code="COMP-WEST",
+            branch=other_branch,
+            is_active=True,
+        )
+        ClusterWeeklyReport.objects.create(
+            cluster=other_cluster,
+            year=2026,
+            week_number=42,
+            meeting_date=date(2026, 10, 12),
+            gathering_type="PHYSICAL",
+        )
+
+        response = self.client.get(
+            COMPLIANCE_URL,
+            {"year": 2026, "week_number": "42", "branch_id": self.branch.id},
+        )
+        self.assertEqual(response.status_code, 200)
+        ids = [row["cluster"]["id"] for row in response.data["clusters"]]
+        self.assertIn(self.cluster.id, ids)
+        self.assertNotIn(other_cluster.id, ids)
+
+    def test_trend_ignores_selected_weeks(self):
+        recent = recent_iso_weeks(4)
+        prior = previous_iso_weeks(recent)
+        for year, week in recent:
+            ClusterWeeklyReport.objects.get_or_create(
+                cluster=self.cluster,
+                year=year,
+                week_number=week,
+                defaults={
+                    "meeting_date": date.fromisocalendar(year, week, 1),
+                    "gathering_type": "PHYSICAL",
+                },
+            )
+        earlier_year, earlier_week = previous_iso_weeks(prior[:1])[0]
+        response = self.client.get(
+            COMPLIANCE_URL,
+            {"year": earlier_year, "week_number": str(earlier_week)},
+        )
+        self.assertEqual(response.status_code, 200)
+        row = self._row(response)
+        self.assertEqual(row["reports_submitted"], 0)
+        self.assertEqual(row["trend"], "IMPROVING")

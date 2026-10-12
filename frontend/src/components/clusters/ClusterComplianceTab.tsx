@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
-import { clusterReportsApi } from "@/src/lib/api";
+import { useState, useEffect, useMemo, useRef } from "react";
+import { branchesApi, clusterReportsApi } from "@/src/lib/api";
 import {
   ComplianceData,
   ClusterCompliance,
@@ -12,6 +12,8 @@ import Button from "@/src/components/ui/Button";
 import LoadingSpinner from "@/src/components/ui/LoadingSpinner";
 import ErrorMessage from "@/src/components/ui/ErrorMessage";
 import ScalableSelect from "@/src/components/ui/ScalableSelect";
+import { LockedControlTooltip } from "@/src/components/ui/LockedControlTooltip";
+import { useAuth } from "@/src/contexts/AuthContext";
 import { formatLocaleDate } from "@/src/lib/date";
 import { formatPersonName } from "@/src/lib/name";
 import {
@@ -21,6 +23,7 @@ import {
 } from "@/src/lib/isoWeek";
 
 const todayIso = getIsoWeekParts(new Date());
+const ALL_WEEKS = "all";
 
 function formatWeekDateRange(year: number, weekNumber: number): string {
   const { start, end } = getIsoWeekDateRange(year, weekNumber);
@@ -36,6 +39,7 @@ function formatWeekDateRange(year: number, weekNumber: number): string {
 }
 
 export default function ClusterComplianceTab() {
+  const { user, isSeniorCoordinator } = useAuth();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [data, setData] = useState<ComplianceData | null>(null);
@@ -49,6 +53,18 @@ export default function ClusterComplianceTab() {
   const [statusFilter, setStatusFilter] = useState<ComplianceStatus | "ALL">(
     "ALL",
   );
+  const [selectedBranchId, setSelectedBranchId] = useState<string>("");
+  const [branchPickerOptions, setBranchPickerOptions] = useState<
+    { value: string; label: string }[]
+  >([]);
+  const [branchesLoading, setBranchesLoading] = useState(false);
+  const prevUserIdRef = useRef<number | undefined>(undefined);
+
+  const canChangeBranchFilter = useMemo(() => {
+    if (!user) return false;
+    if (user.role === "ADMIN" || user.role === "PASTOR") return true;
+    return isSeniorCoordinator("CLUSTER");
+  }, [user, isSeniorCoordinator]);
 
   const weekOptions = useMemo(
     () =>
@@ -59,20 +75,113 @@ export default function ClusterComplianceTab() {
     [selectedYear],
   );
 
-  const weekParam = useMemo(
-    () =>
-      [...selectedWeeks]
-        .map((week) => Number(week))
-        .filter((week) => Number.isInteger(week))
-        .sort((a, b) => a - b)
-        .join(","),
-    [selectedWeeks],
-  );
+  const weekParam = useMemo(() => {
+    const numbers = selectedWeeks.includes(ALL_WEEKS)
+      ? isoWeeksInYear(selectedYear)
+      : selectedWeeks
+          .map((week) => Number(week))
+          .filter((week) => Number.isInteger(week));
+    return [...numbers].sort((a, b) => a - b).join(",");
+  }, [selectedWeeks, selectedYear]);
+
+  const handleWeeksChange = (values: string[]) => {
+    const hadAll = selectedWeeks.includes(ALL_WEEKS);
+    const hasAll = values.includes(ALL_WEEKS);
+    if (hasAll && !hadAll) {
+      setSelectedWeeks([ALL_WEEKS]);
+      return;
+    }
+    if (hadAll && hasAll) {
+      setSelectedWeeks(values.filter((value) => value !== ALL_WEEKS));
+      return;
+    }
+    setSelectedWeeks(values);
+  };
+
+  useEffect(() => {
+    if (!user) {
+      setSelectedBranchId("");
+      prevUserIdRef.current = undefined;
+      return;
+    }
+    if (prevUserIdRef.current !== user.id) {
+      prevUserIdRef.current = user.id;
+      setSelectedBranchId(
+        user.branch != null && user.branch !== undefined
+          ? String(user.branch)
+          : "",
+      );
+    }
+  }, [user]);
+
+  useEffect(() => {
+    if (!canChangeBranchFilter) {
+      setBranchPickerOptions([]);
+      return;
+    }
+    let cancelled = false;
+    setBranchesLoading(true);
+    branchesApi
+      .getAll({ is_active: true })
+      .then((res) => {
+        if (cancelled) return;
+        const rows = Array.isArray(res.data) ? res.data : [];
+        setBranchPickerOptions(
+          rows.map((branch) => ({
+            value: String(branch.id),
+            label: branch.name,
+          })),
+        );
+      })
+      .catch(() => {
+        if (!cancelled) setBranchPickerOptions([]);
+      })
+      .finally(() => {
+        if (!cancelled) setBranchesLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [canChangeBranchFilter]);
+
+  const branchFilterLabel = useMemo(() => {
+    if (!selectedBranchId) return "No branch";
+    if (
+      user?.branch_name &&
+      user.branch != null &&
+      String(user.branch) === selectedBranchId
+    ) {
+      return user.branch_name;
+    }
+    const option = branchPickerOptions.find(
+      (item) => item.value === selectedBranchId,
+    );
+    return option?.label ?? `Branch #${selectedBranchId}`;
+  }, [selectedBranchId, user?.branch, user?.branch_name, branchPickerOptions]);
+
+  const branchSelectOptions = useMemo(() => {
+    if (canChangeBranchFilter) {
+      return [{ value: "", label: "All branches" }, ...branchPickerOptions];
+    }
+    if (selectedBranchId) {
+      return [{ value: selectedBranchId, label: branchFilterLabel }];
+    }
+    return [{ value: "", label: "No branch assigned" }];
+  }, [
+    canChangeBranchFilter,
+    branchPickerOptions,
+    selectedBranchId,
+    branchFilterLabel,
+  ]);
+
+  const branchSelectInteractive = canChangeBranchFilter && !branchesLoading;
 
   useEffect(() => {
     let cancelled = false;
     clusterReportsApi
-      .distinctYears()
+      .distinctYears(
+        selectedBranchId ? { branch_id: selectedBranchId } : undefined,
+      )
       .then((response) => {
         if (cancelled) return;
         const years = response.data.years ?? [];
@@ -87,7 +196,7 @@ export default function ClusterComplianceTab() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [selectedBranchId]);
 
   const fetchCompliance = async () => {
     if (!weekParam) {
@@ -102,6 +211,7 @@ export default function ClusterComplianceTab() {
       const response = await clusterReportsApi.compliance({
         year: selectedYear,
         week_number: weekParam,
+        branch_id: selectedBranchId || undefined,
         status: statusFilter !== "ALL" ? statusFilter : undefined,
       });
       setData(response.data);
@@ -114,11 +224,12 @@ export default function ClusterComplianceTab() {
 
   useEffect(() => {
     fetchCompliance();
-  }, [selectedYear, weekParam, statusFilter]);
+  }, [selectedYear, weekParam, statusFilter, selectedBranchId]);
 
   const handleYearChange = (year: number) => {
     setSelectedYear(year);
     setSelectedWeeks((current) => {
+      if (current.includes(ALL_WEEKS)) return [ALL_WEEKS];
       const valid = new Set(isoWeeksInYear(year).map(String));
       const next = current.filter((week) => valid.has(week));
       if (next.length > 0) return next;
@@ -136,13 +247,16 @@ export default function ClusterComplianceTab() {
       const response = await clusterReportsApi.exportComplianceCSV({
         year: selectedYear,
         week_number: weekParam,
+        branch_id: selectedBranchId || undefined,
         status: statusFilter !== "ALL" ? statusFilter : undefined,
       });
       const blob = new Blob([response.data], { type: "text/csv" });
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = url;
-      link.download = `cluster_compliance_${selectedYear}_w${weekParam.replace(/,/g, "-")}.csv`;
+      link.download = selectedWeeks.includes(ALL_WEEKS)
+        ? `cluster_compliance_${selectedYear}_all-weeks.csv`
+        : `cluster_compliance_${selectedYear}_w${weekParam.replace(/,/g, "-")}.csv`;
       link.click();
       window.URL.revokeObjectURL(url);
     } catch (err) {
@@ -209,8 +323,48 @@ export default function ClusterComplianceTab() {
       {/* Filters */}
       <Card>
         <div className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-end">
-            <div className="md:col-span-5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-12 gap-4 items-end">
+            <div className="xl:col-span-3">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Branch
+              </label>
+              {branchSelectInteractive ? (
+                <ScalableSelect
+                  options={branchSelectOptions}
+                  value={selectedBranchId}
+                  onChange={setSelectedBranchId}
+                  placeholder="Branch"
+                  searchPlaceholder="Search branches..."
+                  className="w-full"
+                  showSearch
+                  maxHeight={220}
+                  emptyMessage="No branches found"
+                  loading={branchesLoading}
+                />
+              ) : (
+                <LockedControlTooltip
+                  label={
+                    branchesLoading && canChangeBranchFilter
+                      ? "Loading branches…"
+                      : "Branch is limited to your assignment."
+                  }
+                  wrapperClassName="block w-full cursor-default"
+                >
+                  <ScalableSelect
+                    options={branchSelectOptions}
+                    value={selectedBranchId}
+                    onChange={setSelectedBranchId}
+                    placeholder="Branch"
+                    className="w-full"
+                    interactionBlocked
+                    showSearch={false}
+                    maxHeight={220}
+                    emptyMessage="No branches found"
+                  />
+                </LockedControlTooltip>
+              )}
+            </div>
+            <div className="xl:col-span-3">
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Week
               </label>
@@ -218,7 +372,8 @@ export default function ClusterComplianceTab() {
                 multiple
                 options={weekOptions}
                 values={selectedWeeks}
-                onValuesChange={setSelectedWeeks}
+                onValuesChange={handleWeeksChange}
+                pinnedOption={{ value: ALL_WEEKS, label: "All Weeks" }}
                 scrollToValue={
                   weekOptions.some(
                     (option) => option.value === String(todayIso.week),
@@ -234,7 +389,7 @@ export default function ClusterComplianceTab() {
                 emptyMessage="No weeks found"
               />
             </div>
-            <div className="md:col-span-2">
+            <div className="xl:col-span-2">
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Year
               </label>
@@ -250,7 +405,7 @@ export default function ClusterComplianceTab() {
                 ))}
               </select>
             </div>
-            <div className="flex flex-col md:col-span-3">
+            <div className="flex flex-col xl:col-span-2">
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Status Filter
               </label>
@@ -267,7 +422,7 @@ export default function ClusterComplianceTab() {
                 <option value="NON_COMPLIANT">Non-Compliant</option>
               </select>
             </div>
-            <div className="flex items-end md:col-span-2">
+            <div className="flex items-end sm:col-span-2 xl:col-span-2">
               <Button
                 onClick={handleExportCSV}
                 variant="secondary"

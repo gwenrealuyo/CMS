@@ -1,0 +1,277 @@
+from datetime import date
+
+from rest_framework.test import APITestCase
+
+from apps.clusters.models import Cluster
+from apps.evangelism.models import EvangelismGroup, EvangelismWeeklyReport
+from apps.people.models import Branch, ModuleCoordinator, Person
+
+COMPLIANCE_URL = "/api/evangelism/weekly-reports/compliance/"
+CSV_URL = "/api/evangelism/weekly-reports/compliance_export_csv/"
+
+
+class EvangelismComplianceAPITests(APITestCase):
+    def setUp(self):
+        self.branch = Branch.objects.create(
+            name="Muntinlupa",
+            code="MUNTCOMP",
+            is_active=True,
+        )
+        self.other_branch = Branch.objects.create(
+            name="Other",
+            code="OTHRCOMP",
+            is_active=True,
+        )
+        self.admin = Person.objects.create_user(
+            username="evcompadmin",
+            password="pass12345",
+            first_name="Ada",
+            last_name="Admin",
+            role="ADMIN",
+            status="ACTIVE",
+            branch=self.branch,
+        )
+        self.member = Person.objects.create_user(
+            username="evcompmember",
+            password="pass12345",
+            first_name="Mina",
+            last_name="Member",
+            role="MEMBER",
+            status="ACTIVE",
+            branch=self.branch,
+            water_baptism_date=date(2020, 1, 1),
+        )
+        self.coordinator = Person.objects.create_user(
+            username="evcompcoord",
+            password="pass12345",
+            first_name="Cora",
+            last_name="Coord",
+            role="MEMBER",
+            status="ACTIVE",
+            branch=self.branch,
+            water_baptism_date=date(2020, 1, 1),
+        )
+        self.cluster_senior = Person.objects.create_user(
+            username="evcompclsenior",
+            password="pass12345",
+            first_name="Carl",
+            last_name="Senior",
+            role="MEMBER",
+            status="ACTIVE",
+            branch=self.branch,
+            water_baptism_date=date(2020, 1, 1),
+        )
+        ModuleCoordinator.objects.create(
+            person=self.cluster_senior,
+            module=ModuleCoordinator.ModuleType.CLUSTER,
+            level=ModuleCoordinator.CoordinatorLevel.SENIOR_COORDINATOR,
+        )
+        ModuleCoordinator.objects.create(
+            person=self.coordinator,
+            module=ModuleCoordinator.ModuleType.EVANGELISM,
+            level=ModuleCoordinator.CoordinatorLevel.COORDINATOR,
+        )
+
+        self.cluster_none = Cluster.objects.create(
+            name="No Group",
+            code="COMP-NONE",
+            branch=self.branch,
+            is_active=True,
+        )
+        self.cluster_partial = Cluster.objects.create(
+            name="Partial",
+            code="COMP-PART",
+            branch=self.branch,
+            is_active=True,
+        )
+        self.cluster_double = Cluster.objects.create(
+            name="Double",
+            code="COMP-DBL",
+            branch=self.branch,
+            is_active=True,
+        )
+        self.cluster_pending = Cluster.objects.create(
+            name="Pending Only",
+            code="COMP-PEND",
+            branch=self.branch,
+            is_active=True,
+        )
+        self.cluster_inactive = Cluster.objects.create(
+            name="Inactive Only",
+            code="COMP-INACT",
+            branch=self.branch,
+            is_active=True,
+        )
+        self.other_cluster = Cluster.objects.create(
+            name="Other Branch",
+            code="COMP-OTH",
+            branch=self.other_branch,
+            is_active=True,
+        )
+
+        partial_group = EvangelismGroup.objects.create(
+            name="Partial BS",
+            cluster=self.cluster_partial,
+            branch=self.branch,
+            is_active=True,
+            approval_status=EvangelismGroup.ApprovalStatus.APPROVED,
+        )
+        double_a = EvangelismGroup.objects.create(
+            name="Double A",
+            cluster=self.cluster_double,
+            branch=self.branch,
+            is_active=True,
+            approval_status=EvangelismGroup.ApprovalStatus.APPROVED,
+        )
+        double_b = EvangelismGroup.objects.create(
+            name="Double B",
+            cluster=self.cluster_double,
+            branch=self.branch,
+            is_active=True,
+            approval_status=EvangelismGroup.ApprovalStatus.APPROVED,
+        )
+        EvangelismGroup.objects.create(
+            name="Pending BS",
+            cluster=self.cluster_pending,
+            branch=self.branch,
+            is_active=True,
+            approval_status=EvangelismGroup.ApprovalStatus.PENDING,
+        )
+        EvangelismGroup.objects.create(
+            name="Inactive BS",
+            cluster=self.cluster_inactive,
+            branch=self.branch,
+            is_active=False,
+            approval_status=EvangelismGroup.ApprovalStatus.APPROVED,
+        )
+
+        self._report(partial_group, date(2026, 1, 5), 2026, 2)
+        self._report(double_a, date(2026, 1, 5), 2026, 2)
+        self._report(double_b, date(2026, 1, 5), 2026, 2)
+        self._report(double_a, date(2026, 1, 12), 2026, 3)
+        self._report(partial_group, date(2025, 12, 1), 2025, 49)
+
+    def _report(self, group, meeting_date, year, week_number):
+        return EvangelismWeeklyReport.objects.create(
+            evangelism_group=group,
+            year=year,
+            week_number=week_number,
+            meeting_date=meeting_date,
+            gathering_type="PHYSICAL",
+        )
+
+    def _get(self, user, **params):
+        self.client.force_authenticate(user)
+        return self.client.get(COMPLIANCE_URL, params)
+
+    def test_compliance_rates_and_missing_group(self):
+        response = self._get(
+            self.admin,
+            start_date="2026-01-05",
+            end_date="2026-01-12",
+            branch_id=self.branch.id,
+        )
+        self.assertEqual(response.status_code, 200)
+        summary = response.data["summary"]
+        self.assertEqual(summary["total_clusters"], 5)
+        self.assertEqual(summary["clusters_with_group"], 2)
+        self.assertEqual(summary["clusters_without_group"], 3)
+        self.assertEqual(summary["setup_coverage_rate"], 40.0)
+        self.assertEqual(summary["report_compliance_rate"], 75.0)
+        self.assertEqual(summary["compliant_clusters"], 1)
+        self.assertEqual(summary["partial_clusters"], 1)
+        self.assertEqual(summary["non_compliant_clusters"], 0)
+
+        by_code = {row["cluster"]["code"]: row for row in response.data["clusters"]}
+        self.assertEqual(by_code["COMP-NONE"]["status"], "NO_GROUP")
+        self.assertIsNone(by_code["COMP-NONE"]["compliance_rate"])
+        self.assertEqual(by_code["COMP-PEND"]["status"], "NO_GROUP")
+        self.assertEqual(by_code["COMP-INACT"]["status"], "NO_GROUP")
+
+        partial = by_code["COMP-PART"]
+        self.assertEqual(partial["status"], "PARTIAL")
+        self.assertEqual(partial["reports_submitted"], 1)
+        self.assertEqual(partial["reports_expected"], 2)
+        self.assertEqual(partial["compliance_rate"], 50.0)
+        self.assertEqual([group["name"] for group in partial["groups"]], ["Partial BS"])
+
+        doubled = by_code["COMP-DBL"]
+        self.assertEqual(doubled["status"], "COMPLIANT")
+        self.assertEqual(doubled["reports_submitted"], 2)
+        self.assertEqual(doubled["reports_expected"], 2)
+        self.assertEqual(doubled["compliance_rate"], 100.0)
+        self.assertEqual(
+            [group["name"] for group in doubled["groups"]],
+            ["Double A", "Double B"],
+        )
+
+    def test_same_week_from_two_groups_counts_once(self):
+        response = self._get(
+            self.admin,
+            start_date="2026-01-05",
+            end_date="2026-01-05",
+            branch_id=self.branch.id,
+        )
+        doubled = next(
+            row
+            for row in response.data["clusters"]
+            if row["cluster"]["code"] == "COMP-DBL"
+        )
+        self.assertEqual(doubled["reports_submitted"], 1)
+        self.assertEqual(doubled["reports_expected"], 1)
+        self.assertEqual(doubled["compliance_rate"], 100.0)
+
+    def test_status_filter_does_not_change_summary(self):
+        response = self._get(
+            self.admin,
+            start_date="2026-01-05",
+            end_date="2026-01-12",
+            branch_id=self.branch.id,
+            status="NO_GROUP",
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["summary"]["total_clusters"], 5)
+        self.assertEqual(len(response.data["clusters"]), 3)
+        self.assertTrue(
+            all(row["status"] == "NO_GROUP" for row in response.data["clusters"])
+        )
+
+    def test_non_senior_is_forbidden(self):
+        for user in (self.member, self.coordinator):
+            response = self._get(
+                user,
+                start_date="2026-01-05",
+                end_date="2026-01-12",
+            )
+            self.assertEqual(response.status_code, 403, user.username)
+            self.assertIn("compliance", response.data["error"])
+
+    def test_cluster_senior_is_locked_to_own_branch(self):
+        response = self._get(
+            self.cluster_senior,
+            start_date="2026-01-05",
+            end_date="2026-01-12",
+            branch_id=self.other_branch.id,
+        )
+        self.assertEqual(response.status_code, 200, response.content)
+        codes = {row["cluster"]["code"] for row in response.data["clusters"]}
+        self.assertIn("COMP-NONE", codes)
+        self.assertNotIn("COMP-OTH", codes)
+
+    def test_csv_export(self):
+        self.client.force_authenticate(self.admin)
+        response = self.client.get(
+            CSV_URL,
+            {
+                "start_date": "2026-01-05",
+                "end_date": "2026-01-12",
+                "branch_id": self.branch.id,
+                "status": "NO_GROUP",
+            },
+        )
+        self.assertEqual(response.status_code, 200)
+        body = response.content.decode()
+        self.assertIn("Cluster Code", body)
+        self.assertIn("COMP-NONE", body)
+        self.assertIn("No group", body)
+        self.assertNotIn("COMP-PART", body)

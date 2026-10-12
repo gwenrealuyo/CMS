@@ -495,6 +495,53 @@ export interface BibleSharerDirectoryPerson {
   group_count: number;
 }
 
+export type EvangelismComplianceStatus =
+  | "COMPLIANT"
+  | "NON_COMPLIANT"
+  | "PARTIAL"
+  | "NO_GROUP";
+
+export interface EvangelismComplianceGroup {
+  id: number;
+  name: string;
+}
+
+export interface EvangelismComplianceCluster {
+  cluster: {
+    id: number;
+    name: string | null;
+    code: string | null;
+    branch: number | null;
+  };
+  status: EvangelismComplianceStatus;
+  groups: EvangelismComplianceGroup[];
+  reports_submitted: number;
+  reports_expected: number;
+  compliance_rate: number | null;
+  missing_weeks: number[];
+  last_report_date: string | null;
+  days_since_last_report: number | null;
+}
+
+export interface EvangelismComplianceData {
+  summary: {
+    total_clusters: number;
+    clusters_with_group: number;
+    clusters_without_group: number;
+    setup_coverage_rate: number;
+    report_compliance_rate: number;
+    compliant_clusters: number;
+    partial_clusters: number;
+    non_compliant_clusters: number;
+    period: {
+      start_date: string;
+      end_date: string;
+      weeks_expected: number;
+    };
+  };
+  clusters: EvangelismComplianceCluster[];
+}
+
 export interface BibleSharersCoverage {
   people?: BibleSharerDirectoryPerson[];
   coverage: BibleSharersCoverageItem[];

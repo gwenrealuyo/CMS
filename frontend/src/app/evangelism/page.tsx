@@ -58,6 +58,7 @@ import Each1Reach1Dashboard from "@/src/components/evangelism/Each1Reach1Dashboa
 import PeopleTallyReport from "@/src/components/evangelism/PeopleTallyReport";
 import TallyReport from "@/src/components/evangelism/TallyReport";
 import BibleSharersCoverage from "@/src/components/evangelism/BibleSharersCoverage";
+import EvangelismComplianceTab from "@/src/components/evangelism/EvangelismComplianceTab";
 import EvangelismReportsDashboard from "@/src/components/evangelism/EvangelismReportsDashboard";
 import EvangelismGroupCard from "@/src/components/evangelism/EvangelismGroupCard";
 import EvangelismGroupTable from "@/src/components/evangelism/EvangelismGroupTable";
@@ -107,7 +108,7 @@ import { requestNotificationsRefetch } from "@/src/lib/notificationsEvents";
 import { useAuth } from "@/src/contexts/AuthContext";
 import { useModuleSettings } from "@/src/hooks/useModuleSettings";
 import { canHardDelete } from "@/src/lib/canHardDelete";
-import { canBrowseProspects, canBrowseBibleSharers, canWriteEvangelism, canSubmitEvangelismReport, assignedEvangelismGroupIds, canApproveEvangelismGroup, canManageEvangelismGroup, canSubmitEvangelismReportForGroup, isEvangelismGroupApproved } from "@/src/lib/evangelism/evangelismPermissions";
+import { canBrowseProspects, canBrowseBibleSharers, canAccessEvangelismCompliance, canWriteEvangelism, canSubmitEvangelismReport, assignedEvangelismGroupIds, canApproveEvangelismGroup, canManageEvangelismGroup, canSubmitEvangelismReportForGroup, isEvangelismGroupApproved } from "@/src/lib/evangelism/evangelismPermissions";
 import ProspectsBrowse from "@/src/components/evangelism/ProspectsBrowse";
 import {
   canChangeEvangelismBranchFilter,
@@ -122,6 +123,7 @@ const EVANGELISM_PAGE_TABS = [
   "each1reach1",
   "tally",
   "reports",
+  "compliance",
   "bible_sharers",
 ] as const;
 
@@ -161,6 +163,10 @@ export default function EvangelismPage() {
   );
   const canBrowseBibleSharersTab = useMemo(
     () => canBrowseBibleSharers({ user, isSeniorCoordinator }),
+    [user, isSeniorCoordinator],
+  );
+  const canAccessEvangelismComplianceTab = useMemo(
+    () => canAccessEvangelismCompliance({ user, isSeniorCoordinator }),
     [user, isSeniorCoordinator],
   );
   const canChangeEvangelismBranch = useMemo(
@@ -473,10 +479,14 @@ export default function EvangelismPage() {
       setActiveTab("groups");
       return;
     }
+    if (tabParam === "compliance" && !canAccessEvangelismComplianceTab) {
+      setActiveTab("groups");
+      return;
+    }
     if (isEvangelismPageTab(tabParam)) {
       setActiveTab(tabParam);
     }
-  }, [searchParams, canBrowseProspectsTab, canBrowseBibleSharersTab]);
+  }, [searchParams, canBrowseProspectsTab, canBrowseBibleSharersTab, canAccessEvangelismComplianceTab]);
 
   useEffect(() => {
     const approval = searchParams.get("approval");
@@ -1631,6 +1641,18 @@ export default function EvangelismPage() {
               >
                 Reports
               </button>
+              {canAccessEvangelismComplianceTab && (
+              <button
+                onClick={() => selectTab("compliance")}
+                className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors whitespace-nowrap min-w-[90px] ${
+                  activeTab === "compliance"
+                    ? "border-primary text-primary"
+                    : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                }`}
+              >
+                Compliance
+              </button>
+              )}
               {canBrowseBibleSharersTab && (
               <button
                 onClick={() => selectTab("bible_sharers")}
@@ -2320,6 +2342,10 @@ export default function EvangelismPage() {
               onFormOpenChange={handleReportsFormOpenChange}
             />
           </div>
+        )}
+
+        {activeTab === "compliance" && canAccessEvangelismComplianceTab && (
+          <EvangelismComplianceTab />
         )}
 
         {/* Bible Sharers Tab */}

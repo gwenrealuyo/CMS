@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { reportsApi } from "@/src/lib/api";
+import Link from "next/link";
+import { reportsApi, evangelismApi } from "@/src/lib/api";
 import {
   AtRiskCluster,
   ClusterCompliance,
@@ -32,6 +33,7 @@ import ComplianceRiskPanels from "./ComplianceRiskPanels";
 import ComplianceNotes from "./ComplianceNotes";
 import { formatLocaleDate } from "@/src/lib/date";
 import { formatPersonName } from "@/src/lib/name";
+import type { EvangelismComplianceData } from "@/src/types/evangelism";
 
 interface ComplianceDashboardProps {
   /** "" means all branches; otherwise a branch id string. */
@@ -79,6 +81,9 @@ export default function ComplianceDashboard({
   const [atRisk, setAtRisk] = useState<AtRiskCluster[]>([]);
   const [overdue, setOverdue] = useState<OverdueClusters | null>(null);
   const [notes, setNotes] = useState<ComplianceNote[]>([]);
+  const [evangelism, setEvangelism] = useState<EvangelismComplianceData | null>(
+    null,
+  );
 
   const [startDate, setStartDate] = useState<string>(() => daysAgoISO(28));
   const [endDate, setEndDate] = useState<string>(() => todayISO());
@@ -101,7 +106,7 @@ export default function ComplianceDashboard({
         end_date: endDate,
         status: statusFilter !== "ALL" ? statusFilter : undefined,
       };
-      const [complianceRes, historyRes, atRiskRes, overdueRes, notesRes] =
+      const [complianceRes, historyRes, atRiskRes, overdueRes, notesRes, evangelismRes] =
         await Promise.all([
           reportsApi.getCompliance(commonParams),
           reportsApi.getComplianceHistory({
@@ -111,12 +116,20 @@ export default function ComplianceDashboard({
           reportsApi.getComplianceAtRisk({ branch_id: branchParam }),
           reportsApi.getComplianceOverdue({ branch_id: branchParam }),
           reportsApi.getComplianceNotes({ branch_id: branchParam }),
+          evangelismApi
+            .compliance({
+              branch_id: branchParam,
+              start_date: startDate,
+              end_date: endDate,
+            })
+            .catch(() => null),
         ]);
       setData(complianceRes.data);
       setHistory(historyRes.data);
       setAtRisk(atRiskRes.data);
       setOverdue(overdueRes.data);
       setNotes(notesRes.data);
+      setEvangelism(evangelismRes?.data ?? null);
     } catch (err) {
       const message =
         (err as { response?: { data?: { error?: string } } })?.response?.data
@@ -213,6 +226,39 @@ export default function ComplianceDashboard({
             valueTone={toneForComplianceRate(summary.compliance_rate)}
             icon={kpiIcon(ChartPieIcon)}
           />
+        </div>
+      )}
+
+      {evangelism && (
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <Link
+            href="/evangelism?tab=compliance"
+            className="block rounded-lg focus:outline-none focus:ring-2 focus:ring-ring"
+          >
+            <KpiCard
+              label="Cluster BS coverage"
+              value={`${evangelism.summary.setup_coverage_rate.toFixed(1)}%`}
+              hint={`${evangelism.summary.clusters_without_group} without a group`}
+              valueTone={toneForComplianceRate(
+                evangelism.summary.setup_coverage_rate,
+              )}
+              icon={kpiIcon(Squares2X2Icon)}
+            />
+          </Link>
+          <Link
+            href="/evangelism?tab=compliance"
+            className="block rounded-lg focus:outline-none focus:ring-2 focus:ring-ring"
+          >
+            <KpiCard
+              label="Evangelism report rate"
+              value={`${evangelism.summary.report_compliance_rate.toFixed(1)}%`}
+              hint="Weekly reports for clusters with a Cluster BS group"
+              valueTone={toneForComplianceRate(
+                evangelism.summary.report_compliance_rate,
+              )}
+              icon={kpiIcon(ChartPieIcon)}
+            />
+          </Link>
         </div>
       )}
 

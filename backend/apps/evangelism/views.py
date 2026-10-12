@@ -2,6 +2,7 @@ from datetime import date, datetime, timedelta
 from typing import Optional
 
 from django.db.models import Count, Min, Q, Sum
+from django.http import HttpResponse
 from django.db.models.functions import Coalesce, Greatest
 from django.utils import timezone
 from django_filters.rest_framework import DjangoFilterBackend
@@ -26,6 +27,14 @@ from apps.authentication.permissions import (
     IsAdmin,
 )
 
+from .compliance import (
+    ComplianceQueryError,
+    build_evangelism_compliance,
+    build_evangelism_compliance_csv,
+    clusters_for_compliance,
+    resolve_compliance_dates,
+    user_can_view_evangelism_compliance,
+)
 from .filters import ConversionFilter, EvangelismGroupFilter, ProspectFilter
 from .group_counts import annotate_evangelism_group_counts
 from .permissions import (
@@ -659,11 +668,68 @@ class EvangelismWeeklyReportViewSet(viewsets.ModelViewSet):
     ordering = ("-year", "-week_number")
 
     def get_permissions(self):
-        if self.action in ["list", "retrieve"]:
+        if self.action in ["list", "retrieve", "compliance", "compliance_export_csv"]:
             return [IsAuthenticatedAndNotVisitor(), IsMemberOrAbove()]
         if self.action == "destroy":
             return [IsAuthenticatedAndNotVisitor(), IsAdmin()]
         return [IsAuthenticatedAndNotVisitor(), HasEvangelismReportWrite()]
+
+    def _evangelism_compliance_payload(self, request):
+        if not user_can_view_evangelism_compliance(request.user):
+            return None, Response(
+                {"error": "You do not have permission to access compliance data."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        try:
+            start_date, end_date = resolve_compliance_dates(
+                request.query_params.get("start_date"),
+                request.query_params.get("end_date"),
+            )
+            clusters = clusters_for_compliance(
+                request.user,
+                request.query_params.get("branch_id")
+                or request.query_params.get("branch"),
+            )
+            payload = build_evangelism_compliance(
+                clusters,
+                start_date,
+                end_date,
+                status=request.query_params.get("status") or None,
+            )
+        except ComplianceQueryError as exc:
+            return None, Response({"error": exc.message}, status=status.HTTP_400_BAD_REQUEST)
+        return payload, None
+
+    @action(detail=False, methods=["get"])
+    def compliance(self, request):
+        """
+        Cluster BS setup coverage and weekly-report compliance.
+
+        Query params:
+        - start_date (YYYY-MM-DD): default 4 weeks ago
+        - end_date (YYYY-MM-DD): default today
+        - branch_id: filter by branch when the user may change branch
+        - status: filters table rows only (COMPLIANT, NON_COMPLIANT, PARTIAL, NO_GROUP)
+        """
+        payload, error = self._evangelism_compliance_payload(request)
+        if error is not None:
+            return error
+        return Response(payload)
+
+    @action(detail=False, methods=["get"])
+    def compliance_export_csv(self, request):
+        """Export the compliance table (status filter applied) as CSV."""
+        payload, error = self._evangelism_compliance_payload(request)
+        if error is not None:
+            return error
+        response = HttpResponse(
+            build_evangelism_compliance_csv(payload),
+            content_type="text/csv",
+        )
+        response["Content-Disposition"] = (
+            'attachment; filename="evangelism_compliance.csv"'
+        )
+        return response
 
     def get_queryset(self):
         queryset = super().get_queryset()

@@ -201,3 +201,18 @@ export function canBrowseBibleSharers({
   if (isSeniorCoordinator("EVANGELISM")) return true;
   return Boolean(user.on_bible_sharers_roster);
 }
+
+/** Evangelism compliance tab: admin, pastor, or evangelism/cluster senior. */
+export function canAccessEvangelismCompliance({
+  user,
+  isSeniorCoordinator,
+}: {
+  user: User | null;
+  isSeniorCoordinator: (module?: ModuleCoordinator["module"]) => boolean;
+}): boolean {
+  if (!user) return false;
+  if (user.role === "ADMIN" || user.role === "PASTOR") return true;
+  return (
+    isSeniorCoordinator("EVANGELISM") || isSeniorCoordinator("CLUSTER")
+  );
+}

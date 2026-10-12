@@ -87,6 +87,7 @@ import {
   RecurringSessionData as EvangelismRecurringSessionData,
   BibleSharersCoverage,
   BulkEnrollData,
+  EvangelismComplianceData,
 } from "@/src/types/evangelism";
 import {
   Donation,
@@ -2000,6 +2001,26 @@ export const evangelismApi = {
   getBibleSharersCoverage: (params?: { branch?: number | string }) =>
     api.get<BibleSharersCoverage>("/evangelism/groups/bible_sharers_coverage/", {
       params,
+    }),
+  compliance: (params?: {
+    start_date?: string;
+    end_date?: string;
+    branch_id?: number | string;
+    status?: string;
+  }) =>
+    api.get<EvangelismComplianceData>(
+      "/evangelism/weekly-reports/compliance/",
+      { params },
+    ),
+  exportComplianceCSV: (params?: {
+    start_date?: string;
+    end_date?: string;
+    branch_id?: number | string;
+    status?: string;
+  }) =>
+    api.get("/evangelism/weekly-reports/compliance_export_csv/", {
+      params,
+      responseType: "blob",
     }),
   getDashboardStats: (params?: { year?: number }) =>
     api.get<EvangelismSummary>("/evangelism/groups/dashboard-stats/", { params }),

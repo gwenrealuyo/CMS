@@ -1908,6 +1908,8 @@ export type EvangelismProspectsListParams = {
   branch?: number | string;
   cluster?: number | string;
   source?: string;
+  for_cluster_report?: number | string;
+  for_group_report?: number | string;
   search?: string;
   person_isnull?: boolean;
   page?: number;

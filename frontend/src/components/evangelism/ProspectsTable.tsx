@@ -168,7 +168,7 @@ export default function ProspectsTable({
           accessor: "invited_by" as keyof Prospect,
           render: (_value, row) => (
             <span className="text-sm text-gray-700">
-              {formatPersonName(row.invited_by)}
+              {row.invited_by ? formatPersonName(row.invited_by) : "—"}
             </span>
           ),
         },

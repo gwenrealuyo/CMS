@@ -37,6 +37,7 @@ from apps.events.services.self_checkin import (
     parse_person_ids,
     people_scope_for_event,
     person_full_name,
+    resolve_optional_inviter,
     resolve_person_public_session,
     resolve_public_session,
     resolve_session,
@@ -97,6 +98,20 @@ def _resolve_online_venue(request, event=None):
             "attendance_venue": ["Selected online venue is invalid or inactive."]
         }
     return venue, None
+
+
+def _resolve_encode_inviter(request, event):
+    """Omitted inviter_id defaults to the checker. Null or blank is a walk-in."""
+    data = request.data if hasattr(request, "data") else {}
+    if "inviter_id" not in data:
+        return request.user, None
+    return resolve_optional_inviter(request.user, event, data.get("inviter_id"))
+
+
+def _assign_inviter_if_blank(person, inviter) -> None:
+    if inviter is not None and not person.inviter_id:
+        person.inviter = inviter
+        person.save(update_fields=["inviter"])
 
 
 def _session_requires_online_venue(resolved) -> bool:
@@ -528,6 +543,11 @@ class SelfCheckInVisitorsView(APIView):
             person.branch = branch
             person.save(update_fields=["branch"])
 
+        inviter, inviter_errors = _resolve_encode_inviter(request, resolved.event)
+        if inviter_errors:
+            return Response(inviter_errors, status=status.HTTP_400_BAD_REQUEST)
+        _assign_inviter_if_blank(person, inviter)
+
         record, created, already = _upsert_present(
             resolved.event, person, resolved.occurrence_date, request, venue
         )
@@ -556,9 +576,10 @@ class SelfCheckInVisitorsView(APIView):
                 {"detail": "Person not found for this service."},
                 status=status.HTTP_404_NOT_FOUND,
             )
-        if not person.inviter_id:
-            person.inviter = request.user
-            person.save(update_fields=["inviter"])
+        inviter, inviter_errors = _resolve_encode_inviter(request, resolved.event)
+        if inviter_errors:
+            return Response(inviter_errors, status=status.HTTP_400_BAD_REQUEST)
+        _assign_inviter_if_blank(person, inviter)
         record, created, already = _upsert_present(
             resolved.event, person, resolved.occurrence_date, request, venue
         )
@@ -582,6 +603,10 @@ class SelfCheckInVisitorsView(APIView):
         cleaned, errors = validate_guest_encode_fields(request.data or {})
         if errors:
             return Response(errors, status=status.HTTP_400_BAD_REQUEST)
+
+        inviter, inviter_errors = _resolve_encode_inviter(request, resolved.event)
+        if inviter_errors:
+            return Response(inviter_errors, status=status.HTTP_400_BAD_REQUEST)
 
         branch = resolved.event.branch or getattr(request.user, "branch", None)
         person_matches = list(
@@ -625,7 +650,7 @@ class SelfCheckInVisitorsView(APIView):
             phone=cleaned["phone"],
             email=cleaned["email"],
             branch=branch,
-            inviter=request.user,
+            inviter=inviter,
             date_first_attended=resolved.occurrence_date,
             date_first_invited=(
                 resolved.occurrence_date

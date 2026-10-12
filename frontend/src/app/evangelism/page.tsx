@@ -337,6 +337,7 @@ export default function EvangelismPage() {
   const {
     prospects,
     loading: prospectsLoading,
+    error: prospectsError,
     fetchProspects,
     createProspect,
     updateProspect,
@@ -1055,6 +1056,7 @@ export default function EvangelismPage() {
       }
       if (added > 0) {
         fetchProspects();
+        fetchGroup();
         setSuccessMessage(
           added === 1
             ? "Returning visitor added."
@@ -1427,6 +1429,7 @@ export default function EvangelismPage() {
         reportsLoading={reportsLoading}
         prospects={prospects}
         prospectsLoading={prospectsLoading}
+        prospectsError={prospectsError}
         progressPeople={progressPeople}
         progressPeopleLoading={prospectsLoading}
         onAddMember={() => setIsAddMemberModalOpen(true)}

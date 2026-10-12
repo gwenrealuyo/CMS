@@ -91,7 +91,7 @@ export interface SelfCheckInVisitorWrite {
   age_group?: SelfCheckInAgeGroup;
   phone?: string;
   email?: string;
-  inviter_id?: number;
+  inviter_id?: number | null;
   event_id?: number;
   attendance_venue?: string;
   first_time_attending?: boolean;

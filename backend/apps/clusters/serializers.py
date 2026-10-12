@@ -16,6 +16,8 @@ from apps.people.serializers import PersonSerializer
 from apps.events.models import EventType
 from apps.evangelism.models import Prospect
 from apps.evangelism.services import (
+    claim_unassigned_prospect_for_cluster,
+    cluster_report_prospect_block_reason,
     create_invited_prospect_for_cluster,
     find_duplicate_invited_prospects,
     mark_prospect_attended,
@@ -940,16 +942,17 @@ class ClusterWeeklyReportSerializer(serializers.ModelSerializer):
                         }
                     )
 
+        if cluster and prospects_invited is not serializers.empty:
+            for prospect in prospects_invited:
+                reason = cluster_report_prospect_block_reason(prospect, cluster)
+                if reason:
+                    raise serializers.ValidationError({"prospects_invited": reason})
+
         if cluster and prospects_attended:
             for prospect in prospects_attended:
-                if not prospect_belongs_to_cluster(prospect, cluster):
-                    raise serializers.ValidationError(
-                        {
-                            "prospects_attended": (
-                                f"Prospect {prospect.pk} is not attributed to this cluster."
-                            )
-                        }
-                    )
+                reason = cluster_report_prospect_block_reason(prospect, cluster)
+                if reason:
+                    raise serializers.ValidationError({"prospects_attended": reason})
                 if prospect.is_dropped_off:
                     raise serializers.ValidationError(
                         {
@@ -1027,9 +1030,14 @@ class ClusterWeeklyReportSerializer(serializers.ModelSerializer):
             created.append(ser.save())
         return created
 
+    def _claim_invited_prospects(self, cluster, prospects):
+        for prospect in prospects:
+            claim_unassigned_prospect_for_cluster(prospect, cluster)
+
     def _promote_prospects_attended(self, cluster, meeting_date, prospects_attended):
         promoted_people = []
         for prospect in prospects_attended:
+            claim_unassigned_prospect_for_cluster(prospect, cluster)
             if not prospect_belongs_to_cluster(prospect, cluster):
                 continue
             mark_prospect_attended(
@@ -1085,6 +1093,7 @@ class ClusterWeeklyReportSerializer(serializers.ModelSerializer):
         # Remove any that were also promoted this submit
         promoted_prospect_ids = {p.pk for p in prospects_attended}
         invited_set = [p for p in invited_set if p.pk not in promoted_prospect_ids]
+        self._claim_invited_prospects(cluster, prospects_invited)
         if invited_set:
             report.prospects_invited.set(invited_set)
 
@@ -1158,6 +1167,8 @@ class ClusterWeeklyReportSerializer(serializers.ModelSerializer):
                 {p.pk for p in prospects_attended} if prospects_attended else set()
             )
             invited_set = [p for p in invited_set if p.pk not in promoted_prospect_ids]
+            if prospects_invited is not serializers.empty:
+                self._claim_invited_prospects(cluster, prospects_invited)
             # Unlink only — never delete Prospect rows
             instance.prospects_invited.set(invited_set)
 

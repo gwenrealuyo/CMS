@@ -67,6 +67,7 @@ interface EvangelismGroupViewProps {
   reportsLoading?: boolean;
   prospects: Prospect[];
   prospectsLoading?: boolean;
+  prospectsError?: string | null;
   progressPeople: Person[];
   progressPeopleLoading?: boolean;
   onAddMember: () => void;
@@ -105,6 +106,7 @@ export default function EvangelismGroupView({
   reportsLoading = false,
   prospects,
   prospectsLoading = false,
+  prospectsError = null,
   progressPeople,
   progressPeopleLoading = false,
   onAddMember,
@@ -427,6 +429,7 @@ export default function EvangelismGroupView({
               onUpdateProgress={onUpdateProgress}
               onDelete={onDeleteProspect}
               loading={prospectsLoading}
+              loadError={prospectsError}
               canAdd={Boolean(canManageGroup && canOperateGroup)}
             />
 

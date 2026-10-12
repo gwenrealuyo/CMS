@@ -365,7 +365,7 @@ export default function ClusterWeeklyReportForm({
     fetchPeople();
   }, []);
 
-  // Load INVITED prospects for selected cluster (no Person yet)
+  // Invited prospects for this cluster, plus unassigned invites in the same branch.
   useEffect(() => {
     const clusterId = formData.cluster;
     if (!clusterId) {
@@ -375,25 +375,14 @@ export default function ClusterWeeklyReportForm({
     let cancelled = false;
     const loadProspects = async () => {
       try {
-        const prospectParams = {
-          pipeline_stage: "INVITED" as const,
-          is_dropped_off: false,
-        };
-        const [byInviter, byEndorsed] = await Promise.all([
-          evangelismApi.getAllProspects({
-            ...prospectParams,
-            inviter_cluster: clusterId,
-          }),
-          evangelismApi.getAllProspects({
-            ...prospectParams,
-            endorsed_cluster: clusterId,
-          }),
-        ]);
+        const response = await evangelismApi.getAllProspects({
+          for_cluster_report: clusterId,
+        });
         if (cancelled) return;
         const byId = new Map<string, Prospect>();
-        for (const p of [...byInviter.data, ...byEndorsed.data]) {
-          if (p.person) continue;
-          byId.set(String(p.id), p);
+        for (const prospect of response.data) {
+          if (prospect.person) continue;
+          byId.set(String(prospect.id), prospect);
         }
         setClusterProspects(Array.from(byId.values()));
       } catch (error) {

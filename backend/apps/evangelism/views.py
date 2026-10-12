@@ -1844,8 +1844,6 @@ class ProspectViewSet(viewsets.ModelViewSet):
         "person__lesson_enrollment",
         "person__lesson_enrollment__teacher",
         "person__inviter",
-        "person__baptized_by",
-        "person__hg_witnessed_by",
     ).all()
     serializer_class = ProspectSerializer
     pagination_class = EvangelismRelatedPagination

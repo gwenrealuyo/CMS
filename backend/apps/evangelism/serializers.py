@@ -48,10 +48,12 @@ from .models import (
     Each1Reach1Goal,
 )
 from .services import (
+    claim_unassigned_prospect_for_group,
     create_invited_prospect_for_evangelism_group,
     encoded_visitor_prospect_defaults,
     find_duplicate_invited_prospects_for_group,
     get_default_each1reach1_target,
+    group_report_prospect_block_reason,
 )
 
 User = get_user_model()
@@ -97,12 +99,6 @@ class PersonConversionNestedSerializer(PersonSummarySerializer):
             "lessons_started_at",
             "water_baptism_date",
             "spirit_baptism_date",
-            "baptized_by",
-            "baptized_by_first_name",
-            "baptized_by_last_name",
-            "hg_witnessed_by",
-            "hg_witnessed_by_first_name",
-            "hg_witnessed_by_last_name",
             "lesson_teacher_display_name",
         )
 
@@ -753,6 +749,30 @@ class EvangelismWeeklyReportSerializer(serializers.ModelSerializer):
     prospects_invited_details = serializers.SerializerMethodField()
     submitted_by_details = PersonSummarySerializer(source="submitted_by", read_only=True)
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        instance = getattr(self, "instance", None)
+        if instance is None or getattr(instance, "pk", None) is None:
+            return
+        # Visitors who later became members are no longer in the role-limited
+        # queryset, but they must stay selectable on the report they attended.
+        self._include_existing_people(
+            "visitors_attended", instance.visitors_attended
+        )
+
+    def _include_existing_people(self, field_name, relation):
+        field = self.fields.get(field_name)
+        child = getattr(field, "child_relation", None)
+        queryset = getattr(child, "queryset", None)
+        if queryset is None:
+            return
+        existing_ids = list(relation.values_list("pk", flat=True))
+        if not existing_ids:
+            return
+        child.queryset = (
+            queryset | Person.objects.filter(pk__in=existing_ids)
+        ).distinct()
+
     class Meta:
         model = EvangelismWeeklyReport
         fields = (
@@ -834,6 +854,12 @@ class EvangelismWeeklyReportSerializer(serializers.ModelSerializer):
             allowed_ids = set(group.members.values_list("id", flat=True))
             if group.coordinator_id:
                 allowed_ids.add(group.coordinator_id)
+            # Keep people already recorded on this report. Editing must not
+            # drop them just because they later left the group roster.
+            if self.instance is not None:
+                allowed_ids.update(
+                    self.instance.members_attended.values_list("id", flat=True)
+                )
 
             invalid = [p.pk for p in members if p.pk not in allowed_ids]
             if invalid:
@@ -885,14 +911,9 @@ class EvangelismWeeklyReportSerializer(serializers.ModelSerializer):
 
         if group and prospects_invited is not serializers.empty:
             for prospect in prospects_invited:
-                if prospect.evangelism_group_id != group.pk:
-                    raise serializers.ValidationError(
-                        {
-                            "prospects_invited": (
-                                f"Prospect {prospect.pk} is not attributed to this evangelism group."
-                            )
-                        }
-                    )
+                reason = group_report_prospect_block_reason(prospect, group)
+                if reason:
+                    raise serializers.ValidationError({"prospects_invited": reason})
                 if prospect.is_dropped_off:
                     raise serializers.ValidationError(
                         {
@@ -1077,6 +1098,8 @@ class EvangelismWeeklyReportSerializer(serializers.ModelSerializer):
             report.visitors_attended.set(deduped_visitors)
 
         invited_set = list(prospects_invited) + created_prospects
+        for prospect in prospects_invited:
+            claim_unassigned_prospect_for_group(prospect, group)
         if invited_set:
             report.prospects_invited.set(invited_set)
         self._sync_derived_new_prospects(report)
@@ -1132,6 +1155,9 @@ class EvangelismWeeklyReportSerializer(serializers.ModelSerializer):
             else:
                 current_invited = list(prospects_invited)
             invited_set = current_invited + created_prospects
+            if prospects_invited is not serializers.empty:
+                for prospect in prospects_invited:
+                    claim_unassigned_prospect_for_group(prospect, group)
             instance.prospects_invited.set(invited_set)
 
         self._sync_derived_new_prospects(instance)
@@ -1210,6 +1236,7 @@ class ProspectSerializer(serializers.ModelSerializer):
         queryset=Person.objects.exclude(role="ADMIN"),
         write_only=True,
         required=False,
+        allow_null=True,
     )
     inviter_cluster = ClusterSummarySerializer(read_only=True)
     evangelism_group = EvangelismGroupSerializer(read_only=True)
@@ -1360,10 +1387,12 @@ class ProspectSerializer(serializers.ModelSerializer):
             )
             if self.instance is not None:
                 already = already.exclude(pk=self.instance.pk)
-            if already.exists():
-                raise serializers.ValidationError(
-                    {"person_id": "This visitor is already on this group."}
-                )
+            existing = already.order_by("-updated_at", "-id").first()
+            if existing is not None:
+                # Already linked. Return that row so the group list can show
+                # them instead of rejecting the add.
+                attrs["_existing_encoded_prospect"] = existing
+                return attrs
             copied = encoded_visitor_prospect_defaults(person)
             for key, value in copied.items():
                 if key == "date_first_invited" and attrs.get("date_first_invited"):
@@ -1385,19 +1414,25 @@ class ProspectSerializer(serializers.ModelSerializer):
                 }
             )
 
-        if self.instance is None and not attrs.get("invited_by"):
-            if attrs.get("person") is not None:
-                raise serializers.ValidationError(
-                    {
-                        "person_id": "This visitor has no inviter on their record."
-                    }
-                )
+        # Name-only invites still need an inviter. Returning visitors do not:
+        # a missing Person.inviter must not block adding them to the group.
+        if (
+            self.instance is None
+            and attrs.get("person") is None
+            and not attrs.get("invited_by")
+        ):
             raise serializers.ValidationError(
                 {"invited_by_id": "Inviter is required."}
             )
 
         apply_title_case_name_fields(attrs, PROSPECT_NAME_FIELDS)
         return attrs
+
+    def create(self, validated_data):
+        existing = validated_data.pop("_existing_encoded_prospect", None)
+        if existing is not None:
+            return existing
+        return super().create(validated_data)
 
 
 class FollowUpTaskSerializer(serializers.ModelSerializer):

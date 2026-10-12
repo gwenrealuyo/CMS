@@ -581,7 +581,7 @@ class SelfCheckInAPITests(APITestCase):
         visitor = Person.objects.get(first_name="Vina", last_name="Guest")
         self.assertEqual(visitor.role, "VISITOR")
         self.assertEqual(visitor.status, "ONGOING")
-        self.assertEqual(visitor.inviter_id, self.coordinator.id)
+        self.assertEqual(visitor.inviter_id, self.member.id)
         self.assertEqual(visitor.date_first_attended, TODAY)
         self.assertEqual(visitor.date_first_invited, TODAY)
         self.assertTrue(
@@ -694,7 +694,7 @@ class SelfCheckInAPITests(APITestCase):
             ).exists()
         )
 
-    def test_member_encode_locks_inviter_to_self(self):
+    def test_member_encode_stores_chosen_inviter(self):
         self.client.force_authenticate(self.member)
         response = self.client.post(
             "/api/events/self-check-in/visitors/",
@@ -703,14 +703,52 @@ class SelfCheckInAPITests(APITestCase):
                 "last_name": "Guest",
                 "gender": "FEMALE",
                 "age_group": "ADULT",
-                "inviter_id": self.admin.id,
+                "inviter_id": self.outsider.id,
                 "attendance_venue": "HOME_ALTAR",
             },
             format="json",
         )
         self.assertEqual(response.status_code, 201, response.data)
         visitor = Person.objects.get(pk=response.data["person"]["id"])
-        self.assertEqual(visitor.inviter_id, self.member.id)
+        self.assertEqual(visitor.inviter_id, self.outsider.id)
+
+    def test_encode_null_inviter_is_walk_in(self):
+        self.client.force_authenticate(self.member)
+        response = self.client.post(
+            "/api/events/self-check-in/visitors/",
+            {
+                "first_name": "Walk",
+                "last_name": "In",
+                "gender": "MALE",
+                "age_group": "ADULT",
+                "inviter_id": None,
+                "attendance_venue": "HOME_ALTAR",
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, 201, response.data)
+        visitor = Person.objects.get(pk=response.data["person"]["id"])
+        self.assertIsNone(visitor.inviter_id)
+
+    def test_encode_out_of_scope_inviter_returns_400(self):
+        self.client.force_authenticate(self.member)
+        response = self.client.post(
+            "/api/events/self-check-in/visitors/",
+            {
+                "first_name": "Bad",
+                "last_name": "Inviter",
+                "gender": "FEMALE",
+                "age_group": "ADULT",
+                "inviter_id": self.other_member.id,
+                "attendance_venue": "HOME_ALTAR",
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, 400, response.data)
+        self.assertIn("inviter_id", response.data)
+        self.assertFalse(
+            Person.objects.filter(first_name="Bad", last_name="Inviter").exists()
+        )
 
     def test_member_can_undo_own_guest_not_others(self):
         self.client.force_authenticate(self.member)

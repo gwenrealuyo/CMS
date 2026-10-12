@@ -2,7 +2,11 @@ import django_filters
 from django.db.models import Q
 
 from .models import Conversion, EvangelismGroup, Prospect
-from .services import _prospect_branch_q
+from .services import (
+    _prospect_branch_q,
+    prospects_for_cluster_report,
+    prospects_for_group_report,
+)
 
 
 class ProspectFilter(django_filters.FilterSet):
@@ -20,6 +24,8 @@ class ProspectFilter(django_filters.FilterSet):
     branch = django_filters.NumberFilter(method="filter_branch")
     cluster = django_filters.NumberFilter(method="filter_cluster")
     source = django_filters.CharFilter(method="filter_source")
+    for_cluster_report = django_filters.NumberFilter(method="filter_for_cluster_report")
+    for_group_report = django_filters.NumberFilter(method="filter_for_group_report")
 
     class Meta:
         model = Prospect
@@ -32,6 +38,22 @@ class ProspectFilter(django_filters.FilterSet):
         return queryset.filter(
             Q(inviter_cluster_id=value) | Q(endorsed_cluster_id=value)
         ).distinct()
+
+    def filter_for_cluster_report(self, queryset, name, value):
+        from apps.clusters.models import Cluster
+
+        cluster = Cluster.objects.filter(pk=value).first()
+        if cluster is None:
+            return queryset.none()
+        allowed = prospects_for_cluster_report(cluster).values("pk")
+        return queryset.filter(pk__in=allowed)
+
+    def filter_for_group_report(self, queryset, name, value):
+        group = EvangelismGroup.objects.filter(pk=value).first()
+        if group is None:
+            return queryset.none()
+        allowed = prospects_for_group_report(group).values("pk")
+        return queryset.filter(pk__in=allowed)
 
     def filter_source(self, queryset, name, value):
         """Cluster source is explicit attribution, not the inviter's own cluster."""

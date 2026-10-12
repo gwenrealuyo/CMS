@@ -410,6 +410,128 @@ def prospect_belongs_to_cluster(prospect: Prospect, cluster: Cluster) -> bool:
     )
 
 
+def _prospect_cluster_ids(prospect: Prospect) -> set:
+    ids = set()
+    if prospect.inviter_cluster_id:
+        ids.add(prospect.inviter_cluster_id)
+    if prospect.endorsed_cluster_id:
+        ids.add(prospect.endorsed_cluster_id)
+    return ids
+
+
+def _inviter_in_branch(prospect: Prospect, branch_id) -> bool:
+    if not branch_id or not prospect.invited_by_id:
+        return False
+    invited_by = prospect.invited_by
+    return getattr(invited_by, "branch_id", None) == branch_id
+
+
+def _unassigned_same_branch_q(branch_id) -> Q:
+    if not branch_id:
+        return Q(pk__in=[])
+    return Q(
+        inviter_cluster__isnull=True,
+        endorsed_cluster__isnull=True,
+        evangelism_group__isnull=True,
+        invited_by__branch_id=branch_id,
+    )
+
+
+def _invited_unlinked_prospects():
+    return Prospect.objects.filter(
+        is_dropped_off=False,
+        pipeline_stage=Prospect.PipelineStage.INVITED,
+        person__isnull=True,
+    )
+
+
+def prospects_for_cluster_report(cluster: Cluster):
+    """Invited, unlinked prospects for a cluster weekly-report picker.
+
+    Includes rows already attributed to this cluster, plus same-branch invites
+    that have no cluster and no evangelism group.
+    """
+    if cluster is None or not getattr(cluster, "pk", None):
+        return Prospect.objects.none()
+    attributed = Q(inviter_cluster_id=cluster.pk) | Q(endorsed_cluster_id=cluster.pk)
+    return (
+        _invited_unlinked_prospects()
+        .filter(attributed | _unassigned_same_branch_q(cluster.branch_id))
+        .distinct()
+    )
+
+
+def prospects_for_group_report(group: EvangelismGroup):
+    """Invited, unlinked prospects for an evangelism weekly-report picker."""
+    if group is None or not getattr(group, "pk", None):
+        return Prospect.objects.none()
+    attributed = Q(evangelism_group_id=group.pk)
+    return (
+        _invited_unlinked_prospects()
+        .filter(attributed | _unassigned_same_branch_q(group.branch_id))
+        .distinct()
+    )
+
+
+def cluster_report_prospect_block_reason(prospect: Prospect, cluster: Cluster) -> Optional[str]:
+    """None when this prospect may be invited or attended on the cluster report."""
+    if not prospect or not cluster:
+        return "Cluster is required."
+    foreign = _prospect_cluster_ids(prospect) - {cluster.pk}
+    if foreign:
+        return f"Prospect {prospect.pk} is attributed to another cluster."
+    if _prospect_cluster_ids(prospect):
+        return None
+    if prospect.evangelism_group_id:
+        return f"Prospect {prospect.pk} is not attributed to this cluster."
+    if not _inviter_in_branch(prospect, cluster.branch_id):
+        return f"Prospect {prospect.pk} is not attributed to this cluster."
+    return None
+
+
+def claim_unassigned_prospect_for_cluster(prospect: Prospect, cluster: Cluster) -> Prospect:
+    """Set inviter_cluster when the prospect is not yet tied to a cluster."""
+    reason = cluster_report_prospect_block_reason(prospect, cluster)
+    if reason:
+        raise ValueError(reason)
+    if not prospect.inviter_cluster_id:
+        prospect.inviter_cluster = cluster
+        prospect.save(update_fields=["inviter_cluster"])
+    return prospect
+
+
+def group_report_prospect_block_reason(prospect: Prospect, group: EvangelismGroup) -> Optional[str]:
+    """None when this prospect may be linked on the evangelism group report."""
+    if not prospect or not group:
+        return "Evangelism group is required."
+    if prospect.evangelism_group_id and prospect.evangelism_group_id != group.pk:
+        return (
+            f"Prospect {prospect.pk} is not attributed to this evangelism group."
+        )
+    if prospect.evangelism_group_id == group.pk:
+        return None
+    if prospect.inviter_cluster_id or prospect.endorsed_cluster_id:
+        return (
+            f"Prospect {prospect.pk} is not attributed to this evangelism group."
+        )
+    if not _inviter_in_branch(prospect, group.branch_id):
+        return (
+            f"Prospect {prospect.pk} is not attributed to this evangelism group."
+        )
+    return None
+
+
+def claim_unassigned_prospect_for_group(prospect: Prospect, group: EvangelismGroup) -> Prospect:
+    """Set evangelism_group when the prospect is not yet tied to a group."""
+    reason = group_report_prospect_block_reason(prospect, group)
+    if reason:
+        raise ValueError(reason)
+    if not prospect.evangelism_group_id:
+        prospect.evangelism_group = group
+        prospect.save(update_fields=["evangelism_group"])
+    return prospect
+
+
 def update_monthly_tracking(
     prospect: Prospect,
     stage: str,
@@ -1737,12 +1859,13 @@ def generate_each1reach1_report(cluster: Optional[Cluster] = None, year: Optiona
 
 
 def _prospect_branch_q(branch_id: int) -> Q:
-    """Filter prospects tied to a branch via cluster, group, or linked person."""
+    """Filter prospects tied to a branch via cluster, group, person, or inviter."""
     return (
         Q(inviter_cluster__branch_id=branch_id)
         | Q(endorsed_cluster__branch_id=branch_id)
         | Q(person__branch_id=branch_id)
         | Q(evangelism_group__branch_id=branch_id)
+        | Q(invited_by__branch_id=branch_id)
     )
 
 

@@ -132,3 +132,112 @@ class EvangelismWeeklyReportNewVisitorsTests(APITestCase):
         newbie = Person.objects.get(first_name="Ned", last_name="Newbie", role="VISITOR")
         self.assertIn(newbie.id, visitor_ids)
         self.assertEqual(len(visitor_ids), 2)
+
+    def test_update_keeps_members_who_later_left_the_group(self):
+        self.member.water_baptism_date = date(2020, 1, 1)
+        self.member.role = "MEMBER"
+        self.member.status = "ACTIVE"
+        self.member.save()
+        former = Person.objects.create_user(
+            username="former-member",
+            password="pass12345",
+            first_name="Fran",
+            last_name="Former",
+            role="MEMBER",
+            status="ACTIVE",
+            water_baptism_date=date(2020, 1, 1),
+            branch=self.branch,
+        )
+        outsider = Person.objects.create_user(
+            username="outsider-member",
+            password="pass12345",
+            first_name="Otto",
+            last_name="Outsider",
+            role="MEMBER",
+            status="ACTIVE",
+            water_baptism_date=date(2020, 1, 1),
+            branch=self.branch,
+        )
+        self.group.members.add(self.member, former)
+        report = EvangelismWeeklyReport.objects.create(
+            evangelism_group=self.group,
+            year=2026,
+            week_number=41,
+            meeting_date=date(2026, 10, 10),
+            gathering_type="PHYSICAL",
+            submitted_by=self.admin,
+        )
+        report.members_attended.set([self.member, former])
+        self.group.members.remove(former)
+
+        kept = self.client.patch(
+            f"/api/evangelism/weekly-reports/{report.id}/",
+            {
+                "topic": "The Word of God is our Guide",
+                "members_attended": [self.member.id, former.id],
+            },
+            format="json",
+        )
+        self.assertEqual(kept.status_code, 200, kept.data)
+        self.assertEqual(
+            set(kept.data["members_attended"]),
+            {self.member.id, former.id},
+        )
+
+        rejected = self.client.patch(
+            f"/api/evangelism/weekly-reports/{report.id}/",
+            {"members_attended": [self.member.id, former.id, outsider.id]},
+            format="json",
+        )
+        self.assertEqual(rejected.status_code, 400, rejected.data)
+        self.assertIn("members_attended", rejected.data.get("details", rejected.data))
+
+    def test_update_keeps_visitors_who_later_became_members(self):
+        attended = Person.objects.create_user(
+            username="then-visitor",
+            password="pass12345",
+            first_name="Vera",
+            last_name="Then",
+            role="VISITOR",
+            status="ONGOING",
+            branch=self.branch,
+        )
+        never_attended = Person.objects.create_user(
+            username="never-visitor",
+            password="pass12345",
+            first_name="Ned",
+            last_name="Never",
+            role="MEMBER",
+            status="ACTIVE",
+            water_baptism_date=date(2020, 1, 1),
+            branch=self.branch,
+        )
+        report = EvangelismWeeklyReport.objects.create(
+            evangelism_group=self.group,
+            year=2026,
+            week_number=21,
+            meeting_date=date(2026, 5, 23),
+            gathering_type="HYBRID",
+            submitted_by=self.admin,
+        )
+        report.visitors_attended.add(attended)
+        attended.water_baptism_date = date(2020, 6, 1)
+        attended.save()
+        attended.refresh_from_db()
+        self.assertEqual(attended.role, "MEMBER")
+
+        kept = self.client.patch(
+            f"/api/evangelism/weekly-reports/{report.id}/",
+            {"topic": "Baptism", "visitors_attended": [attended.id]},
+            format="json",
+        )
+        self.assertEqual(kept.status_code, 200, kept.data)
+        self.assertEqual(kept.data["visitors_attended"], [attended.id])
+
+        rejected = self.client.patch(
+            f"/api/evangelism/weekly-reports/{report.id}/",
+            {"visitors_attended": [attended.id, never_attended.id]},
+            format="json",
+        )
+        self.assertEqual(rejected.status_code, 400, rejected.data)
+        self.assertIn("visitors_attended", rejected.data.get("details", rejected.data))

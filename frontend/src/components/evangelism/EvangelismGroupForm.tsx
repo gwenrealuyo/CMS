@@ -296,11 +296,14 @@ export default function EvangelismGroupForm({
 
   const addInitialMember = (value: string) => {
     if (!value) return;
-    if ((values.initial_member_ids || []).includes(value)) return;
-    setValues((prev) => ({
-      ...prev,
-      initial_member_ids: [...(prev.initial_member_ids || []), value],
-    }));
+    setValues((prev) => {
+      const current = prev.initial_member_ids || [];
+      if (current.includes(value)) return prev;
+      return {
+        ...prev,
+        initial_member_ids: [...current, value],
+      };
+    });
   };
 
   const removeInitialMember = (id: string) => {
@@ -856,7 +859,6 @@ export default function EvangelismGroupForm({
           <ScalableSelect
             options={initialMemberOptions}
             value=""
-            onChange={addInitialMember}
             onConfirm={addInitialMember}
             placeholder="Search and pick member to add"
             className="w-full"

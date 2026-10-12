@@ -612,7 +612,10 @@ export default function AttendanceSelector({
   ]);
 
   // Drop selected IDs that aren't in the loaded people list (stale report IDs, etc.)
+  // Wait until the roster fetch finishes — a partial list (coordinator only)
+  // would otherwise erase attendees that belong on the report.
   useEffect(() => {
+    if (isLoadingRoster) return;
     if (availablePeople.length === 0 || selectedIds.length === 0) return;
     const validIds = new Set(
       availablePeople.map((p) => normalizePersonId(p.id))
@@ -621,7 +624,7 @@ export default function AttendanceSelector({
     if (pruned.length !== selectedIds.length) {
       onSelectionChange(pruned);
     }
-  }, [availablePeople, selectedIds.join(",")]);
+  }, [availablePeople, isLoadingRoster, selectedIds.join(",")]);
 
   // Close dropdown on outside click
   useEffect(() => {

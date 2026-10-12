@@ -24,6 +24,7 @@ class EncodedVisitorProspectAPITests(APITestCase):
             role="MEMBER",
             status="ACTIVE",
             branch=self.branch,
+            water_baptism_date=date(2020, 1, 1),
         )
         self.other_coord = Person.objects.create_user(
             username="encvidother",
@@ -33,6 +34,7 @@ class EncodedVisitorProspectAPITests(APITestCase):
             role="MEMBER",
             status="ACTIVE",
             branch=self.branch,
+            water_baptism_date=date(2020, 1, 1),
         )
         self.cluster = Cluster.objects.create(
             name="East Cluster",
@@ -119,8 +121,8 @@ class EncodedVisitorProspectAPITests(APITestCase):
         self.assertIsNone(response.data.get("person"))
         self.assertEqual(response.data["pipeline_stage"], Prospect.PipelineStage.INVITED)
 
-    def test_encoded_visitor_already_on_group_is_rejected(self):
-        Prospect.objects.create(
+    def test_encoded_visitor_already_on_group_is_returned_and_listed(self):
+        existing = Prospect.objects.create(
             first_name="Eva",
             last_name="Cubian",
             invited_by=self.coordinator,
@@ -133,14 +135,47 @@ class EncodedVisitorProspectAPITests(APITestCase):
             PROSPECTS_URL,
             {
                 "person_id": self.encoded_visitor.id,
-                "invited_by_id": self.coordinator.id,
                 "evangelism_group_id": self.owned_group.id,
             },
             format="json",
         )
-        self.assertEqual(response.status_code, 400, response.data)
-        details = response.data.get("details") or response.data
-        self.assertIn("person_id", details)
+        self.assertEqual(response.status_code, 201, response.data)
+        self.assertEqual(response.data["id"], existing.id)
+        self.assertEqual(
+            Prospect.objects.filter(
+                person=self.encoded_visitor,
+                evangelism_group=self.owned_group,
+            ).count(),
+            1,
+        )
+        listed = self.client.get(
+            PROSPECTS_URL,
+            {"evangelism_group": self.owned_group.id},
+        )
+        self.assertEqual(listed.status_code, 200, listed.data)
+        rows = listed.data["results"]
+        self.assertEqual([row["id"] for row in rows], [existing.id])
+        self.assertEqual(rows[0]["person"]["id"], self.encoded_visitor.id)
+
+    def test_encoded_visitor_without_inviter_can_be_added(self):
+        self.encoded_visitor.inviter = None
+        self.encoded_visitor.save(update_fields=["inviter"])
+        self.client.force_authenticate(self.coordinator)
+        response = self.client.post(
+            PROSPECTS_URL,
+            {
+                "person_id": self.encoded_visitor.id,
+                "evangelism_group_id": self.owned_group.id,
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, 201, response.data)
+        self.assertIsNone(response.data.get("invited_by"))
+        self.assertEqual(response.data["first_name"], "Eva")
+        self.assertEqual(response.data["person"]["id"], self.encoded_visitor.id)
+        prospect = Prospect.objects.get(pk=response.data["id"])
+        self.assertIsNone(prospect.invited_by_id)
+        self.assertEqual(prospect.evangelism_group_id, self.owned_group.id)
 
     def test_coordinator_cannot_link_encoded_visitor_on_other_group(self):
         self.client.force_authenticate(self.coordinator)

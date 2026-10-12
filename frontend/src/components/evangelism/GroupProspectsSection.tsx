@@ -24,6 +24,7 @@ interface GroupProspectsSectionProps {
   onUpdateProgress: (prospect: Prospect) => void;
   onDelete?: (prospect: Prospect) => Promise<void> | void;
   loading?: boolean;
+  loadError?: string | null;
   canAdd?: boolean;
 }
 
@@ -34,6 +35,7 @@ export default function GroupProspectsSection({
   onUpdateProgress,
   onDelete,
   loading = false,
+  loadError = null,
   canAdd = true,
 }: GroupProspectsSectionProps) {
   const [showAll, setShowAll] = useState(false);
@@ -93,7 +95,9 @@ export default function GroupProspectsSection({
       {loading ? (
         <div className="text-center py-8 text-gray-500">Loading...</div>
       ) : prospects.length === 0 ? (
-        <div className="text-center py-8 text-gray-500">No visitors</div>
+        <div className="text-center py-8 text-gray-500">
+          {loadError || "No visitors"}
+        </div>
       ) : (
         <>
           <Table

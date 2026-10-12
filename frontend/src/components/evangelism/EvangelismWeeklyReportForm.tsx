@@ -105,6 +105,13 @@ function isInvitableProspect(prospect: Prospect, groupId: string): boolean {
   }
   const gid = prospect.evangelism_group_id ?? prospect.evangelism_group?.id;
   if (gid != null && String(gid) !== String(groupId)) return false;
+  if (gid == null) {
+    const clusterId =
+      prospect.inviter_cluster?.id ??
+      prospect.endorsed_cluster?.id ??
+      prospect.endorsed_cluster_id;
+    if (clusterId != null && String(clusterId).trim() !== "") return false;
+  }
   return true;
 }
 
@@ -248,10 +255,18 @@ export default function EvangelismWeeklyReportForm({
         ? String(initialGroupId)
         : "",
   );
-  const [rosterGroup, setRosterGroup] = useState<EvangelismGroup | null>(
-    group ?? null,
+  const [rosterGroup, setRosterGroup] = useState<EvangelismGroup | null>(() =>
+    groupHasPersonRoster(group) ? (group ?? null) : null,
   );
-  const [loadingRoster, setLoadingRoster] = useState(false);
+  const [loadingRoster, setLoadingRoster] = useState(() => {
+    const initialId =
+      group?.id != null
+        ? String(group.id)
+        : initialGroupId
+          ? String(initialGroupId)
+          : "";
+    return Boolean(initialId) && !groupHasPersonRoster(group);
+  });
   const [groupProspects, setGroupProspects] = useState<Prospect[]>(prospects);
   const [groupFieldError, setGroupFieldError] = useState<string | null>(null);
   const [previouslyAttendedVisitorIds, setPreviouslyAttendedVisitorIds] =
@@ -288,9 +303,14 @@ export default function EvangelismWeeklyReportForm({
     const fromAvailable = availableGroups?.find(
       (g) => String(g.id) === selectedGroupId,
     );
-    if (fromAvailable) return fromAvailable;
-    if (group && String(group.id) === selectedGroupId) return group;
-    return null;
+    const fromProp =
+      group && String(group.id) === selectedGroupId ? group : null;
+    // Directory rows omit `members`. Prefer a payload that already has the
+    // person roster so edit mode does not collapse attendance to the coordinator.
+    if (fromProp && groupHasPersonRoster(fromProp)) return fromProp;
+    if (fromAvailable && groupHasPersonRoster(fromAvailable))
+      return fromAvailable;
+    return fromProp ?? fromAvailable ?? null;
   }, [selectedGroupId, availableGroups, group]);
 
   const todayIsoParts = getIsoWeekParts(new Date());
@@ -393,7 +413,9 @@ export default function EvangelismWeeklyReportForm({
 
     let cancelled = false;
     setLoadingRoster(true);
-    if (selectedGroup) setRosterGroup(selectedGroup);
+    // A directory group has a coordinator and no member list. Installing it
+    // as the roster makes the attendee picker drop everyone except that
+    // coordinator before the full group finishes loading.
 
     (async () => {
       try {
@@ -420,7 +442,7 @@ export default function EvangelismWeeklyReportForm({
     }
     let cancelled = false;
     evangelismApi
-      .getAllProspects({ evangelism_group: selectedGroupId })
+      .getAllProspects({ for_group_report: selectedGroupId })
       .then((res) => {
         const raw = res.data;
         const arr = Array.isArray(raw)
@@ -544,6 +566,10 @@ export default function EvangelismWeeklyReportForm({
       const fromPeople = peopleById.get(id);
       if (fromPeople) inlineMembers.push(fromPeople);
     }
+    for (const detail of initialData?.members_attended_details || []) {
+      if (detail?.id == null) continue;
+      inlineMembers.push(personToMemberOption(detail));
+    }
 
     const combined = [...inlineMembers, ...people];
     if (coordinatorOption) {
@@ -556,15 +582,24 @@ export default function EvangelismWeeklyReportForm({
     }
     const seen = new Set<string>();
     const allowed = new Set(allowedMemberIds);
+    const savedAttendeeIds = new Set(
+      (initialData?.members_attended || []).map((id) => String(id)),
+    );
     return combined.filter((person) => {
       if (!person.id || seen.has(person.id)) return false;
-      if (allowed.size > 0 && !allowed.has(String(person.id))) return false;
+      const personId = String(person.id);
+      const onThisReport = savedAttendeeIds.has(personId);
+      if (allowed.size > 0 && !allowed.has(personId) && !onThisReport) {
+        return false;
+      }
       seen.add(person.id);
       return true;
     });
   }, [
     allowedMemberIds,
     coordinatorOption,
+    initialData?.members_attended,
+    initialData?.members_attended_details,
     rosterGroup?.members,
     people,
   ]);
@@ -629,16 +664,24 @@ export default function EvangelismWeeklyReportForm({
 
   const visitorOptions = useMemo(() => {
     const attendedById = new Map<string, PersonUI>();
+    const savedVisitorIds = new Set(
+      (initialData?.visitors_attended || []).map((id) => String(id)),
+    );
     const stampInviter = (person: PersonUI): PersonUI => {
       if (person.inviter_display_name?.trim()) return person;
       const name = inviterDisplayNameFromPeople(person.inviter, people);
       return name ? { ...person, inviter_display_name: name } : person;
     };
 
-    const addAttendedPerson = (person: Person | PersonUI) => {
-      if (person.role !== "VISITOR") return;
+    const addAttendedPerson = (
+      person: Person | PersonUI,
+      keepSavedAttendee = false,
+    ) => {
       const id = person.id?.toString() || "";
       if (!id || attendedById.has(id)) return;
+      // The picker is for visitors, but someone recorded on this report may
+      // have become a member since. Editing must still show them as attended.
+      if (person.role !== "VISITOR" && !keepSavedAttendee) return;
       const firstAttended =
         person.date_first_attended ??
         ("dateFirstAttended" in person ? person.dateFirstAttended : null);
@@ -654,13 +697,19 @@ export default function EvangelismWeeklyReportForm({
     };
 
     for (const person of people) {
-      addAttendedPerson(person);
+      addAttendedPerson(person, savedVisitorIds.has(String(person.id)));
     }
     for (const prospect of groupProspects) {
-      if (prospect.person) addAttendedPerson(prospect.person as Person);
+      if (prospect.person) {
+        const prospectPerson = prospect.person as Person;
+        addAttendedPerson(
+          prospectPerson,
+          savedVisitorIds.has(String(prospectPerson.id)),
+        );
+      }
     }
     for (const detail of initialData?.visitors_attended_details || []) {
-      addAttendedPerson(detail as Person);
+      addAttendedPerson(detail as Person, true);
     }
 
     const prospectOptions = groupInvitedProspects
@@ -700,6 +749,7 @@ export default function EvangelismWeeklyReportForm({
     groupInvitedProspects,
     invitedProspectIdsSelected,
     pendingNewVisitors,
+    initialData?.visitors_attended,
     initialData?.visitors_attended_details,
   ]);
 

@@ -19,6 +19,7 @@ import {
   MapPinIcon,
   UserGroupIcon,
   UserPlusIcon,
+  XMarkIcon,
 } from "@heroicons/react/24/outline";
 import { CheckIcon } from "@heroicons/react/24/solid";
 
@@ -43,6 +44,7 @@ import { AttendanceVenueOption } from "@/src/types/event";
 import {
   SelfCheckInAgeGroup,
   SelfCheckInEventOption,
+  SelfCheckInInviter,
   SelfCheckInPerson,
   SelfCheckInSessionDetails,
   SelfCheckInSessionResponse,
@@ -282,6 +284,21 @@ function PersonRow({
   );
 }
 
+function selfAsInviter(
+  session: SelfCheckInSessionDetails | null,
+): SelfCheckInInviter | null {
+  const self = session?.household.find((person) => person.is_self);
+  if (!self) return null;
+  return {
+    id: self.id,
+    full_name: self.full_name || formatPersonName(self),
+    first_name: self.first_name,
+    last_name: self.last_name,
+    member_id: self.member_id || "",
+    is_self: true,
+  };
+}
+
 export default function EventSelfCheckInView() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -318,6 +335,13 @@ export default function EventSelfCheckInView() {
   const [duplicateMatches, setDuplicateMatches] = useState<
     SelfCheckInVisitorMatch[]
   >([]);
+  const [inviterQuery, setInviterQuery] = useState("");
+  const [inviterResults, setInviterResults] = useState<SelfCheckInInviter[]>(
+    [],
+  );
+  const [inviterSearching, setInviterSearching] = useState(false);
+  const [selectedInviter, setSelectedInviter] =
+    useState<SelfCheckInInviter | null>(null);
   const [attendanceVenue, setAttendanceVenue] = useState("");
   const [firstTimeAttending, setFirstTimeAttending] = useState(true);
 
@@ -418,6 +442,32 @@ export default function EventSelfCheckInView() {
     };
   }, [step, visitorQuery, selectedEventId]);
 
+  useEffect(() => {
+    const query = inviterQuery.trim();
+    if (step !== "visitor-encode" || query.length < 2 || !selectedEventId) {
+      setInviterResults([]);
+      return;
+    }
+    let cancelled = false;
+    setInviterSearching(true);
+    const timer = window.setTimeout(async () => {
+      try {
+        const response = await eventsApi.searchSelfCheckInInviters(query, {
+          event: selectedEventId,
+        });
+        if (!cancelled) setInviterResults(response.data.results);
+      } catch {
+        if (!cancelled) setInviterResults([]);
+      } finally {
+        if (!cancelled) setInviterSearching(false);
+      }
+    }, 300);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [step, inviterQuery, selectedEventId]);
+
   const selectedHousehold = useMemo(() => {
     if (!session) return [];
     return session.household.filter((person) =>
@@ -429,12 +479,32 @@ export default function EventSelfCheckInView() {
     router.replace(`/events/self-check-in?event=${eventIdFromOption(option)}`);
   };
 
+  const clearInviterPicker = () => {
+    setSelectedInviter(null);
+    setInviterQuery("");
+    setInviterResults([]);
+  };
+
+  const openVisitorEncode = (firstName: string, lastName: string) => {
+    setEncode((current) => ({
+      ...current,
+      first_name: firstName,
+      last_name: lastName,
+    }));
+    setSelectedMatch(null);
+    setSelectedInviter(selfAsInviter(session));
+    setInviterQuery("");
+    setInviterResults([]);
+    setStep("visitor-encode");
+  };
+
   const goLanding = () => {
     setStep("landing");
     setVisitorQuery("");
     setVisitorResults([]);
     setSelectedMatch(null);
     setDuplicateMatches([]);
+    clearInviterPicker();
     setAttendanceVenue("");
     setError(null);
     setEncode({
@@ -505,7 +575,10 @@ export default function EventSelfCheckInView() {
     }
   };
 
-  const checkInVisitorPerson = async (person: SelfCheckInVisitorMatch) => {
+  const checkInVisitorPerson = async (
+    person: SelfCheckInVisitorMatch,
+    options?: { sendInviter?: boolean },
+  ) => {
     if (person.already_checked_in) {
       toast.success(`${person.full_name} is already checked in.`);
       return;
@@ -520,6 +593,9 @@ export default function EventSelfCheckInView() {
           ? { prospect_id: person.prospect_id ?? person.id }
           : { person_id: person.id }),
         event_id: selectedEventId ? Number(selectedEventId) : undefined,
+        ...(options?.sendInviter
+          ? { inviter_id: selectedInviter?.id ?? null }
+          : {}),
         ...venuePayload(),
       });
       const checkedPerson = response.data.person;
@@ -556,9 +632,11 @@ export default function EventSelfCheckInView() {
     ) ||
     null;
 
-  const handleConfirmVisitorCheckIn = async () => {
+  const handleConfirmVisitorCheckIn = async (options?: {
+    sendInviter?: boolean;
+  }) => {
     if (!selectedVisitor) return;
-    await checkInVisitorPerson(selectedVisitor);
+    await checkInVisitorPerson(selectedVisitor, options);
   };
 
   const handleUndoCheckIn = async () => {
@@ -604,6 +682,7 @@ export default function EventSelfCheckInView() {
         age_group: encode.age_group,
         phone: phoneLocal ? `${phoneCountryCode}${phoneLocal}` : undefined,
         email: encode.email.trim() || undefined,
+        inviter_id: selectedInviter?.id ?? null,
         event_id: selectedEventId ? Number(selectedEventId) : undefined,
         ...venuePayload(),
         first_time_attending: firstTimeAttending,
@@ -976,13 +1055,7 @@ export default function EventSelfCheckInView() {
             className="w-full min-h-12"
             onClick={() => {
               const parts = visitorQuery.trim().split(/\s+/);
-              setEncode((current) => ({
-                ...current,
-                first_name: parts[0] || "",
-                last_name: parts.slice(1).join(" "),
-              }));
-              setSelectedMatch(null);
-              setStep("visitor-encode");
+              openVisitorEncode(parts[0] || "", parts.slice(1).join(" "));
             }}
           >
             No match — add guest
@@ -994,13 +1067,7 @@ export default function EventSelfCheckInView() {
             className="w-full text-center text-sm font-medium text-primary"
             onClick={() => {
               const parts = visitorQuery.trim().split(/\s+/);
-              setEncode((current) => ({
-                ...current,
-                first_name: parts[0] || "",
-                last_name: parts.slice(1).join(" "),
-              }));
-              setSelectedMatch(null);
-              setStep("visitor-encode");
+              openVisitorEncode(parts[0] || "", parts.slice(1).join(" "));
             }}
           >
             Not listed? Add a new guest
@@ -1016,7 +1083,12 @@ export default function EventSelfCheckInView() {
       <form className="space-y-4" onSubmit={handleEncode}>
         {eventCard}
         <div className="flex items-center gap-3">
-          <BackButton onClick={() => setStep("visitor-search")} />
+          <BackButton
+            onClick={() => {
+              clearInviterPicker();
+              setStep("visitor-search");
+            }}
+          />
           <h2 className="text-base font-semibold text-lighthouse-navy">
             Guest check-in
           </h2>
@@ -1178,9 +1250,86 @@ export default function EventSelfCheckInView() {
             </span>
           </span>
         </label>
-        <p className="text-sm text-muted-foreground">
-          Inviter is you. This guest is recorded as attending online with you.
-        </p>
+        <div>
+          <label className="block text-sm font-medium">
+            Inviter
+            {selectedInviter ? (
+              <span className="mt-2 flex items-center justify-between gap-2 rounded-2xl border border-primary/30 bg-primary/5 px-3 py-3">
+                <span className="min-w-0">
+                  <span className="block truncate font-medium text-lighthouse-navy">
+                    {selectedInviter.full_name}
+                    {selectedInviter.is_self ? " (You)" : ""}
+                  </span>
+                  {selectedInviter.member_id ? (
+                    <span className="text-xs text-muted-foreground">
+                      #{formatLampIdDisplay(selectedInviter.member_id)}
+                    </span>
+                  ) : null}
+                </span>
+                <button
+                  type="button"
+                  aria-label="Clear inviter"
+                  className="rounded-full p-1 text-muted-foreground hover:bg-white hover:text-lighthouse-navy"
+                  onClick={() => {
+                    setSelectedInviter(null);
+                    setInviterQuery("");
+                    setInviterResults([]);
+                  }}
+                >
+                  <XMarkIcon className="h-5 w-5" />
+                </button>
+              </span>
+            ) : (
+              <>
+                <span className="relative mt-1 block">
+                  <MagnifyingGlassIcon className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <input
+                    className="w-full rounded-full border border-gray-200 py-3 pl-9 pr-4 text-base outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+                    placeholder="Search who brought them…"
+                    value={inviterQuery}
+                    onChange={(event) => setInviterQuery(event.target.value)}
+                  />
+                </span>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Leave blank for a walk-in (no inviter).
+                </p>
+                {inviterSearching ? (
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    Searching…
+                  </p>
+                ) : null}
+                {inviterResults.length > 0 ? (
+                  <div className="mt-2 max-h-48 space-y-2 overflow-y-auto">
+                    {inviterResults.map((person) => (
+                      <button
+                        key={person.id}
+                        type="button"
+                        className="flex w-full items-center justify-between rounded-2xl border border-gray-200 px-3 py-2.5 text-left hover:border-primary/40"
+                        onClick={() => {
+                          setSelectedInviter(person);
+                          setInviterQuery("");
+                          setInviterResults([]);
+                        }}
+                      >
+                        <span>
+                          <span className="block font-medium text-lighthouse-navy">
+                            {person.full_name}
+                            {person.is_self ? " (You)" : ""}
+                          </span>
+                          {person.member_id ? (
+                            <span className="text-xs text-muted-foreground">
+                              #{formatLampIdDisplay(person.member_id)}
+                            </span>
+                          ) : null}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
+              </>
+            )}
+          </label>
+        </div>
         {requiresVenue ? (
           <OnlineVenuePicker
             venues={activeVenues}
@@ -1219,7 +1368,9 @@ export default function EventSelfCheckInView() {
                   !selectedVisitor ||
                   (requiresVenue && !attendanceVenue)
                 }
-                onClick={() => void handleConfirmVisitorCheckIn()}
+                onClick={() =>
+                  void handleConfirmVisitorCheckIn({ sendInviter: true })
+                }
               >
                 {submitting
                   ? "Checking in…"

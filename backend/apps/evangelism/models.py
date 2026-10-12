@@ -246,8 +246,14 @@ class Prospect(models.Model):
     facebook_name = models.CharField(max_length=200, blank=True)
     invited_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
-        on_delete=models.CASCADE,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
         related_name="invited_prospects",
+        help_text=(
+            "Member who invited them. Optional for a returning visitor "
+            "who has no inviter on their person record."
+        ),
     )
     inviter_cluster = models.ForeignKey(
         "clusters.Cluster",

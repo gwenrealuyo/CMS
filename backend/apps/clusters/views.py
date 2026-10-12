@@ -1,5 +1,5 @@
 from rest_framework import viewsets, filters, status
-from rest_framework.exceptions import ValidationError
+from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.pagination import PageNumberPagination
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.decorators import action
@@ -50,6 +50,9 @@ from .utils import (
     calculate_trend,
     is_at_risk,
     get_weeks_in_range,
+    parse_iso_weeks,
+    previous_iso_weeks,
+    week_span,
 )
 from apps.authentication.permissions import (
     IsAuthenticatedAndNotVisitor,
@@ -69,6 +72,7 @@ from apps.clusters.permissions import (
     ClusterReportReadPermission,
     ClusterWeeklyReportScopedPermission,
     can_pick_cluster_branch,
+    can_view_status_tally_people,
     apply_cluster_branch_scope,
     apply_report_branch_scope,
     clusters_for_overdue,
@@ -276,6 +280,10 @@ class ClusterViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=["get"], url_path="status_tally_detail")
     def status_tally_detail(self, request):
+        if not can_view_status_tally_people(request.user):
+            raise PermissionDenied(
+                "You do not have permission to view these people."
+            )
         branch_id = self._status_tally_branch_id()
         year = self._status_tally_year()
         months = self._status_tally_months()
@@ -769,6 +777,77 @@ class ClusterWeeklyReportViewSet(viewsets.ModelViewSet):
             return True
         return False
 
+    def _compliance_period(self, request):
+        """
+        Resolve the compliance window.
+
+        Returns ``((start_date, end_date, weeks_or_none), error_response)``.
+        ``weeks_or_none`` is a list of ``(iso_year, week)`` when ``week_number``
+        is provided.
+        """
+        week_values = []
+        for value in request.query_params.getlist("week_number"):
+            week_values.extend(
+                part.strip() for part in str(value).split(",") if part.strip()
+            )
+
+        if week_values:
+            today = church_today()
+            year_raw = request.query_params.get("year")
+            if year_raw:
+                try:
+                    year = int(year_raw)
+                except (TypeError, ValueError):
+                    return None, Response(
+                        {"error": "Invalid year."},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+            else:
+                year = today.isocalendar().year
+            try:
+                week_numbers = [int(value) for value in week_values]
+                selected_weeks = parse_iso_weeks(year, week_numbers)
+            except ValueError as exc:
+                return None, Response(
+                    {"error": str(exc)},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            if not selected_weeks:
+                return None, Response(
+                    {"error": "Select at least one week."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            start_date, end_date = week_span(selected_weeks)
+            return (start_date, end_date, selected_weeks), None
+
+        today = church_today()
+        start_date_str = request.query_params.get("start_date")
+        end_date_str = request.query_params.get("end_date")
+
+        if start_date_str:
+            try:
+                start_date = datetime.strptime(start_date_str, "%Y-%m-%d").date()
+            except ValueError:
+                return None, Response(
+                    {"error": "Invalid start_date format. Use YYYY-MM-DD."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+        else:
+            start_date = today - timedelta(weeks=4)
+
+        if end_date_str:
+            try:
+                end_date = datetime.strptime(end_date_str, "%Y-%m-%d").date()
+            except ValueError:
+                return None, Response(
+                    {"error": "Invalid end_date format. Use YYYY-MM-DD."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+        else:
+            end_date = today
+
+        return (start_date, end_date, None), None
+
     @action(detail=False, methods=["get"])
     def compliance(self, request):
         """
@@ -776,8 +855,11 @@ class ClusterWeeklyReportViewSet(viewsets.ModelViewSet):
         Accessible to ADMIN, PASTOR, and Senior Coordinators only.
         
         Query params:
-        - start_date (YYYY-MM-DD): Start of compliance period (default: 4 weeks ago)
-        - end_date (YYYY-MM-DD): End of compliance period (default: today)
+        - week_number: ISO week numbers to include (comma-separated or repeated).
+          When set, compliance is calculated only for those weeks.
+        - year: ISO year for week_number (default: current ISO year)
+        - start_date (YYYY-MM-DD): Start of compliance period when week_number is omitted
+        - end_date (YYYY-MM-DD): End of compliance period when week_number is omitted
         - branch_id: Filter by branch
         - coordinator_id: Filter by coordinator
         - status: Filter by compliance status (COMPLIANT, NON_COMPLIANT, PARTIAL)
@@ -789,27 +871,11 @@ class ClusterWeeklyReportViewSet(viewsets.ModelViewSet):
                 {"error": "You do not have permission to access compliance data."},
                 status=status.HTTP_403_FORBIDDEN
             )
-        
-        # Parse date range (default: last 4 weeks)
-        today = church_today()
-        start_date_str = request.query_params.get('start_date')
-        end_date_str = request.query_params.get('end_date')
-        
-        if start_date_str:
-            try:
-                start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
-            except ValueError:
-                return Response({"error": "Invalid start_date format. Use YYYY-MM-DD."}, status=400)
-        else:
-            start_date = today - timedelta(weeks=4)
-        
-        if end_date_str:
-            try:
-                end_date = datetime.strptime(end_date_str, '%Y-%m-%d').date()
-            except ValueError:
-                return Response({"error": "Invalid end_date format. Use YYYY-MM-DD."}, status=400)
-        else:
-            end_date = today
+
+        period, period_error = self._compliance_period(request)
+        if period_error:
+            return period_error
+        start_date, end_date, selected_weeks = period
         
         # Get clusters with filters
         clusters = Cluster.objects.all()
@@ -831,12 +897,24 @@ class ClusterWeeklyReportViewSet(viewsets.ModelViewSet):
         # Calculate compliance for each cluster
         compliance_data = []
         for cluster in clusters:
-            cluster_compliance = calculate_cluster_compliance(cluster, start_date, end_date)
-            
+            cluster_compliance = calculate_cluster_compliance(
+                cluster, start_date, end_date, weeks=selected_weeks
+            )
+
             # Calculate trend (compare with previous period)
-            previous_start = start_date - timedelta(days=(end_date - start_date).days + 1)
-            previous_end = start_date - timedelta(days=1)
-            previous_compliance = calculate_cluster_compliance(cluster, previous_start, previous_end)
+            if selected_weeks:
+                prior_weeks = previous_iso_weeks(selected_weeks)
+                previous_start, previous_end = week_span(prior_weeks)
+                previous_compliance = calculate_cluster_compliance(
+                    cluster,
+                    previous_start,
+                    previous_end,
+                    weeks=prior_weeks,
+                )
+            else:
+                previous_start = start_date - timedelta(days=(end_date - start_date).days + 1)
+                previous_end = start_date - timedelta(days=1)
+                previous_compliance = calculate_cluster_compliance(cluster, previous_start, previous_end)
             trend = calculate_trend(cluster_compliance, previous_compliance)
             
             # Get compliance notes for this period
@@ -885,7 +963,11 @@ class ClusterWeeklyReportViewSet(viewsets.ModelViewSet):
             if total_clusters > 0 else 0.0
         )
         
-        weeks_expected = len(get_weeks_in_range(start_date, end_date))
+        weeks_expected = (
+            len(selected_weeks)
+            if selected_weeks is not None
+            else len(get_weeks_in_range(start_date, end_date))
+        )
         
         summary = {
             "total_clusters": total_clusters,

@@ -1,10 +1,51 @@
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from django.utils import timezone
 
 from core.datetime_utils import church_today
 from django.db.models import Q, Count, Avg
 from .models import Cluster, ClusterWeeklyReport
 from apps.people.models import Person
+
+
+def parse_iso_weeks(year, week_numbers):
+    """Return sorted unique ``(iso_year, week)`` pairs, or raise ``ValueError``."""
+    weeks = []
+    seen = set()
+    for raw in week_numbers:
+        week = int(raw)
+        if week in seen:
+            continue
+        if not 1 <= week <= 53:
+            raise ValueError(f"Week number must be between 1 and 53 (got {week}).")
+        try:
+            date.fromisocalendar(year, week, 1)
+        except ValueError as exc:
+            raise ValueError(f"Week {week} is not a valid ISO week in {year}.") from exc
+        seen.add(week)
+        weeks.append((year, week))
+    weeks.sort()
+    return weeks
+
+
+def week_span(weeks):
+    """Monday of the earliest week through Sunday of the latest week."""
+    starts = [date.fromisocalendar(year, week, 1) for year, week in weeks]
+    ends = [date.fromisocalendar(year, week, 7) for year, week in weeks]
+    return min(starts), max(ends)
+
+
+def previous_iso_weeks(weeks):
+    """The same number of ISO weeks immediately before the earliest selected week."""
+    if not weeks:
+        return []
+    earliest_year, earliest_week = min(weeks)
+    monday = date.fromisocalendar(earliest_year, earliest_week, 1)
+    previous = []
+    for offset in range(len(weeks), 0, -1):
+        day = monday - timedelta(days=7 * offset)
+        iso = day.isocalendar()
+        previous.append((iso.year, iso.week))
+    return previous
 
 
 def get_weeks_in_range(start_date, end_date):
@@ -18,21 +59,37 @@ def get_weeks_in_range(start_date, end_date):
     return weeks
 
 
-def calculate_cluster_compliance(cluster, start_date, end_date):
+def calculate_cluster_compliance(cluster, start_date, end_date, weeks=None):
     """
     Calculate compliance metrics for a cluster in a given date range.
+
+    When ``weeks`` is a list of ``(iso_year, week_number)`` pairs, only those
+    weeks are expected and only reports for those weeks are counted.
 
     Returns:
         dict with compliance metrics
     """
-    # Get all weeks in the range
-    weeks_in_range = get_weeks_in_range(start_date, end_date)
-    weeks_expected = len(weeks_in_range)
+    if weeks is not None:
+        weeks_in_range = list(weeks)
+        week_query = Q()
+        for year, week in weeks_in_range:
+            week_query |= Q(year=year, week_number=week)
+        reports = (
+            ClusterWeeklyReport.objects.filter(cluster=cluster)
+            .filter(week_query)
+            .select_related("cluster", "submitted_by")
+            if weeks_in_range
+            else ClusterWeeklyReport.objects.none()
+        )
+    else:
+        # Get all weeks in the range
+        weeks_in_range = get_weeks_in_range(start_date, end_date)
+        # Get all reports for this cluster in the date range
+        reports = ClusterWeeklyReport.objects.filter(
+            cluster=cluster, meeting_date__gte=start_date, meeting_date__lte=end_date
+        ).select_related("cluster", "submitted_by")
 
-    # Get all reports for this cluster in the date range
-    reports = ClusterWeeklyReport.objects.filter(
-        cluster=cluster, meeting_date__gte=start_date, meeting_date__lte=end_date
-    ).select_related("cluster", "submitted_by")
+    weeks_expected = len(weeks_in_range)
 
     # Count submitted reports
     reports_submitted = reports.count()

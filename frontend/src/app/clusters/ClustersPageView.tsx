@@ -58,6 +58,7 @@ import {
   clustersForReportSubmission,
   isClusterReporterOnly,
   userCanAccessMemberCare,
+  userCanViewStatusTallyPeople,
 } from "@/src/lib/clusterPermissions";
 import {
   countClusterMembersFromDetails,
@@ -386,6 +387,27 @@ export default function ClustersPageView({
   >("cards");
 
   const { user, isSeniorCoordinator, isModuleCoordinator } = useAuth();
+  const canViewStatusTallyPeople = useMemo(
+    () =>
+      userCanViewStatusTallyPeople(
+        {
+          userId: user?.id,
+          role: user?.role,
+          isSeniorCoordinator,
+          isModuleCoordinator,
+          moduleCoordinatorAssignments: user?.module_coordinator_assignments,
+        },
+        allClusters,
+      ),
+    [
+      user?.id,
+      user?.role,
+      user?.module_coordinator_assignments,
+      isSeniorCoordinator,
+      isModuleCoordinator,
+      allClusters,
+    ],
+  );
   const { branches } = useBranches();
 
   const branchById = useMemo(() => {
@@ -668,19 +690,6 @@ export default function ClustersPageView({
         person={selectedPerson}
         clusters={allClusters as any}
         families={families}
-        onViewFamily={(f) => {
-          if (onViewFamily) {
-            onViewFamily(f);
-          }
-        }}
-        onViewCluster={(c) => {
-          const cluster = allClusters.find((cl) => cl.id === (c as any).id);
-          if (cluster) {
-            onViewCluster(cluster);
-          }
-        }}
-        onNoFamilyClick={() => {}}
-        onNoClusterClick={() => {}}
         onViewPerson={(id) => {
           onViewPerson?.({ id } as Person);
         }}
@@ -805,6 +814,7 @@ export default function ClustersPageView({
 
         {activeTab === "tally" && (
           <ClusterStatusTallyReport
+            canViewPeople={canViewStatusTallyPeople}
             branch={
               clusterBranchSelectedId === ""
                 ? ""

@@ -386,6 +386,27 @@ class ClusterWeeklyReportScopedPermission(permissions.BasePermission):
         return user_can_submit_cluster_report(user, cluster)
 
 
+def can_view_status_tally_people(user) -> bool:
+    """Who may open the people behind a status tally cell.
+
+    Plain members and reporter-only users see counts only. Cluster coordinators
+    assigned on the cluster record are allowed even without a module row.
+    """
+    if not getattr(user, "is_authenticated", False):
+        return False
+    if getattr(user, "role", None) in ("ADMIN", "PASTOR"):
+        return True
+    if getattr(user, "role", None) != "MEMBER":
+        return False
+    from apps.people.coordinator_assignment_validation import (
+        user_has_people_write_coordinator_assignment,
+    )
+
+    if user_has_people_write_coordinator_assignment(user):
+        return True
+    return Cluster.objects.filter(coordinator=user).exists()
+
+
 def can_access_member_care(user) -> bool:
     """Pastoral care roster: admin, pastor, cluster senior, cluster coordinator. Not reporters."""
     if not getattr(user, "is_authenticated", False):

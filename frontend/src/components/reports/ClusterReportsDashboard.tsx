@@ -24,6 +24,10 @@ import {
   HintTooltip,
   LockedControlTooltip,
 } from "@/src/components/ui/LockedControlTooltip";
+import {
+  defaultIsoWeekForMonth,
+  isoWeeksOverlappingMonth,
+} from "@/src/lib/isoWeek";
 import Pagination from "@/src/components/ui/Pagination";
 import {
   ChevronUpIcon,
@@ -237,6 +241,26 @@ export default function ClusterReportsDashboard({
     const currentWeek = getLocalISOWeekNumber(new Date());
     return currentWeek.toString();
   });
+
+  const applyMonthFilter = (monthValue: string) => {
+    setSelectedMonth(monthValue);
+    if (!monthValue) return;
+    setSelectedWeek(
+      String(defaultIsoWeekForMonth(selectedYear, Number(monthValue))),
+    );
+  };
+
+  const weekFilterOptions = useMemo(() => {
+    const month = selectedMonth ? Number(selectedMonth) : null;
+    const weekNumbers = month
+      ? isoWeeksOverlappingMonth(selectedYear, month)
+      : Array.from({ length: 53 }, (_, index) => index + 1);
+
+    return weekNumbers.map((weekNum) => ({
+      value: weekNum.toString(),
+      label: `W${weekNum} (${formatWeekDateRange(selectedYear, weekNum)})`,
+    }));
+  }, [selectedMonth, selectedYear]);
 
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
@@ -1649,9 +1673,9 @@ export default function ClusterReportsDashboard({
                 onClick={() => {
                   const currentMonth = new Date().getMonth() + 1;
                   if (selectedMonth === "") {
-                    setSelectedMonth(String(currentMonth).padStart(2, "0"));
+                    applyMonthFilter(String(currentMonth).padStart(2, "0"));
                   } else {
-                    setSelectedMonth("");
+                    applyMonthFilter("");
                   }
                 }}
                 className="flex items-center gap-1.5 text-xs font-medium text-primary hover:text-primary hover:underline transition-colors"
@@ -1700,7 +1724,7 @@ export default function ClusterReportsDashboard({
             </div>
             <select
               value={selectedMonth}
-              onChange={(e) => setSelectedMonth(e.target.value)}
+              onChange={(e) => applyMonthFilter(e.target.value)}
               className="w-full px-2 py-2 min-h-[44px] border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-ring focus:border-transparent"
             >
               <option value="">All Months</option>
@@ -1792,15 +1816,11 @@ export default function ClusterReportsDashboard({
               className="w-full px-2 py-2 min-h-[44px] border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-ring focus:border-transparent"
             >
               <option value="">All Weeks</option>
-              {Array.from({ length: 53 }, (_, i) => {
-                const weekNum = i + 1;
-                const dateRange = formatWeekDateRange(selectedYear, weekNum);
-                return (
-                  <option key={weekNum} value={weekNum.toString()}>
-                    W{weekNum} ({dateRange})
-                  </option>
-                );
-              })}
+              {weekFilterOptions.map((week) => (
+                <option key={week.value} value={week.value}>
+                  {week.label}
+                </option>
+              ))}
             </select>
           </div>
 
@@ -1817,7 +1837,16 @@ export default function ClusterReportsDashboard({
                     ? selectedYear
                     : availableYears[0]
               }
-              onChange={(e) => setSelectedYear(parseInt(e.target.value, 10))}
+              onChange={(e) => {
+                const year = parseInt(e.target.value, 10);
+                setSelectedYear(year);
+                if (!selectedMonth) return;
+                const month = Number(selectedMonth);
+                const weeks = isoWeeksOverlappingMonth(year, month);
+                if (!selectedWeek || !weeks.includes(Number(selectedWeek))) {
+                  setSelectedWeek(String(defaultIsoWeekForMonth(year, month)));
+                }
+              }}
               className="w-full px-2 py-2 min-h-[44px] border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-ring focus:border-transparent disabled:bg-gray-100 disabled:text-gray-500"
             >
               {yearsLoading ? (

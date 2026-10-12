@@ -191,6 +191,31 @@ export function userCanExportClusterData(auth: {
 }
 
 /**
+ * Who may open the people behind a status tally cell.
+ * Mirrors backend `can_view_status_tally_people`.
+ * Plain members and reporter-only users see counts only.
+ * A member listed as `Cluster.coordinator` is allowed when that cluster is loaded.
+ */
+export function userCanViewStatusTallyPeople(
+  auth: ManageClusterAuth & { moduleCoordinatorAssignments?: ModuleCoordinator[] },
+  clusters: Cluster[] = [],
+): boolean {
+  const { userId, role } = auth;
+  if (!userId) return false;
+  if (role === "ADMIN" || role === "PASTOR") return true;
+  if (role !== "MEMBER") return false;
+  const assignments = auth.moduleCoordinatorAssignments ?? [];
+  if (assignments.some((assignment) => assignment.level !== "REPORTER")) {
+    return true;
+  }
+  return clusters.some((cluster) => {
+    const coordinatorId =
+      cluster.coordinator?.id ?? cluster.coordinator_id ?? undefined;
+    return coordinatorId != null && Number(coordinatorId) === Number(userId);
+  });
+}
+
+/**
  * Who may view and edit the member care caseload (pastoral notes).
  * Mirrors backend `can_access_member_care`. Not reporters or plain members.
  */

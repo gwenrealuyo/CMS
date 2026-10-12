@@ -229,7 +229,7 @@ All cluster CRUD and weekly reports live under `/api/clusters/` (namespaced in `
   - `DELETE /{id}/` – Delete a cluster (cascades to reports)
   - `GET /status_tally/?year=&branch_id=&months=` – Snapshot of member statuses per cluster at the end of the selected months. `branch` / `branch_id` is required. Rows are active clusters in that branch (zeros included), optional **Unassigned** (branch members with no cluster; omitted for reporter-only users), and **Total** (union of people, not a sum of cluster cells). Counts reconstruct status from `PersonStatusChange` as of the last day of the latest selected month, capped at today.
   - `GET /status_tally_years/?branch_id=` – Years present in status-change history for the branch, plus the current year
-  - `GET /status_tally_detail/?year=&months=&status=&cluster=` – Paginated people behind a tally cell. `status` is `ACTIVE`, `SEMIACTIVE`, `INACTIVE`, `DORMANT`, `FALLAWAY`, `DECEASED`, or `members`. `cluster={id}` for one cluster, `cluster=unassigned` for Unassigned, omit `cluster` for Total. Each row includes the snapshot transition (`from_status`, `to_status`, `changed_at`, `source`) and `in_window` when that change falls in the selected months.
+  - `GET /status_tally_detail/?year=&months=&status=&cluster=` – Paginated people behind a tally cell. `status` is `ACTIVE`, `SEMIACTIVE`, `INACTIVE`, `DORMANT`, `FALLAWAY`, `DECEASED`, or `members`. `cluster={id}` for one cluster, `cluster=unassigned` for Unassigned, omit `cluster` for Total. Each row includes the snapshot transition (`from_status`, `to_status`, `changed_at`, `source`) and `in_window` when that change falls in the selected months. Plain members and reporter-only users receive 403; counts on `status_tally` stay available. Admin, Pastor, anyone with a non-reporter module assignment, and a member set as `Cluster.coordinator` may open the list.
 
 ### Cluster Weekly Reports
 
@@ -322,7 +322,7 @@ The page uses tabs similar to the Lessons page:
 ### Components Overview
 
 - **`ClusterContentTabs`**: Tab navigation component (similar to LessonContentTabs)
-- **Tally Tab** (`ClusterStatusTallyReport`): Year, branch (same lock/default as the Clusters page), and month picker (All / YTD / quarters / checkboxes; default **current month** for this year). Rows are clusters in the selected branch, Unassigned, and Total. Click a count to open names plus the status transition that produced the snapshot (`from → to`, date, source), with emphasis when that change falls in the selected months. Visitors and admins are excluded; membership is the current roster.
+- **Tally Tab** (`ClusterStatusTallyReport`): Year, branch (same lock/default as the Clusters page), and month picker (All / YTD / quarters / checkboxes; default **current month** for this year). Rows are clusters in the selected branch, Unassigned, and Total. Plain members and reporter-only users see counts only. Everyone else can click a count to open names plus the status transition that produced the snapshot (`from → to`, date, source), with emphasis when that change falls in the selected months. Visitors and admins are excluded from the counts; membership is the current roster.
 - **Clusters Tab**:
   - Grid display of cluster cards showing:
     - Cluster name/code

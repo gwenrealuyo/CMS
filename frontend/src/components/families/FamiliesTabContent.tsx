@@ -596,8 +596,6 @@ export default function FamiliesTabContent({
         onDelete={isPanel ? goBackFamilyPanel : closePersonOverFamily}
         onAddTimeline={isPanel ? goBackFamilyPanel : closePersonOverFamily}
         onClose={isPanel ? goBackFamilyPanel : closePersonOverFamily}
-        onNoFamilyClick={() => {}}
-        onNoClusterClick={() => {}}
         onViewPerson={(id) => {
           void openPersonFromFamily({ id } as Person);
         }}

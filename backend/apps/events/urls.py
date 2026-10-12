@@ -13,6 +13,7 @@ from .self_checkin_views import (
     EventSettingView,
     PublicSelfCheckInIdentifyView,
     PublicSelfCheckInSessionView,
+    PublicSelfCheckInUndoView,
     PublicSelfCheckInView,
     SelfCheckInInvitersView,
     SelfCheckInSessionView,
@@ -86,6 +87,11 @@ urlpatterns = [
         "self-check-in/public/",
         PublicSelfCheckInView.as_view(),
         name="self-check-in-public",
+    ),
+    path(
+        "self-check-in/public/undo/",
+        PublicSelfCheckInUndoView.as_view(),
+        name="self-check-in-public-undo",
     ),
     path(
         "self-check-in/session/",

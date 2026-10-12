@@ -1,36 +1,107 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { clusterReportsApi } from "@/src/lib/api";
-import { ComplianceData, ClusterCompliance, ComplianceStatus } from "@/src/types/cluster";
+import {
+  ComplianceData,
+  ClusterCompliance,
+  ComplianceStatus,
+} from "@/src/types/cluster";
 import Card from "@/src/components/ui/Card";
 import Button from "@/src/components/ui/Button";
 import LoadingSpinner from "@/src/components/ui/LoadingSpinner";
 import ErrorMessage from "@/src/components/ui/ErrorMessage";
+import ScalableSelect from "@/src/components/ui/ScalableSelect";
 import { formatLocaleDate } from "@/src/lib/date";
 import { formatPersonName } from "@/src/lib/name";
+import {
+  getIsoWeekDateRange,
+  getIsoWeekParts,
+  isoWeeksInYear,
+} from "@/src/lib/isoWeek";
+
+const todayIso = getIsoWeekParts(new Date());
+
+function formatWeekDateRange(year: number, weekNumber: number): string {
+  const { start, end } = getIsoWeekDateRange(year, weekNumber);
+  const startMonth = start.toLocaleDateString("en-US", { month: "short" });
+  const startDay = start.getDate();
+  const endMonth = end.toLocaleDateString("en-US", { month: "short" });
+  const endDay = end.getDate();
+
+  if (startMonth === endMonth) {
+    return `${startMonth} ${startDay}-${endDay}`;
+  }
+  return `${startMonth} ${startDay}-${endMonth} ${endDay}`;
+}
 
 export default function ClusterComplianceTab() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [data, setData] = useState<ComplianceData | null>(null);
-  const [startDate, setStartDate] = useState<string>(() => {
-    const date = new Date();
-    date.setDate(date.getDate() - 28); // 4 weeks ago
-    return date.toISOString().split('T')[0];
-  });
-  const [endDate, setEndDate] = useState<string>(() => {
-    return new Date().toISOString().split('T')[0];
-  });
-  const [statusFilter, setStatusFilter] = useState<ComplianceStatus | "ALL">("ALL");
+  const [selectedYear, setSelectedYear] = useState<number>(todayIso.year);
+  const [availableYears, setAvailableYears] = useState<number[]>([
+    todayIso.year,
+  ]);
+  const [selectedWeeks, setSelectedWeeks] = useState<string[]>([
+    String(todayIso.week),
+  ]);
+  const [statusFilter, setStatusFilter] = useState<ComplianceStatus | "ALL">(
+    "ALL",
+  );
+
+  const weekOptions = useMemo(
+    () =>
+      isoWeeksInYear(selectedYear).map((weekNum) => ({
+        value: String(weekNum),
+        label: `W${weekNum} (${formatWeekDateRange(selectedYear, weekNum)})`,
+      })),
+    [selectedYear],
+  );
+
+  const weekParam = useMemo(
+    () =>
+      [...selectedWeeks]
+        .map((week) => Number(week))
+        .filter((week) => Number.isInteger(week))
+        .sort((a, b) => a - b)
+        .join(","),
+    [selectedWeeks],
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+    clusterReportsApi
+      .distinctYears()
+      .then((response) => {
+        if (cancelled) return;
+        const years = response.data.years ?? [];
+        const merged = Array.from(new Set([todayIso.year, ...years])).sort(
+          (a, b) => b - a,
+        );
+        setAvailableYears(merged.length > 0 ? merged : [todayIso.year]);
+      })
+      .catch(() => {
+        if (!cancelled) setAvailableYears([todayIso.year]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const fetchCompliance = async () => {
+    if (!weekParam) {
+      setData(null);
+      setError(null);
+      setLoading(false);
+      return;
+    }
     try {
       setLoading(true);
       setError(null);
       const response = await clusterReportsApi.compliance({
-        start_date: startDate,
-        end_date: endDate,
+        year: selectedYear,
+        week_number: weekParam,
         status: statusFilter !== "ALL" ? statusFilter : undefined,
       });
       setData(response.data);
@@ -43,20 +114,35 @@ export default function ClusterComplianceTab() {
 
   useEffect(() => {
     fetchCompliance();
-  }, [startDate, endDate, statusFilter]);
+  }, [selectedYear, weekParam, statusFilter]);
+
+  const handleYearChange = (year: number) => {
+    setSelectedYear(year);
+    setSelectedWeeks((current) => {
+      const valid = new Set(isoWeeksInYear(year).map(String));
+      const next = current.filter((week) => valid.has(week));
+      if (next.length > 0) return next;
+      if (year === todayIso.year && valid.has(String(todayIso.week))) {
+        return [String(todayIso.week)];
+      }
+      const weeks = isoWeeksInYear(year);
+      return weeks.length > 0 ? [String(weeks[weeks.length - 1])] : [];
+    });
+  };
 
   const handleExportCSV = async () => {
+    if (!weekParam) return;
     try {
       const response = await clusterReportsApi.exportComplianceCSV({
-        start_date: startDate,
-        end_date: endDate,
+        year: selectedYear,
+        week_number: weekParam,
         status: statusFilter !== "ALL" ? statusFilter : undefined,
       });
-      const blob = new Blob([response.data], { type: 'text/csv' });
+      const blob = new Blob([response.data], { type: "text/csv" });
       const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
+      const link = document.createElement("a");
       link.href = url;
-      link.download = `cluster_compliance_${startDate}_${endDate}.csv`;
+      link.download = `cluster_compliance_${selectedYear}_w${weekParam.replace(/,/g, "-")}.csv`;
       link.click();
       window.URL.revokeObjectURL(url);
     } catch (err) {
@@ -90,28 +176,6 @@ export default function ClusterComplianceTab() {
     }
   };
 
-  if (loading) {
-    return (
-      <Card>
-        <div className="flex justify-center items-center py-12">
-          <LoadingSpinner />
-        </div>
-      </Card>
-    );
-  }
-
-  if (error) {
-    return (
-      <Card>
-        <ErrorMessage message={error} />
-      </Card>
-    );
-  }
-
-  if (!data) {
-    return null;
-  }
-
   return (
     <div className="space-y-6">
       {/* Summary Cards */}
@@ -119,63 +183,83 @@ export default function ClusterComplianceTab() {
         <Card className="!p-3">
           <div className="text-xs text-gray-600">Total Clusters</div>
           <div className="text-lg font-semibold leading-tight mt-0.5">
-            {data.summary.total_clusters}
+            {data?.summary.total_clusters ?? "—"}
           </div>
         </Card>
         <Card className="!p-3">
           <div className="text-xs text-gray-600">Compliant</div>
           <div className="text-lg font-semibold leading-tight mt-0.5 text-green-600">
-            {data.summary.compliant_clusters}
+            {data?.summary.compliant_clusters ?? "—"}
           </div>
         </Card>
         <Card className="!p-3">
           <div className="text-xs text-gray-600">Non-Compliant</div>
           <div className="text-lg font-semibold leading-tight mt-0.5 text-red-600">
-            {data.summary.non_compliant_clusters}
+            {data?.summary.non_compliant_clusters ?? "—"}
           </div>
         </Card>
         <Card className="!p-3">
           <div className="text-xs text-gray-600">Overall Compliance Rate</div>
           <div className="text-lg font-semibold leading-tight mt-0.5">
-            {data.summary.compliance_rate.toFixed(1)}%
+            {data ? `${data.summary.compliance_rate.toFixed(1)}%` : "—"}
           </div>
         </Card>
       </div>
 
       {/* Filters */}
       <Card>
-        <div className="p-4 space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div>
+        <div className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-end">
+            <div className="md:col-span-5">
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Start Date
+                Week
               </label>
-              <input
-                type="date"
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md"
+              <ScalableSelect
+                multiple
+                options={weekOptions}
+                values={selectedWeeks}
+                onValuesChange={setSelectedWeeks}
+                scrollToValue={
+                  weekOptions.some(
+                    (option) => option.value === String(todayIso.week),
+                  )
+                    ? String(todayIso.week)
+                    : selectedWeeks[selectedWeeks.length - 1]
+                }
+                placeholder="Select weeks"
+                searchPlaceholder="Search weeks..."
+                className="w-full"
+                showSearch
+                maxHeight={280}
+                emptyMessage="No weeks found"
               />
             </div>
-            <div>
+            <div className="md:col-span-2">
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                End Date
+                Year
               </label>
-              <input
-                type="date"
-                value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md"
-              />
+              <select
+                value={selectedYear}
+                onChange={(e) => handleYearChange(parseInt(e.target.value, 10))}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md h-11"
+              >
+                {availableYears.map((year) => (
+                  <option key={year} value={year}>
+                    {year}
+                  </option>
+                ))}
+              </select>
             </div>
-            <div className="flex flex-col">
+            <div className="flex flex-col md:col-span-3">
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Status Filter
               </label>
               <select
                 value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value as ComplianceStatus | "ALL")}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md h-[42px]"
+                onChange={(e) =>
+                  setStatusFilter(e.target.value as ComplianceStatus | "ALL")
+                }
+                className="w-full px-3 py-2 border border-gray-300 rounded-md h-11"
               >
                 <option value="ALL">All</option>
                 <option value="COMPLIANT">Compliant</option>
@@ -183,123 +267,152 @@ export default function ClusterComplianceTab() {
                 <option value="NON_COMPLIANT">Non-Compliant</option>
               </select>
             </div>
-            <div className="flex items-end">
-              <Button onClick={handleExportCSV} variant="secondary" className="h-[42px]">
+            <div className="flex items-end md:col-span-2">
+              <Button
+                onClick={handleExportCSV}
+                variant="secondary"
+                className="h-11 w-full"
+                disabled={!weekParam || loading || !data}
+              >
                 Export CSV
               </Button>
             </div>
           </div>
+          {!weekParam && (
+            <p className="text-sm text-gray-500">Select at least one week.</p>
+          )}
         </div>
       </Card>
 
-      {/* Compliance Table */}
-      <Card>
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Cluster
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Coordinator
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Status
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Compliance Rate
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Reports
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Last Report
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Days Since
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Trend
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {data.clusters.map((item: ClusterCompliance) => (
-                <tr key={item.cluster.id}>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm font-medium text-gray-900">
-                      {item.cluster.name || item.cluster.code || `Cluster ${item.cluster.id}`}
-                    </div>
-                    {item.cluster.code && (
-                      <div className="text-sm text-gray-500">{item.cluster.code}</div>
-                    )}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {item.cluster.coordinator
-                      ? formatPersonName(item.cluster.coordinator)
-                      : "N/A"}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span
-                      className={`px-2 py-1 text-xs font-semibold rounded-full ${getStatusBadgeColor(
-                        item.status
-                      )}`}
-                    >
-                      {item.status}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex items-center">
-                      <div className="w-16 bg-gray-200 rounded-full h-2 mr-2">
-                        <div
-                          className={`h-2 rounded-full ${
-                            item.compliance_rate >= 100
-                              ? "bg-green-500"
-                              : item.compliance_rate >= 50
-                              ? "bg-yellow-500"
-                              : "bg-red-500"
-                          }`}
-                          style={{ width: `${Math.min(item.compliance_rate, 100)}%` }}
-                        />
-                      </div>
-                      <span className="text-sm text-gray-900">
-                        {item.compliance_rate.toFixed(1)}%
-                      </span>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {item.reports_submitted} / {item.reports_expected}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {item.last_report_date
-                      ? formatLocaleDate(item.last_report_date)
-                      : "Never"}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {item.days_since_last_report !== null
-                      ? `${item.days_since_last_report} days`
-                      : "N/A"}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {item.trend ? (
-                      <span className="text-lg">{getTrendIcon(item.trend)}</span>
-                    ) : (
-                      "N/A"
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-        {data.clusters.length === 0 && (
-          <div className="text-center py-8 text-gray-500">
-            No compliance data found for the selected period.
+      {loading ? (
+        <Card>
+          <div className="flex justify-center items-center py-12">
+            <LoadingSpinner />
           </div>
-        )}
-      </Card>
+        </Card>
+      ) : error ? (
+        <Card>
+          <ErrorMessage message={error} />
+        </Card>
+      ) : !data ? null : (
+        <>
+          {/* Compliance Table */}
+          <Card className="!p-0">
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Cluster
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Coordinator
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Status
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Compliance Rate
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Reports
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Last Report
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Days Since
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Trend
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {data.clusters.map((item: ClusterCompliance) => (
+                    <tr key={item.cluster.id}>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm font-medium text-gray-900">
+                          {item.cluster.name ||
+                            item.cluster.code ||
+                            `Cluster ${item.cluster.id}`}
+                        </div>
+                        {item.cluster.code && (
+                          <div className="text-sm text-gray-500">
+                            {item.cluster.code}
+                          </div>
+                        )}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {item.cluster.coordinator
+                          ? formatPersonName(item.cluster.coordinator)
+                          : "N/A"}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span
+                          className={`px-2 py-1 text-xs font-semibold rounded-full ${getStatusBadgeColor(
+                            item.status,
+                          )}`}
+                        >
+                          {item.status}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex items-center">
+                          <div className="w-16 bg-gray-200 rounded-full h-2 mr-2">
+                            <div
+                              className={`h-2 rounded-full ${
+                                item.compliance_rate >= 100
+                                  ? "bg-green-500"
+                                  : item.compliance_rate >= 50
+                                    ? "bg-yellow-500"
+                                    : "bg-red-500"
+                              }`}
+                              style={{
+                                width: `${Math.min(item.compliance_rate, 100)}%`,
+                              }}
+                            />
+                          </div>
+                          <span className="text-sm text-gray-900">
+                            {item.compliance_rate.toFixed(1)}%
+                          </span>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {item.reports_submitted} / {item.reports_expected}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {item.last_report_date
+                          ? formatLocaleDate(item.last_report_date)
+                          : "Never"}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {item.days_since_last_report !== null
+                          ? `${item.days_since_last_report} days`
+                          : "N/A"}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {item.trend ? (
+                          <span className="text-lg">
+                            {getTrendIcon(item.trend)}
+                          </span>
+                        ) : (
+                          "N/A"
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            {data.clusters.length === 0 && (
+              <div className="text-center py-8 text-gray-500">
+                No compliance data found for the selected period.
+              </div>
+            )}
+          </Card>
+        </>
+      )}
     </div>
   );
 }
-

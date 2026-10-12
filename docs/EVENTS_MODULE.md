@@ -81,7 +81,7 @@ The recurrence service expands this pattern on demand in `apps.events.services.r
 
 ## Attendance Tracking
 
-- `EventSerializer` exposes `attendance_count` (total records across the event) and an `attendance_records` array filtered via `attendance_date=YYYY-MM-DD` when `include_attendance=true`.
+- `EventSerializer` exposes `attendance_count` (total records across the event) and an `attendance_records` array filtered via `attendance_date=YYYY-MM-DD` when `include_attendance=true`. The nested person (name, phone, member ID, cluster, family) and `notes` are included only for Admin, Pastor, and Events Coordinator / Senior Coordinator (`has_events_write`). Other readers still get every row so counts stay correct, but `person` is `{ "id": <viewer id> }` on their own row and `{ "id": null }` on everyone else, and `notes` is blank. The same gate applies to `GET /api/events/{id}/attendance/` and `/api/attendance/`.
 - It also derives an `attendee_badges` payload from the same records, so the frontend can render per-person badges (cluster code, family name, etc.) without the model carrying its own `ManyToMany`.
 - `POST /api/events/{id}/attendance/` accepts `person_id`, `occurrence_date`, optional `status`, and upserts an attendance record. Each successful write syncs the matching `EVENT_ATTENDANCE` journey.
 - `DELETE /api/events/{id}/attendance/{attendance_id}/` removes the attendance record and its journey.

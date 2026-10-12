@@ -39,7 +39,7 @@ import {
 
 const SCAN_COOLDOWN_MS = 2000;
 
-type Step = "identify" | "select-event" | "confirm" | "success";
+type Step = "identify" | "select-event" | "confirm" | "success" | "undo";
 const ID_PREFIXES = ["LAMP", "GUEST", "TEMP"] as const;
 type IdPrefix = (typeof ID_PREFIXES)[number];
 
@@ -426,6 +426,31 @@ export default function PublicSelfCheckInView() {
     void loadSession();
   };
 
+  const handleUndoCheckIn = async () => {
+    const trimmed = memberId.trim();
+    if (!trimmed) {
+      setError(`Enter your ${idKindLabel(idPrefix)}.`);
+      return;
+    }
+    setSubmitting(true);
+    setError(null);
+    try {
+      await publicSelfCheckInApi.undo({
+        member_id: trimmed,
+        ...(selectedEventId ? { event_id: selectedEventId } : {}),
+      });
+      toast.success("Check-in removed.");
+      resetIdentify();
+    } catch (err) {
+      setError(
+        axiosDetail(err) ||
+          formatApiErrorMessage(err, "Unable to undo this check-in."),
+      );
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   const shell = (children: ReactNode) => (
     <div className="flex min-h-screen items-center justify-center bg-background px-4 py-8 sm:px-6">
       <div className="w-full max-w-md">
@@ -499,9 +524,61 @@ export default function PublicSelfCheckInView() {
             {person.full_name || formatPersonName(person)}
           </p>
         </div>
-        <Button className="w-full" onClick={resetIdentify}>
-          Check in someone else
-        </Button>
+        <div className="grid gap-2">
+          <Button className="w-full" onClick={resetIdentify}>
+            Check in someone else
+          </Button>
+          <button
+            type="button"
+            className="w-full py-2 text-center text-sm font-medium text-red-600 hover:text-red-700"
+            onClick={() => {
+              setError(null);
+              setStep("undo");
+            }}
+          >
+            I made a mistake
+          </button>
+        </div>
+      </div>,
+    );
+  }
+
+  if (step === "undo" && person) {
+    return shell(
+      <div className="space-y-5 text-center">
+        {sessionEvent ? <ServiceCard event={sessionEvent} /> : null}
+        <div className="flex flex-col items-center gap-2 pt-2">
+          <p className="text-lg font-semibold text-lighthouse-navy">
+            Undo this check-in?
+          </p>
+          <p className="text-md font-medium text-primary">
+            {person.full_name || formatPersonName(person)}
+          </p>
+          <p className="text-sm text-muted-foreground">
+            This removes your online check-in from today&apos;s service.
+          </p>
+        </div>
+        {actionError}
+        <div className="grid gap-2">
+          <Button
+            className="w-full"
+            disabled={submitting}
+            onClick={() => void handleUndoCheckIn()}
+          >
+            {submitting ? "Removing…" : "Undo check-in"}
+          </Button>
+          <Button
+            variant="tertiary"
+            className="w-full"
+            disabled={submitting}
+            onClick={() => {
+              setError(null);
+              setStep("success");
+            }}
+          >
+            Keep check-in
+          </Button>
+        </div>
       </div>,
     );
   }

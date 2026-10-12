@@ -339,7 +339,7 @@ All routes live under `/api/evangelism/` (namespaced in `core.urls`):
       - **REACHED**: Person meets all reached milestones (first invited, first attended, at least one NCC session, water baptism, Holy Ghost); counted in the month of `reached_date` (latest of those milestone dates)
       - **UNIQUE HC** (`unique_hc_count`): Distinct people who appear in **any** of the columns above for that month (union of person IDs). Someone who progressed through several stages still counts as **1**
     - Related actions (same query params for `branch`, `cluster`, `evangelism_group` as `/people_tally/`):
-      - `GET /people_tally_years/` – years present in tally-related data for the current scope
+      - `GET /people_tally_years/` – years present in tally-related data for the current scope, always including the current church year (`default_year`)
       - `GET /people_tally_detail/` – paginated drill-down for a month window + metric
         - Required: `metric` ∈ `invited` | `attended` | `students` | `baptized` | `received_hg` | `reached` | `unique_hc`
         - Required: `month` (single) or `months=1,2,3`

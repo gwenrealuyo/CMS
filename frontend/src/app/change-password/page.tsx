@@ -6,6 +6,7 @@ import { useAuth } from "@/src/contexts/AuthContext";
 import Button from "@/src/components/ui/Button";
 import PasswordInput from "@/src/components/ui/PasswordInput";
 import { authApi } from "@/src/lib/api";
+import { formatPasswordChangeError } from "@/src/lib/apiErrors";
 import ProtectedRoute from "@/src/components/auth/ProtectedRoute";
 
 export default function ChangePasswordPage() {
@@ -69,13 +70,8 @@ function ChangePasswordPageContent() {
       );
       await refreshUser();
       router.push("/dashboard");
-    } catch (error: any) {
-      setError(
-        error.response?.data?.message ||
-          error.response?.data?.old_password?.[0] ||
-          error.message ||
-          "Failed to change password."
-      );
+    } catch (error: unknown) {
+      setError(formatPasswordChangeError(error));
     } finally {
       setIsLoading(false);
     }

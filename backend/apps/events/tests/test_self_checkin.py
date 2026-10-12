@@ -1127,6 +1127,57 @@ class SelfCheckInAPITests(APITestCase):
         record.refresh_from_db()
         self.assertEqual(record.attendance_venue_id, "HOME_ALTAR")
 
+    def test_public_undo_removes_own_online_checkin(self):
+        checked = self.client.post(
+            "/api/events/self-check-in/public/",
+            {"member_id": "LAMP10001", "attendance_venue": "HOME_ALTAR"},
+            format="json",
+        )
+        self.assertEqual(checked.status_code, 200, checked.data)
+
+        undo = self.client.post(
+            "/api/events/self-check-in/public/undo/",
+            {"member_id": "LAMP10001"},
+            format="json",
+        )
+        self.assertEqual(undo.status_code, 200, undo.data)
+        self.assertFalse(undo.data["already_checked_in"])
+        self.assertFalse(
+            AttendanceRecord.objects.filter(
+                event=self.event, person=self.member, occurrence_date=TODAY
+            ).exists()
+        )
+
+        missing = self.client.post(
+            "/api/events/self-check-in/public/undo/",
+            {"member_id": "LAMP10001"},
+            format="json",
+        )
+        self.assertEqual(missing.status_code, 404, missing.data)
+
+    def test_public_undo_leaves_onsite_checkin(self):
+        AttendanceRecord.objects.create(
+            event=self.event,
+            person=self.member,
+            occurrence_date=TODAY,
+            status="PRESENT",
+            attendance_mode="ONSITE",
+        )
+        undo = self.client.post(
+            "/api/events/self-check-in/public/undo/",
+            {"member_id": "LAMP10001"},
+            format="json",
+        )
+        self.assertEqual(undo.status_code, 404, undo.data)
+        self.assertTrue(
+            AttendanceRecord.objects.filter(
+                event=self.event,
+                person=self.member,
+                occurrence_date=TODAY,
+                attendance_mode="ONSITE",
+            ).exists()
+        )
+
 
     def test_session_hidden_when_event_self_checkin_disabled(self):
         self.event.self_checkin_enabled = False

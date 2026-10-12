@@ -910,6 +910,8 @@ export const clusterReportsApi = {
   compliance: (params?: {
     start_date?: string;
     end_date?: string;
+    year?: number;
+    week_number?: string;
     branch_id?: number;
     coordinator_id?: number;
     status?: 'COMPLIANT' | 'NON_COMPLIANT' | 'PARTIAL';
@@ -937,6 +939,8 @@ export const clusterReportsApi = {
   exportComplianceCSV: (params?: {
     start_date?: string;
     end_date?: string;
+    year?: number;
+    week_number?: string;
     branch_id?: number;
     coordinator_id?: number;
     status?: 'COMPLIANT' | 'NON_COMPLIANT' | 'PARTIAL';
@@ -1153,6 +1157,11 @@ export const publicSelfCheckInApi = {
   }) =>
     publicApi.post<PublicSelfCheckInSessionResponse>(
       "/events/self-check-in/public/",
+      payload
+    ),
+  undo: (payload: { member_id: string; event_id?: number | string }) =>
+    publicApi.post<PublicSelfCheckInSessionResponse>(
+      "/events/self-check-in/public/undo/",
       payload
     ),
 };

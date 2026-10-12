@@ -7,6 +7,7 @@ import DashboardLayout from "@/src/components/layout/DashboardLayout";
 import Button from "@/src/components/ui/Button";
 import PasswordInput from "@/src/components/ui/PasswordInput";
 import { authApi } from "@/src/lib/api";
+import { formatPasswordChangeError } from "@/src/lib/apiErrors";
 import PersonAvatar from "@/src/components/people/PersonAvatar";
 import ProtectedRoute from "@/src/components/auth/ProtectedRoute";
 import ProfileAccessSection from "@/src/components/profile/ProfileAccessSection";
@@ -150,13 +151,8 @@ function ProfilePageContent() {
         new_password: "",
         confirm_password: "",
       });
-    } catch (error: any) {
-      setPasswordError(
-        error.response?.data?.message ||
-          error.response?.data?.old_password?.[0] ||
-          error.message ||
-          "Failed to change password."
-      );
+    } catch (error: unknown) {
+      setPasswordError(formatPasswordChangeError(error));
     } finally {
       setPasswordLoading(false);
     }

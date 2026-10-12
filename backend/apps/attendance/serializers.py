@@ -2,6 +2,7 @@ from rest_framework import serializers
 from rest_framework.exceptions import ValidationError
 
 from apps.events.models import AttendanceVenue, Event
+from apps.events.permissions import has_events_write
 from apps.events.services.registration import require_registration_for_checkin
 from apps.people.models import Person
 from apps.people.name_formatting import format_person_display_name
@@ -103,6 +104,28 @@ class AttendanceRecordSerializer(serializers.ModelSerializer):
         ]
         validators = []
 
+    def _should_redact_attendance_person(self) -> bool:
+        """Members see counts and their own id. Events write sees the full person."""
+        request = self.context.get("request") if self.context else None
+        if request is None:
+            return False
+        return not has_events_write(getattr(request, "user", None))
+
+    def _redact_attendance_person(self, representation: dict) -> None:
+        person = representation.get("person") or {}
+        person_id = person.get("id")
+        request = self.context.get("request") if self.context else None
+        viewer_id = getattr(getattr(request, "user", None), "pk", None)
+        if (
+            person_id is not None
+            and viewer_id is not None
+            and str(person_id) == str(viewer_id)
+        ):
+            representation["person"] = {"id": person_id}
+        else:
+            representation["person"] = {"id": None}
+        representation["notes"] = ""
+
     def to_representation(self, instance):
         representation = super().to_representation(instance)
         representation.pop("event_id", None)
@@ -112,6 +135,8 @@ class AttendanceRecordSerializer(serializers.ModelSerializer):
             representation["attendance_venue"] = venue.code
         elif instance.attendance_venue_id:
             representation["attendance_venue"] = instance.attendance_venue_id
+        if self._should_redact_attendance_person():
+            self._redact_attendance_person(representation)
         return representation
 
     def validate(self, attrs):

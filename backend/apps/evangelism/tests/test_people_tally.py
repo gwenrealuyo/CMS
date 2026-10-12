@@ -5,10 +5,12 @@ from rest_framework.test import APITestCase
 
 from apps.clusters.models import Cluster
 from apps.people.models import Branch, Person
+from core.datetime_utils import church_today
 
 
 TALLY_URL = "/api/evangelism/weekly-reports/people_tally/"
 DETAIL_URL = "/api/evangelism/weekly-reports/people_tally_detail/"
+YEARS_URL = "/api/evangelism/weekly-reports/people_tally_years/"
 
 
 class PeopleTallyAPITests(APITestCase):
@@ -232,3 +234,16 @@ class PeopleTallyAPITests(APITestCase):
         self.assertEqual(month_alias.status_code, 200, month_alias.data)
         self.assertEqual(month_alias.data["count"], 1)
         self.assertEqual(month_alias.data["results"][0]["first_name"], "Cal")
+
+    def test_people_tally_years_include_current_year_when_only_older_milestones_exist(self):
+        member = self._person("tallyoldbaptism", role="MEMBER", first_name="Old")
+        member.water_baptism_date = date(1986, 6, 1)
+        member.save(update_fields=["water_baptism_date"])
+
+        response = self.client.get(YEARS_URL, {"branch": self.branch.id})
+        self.assertEqual(response.status_code, 200, response.data)
+        current_year = church_today().year
+        self.assertIn(1986, response.data["years"])
+        self.assertIn(current_year, response.data["years"])
+        self.assertEqual(response.data["years"], sorted(response.data["years"], reverse=True))
+        self.assertEqual(response.data["default_year"], current_year)

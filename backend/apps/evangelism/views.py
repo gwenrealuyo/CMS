@@ -1539,12 +1539,15 @@ class EvangelismWeeklyReportViewSet(viewsets.ModelViewSet):
         )
         years.update(lesson_qs.dates("session_date", "year"))
 
-        sorted_years = sorted([y.year for y in years], reverse=True)
-        current_year = timezone.now().year
+        current_year = church_today().year
+        sorted_years = sorted(
+            {current_year, *(value.year for value in years)},
+            reverse=True,
+        )
         return Response(
             {
                 "years": sorted_years,
-                "default_year": sorted_years[0] if sorted_years else current_year,
+                "default_year": current_year,
             }
         )
 

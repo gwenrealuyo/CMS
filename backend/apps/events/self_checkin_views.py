@@ -969,3 +969,57 @@ class PublicSelfCheckInView(APIView):
             )
             return Response(payload, status=status.HTTP_409_CONFLICT)
         return Response(payload, status=status.HTTP_200_OK)
+
+
+class PublicSelfCheckInUndoView(APIView):
+    """Undo the identified person's online check-in for today's service."""
+
+    authentication_classes = []
+    permission_classes = [AllowAny]
+    throttle_classes = [PublicSelfCheckInThrottle]
+
+    def post(self, request):
+        person, resolved, error = _identify_public_person(request)
+        if error is not None:
+            return error
+        if resolved.needs_selection or not resolved.event:
+            payload = _public_payload(
+                resolved,
+                {
+                    "detail": "Select an event first.",
+                    "person": serialize_public_person(
+                        person,
+                        already_checked_in=False,
+                        request=request,
+                    ),
+                },
+            )
+            return Response(payload, status=status.HTTP_400_BAD_REQUEST)
+
+        records = AttendanceRecord.objects.filter(
+            event=resolved.event,
+            occurrence_date=resolved.occurrence_date,
+            person=person,
+            attendance_mode=AttendanceRecord.AttendanceMode.ONLINE,
+        )
+        removed_ids = list(records.values_list("person_id", flat=True))
+        if not removed_ids:
+            return Response(
+                {"detail": "No online check-in found to undo."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        records.delete()
+        return Response(
+            _public_payload(
+                resolved,
+                {
+                    "person": serialize_public_person(
+                        person,
+                        already_checked_in=False,
+                        request=request,
+                    ),
+                    "already_checked_in": False,
+                    "removed_person_ids": removed_ids,
+                },
+            )
+        )

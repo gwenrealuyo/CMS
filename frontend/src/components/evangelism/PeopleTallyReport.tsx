@@ -376,11 +376,17 @@ export default function PeopleTallyReport({
           branch: selectedBranch === "" ? undefined : selectedBranch,
           ...(isClusterLayout ? {} : scopeParams),
         });
-        const years = response.data.years || [];
-        const fallbackYear =
-          response.data.default_year || new Date().getFullYear();
-        const options = years.length > 0 ? years : [fallbackYear];
-        setYearOptions(options);
+        const currentYear = new Date().getFullYear();
+        const reportedYears = response.data.years || [];
+        const defaultYear = response.data.default_year || currentYear;
+        const options = Array.from(
+          new Set(
+            [currentYear, defaultYear, ...reportedYears].filter(
+              (year) => typeof year === "number" && Number.isFinite(year),
+            ),
+          ),
+        ).sort((a, b) => b - a);
+        setYearOptions(options.length > 0 ? options : [currentYear]);
       } catch (err) {
         console.error(err);
         setYearOptions([new Date().getFullYear()]);
@@ -451,7 +457,10 @@ export default function PeopleTallyReport({
       onTallyScopeChange("");
     }
     if (onYearChange) {
-      const fallbackYear = yearOptions[0] || new Date().getFullYear();
+      const currentYear = new Date().getFullYear();
+      const fallbackYear = yearOptions.includes(currentYear)
+        ? currentYear
+        : yearOptions[0] || currentYear;
       onYearChange(fallbackYear);
       setMonths(defaultMonthsForYear(fallbackYear));
     } else {

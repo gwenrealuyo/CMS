@@ -175,3 +175,65 @@ export function formatApiErrorMessage(
 
   return fallback;
 }
+
+const PASSWORD_FIELD_SUBJECT: Record<string, string> = {
+  old_password: "Current password",
+  new_password: "New password",
+  confirm_password: "Confirm password",
+};
+
+function collectErrorStrings(value: unknown): string[] {
+  if (value == null || value === "") return [];
+  if (typeof value === "string") return [value];
+  if (Array.isArray(value)) return value.flatMap(collectErrorStrings);
+  return [stringifyErrorValue(value)].filter(Boolean);
+}
+
+/** One sentence, using the same wording as the password form. */
+function formatPasswordFieldMessage(field: string, text: string): string {
+  const subject = PASSWORD_FIELD_SUBJECT[field];
+  if (!subject) return text;
+
+  if (field === "old_password") {
+    return text.replace(/^Old password\b/i, subject);
+  }
+
+  return text
+    .replace(/^This field\b/i, subject)
+    .replace(/^Password\b/, subject);
+}
+
+/**
+ * Password-change errors are already full sentences ("Old password is incorrect.").
+ * Show that sentence with the form's wording, without a "Field: message" prefix.
+ */
+export function formatPasswordChangeError(
+  error: unknown,
+  fallback = "Failed to change password.",
+): string {
+  const responseData = (
+    error as { response?: { data?: Record<string, unknown> } }
+  )?.response?.data;
+
+  const source =
+    responseData && typeof responseData === "object"
+      ? responseData.details !== undefined
+        ? responseData.details
+        : responseData
+      : undefined;
+
+  if (source && typeof source === "object" && !Array.isArray(source)) {
+    const messages: string[] = [];
+    for (const [key, value] of Object.entries(
+      source as Record<string, unknown>,
+    )) {
+      if (key === "error" || key === "message" || key === "details") continue;
+      for (const text of collectErrorStrings(value)) {
+        messages.push(formatPasswordFieldMessage(key, text));
+      }
+    }
+    if (messages.length > 0) return messages.join(" ");
+  }
+
+  return formatApiErrorMessage(error, fallback);
+}

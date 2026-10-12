@@ -4,7 +4,7 @@ from django.utils import timezone
 from rest_framework.test import APITestCase
 
 from apps.clusters.models import Cluster
-from apps.people.models import Branch, Person, PersonStatusChange
+from apps.people.models import Branch, ModuleCoordinator, Person, PersonStatusChange
 from core.datetime_utils import church_today
 
 
@@ -316,6 +316,81 @@ class ClusterStatusTallyAPITests(APITestCase):
         self.assertEqual(row["status"], "SEMIACTIVE")
         self.assertTrue(row["in_window"])
         self.assertIsNotNone(row["changed_at"])
+
+    def _detail_params(self, **extra):
+        params = {
+            "year": self.year,
+            "branch_id": self.branch.id,
+            "months": "9",
+            "status": "ACTIVE",
+            "cluster": self.east.id,
+        }
+        params.update(extra)
+        return params
+
+    def test_plain_member_sees_counts_but_not_people(self):
+        member = self._person("statplain", first_name="Plain")
+        listed = self._person("statlisted", first_name="Listed")
+        self.east.members.add(listed)
+        self.client.force_authenticate(member)
+
+        tally = self.client.get(
+            TALLY_URL,
+            {
+                "year": self.year,
+                "branch_id": self.branch.id,
+                "months": "9",
+            },
+        )
+        self.assertEqual(tally.status_code, 200, tally.data)
+
+        detail = self.client.get(DETAIL_URL, self._detail_params())
+        self.assertEqual(detail.status_code, 403, detail.data)
+
+    def test_reporter_only_cannot_view_status_tally_people(self):
+        reporter = self._person("statreporter", first_name="Rep")
+        ModuleCoordinator.objects.create(
+            person=reporter,
+            module=ModuleCoordinator.ModuleType.CLUSTER,
+            level=ModuleCoordinator.CoordinatorLevel.REPORTER,
+            resource_id=self.east.id,
+            resource_type="Cluster",
+        )
+        self.client.force_authenticate(reporter)
+
+        detail = self.client.get(DETAIL_URL, self._detail_params())
+        self.assertEqual(detail.status_code, 403, detail.data)
+
+    def test_cluster_coordinator_can_view_status_tally_people(self):
+        coordinator = self._person("statcoord", first_name="Cord")
+        listed = self._person("statcoordlisted", first_name="Listed")
+        self.east.members.add(listed)
+        ModuleCoordinator.objects.create(
+            person=coordinator,
+            module=ModuleCoordinator.ModuleType.CLUSTER,
+            level=ModuleCoordinator.CoordinatorLevel.COORDINATOR,
+            resource_id=self.east.id,
+            resource_type="Cluster",
+        )
+        self.client.force_authenticate(coordinator)
+
+        detail = self.client.get(DETAIL_URL, self._detail_params())
+        self.assertEqual(detail.status_code, 200, detail.data)
+        names = [row["first_name"] for row in detail.data["results"]]
+        self.assertEqual(names, ["Listed"])
+
+    def test_fk_coordinator_can_view_status_tally_people(self):
+        coordinator = self._person("statfkcoord", first_name="Faye")
+        listed = self._person("statfklisted", first_name="Listed")
+        self.east.members.add(listed)
+        self.east.coordinator = coordinator
+        self.east.save(update_fields=["coordinator"])
+        self.client.force_authenticate(coordinator)
+
+        detail = self.client.get(DETAIL_URL, self._detail_params())
+        self.assertEqual(detail.status_code, 200, detail.data)
+        names = [row["first_name"] for row in detail.data["results"]]
+        self.assertEqual(names, ["Listed"])
 
     def test_years_requires_branch(self):
         response = self.client.get(YEARS_URL)

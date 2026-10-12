@@ -69,6 +69,8 @@ interface ScalableSelectProps {
   multiple?: boolean;
   values?: string[];
   onValuesChange?: (values: string[]) => void;
+  /** Option to bring into view when the menu opens. */
+  scrollToValue?: string;
 }
 
 export default function ScalableSelect({
@@ -89,6 +91,7 @@ export default function ScalableSelect({
   multiple = false,
   values = [],
   onValuesChange,
+  scrollToValue,
 }: ScalableSelectProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -217,6 +220,41 @@ export default function ScalableSelect({
     }
   }, [isOpen, showSearch]);
 
+  // Open the list at the requested option instead of the first row.
+  useEffect(() => {
+    if (!isOpen || searchQuery) return;
+    const target =
+      scrollToValue ||
+      (multiple ? selectedValues[selectedValues.length - 1] : value);
+    if (!target) return;
+
+    let active = true;
+    const frame = requestAnimationFrame(() => {
+      if (!active) return;
+      const container = optionsContainerRef.current;
+      if (!container) return;
+      const option = container.querySelector(
+        `[data-option-value="${CSS.escape(String(target))}"]`,
+      );
+      if (!(option instanceof HTMLElement)) return;
+      const containerRect = container.getBoundingClientRect();
+      const optionRect = option.getBoundingClientRect();
+      const delta =
+        optionRect.top -
+        containerRect.top -
+        container.clientHeight / 2 +
+        optionRect.height / 2;
+      container.scrollTop = Math.max(0, container.scrollTop + delta);
+    });
+
+    return () => {
+      active = false;
+      cancelAnimationFrame(frame);
+    };
+    // Scroll only when the menu opens, not when the selection changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, scrollToValue]);
+
   const handleOptionClick = (optionValue: string) => {
     if (multiple) {
       const next = selectedValues.includes(optionValue)
@@ -270,6 +308,7 @@ export default function ScalableSelect({
       <button
         key={option.value}
         type="button"
+        data-option-value={option.value}
         onClick={() => handleOptionClick(option.value)}
         disabled={option.disabled}
         role={multiple ? "option" : undefined}

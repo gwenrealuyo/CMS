@@ -26,6 +26,7 @@ import {
 } from "@/src/types/cluster";
 
 interface ClusterStatusTallyReportProps {
+  canViewPeople: boolean;
   branch: number | "";
   onBranchChange: (branch: number | "") => void;
   branchOptions: { value: string; label: string }[];
@@ -55,6 +56,7 @@ const STATUS_COLUMNS: Array<{
 ];
 
 export default function ClusterStatusTallyReport({
+  canViewPeople,
   branch,
   onBranchChange,
   branchOptions,
@@ -183,7 +185,7 @@ export default function ClusterStatusTallyReport({
     label: string,
     value: number,
   ) => {
-    if (!value) {
+    if (!canViewPeople || !value) {
       return;
     }
     const clusterId =
@@ -210,10 +212,12 @@ export default function ClusterStatusTallyReport({
   ) => {
     const count = Number(row[accessor] ?? 0);
     const isTotal = row.row_kind === "total";
-    if (count <= 0) {
+    if (count <= 0 || !canViewPeople) {
       return (
         <span
-          className={`text-sm text-gray-400 ${isTotal ? "font-semibold" : ""}`}
+          className={`text-sm ${
+            count <= 0 ? "text-gray-400" : "text-gray-700"
+          } ${isTotal ? "font-semibold" : ""}`}
         >
           {count}
         </span>
@@ -409,19 +413,21 @@ export default function ClusterStatusTallyReport({
           </>
         )}
       </div>
-      <ClusterStatusTallyDrilldownModal
-        isOpen={Boolean(drilldown)}
-        title={drilldownTitle}
-        requestKey={
-          drilldown
-            ? `${selectedYear}-${monthsQueryParam(drilldown.months)}-${drilldown.status}-${
-                drilldown.rowKind || "total"
-              }-${drilldown.clusterId ?? ""}`
-            : null
-        }
-        onClose={() => setDrilldown(null)}
-        fetchPage={fetchDrilldownPage}
-      />
+      {canViewPeople && (
+        <ClusterStatusTallyDrilldownModal
+          isOpen={Boolean(drilldown)}
+          title={drilldownTitle}
+          requestKey={
+            drilldown
+              ? `${selectedYear}-${monthsQueryParam(drilldown.months)}-${drilldown.status}-${
+                  drilldown.rowKind || "total"
+                }-${drilldown.clusterId ?? ""}`
+              : null
+          }
+          onClose={() => setDrilldown(null)}
+          fetchPage={fetchDrilldownPage}
+        />
+      )}
     </Card>
   );
 }

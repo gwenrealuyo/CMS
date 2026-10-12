@@ -311,6 +311,19 @@ export default function PersonProfile({
     );
   }, [families, person.id]);
 
+  const hasFamilyNames = (person.family_names?.length ?? 0) > 0;
+  const canViewFamily = Boolean(onViewFamily) && personFamilies.length > 0;
+  const canAssignFamily =
+    Boolean(onNoFamilyClick) && personFamilies.length === 0 && !hasFamilyNames;
+  const hasClusterCodes = (person.cluster_codes?.length ?? 0) > 0;
+  const canViewCluster = Boolean(onViewCluster) && linkedClusters.length > 0;
+  const canAssignCluster =
+    Boolean(onNoClusterClick) &&
+    linkedClusters.length === 0 &&
+    !hasClusterCodes;
+  const showFamilyRelationship = canViewFamily || canAssignFamily;
+  const showClusterRelationship = canViewCluster || canAssignCluster;
+
   const handleQuickFactsViewFamily = () => {
     const primary = personFamilies[0];
     if (primary && onViewFamily) {
@@ -753,15 +766,19 @@ export default function PersonProfile({
                                       ,
                                     </span>
                                   )}
-                                  <button
-                                    type="button"
-                                    onClick={() =>
-                                      onViewFamily && onViewFamily(fam)
-                                    }
-                                    className="font-medium text-primary hover:text-primary underline underline-offset-2 text-left md:text-right break-words"
-                                  >
-                                    {fam.name}
-                                  </button>
+                                  {onViewFamily ? (
+                                    <button
+                                      type="button"
+                                      onClick={() => onViewFamily(fam)}
+                                      className="font-medium text-primary hover:text-primary underline underline-offset-2 text-left md:text-right break-words"
+                                    >
+                                      {fam.name}
+                                    </button>
+                                  ) : (
+                                    <span className="text-sm text-gray-800 break-words text-left md:text-right">
+                                      {fam.name}
+                                    </span>
+                                  )}
                                 </span>
                               ))}
                             </span>
@@ -771,13 +788,19 @@ export default function PersonProfile({
                             </span>
                           ) : (
                             <div className="inline-flex items-center gap-2 text-sm flex-wrap justify-start md:justify-end">
-                              <button
-                                type="button"
-                                onClick={handleQuickFactsViewFamily}
-                                className="text-red-600 font-medium hover:underline text-left md:text-right"
-                              >
-                                None
-                              </button>
+                              {onNoFamilyClick ? (
+                                <button
+                                  type="button"
+                                  onClick={handleQuickFactsViewFamily}
+                                  className="text-red-600 font-medium hover:underline text-left md:text-right"
+                                >
+                                  None
+                                </button>
+                              ) : (
+                                <span className="text-red-600 font-medium text-left md:text-right">
+                                  None
+                                </span>
+                              )}
                               {onNoFamilyClick && (
                                 <button
                                   type="button"
@@ -818,15 +841,19 @@ export default function PersonProfile({
                                       ,
                                     </span>
                                   )}
-                                  <button
-                                    type="button"
-                                    onClick={() =>
-                                      onViewCluster && onViewCluster(cl)
-                                    }
-                                    className="font-medium text-primary hover:text-primary underline underline-offset-2 text-left md:text-right break-words"
-                                  >
-                                    {clusterQuickFactLabel(cl)}
-                                  </button>
+                                  {onViewCluster ? (
+                                    <button
+                                      type="button"
+                                      onClick={() => onViewCluster(cl)}
+                                      className="font-medium text-primary hover:text-primary underline underline-offset-2 text-left md:text-right break-words"
+                                    >
+                                      {clusterQuickFactLabel(cl)}
+                                    </button>
+                                  ) : (
+                                    <span className="text-sm text-gray-800 break-words text-left md:text-right">
+                                      {clusterQuickFactLabel(cl)}
+                                    </span>
+                                  )}
                                 </span>
                               ))}
                             </span>
@@ -836,13 +863,19 @@ export default function PersonProfile({
                             </span>
                           ) : (
                             <div className="inline-flex items-center gap-2 text-sm flex-wrap justify-start md:justify-end">
-                              <button
-                                type="button"
-                                onClick={handleQuickFactsViewCluster}
-                                className="text-red-600 font-medium hover:underline text-left md:text-right"
-                              >
-                                None
-                              </button>
+                              {onNoClusterClick ? (
+                                <button
+                                  type="button"
+                                  onClick={handleQuickFactsViewCluster}
+                                  className="text-red-600 font-medium hover:underline text-left md:text-right"
+                                >
+                                  None
+                                </button>
+                              ) : (
+                                <span className="text-red-600 font-medium text-left md:text-right">
+                                  None
+                                </span>
+                              )}
                               {onNoClusterClick && (
                                 <button
                                   type="button"
@@ -1001,32 +1034,57 @@ export default function PersonProfile({
                     </dl>
                   </section>
 
-                  <section className="bg-white rounded-xl border border-gray-200 p-3 md:p-4 shadow-sm">
-                    <h3 className="text-sm font-semibold text-gray-900 mb-3">
-                      Relationships
-                    </h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                      <Button
-                        type="button"
-                        onClick={handleQuickFactsViewFamily}
-                        className="w-full text-sm"
+                  {(showFamilyRelationship || showClusterRelationship) && (
+                    <section className="bg-white rounded-xl border border-gray-200 p-3 md:p-4 shadow-sm">
+                      <h3 className="text-sm font-semibold text-gray-900 mb-3">
+                        Relationships
+                      </h3>
+                      <div
+                        className={
+                          showFamilyRelationship && showClusterRelationship
+                            ? "grid grid-cols-1 md:grid-cols-2 gap-2"
+                            : "grid grid-cols-1 gap-2"
+                        }
                       >
-                        {personFamilies.length > 0
-                          ? "View Family"
-                          : "Assign Family"}
-                      </Button>
-                      <Button
-                        type="button"
-                        onClick={handleQuickFactsViewCluster}
-                        className="w-full text-sm"
-                      >
-                        {linkedClusters.length > 0 ||
-                        (person.cluster_codes?.length ?? 0) > 0
-                          ? "View Cluster"
-                          : "Assign Cluster"}
-                      </Button>
-                    </div>
-                  </section>
+                        {canViewFamily && (
+                          <Button
+                            type="button"
+                            onClick={handleQuickFactsViewFamily}
+                            className="w-full text-sm"
+                          >
+                            View Family
+                          </Button>
+                        )}
+                        {canAssignFamily && (
+                          <Button
+                            type="button"
+                            onClick={handleQuickFactsViewFamily}
+                            className="w-full text-sm"
+                          >
+                            Assign Family
+                          </Button>
+                        )}
+                        {canViewCluster && (
+                          <Button
+                            type="button"
+                            onClick={handleQuickFactsViewCluster}
+                            className="w-full text-sm"
+                          >
+                            View Cluster
+                          </Button>
+                        )}
+                        {canAssignCluster && (
+                          <Button
+                            type="button"
+                            onClick={handleQuickFactsViewCluster}
+                            className="w-full text-sm"
+                          >
+                            Assign Cluster
+                          </Button>
+                        )}
+                      </div>
+                    </section>
+                  )}
                 </div>
               </div>
             )}

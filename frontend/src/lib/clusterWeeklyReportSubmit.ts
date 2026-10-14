@@ -72,6 +72,30 @@ export function buildClusterWeeklyReportPayloadFromFormValues(
     throw new Error("Cluster is required");
   }
 
+  if (values.cancelled) {
+    const reason = (values.cancellation_reason || "").trim();
+    if (!reason) {
+      throw new Error(
+        "A reason is required when the gathering is cancelled."
+      );
+    }
+    return {
+      cluster,
+      year: Number(values.year),
+      week_number: Number(values.week_number),
+      meeting_date: values.meeting_date || "",
+      cancelled: true,
+      cancellation_reason: reason,
+      offerings: "0",
+      activities_held: "",
+      prayer_requests: "",
+      testimonies: "",
+      highlights: "",
+      lowlights: "",
+      submitted_by: values.submitted_by ?? undefined,
+    };
+  }
+
   const members_attended = (values.members_attended || [])
     .map((id) => toNumberId(id))
     .filter((id): id is number => id !== null);
@@ -127,6 +151,8 @@ export function buildClusterWeeklyReportPayloadFromFormValues(
     year: Number(values.year),
     week_number: Number(values.week_number),
     meeting_date: values.meeting_date || "",
+    cancelled: false,
+    cancellation_reason: "",
     gathering_type: (values.gathering_type || "PHYSICAL") as GatheringType,
     members_attended,
     visitors_attended,

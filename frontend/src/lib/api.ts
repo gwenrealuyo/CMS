@@ -18,7 +18,10 @@ import {
 import {
   Lesson,
   LessonCommitmentSettings,
+  LessonFollowUpCase,
+  LessonFollowUpInput,
   LessonProgressSummary,
+  LessonTimelinePayload,
   LessonSessionReport,
   LessonSessionReportInput,
   LessonAssignmentRequest,
@@ -417,6 +420,11 @@ export const peopleApi = {
     const data = await fetchAllPeoplePages(params ?? {});
     return { data };
   },
+  firstAttendancePlaces: (ids: Array<string | number>) =>
+    api.get<Array<{ id: number; place: string | null }>>(
+      "/people/people/first-attendance-places/",
+      { params: { ids: ids.join(",") } },
+    ),
   /** ADMIN-only: every ADMIN role account (hidden from the people directory). */
   listAdminAccounts: async (): Promise<{ data: Person[] }> => {
     const data = await fetchAllPeoplePages(
@@ -1476,6 +1484,10 @@ export const lessonsApi = {
     branch_id?: string | number;
   }) =>
     api.get<LessonProgressSummary>("/lessons/progress/summary/", { params }),
+  getTimeline: (params?: { branch_id?: string | number }) =>
+    api.get<LessonTimelinePayload>("/lessons/progress/timeline/", { params }),
+  saveFollowUp: (payload: LessonFollowUpInput) =>
+    api.post<LessonFollowUpCase>("/lessons/progress/follow-up/", payload),
   listSessionReports: (params?: {
     lesson?: string | number;
     student?: string | number;
@@ -2674,6 +2686,8 @@ export const reportsApi = {
     branch_id?: number | string;
     start_date?: string;
     end_date?: string;
+    year?: number;
+    week_number?: string;
     status?: string;
     min_compliance_rate?: number;
     coordinator_id?: number;
@@ -2707,6 +2721,8 @@ export const reportsApi = {
     branch_id?: number | string;
     start_date?: string;
     end_date?: string;
+    year?: number;
+    week_number?: string;
     status?: string;
   }) =>
     api.get("/reports/compliance/export/csv/", {

@@ -1,6 +1,7 @@
 "use client";
 
 import { Suspense } from "react";
+import { usePageTitle } from "@/src/hooks/usePageTitle";
 
 import ProtectedRoute from "@/src/components/auth/ProtectedRoute";
 import GuestFormView from "@/src/components/events/GuestFormView";
@@ -30,6 +31,7 @@ function GuestContent() {
 }
 
 export default function GuestPage() {
+  usePageTitle("Guest");
   return (
     <ProtectedRoute>
       <Suspense

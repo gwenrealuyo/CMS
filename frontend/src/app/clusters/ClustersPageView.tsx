@@ -1817,6 +1817,8 @@ export default function ClustersPageView({
                     week_number: data.week_number,
                     meeting_date: data.meeting_date,
                     gathering_type: data.gathering_type,
+                    cancelled: data.cancelled,
+                    cancellation_reason: data.cancellation_reason,
                     members_attended: data.members_attended || [],
                     visitors_attended: data.visitors_attended || [],
                     prospects_invited: data.prospects_invited || [],

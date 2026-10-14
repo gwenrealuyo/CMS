@@ -509,7 +509,8 @@ export default function EvangelismReportsDashboard({
         "Meeting Date": r.meeting_date
           ? formatLocaleDate(r.meeting_date)
           : "",
-        "Gathering Type": r.gathering_type,
+        "Gathering Type": r.cancelled ? "Cancelled" : r.gathering_type,
+        "Cancellation Reason": r.cancellation_reason || "",
         Members: Array.isArray(r.members_attended)
           ? r.members_attended.length
           : 0,
@@ -537,7 +538,7 @@ export default function EvangelismReportsDashboard({
       r.evangelism_group?.name ?? "",
       `${r.year} W${r.week_number}`,
       r.meeting_date ? formatLocaleDate(r.meeting_date) : "",
-      r.gathering_type,
+      r.cancelled ? "Cancelled" : r.gathering_type || "",
       String(Array.isArray(r.members_attended) ? r.members_attended.length : 0),
       String(Array.isArray(r.visitors_attended) ? r.visitors_attended.length : 0),
     ]);
@@ -699,15 +700,27 @@ export default function EvangelismReportsDashboard({
       cols.push({
         header: "Gathering",
         accessor: "gathering_type" as keyof EvangelismWeeklyReport,
-        render: (gval) => (
-          <span
-            className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${getEvangelismGatheringTypeChipClass(
-              gval as string,
-            )}`}
-          >
-            {String(gval ?? "")}
-          </span>
-        ),
+        render: (_gval, row) =>
+          row.cancelled ? (
+            <span className="inline-flex flex-col items-start gap-1">
+              <span className="inline-flex rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800">
+                Cancelled
+              </span>
+              {row.cancellation_reason && (
+                <span className="text-xs text-gray-600">
+                  {row.cancellation_reason}
+                </span>
+              )}
+            </span>
+          ) : (
+            <span
+              className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${getEvangelismGatheringTypeChipClass(
+                row.gathering_type,
+              )}`}
+            >
+              {row.gathering_type || ""}
+            </span>
+          ),
       });
     }
     if (v.has("members")) {
@@ -715,7 +728,11 @@ export default function EvangelismReportsDashboard({
         header: "Members",
         accessor: "members_attended" as keyof EvangelismWeeklyReport,
         render: (_m, row) =>
-          Array.isArray(row.members_attended) ? row.members_attended.length : 0,
+          row.cancelled
+            ? "—"
+            : Array.isArray(row.members_attended)
+              ? row.members_attended.length
+              : 0,
       });
     }
     if (v.has("visitors")) {
@@ -723,6 +740,7 @@ export default function EvangelismReportsDashboard({
         header: "Visitors",
         accessor: "visitors_attended" as keyof EvangelismWeeklyReport,
         render: (_m, row) => {
+          if (row.cancelled) return "—";
           const n = Array.isArray(row.visitors_attended)
             ? row.visitors_attended.length
             : 0;

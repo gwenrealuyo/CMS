@@ -726,6 +726,31 @@ def _iso_year_week_from_meeting_date(meeting_date):
     return iso[0], iso[1]
 
 
+def _invalid_member_attendee_ids(group, members, already_attended_ids):
+    """People who cannot be recorded on members_attended.
+
+    Roster members, the coordinator, and people already on this report stay
+    allowed. Anyone else may sit in when they are a church member in the
+    group's branch. Sitting in does not enroll them on the group or cluster.
+    """
+    allowed_ids = set(group.members.values_list("id", flat=True))
+    if group.coordinator_id:
+        allowed_ids.add(group.coordinator_id)
+    allowed_ids.update(already_attended_ids)
+
+    group_branch_id = group.branch_id
+    invalid = []
+    for person in members:
+        if person.pk in allowed_ids:
+            continue
+        if getattr(person, "role", None) != "MEMBER":
+            invalid.append(person.pk)
+            continue
+        if group_branch_id and person.branch_id != group_branch_id:
+            invalid.append(person.pk)
+    return invalid
+
+
 class EvangelismWeeklyReportSerializer(serializers.ModelSerializer):
     evangelism_group = EvangelismGroupSerializer(read_only=True)
     evangelism_group_id = serializers.PrimaryKeyRelatedField(
@@ -791,6 +816,8 @@ class EvangelismWeeklyReportSerializer(serializers.ModelSerializer):
             "visitors_attended_details",
             "prospects_invited_details",
             "gathering_type",
+            "cancelled",
+            "cancellation_reason",
             "topic",
             "activities_held",
             "prayer_requests",
@@ -849,24 +876,42 @@ class EvangelismWeeklyReportSerializer(serializers.ModelSerializer):
                     )
                 )
 
+        if self._is_cancelled(attrs):
+            return self._apply_cancelled_rules(attrs)
+
+        gathering_type = attrs.get("gathering_type", serializers.empty)
+        if gathering_type is serializers.empty:
+            gathering_type = (
+                getattr(self.instance, "gathering_type", None)
+                if self.instance is not None
+                else None
+            )
+        if not gathering_type:
+            raise serializers.ValidationError(
+                {"gathering_type": "This field is required."}
+            )
+        if "cancelled" in attrs and not attrs.get("cancelled"):
+            attrs["cancellation_reason"] = ""
+
         members = attrs.get("members_attended")
         if group is not None and members is not None:
-            allowed_ids = set(group.members.values_list("id", flat=True))
-            if group.coordinator_id:
-                allowed_ids.add(group.coordinator_id)
             # Keep people already recorded on this report. Editing must not
             # drop them just because they later left the group roster.
+            already_attended_ids = []
             if self.instance is not None:
-                allowed_ids.update(
+                already_attended_ids = list(
                     self.instance.members_attended.values_list("id", flat=True)
                 )
-
-            invalid = [p.pk for p in members if p.pk not in allowed_ids]
+            invalid = _invalid_member_attendee_ids(
+                group, members, already_attended_ids
+            )
             if invalid:
                 raise serializers.ValidationError(
                     {
                         "members_attended": (
-                            "Members attended must be active group members or the group coordinator. "
+                            "Members attended must be people on this group's roster, "
+                            "the coordinator, or other members from this group's branch. "
+                            "Sitting in does not add them to the group. "
                             f"Invalid IDs: {invalid}"
                         )
                     }
@@ -968,6 +1013,68 @@ class EvangelismWeeklyReportSerializer(serializers.ModelSerializer):
                     )
 
         return attrs
+
+    _CANCELLED_ATTENDANCE_FIELDS = (
+        "members_attended",
+        "visitors_attended",
+        "prospects_invited",
+        "new_invited_prospects",
+        "new_visitors",
+    )
+
+    def _is_cancelled(self, attrs):
+        if "cancelled" in attrs:
+            return bool(attrs.get("cancelled"))
+        if self.instance is not None:
+            return bool(self.instance.cancelled)
+        return False
+
+    def _apply_cancelled_rules(self, attrs):
+        reason = attrs.get("cancellation_reason")
+        if reason is None and self.instance is not None:
+            reason = self.instance.cancellation_reason
+        reason = (reason or "").strip()
+        if not reason:
+            raise serializers.ValidationError(
+                {
+                    "cancellation_reason": (
+                        "A reason is required when the gathering is cancelled."
+                    )
+                }
+            )
+
+        errors = {}
+        for field in self._CANCELLED_ATTENDANCE_FIELDS:
+            value = attrs.get(field, serializers.empty)
+            if value is not serializers.empty and value:
+                errors[field] = (
+                    "Cannot record attendance when the gathering is cancelled."
+                )
+        conversions = attrs.get("conversions_this_week", serializers.empty)
+        if conversions not in (serializers.empty, None) and int(conversions) > 0:
+            errors["conversions_this_week"] = (
+                "Conversions must be 0 when the gathering is cancelled."
+            )
+        if errors:
+            raise serializers.ValidationError(errors)
+
+        attrs["cancelled"] = True
+        attrs["cancellation_reason"] = reason
+        attrs["gathering_type"] = None
+        attrs["conversions_this_week"] = 0
+        attrs["new_prospects"] = 0
+        return attrs
+
+    def _clear_cancelled_attendance(self, report):
+        if not report.cancelled:
+            return
+        report.members_attended.clear()
+        report.visitors_attended.clear()
+        report.prospects_invited.clear()
+        if report.new_prospects != 0 or report.conversions_this_week != 0:
+            report.new_prospects = 0
+            report.conversions_this_week = 0
+            report.save(update_fields=["new_prospects", "conversions_this_week"])
 
     def get_members_attended_details(self, obj):
         return PersonSummarySerializer(obj.members_attended.all(), many=True).data
@@ -1072,6 +1179,12 @@ class EvangelismWeeklyReportSerializer(serializers.ModelSerializer):
         prospects_invited = validated_data.pop("prospects_invited", [])
         members_attended = validated_data.pop("members_attended", [])
         visitors_attended = validated_data.pop("visitors_attended", [])
+        if validated_data.get("cancelled"):
+            new_invited_data = []
+            new_visitors_data = []
+            prospects_invited = []
+            members_attended = []
+            visitors_attended = []
         group = validated_data["evangelism_group"]
         meeting_date = validated_data.get("meeting_date")
 
@@ -1102,7 +1215,9 @@ class EvangelismWeeklyReportSerializer(serializers.ModelSerializer):
             claim_unassigned_prospect_for_group(prospect, group)
         if invited_set:
             report.prospects_invited.set(invited_set)
-        self._sync_derived_new_prospects(report)
+        self._clear_cancelled_attendance(report)
+        if not report.cancelled:
+            self._sync_derived_new_prospects(report)
         return report
 
     @transaction.atomic
@@ -1112,6 +1227,13 @@ class EvangelismWeeklyReportSerializer(serializers.ModelSerializer):
         prospects_invited = validated_data.pop("prospects_invited", serializers.empty)
         members_attended = validated_data.pop("members_attended", serializers.empty)
         visitors_attended = validated_data.pop("visitors_attended", serializers.empty)
+        cancelled = bool(validated_data.get("cancelled", instance.cancelled))
+        if cancelled:
+            new_invited_data = None
+            new_visitors_data = None
+            prospects_invited = serializers.empty
+            members_attended = serializers.empty
+            visitors_attended = serializers.empty
         group = validated_data.get("evangelism_group", instance.evangelism_group)
         meeting_date = validated_data.get("meeting_date", instance.meeting_date)
 
@@ -1160,7 +1282,9 @@ class EvangelismWeeklyReportSerializer(serializers.ModelSerializer):
                     claim_unassigned_prospect_for_group(prospect, group)
             instance.prospects_invited.set(invited_set)
 
-        self._sync_derived_new_prospects(instance)
+        self._clear_cancelled_attendance(instance)
+        if not instance.cancelled:
+            self._sync_derived_new_prospects(instance)
         return instance
 
 

@@ -67,10 +67,17 @@ class EvangelismWeeklyReportAdmin(admin.ModelAdmin):
         "week_number",
         "meeting_date",
         "gathering_type",
+        "cancelled",
         "submitted_by",
         "submitted_at",
     )
-    list_filter = ("evangelism_group", "year", "week_number", "gathering_type")
+    list_filter = (
+        "evangelism_group",
+        "year",
+        "week_number",
+        "gathering_type",
+        "cancelled",
+    )
     search_fields = ("evangelism_group__name", "topic", "notes")
     date_hierarchy = "meeting_date"
     raw_id_fields = ("evangelism_group", "submitted_by")

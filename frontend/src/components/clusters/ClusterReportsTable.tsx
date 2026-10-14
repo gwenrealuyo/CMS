@@ -57,8 +57,11 @@ export default function ClusterReportsTable({
               <div>
                 <span className="text-xs text-gray-500">Attendance</span>
                 <p className="text-sm text-gray-900">
-                  {report.members_present}M / {report.visitors_present}V
-                  {report.member_attendance_rate !== undefined && (
+                  {report.cancelled
+                    ? "Cancelled"
+                    : `${report.members_present}M / ${report.visitors_present}V`}
+                  {!report.cancelled &&
+                    report.member_attendance_rate !== undefined && (
                     <span className="text-xs text-gray-500 block">
                       {report.member_attendance_rate.toFixed(1)}%
                     </span>
@@ -67,7 +70,9 @@ export default function ClusterReportsTable({
               </div>
               <div>
                 <span className="text-xs text-gray-500">Type</span>
-                <p className="text-sm text-gray-900">{report.gathering_type}</p>
+                <p className="text-sm text-gray-900">
+                  {report.cancelled ? "Cancelled" : report.gathering_type || "—"}
+                </p>
               </div>
               <div>
                 <span className="text-xs text-gray-500">Offerings</span>
@@ -143,15 +148,18 @@ export default function ClusterReportsTable({
                   {formatLocaleDate(report.meeting_date)}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                  {report.members_present}M / {report.visitors_present}V
-                  {report.member_attendance_rate !== undefined && (
+                  {report.cancelled
+                    ? "Cancelled"
+                    : `${report.members_present}M / ${report.visitors_present}V`}
+                  {!report.cancelled &&
+                    report.member_attendance_rate !== undefined && (
                     <div className="text-xs text-gray-500">
                       {report.member_attendance_rate.toFixed(1)}%
                     </div>
                   )}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                  {report.gathering_type}
+                  {report.cancelled ? "Cancelled" : report.gathering_type || "—"}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                   ₱{typeof report.offerings === 'number' ? (report.offerings as number).toFixed(2) : String(report.offerings)}

@@ -1,6 +1,7 @@
 "use client";
 
 import { Suspense, useCallback, useState } from "react";
+import { usePageTitle } from "@/src/hooks/usePageTitle";
 import { usePeople } from "@/src/hooks/usePeople";
 import { useFamilies } from "@/src/hooks/useFamilies";
 import { useAuth } from "@/src/contexts/AuthContext";
@@ -10,6 +11,7 @@ import Button from "@/src/components/ui/Button";
 import FamiliesTabContent from "@/src/components/families/FamiliesTabContent";
 
 export default function FamiliesPage() {
+  usePageTitle("Families");
   const { user, isModuleCoordinator, isSeniorCoordinator } = useAuth();
   const userCanManageFamilies = canManageFamilies(user, {
     isModuleCoordinator,

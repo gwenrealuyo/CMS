@@ -196,6 +196,8 @@ Clusters are classified into three compliance statuses:
 - **PARTIAL**: 1-99% compliance rate (some reports missing)
 - **NON_COMPLIANT**: 0% compliance rate (no reports submitted)
 
+A cluster can file a weekly report as **cancelled** with a reason when the gathering does not happen. That week is excused: it is not a missing report and it is not a submitted meeting. It is left out of attendance, offerings, and gathering-type totals. The filing still counts as the latest report, so the cluster is not treated as silent, and the current week is not overdue. If every week in the selected period is cancelled, the cluster stays compliant with nothing expected. The compliance table still lists each excused week and its reason.
+
 ### Compliance Trends
 
 Trends are calculated by comparing the current period with the previous period:

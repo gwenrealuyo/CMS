@@ -80,6 +80,13 @@ interface AttendanceSelectorProps {
   groupByVisitorKind?: boolean;
   /** Empty-search copy when groupByVisitorKind is on. */
   noMatchHint?: string;
+  /**
+   * Evangelism members: search can add a same-branch member who is not on the
+   * roster. They stay out of the checklist and bulk actions.
+   */
+  sitInSearch?: boolean;
+  /** Short note under the label. */
+  hint?: string;
 }
 
 export default function AttendanceSelector({
@@ -97,6 +104,8 @@ export default function AttendanceSelector({
   isLoadingRoster = false,
   groupByVisitorKind = false,
   noMatchHint = "No match. If they came, use Add New Visitor. If they were invited and did not come, use Prospects Invited.",
+  sitInSearch = false,
+  hint,
 }: AttendanceSelectorProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
@@ -116,7 +125,32 @@ export default function AttendanceSelector({
 
   // Filter people by role and cluster membership (for MEMBER role)
   const hasMemberSource =
-    Boolean(selectedCluster) || allowedIds.length > 0 || isLoadingRoster;
+    Boolean(selectedCluster) ||
+    allowedIds.length > 0 ||
+    isLoadingRoster ||
+    sitInSearch;
+
+  const isSitInPerson = (person: PersonUI) =>
+    sitInSearch &&
+    filterRole === "MEMBER" &&
+    person.role === "MEMBER" &&
+    !allowedIdSet.has(normalizePersonId(person.id));
+
+  const memberMetaLine = (person: PersonUI) => {
+    const status = (person.status || "active").toLowerCase();
+    const clusters = (person.cluster_codes ?? []).filter(Boolean);
+    if (clusters.length === 0) return status;
+    return `${status} · ${clusters.join(", ")}`;
+  };
+
+  const sitInBadge = (person: PersonUI) => {
+    if (!isSitInPerson(person)) return null;
+    return (
+      <span className="text-[10px] font-semibold uppercase tracking-wide text-gray-500 shrink-0">
+        Sat in
+      </span>
+    );
+  };
 
   const peopleByRole = availablePeople.filter((person) => {
     if (filterRole === "MEMBER" && allowedIds.length > 0) {
@@ -216,6 +250,16 @@ export default function AttendanceSelector({
     if (searchTerm.trim().length === 0) return false;
     return personMatchesSearch(person, searchTerm);
   });
+
+  // Sit-ins are searchable members who are not on the roster checklist.
+  const sitInMatches =
+    sitInSearch && filterRole === "MEMBER" && searchTerm.trim().length > 0
+      ? availablePeople.filter((person) => {
+          if (person.role !== "MEMBER") return false;
+          if (allowedIdSet.has(normalizePersonId(person.id))) return false;
+          return personMatchesSearch(person, searchTerm);
+        })
+      : [];
 
   // Get selected people objects (normalize IDs so number/string mismatches don't break UI)
   const selectedPeople = availablePeople.filter((p) =>
@@ -330,13 +374,25 @@ export default function AttendanceSelector({
     setLastClickedButton("selectClusterVisitors");
   };
 
+  // Sit-ins stay out of "previously attended" so a one-time guest is not
+  // checked again with the regulars.
+  const rosterRecentMemberIds =
+    filterRole === "MEMBER"
+      ? mostRecentAttendedIds
+          .map(normalizePersonId)
+          .filter(
+            (id) =>
+              !sitInSearch || allowedIds.length === 0 || allowedIdSet.has(id),
+          )
+      : [];
+
   const selectAllClusterMembers = () => {
     let idsToSelect: string[];
     if (filterRole === "MEMBER") {
       // For members: use most recent report's members if available, otherwise use all previously attended
       idsToSelect =
-        mostRecentAttendedIds.length > 0
-          ? mostRecentAttendedIds.map(normalizePersonId)
+        rosterRecentMemberIds.length > 0
+          ? rosterRecentMemberIds
           : previouslyAttendedPeople.map((p) => normalizePersonId(p.id));
     } else {
       // For visitors: use all previously attended
@@ -518,12 +574,10 @@ export default function AttendanceSelector({
       // Check if selection matches "Select All Previously Attended"
       if (filterRole === "MEMBER") {
         // First check if it matches most recent attended members
-        if (mostRecentAttendedIds.length > 0) {
-          const mostRecentSet = new Set(
-            mostRecentAttendedIds.map(normalizePersonId)
-          );
+        if (rosterRecentMemberIds.length > 0) {
+          const mostRecentSet = new Set(rosterRecentMemberIds);
           if (
-            selectedIds.length === mostRecentAttendedIds.length &&
+            selectedIds.length === rosterRecentMemberIds.length &&
             selectedIds.every((id) => mostRecentSet.has(normalizePersonId(id)))
           ) {
             setLastClickedButton("selectAllClusterMembers");
@@ -670,6 +724,7 @@ export default function AttendanceSelector({
           </button>
         </div>
       </div>
+      {hint ? <p className="text-xs text-gray-500 mb-2">{hint}</p> : null}
 
       {/* Bulk Action Buttons */}
       <div className="flex flex-wrap gap-2 mb-2">
@@ -742,7 +797,7 @@ export default function AttendanceSelector({
                   </button>
                 )}
               {filterRole === "MEMBER" &&
-                (mostRecentAttendedIds.length > 0 ||
+                (rosterRecentMemberIds.length > 0 ||
                   previouslyAttendedPeople.length > 0) && (
                   <button
                     type="button"
@@ -754,8 +809,8 @@ export default function AttendanceSelector({
                     }`}
                   >
                     {`Select All Previously Attended (${
-                      mostRecentAttendedIds.length > 0
-                        ? mostRecentAttendedIds.length
+                      rosterRecentMemberIds.length > 0
+                        ? rosterRecentMemberIds.length
                         : previouslyAttendedPeople.length
                     })`}
                   </button>
@@ -790,6 +845,7 @@ export default function AttendanceSelector({
                 className="chip-primary inline-flex items-center gap-1.5 max-w-full shadow-sm text-sm"
               >
                 <span className="truncate">{displayName}</span>
+                {sitInBadge(person)}
                 {visitorKindBadge(person)}
                 <button
                   type="button"
@@ -818,7 +874,11 @@ export default function AttendanceSelector({
             onFocus={() => {
               if (searchTerm.trim().length >= 1) setIsDropdownOpen(true);
             }}
-            placeholder={`Search ${filterRole.toLowerCase()}s...`}
+            placeholder={
+              sitInSearch && filterRole === "MEMBER"
+                ? "Search members, including sit-ins..."
+                : `Search ${filterRole.toLowerCase()}s...`
+            }
             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent"
           />
 
@@ -833,39 +893,76 @@ export default function AttendanceSelector({
                 <div className="px-3 py-2 text-gray-500 text-sm">
                   Please select a cluster first to view members
                 </div>
-              ) : filteredPeople.length > 0 ? (
-                filteredPeople.map((person) => {
-                  const personSelected = isPersonSelected(person.id);
-                  return (
-                    <button
-                      key={person.id}
-                      type="button"
-                      onClick={() => {
-                        togglePerson(person.id);
-                        setSearchTerm("");
-                      }}
-                      className={`w-full px-3 py-2 text-left hover:bg-gray-100 focus:bg-gray-100 focus:outline-none transition-colors ${
-                        personSelected ? "bg-primary/10" : ""
-                      }`}
-                    >
-                      <div className="flex items-center justify-between gap-2">
-                        <div className="font-medium text-gray-900 truncate">
-                          {attendancePersonLabel(person)}
+              ) : filteredPeople.length > 0 || sitInMatches.length > 0 ? (
+                <>
+                  {filteredPeople.map((person) => {
+                    const personSelected = isPersonSelected(person.id);
+                    return (
+                      <button
+                        key={person.id}
+                        type="button"
+                        onClick={() => {
+                          togglePerson(person.id);
+                          setSearchTerm("");
+                        }}
+                        className={`w-full px-3 py-2 text-left hover:bg-gray-100 focus:bg-gray-100 focus:outline-none transition-colors ${
+                          personSelected ? "bg-primary/10" : ""
+                        }`}
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="font-medium text-gray-900 truncate">
+                            {attendancePersonLabel(person)}
+                          </div>
+                          {visitorKindBadge(person)}
                         </div>
-                        {visitorKindBadge(person)}
+                        {filterRole === "VISITOR" ? (
+                          <div className="text-sm text-gray-500">
+                            {visitorInviterLine(person)}
+                          </div>
+                        ) : (
+                          <div className="text-sm text-gray-500">
+                            {sitInSearch
+                              ? memberMetaLine(person)
+                              : (person.status || "active").toLowerCase()}
+                          </div>
+                        )}
+                      </button>
+                    );
+                  })}
+                  {sitInMatches.length > 0 && (
+                    <>
+                      <div className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wide text-gray-500 bg-gray-50 border-y border-gray-100">
+                        Sat in — not in this group
                       </div>
-                      {filterRole === "VISITOR" ? (
-                        <div className="text-sm text-gray-500">
-                          {visitorInviterLine(person)}
-                        </div>
-                      ) : (
-                        <div className="text-sm text-gray-500">
-                          {(person.status || "active").toLowerCase()}
-                        </div>
-                      )}
-                    </button>
-                  );
-                })
+                      {sitInMatches.map((person) => {
+                        const personSelected = isPersonSelected(person.id);
+                        return (
+                          <button
+                            key={person.id}
+                            type="button"
+                            onClick={() => {
+                              togglePerson(person.id);
+                              setSearchTerm("");
+                            }}
+                            className={`w-full px-3 py-2 text-left hover:bg-gray-100 focus:bg-gray-100 focus:outline-none transition-colors ${
+                              personSelected ? "bg-primary/10" : ""
+                            }`}
+                          >
+                            <div className="flex items-center justify-between gap-2">
+                              <div className="font-medium text-gray-900 truncate">
+                                {attendancePersonLabel(person)}
+                              </div>
+                              {sitInBadge(person)}
+                            </div>
+                            <div className="text-sm text-gray-500">
+                              {memberMetaLine(person)}
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </>
+                  )}
+                </>
               ) : (
                 <div className="px-3 py-2 text-gray-500 text-sm">
                   {useVisitorKindGroups

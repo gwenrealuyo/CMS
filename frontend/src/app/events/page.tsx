@@ -8,6 +8,7 @@ import React, {
   useEffect,
 } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { usePageTitle } from "@/src/hooks/usePageTitle";
 import toast from "react-hot-toast";
 import DashboardLayout from "@/src/components/layout/DashboardLayout";
 import Button from "@/src/components/ui/Button";
@@ -64,6 +65,7 @@ const MONTH_NAMES = [
 ];
 
 export default function EventsPage() {
+  usePageTitle("Events");
   const searchParams = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();

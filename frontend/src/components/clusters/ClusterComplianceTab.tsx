@@ -473,6 +473,9 @@ export default function ClusterComplianceTab() {
                       Reports
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Cancelled
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Last Report
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -535,6 +538,21 @@ export default function ClusterComplianceTab() {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                         {item.reports_submitted} / {item.reports_expected}
+                      </td>
+                      <td className="px-6 py-4 text-sm text-gray-900">
+                        {item.cancelled_weeks?.length ? (
+                          <div className="space-y-1">
+                            {item.cancelled_weeks.map((entry, index) => (
+                              <div key={`${entry.week}-${entry.group ?? ""}-${index}`}>
+                                Week {entry.week}
+                                {entry.group ? ` — ${entry.group}` : ""}
+                                {entry.reason ? `: ${entry.reason}` : ""}
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          "—"
+                        )}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                         {item.last_report_date

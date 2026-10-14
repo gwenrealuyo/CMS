@@ -69,7 +69,9 @@ export interface EvangelismWeeklyReport {
   visitors_attended_details?: Person[];
   prospects_invited?: number[];
   prospects_invited_details?: EvangelismProspectInvitedDetail[];
-  gathering_type: "PHYSICAL" | "ONLINE" | "HYBRID";
+  gathering_type: "PHYSICAL" | "ONLINE" | "HYBRID" | null;
+  cancelled?: boolean;
+  cancellation_reason?: string;
   topic?: string;
   activities_held?: string;
   prayer_requests?: string;
@@ -506,9 +508,15 @@ export interface EvangelismComplianceGroup {
   name: string;
 }
 
+export interface EvangelismCancelledWeek {
+  week: number;
+  reason: string;
+  group: string | null;
+}
+
 export interface EvangelismComplianceCluster {
   cluster: {
-    id: number;
+    id: number | null;
     name: string | null;
     code: string | null;
     branch: number | null;
@@ -519,6 +527,7 @@ export interface EvangelismComplianceCluster {
   reports_expected: number;
   compliance_rate: number | null;
   missing_weeks: number[];
+  cancelled_weeks: EvangelismCancelledWeek[];
   last_report_date: string | null;
   days_since_last_report: number | null;
 }

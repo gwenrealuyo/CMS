@@ -116,6 +116,32 @@ function personRecordId(value: unknown): string | null {
   return String(value);
 }
 
+/** Pre-select Bible Sharer only for members added in this form session. */
+function withSessionRosterSharers(
+  values: EvangelismGroupFormValues,
+  rosterIds: Set<string>,
+  sessionAddedIds: Set<string>,
+  dismissedIds: Set<string>,
+): EvangelismGroupFormValues {
+  const memberIds = new Set(values.initial_member_ids || []);
+  const currentSharers = values.bible_sharer_ids || [];
+  const toAdd = Array.from(sessionAddedIds).filter(
+    (id) =>
+      rosterIds.has(id) &&
+      memberIds.has(id) &&
+      id !== values.coordinator_id &&
+      !dismissedIds.has(id) &&
+      !currentSharers.includes(id),
+  );
+  if (toAdd.length === 0) return values;
+  const added = new Set(toAdd);
+  return {
+    ...values,
+    bible_sharer_ids: [...currentSharers, ...toAdd],
+    reporter_ids: (values.reporter_ids || []).filter((id) => !added.has(id)),
+  };
+}
+
 function groupMemberIds(group: EvangelismGroup): string[] {
   return (group.members || [])
     .map((member) => personRecordId(member))
@@ -177,6 +203,8 @@ export default function EvangelismGroupForm({
   const [bibleSharerRosterIds, setBibleSharerRosterIds] = useState<Set<string>>(
     new Set(),
   );
+  const sessionAddedMemberIdsRef = useRef<Set<string>>(new Set());
+  const dismissedSharerIdsRef = useRef<Set<string>>(new Set());
   const memberPool = useMemo(
     () => (people.length ? people : coordinators).filter(isSelectablePerson),
     [people, coordinators],
@@ -193,6 +221,8 @@ export default function EvangelismGroupForm({
     if (syncedGroupIdRef.current !== groupId) {
       syncedGroupIdRef.current = groupId;
       syncedRosterRef.current = hasRoster;
+      sessionAddedMemberIdsRef.current = new Set();
+      dismissedSharerIdsRef.current = new Set();
       setValues(formValuesFromGroup(initialData));
       return;
     }
@@ -296,13 +326,20 @@ export default function EvangelismGroupForm({
 
   const addInitialMember = (value: string) => {
     if (!value) return;
+    sessionAddedMemberIdsRef.current.add(value);
+    dismissedSharerIdsRef.current.delete(value);
     setValues((prev) => {
       const current = prev.initial_member_ids || [];
       if (current.includes(value)) return prev;
-      return {
-        ...prev,
-        initial_member_ids: [...current, value],
-      };
+      return withSessionRosterSharers(
+        {
+          ...prev,
+          initial_member_ids: [...current, value],
+        },
+        bibleSharerRosterIds,
+        sessionAddedMemberIdsRef.current,
+        dismissedSharerIdsRef.current,
+      );
     });
   };
 
@@ -431,10 +468,6 @@ export default function EvangelismGroupForm({
   }, [selectedCluster, values.branch_id, branches]);
 
   useEffect(() => {
-    if (!isHqGroup) {
-      setBibleSharerRosterIds(new Set());
-      return;
-    }
     let cancelled = false;
     (async () => {
       try {
@@ -481,7 +514,19 @@ export default function EvangelismGroupForm({
     return () => {
       cancelled = true;
     };
-  }, [isHqGroup]);
+  }, []);
+
+  useEffect(() => {
+    if (bibleSharerRosterIds.size === 0) return;
+    setValues((prev) =>
+      withSessionRosterSharers(
+        prev,
+        bibleSharerRosterIds,
+        sessionAddedMemberIdsRef.current,
+        dismissedSharerIdsRef.current,
+      ),
+    );
+  }, [bibleSharerRosterIds]);
 
   const groupMembersKnown = isCreate || Array.isArray(initialData?.members);
 
@@ -555,6 +600,9 @@ export default function EvangelismGroupForm({
     id: string,
   ) => {
     if (!id || !roleCandidateIds.has(id)) return;
+    if (field === "bible_sharer_ids") {
+      dismissedSharerIdsRef.current.delete(id);
+    }
     setValues((prev) => {
       const current = prev[field] || [];
       if (current.includes(id) || id === prev.coordinator_id) return prev;
@@ -576,6 +624,9 @@ export default function EvangelismGroupForm({
     field: "reporter_ids" | "bible_sharer_ids",
     id: string,
   ) => {
+    if (field === "bible_sharer_ids") {
+      dismissedSharerIdsRef.current.add(id);
+    }
     setValues((prev) => ({
       ...prev,
       [field]: (prev[field] || []).filter((x) => x !== id),

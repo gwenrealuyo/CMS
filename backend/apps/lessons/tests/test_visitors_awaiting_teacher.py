@@ -75,6 +75,8 @@ class VisitorsAwaitingTeacherAPITests(APITestCase):
             is_active=True,
         )
         cluster.members.add(self.unassigned)
+        self.unassigned.inviter = self.coordinator
+        self.unassigned.save(update_fields=["inviter"])
 
         self.historical = self._person(
             "awaithistorical",
@@ -172,6 +174,8 @@ class VisitorsAwaitingTeacherAPITests(APITestCase):
         self.assertEqual(row["cluster_codes"], ["NORTH"])
         self.assertEqual(row["phone"], "09170000001")
         self.assertEqual(row["visitor_since"], "2026-01-15")
+        self.assertEqual(row["inviter_name"], self.coordinator.get_full_name())
+        self.assertEqual(by_id[self.historical.id]["inviter_name"], "")
         self.assertIsNone(row["enrollment_id"])
         self.assertEqual(
             by_id[self.historical.id]["enrollment_id"],

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { reportsApi, evangelismApi } from "@/src/lib/api";
+import { clusterReportsApi, reportsApi, evangelismApi } from "@/src/lib/api";
 import {
   AtRiskCluster,
   ClusterCompliance,
@@ -33,21 +33,33 @@ import ComplianceRiskPanels from "./ComplianceRiskPanels";
 import ComplianceNotes from "./ComplianceNotes";
 import { formatLocaleDate } from "@/src/lib/date";
 import { formatPersonName } from "@/src/lib/name";
+import {
+  getIsoWeekDateRange,
+  getIsoWeekParts,
+  isoWeeksInYear,
+} from "@/src/lib/isoWeek";
+import ScalableSelect from "@/src/components/ui/ScalableSelect";
 import type { EvangelismComplianceData } from "@/src/types/evangelism";
+
+const todayIso = getIsoWeekParts(new Date());
+const ALL_WEEKS = "all";
+
+function formatWeekDateRange(year: number, weekNumber: number): string {
+  const { start, end } = getIsoWeekDateRange(year, weekNumber);
+  const startMonth = start.toLocaleDateString("en-US", { month: "short" });
+  const startDay = start.getDate();
+  const endMonth = end.toLocaleDateString("en-US", { month: "short" });
+  const endDay = end.getDate();
+
+  if (startMonth === endMonth) {
+    return `${startMonth} ${startDay}-${endDay}`;
+  }
+  return `${startMonth} ${startDay}-${endMonth} ${endDay}`;
+}
 
 interface ComplianceDashboardProps {
   /** "" means all branches; otherwise a branch id string. */
   selectedBranchId: string;
-}
-
-function daysAgoISO(days: number) {
-  const date = new Date();
-  date.setDate(date.getDate() - days);
-  return date.toISOString().split("T")[0];
-}
-
-function todayISO() {
-  return new Date().toISOString().split("T")[0];
 }
 
 function statusBadgeColor(status: ComplianceStatus) {
@@ -85,11 +97,63 @@ export default function ComplianceDashboard({
     null,
   );
 
-  const [startDate, setStartDate] = useState<string>(() => daysAgoISO(28));
-  const [endDate, setEndDate] = useState<string>(() => todayISO());
+  const [selectedYear, setSelectedYear] = useState<number>(todayIso.year);
+  const [availableYears, setAvailableYears] = useState<number[]>([
+    todayIso.year,
+  ]);
+  const [selectedWeeks, setSelectedWeeks] = useState<string[]>([
+    String(todayIso.week),
+  ]);
   const [statusFilter, setStatusFilter] = useState<ComplianceStatus | "ALL">(
     "ALL",
   );
+
+  const weekOptions = useMemo(
+    () =>
+      isoWeeksInYear(selectedYear).map((weekNum) => ({
+        value: String(weekNum),
+        label: `W${weekNum} (${formatWeekDateRange(selectedYear, weekNum)})`,
+      })),
+    [selectedYear],
+  );
+
+  const weekParam = useMemo(() => {
+    const numbers = selectedWeeks.includes(ALL_WEEKS)
+      ? isoWeeksInYear(selectedYear)
+      : selectedWeeks
+          .map((week) => Number(week))
+          .filter((week) => Number.isInteger(week));
+    return [...numbers].sort((a, b) => a - b).join(",");
+  }, [selectedWeeks, selectedYear]);
+
+  const handleWeeksChange = (values: string[]) => {
+    const hadAll = selectedWeeks.includes(ALL_WEEKS);
+    const hasAll = values.includes(ALL_WEEKS);
+    if (hasAll && !hadAll) {
+      setSelectedWeeks([ALL_WEEKS]);
+      return;
+    }
+    if (hadAll && hasAll) {
+      setSelectedWeeks(values.filter((value) => value !== ALL_WEEKS));
+      return;
+    }
+    setSelectedWeeks(values);
+  };
+
+  const handleYearChange = (year: number) => {
+    setSelectedYear(year);
+    setSelectedWeeks((current) => {
+      if (current.includes(ALL_WEEKS)) return [ALL_WEEKS];
+      const valid = new Set(isoWeeksInYear(year).map(String));
+      const next = current.filter((week) => valid.has(week));
+      if (next.length > 0) return next;
+      if (year === todayIso.year && valid.has(String(todayIso.week))) {
+        return [String(todayIso.week)];
+      }
+      const weeks = isoWeeksInYear(year);
+      return weeks.length > 0 ? [String(weeks[weeks.length - 1])] : [];
+    });
+  };
 
   const branchParam = useMemo(
     () => (selectedBranchId ? Number(selectedBranchId) : undefined),
@@ -100,15 +164,17 @@ export default function ComplianceDashboard({
     try {
       setLoading(true);
       setError(null);
-      const commonParams = {
+      const periodParams = {
         branch_id: branchParam,
-        start_date: startDate,
-        end_date: endDate,
+        year: selectedYear,
+        week_number: weekParam,
         status: statusFilter !== "ALL" ? statusFilter : undefined,
       };
       const [complianceRes, historyRes, atRiskRes, overdueRes, notesRes, evangelismRes] =
         await Promise.all([
-          reportsApi.getCompliance(commonParams),
+          weekParam
+            ? reportsApi.getCompliance(periodParams)
+            : Promise.resolve(null),
           reportsApi.getComplianceHistory({
             branch_id: branchParam,
             group_by: "week",
@@ -116,15 +182,17 @@ export default function ComplianceDashboard({
           reportsApi.getComplianceAtRisk({ branch_id: branchParam }),
           reportsApi.getComplianceOverdue({ branch_id: branchParam }),
           reportsApi.getComplianceNotes({ branch_id: branchParam }),
-          evangelismApi
-            .compliance({
-              branch_id: branchParam,
-              start_date: startDate,
-              end_date: endDate,
-            })
-            .catch(() => null),
+          weekParam
+            ? evangelismApi
+                .compliance({
+                  branch_id: branchParam,
+                  year: selectedYear,
+                  week_number: weekParam,
+                })
+                .catch(() => null)
+            : Promise.resolve(null),
         ]);
-      setData(complianceRes.data);
+      setData(complianceRes?.data ?? null);
       setHistory(historyRes.data);
       setAtRisk(atRiskRes.data);
       setOverdue(overdueRes.data);
@@ -138,31 +206,80 @@ export default function ComplianceDashboard({
     } finally {
       setLoading(false);
     }
-  }, [branchParam, startDate, endDate, statusFilter]);
+  }, [branchParam, selectedYear, weekParam, statusFilter]);
+
+  useEffect(() => {
+    let cancelled = false;
+    clusterReportsApi
+      .distinctYears(
+        selectedBranchId ? { branch_id: selectedBranchId } : undefined,
+      )
+      .then((response) => {
+        if (cancelled) return;
+        const years = response.data.years ?? [];
+        const merged = Array.from(new Set([todayIso.year, ...years])).sort(
+          (a, b) => b - a,
+        );
+        setAvailableYears(merged.length > 0 ? merged : [todayIso.year]);
+      })
+      .catch(() => {
+        if (!cancelled) setAvailableYears([todayIso.year]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedBranchId]);
 
   useEffect(() => {
     fetchAll();
   }, [fetchAll]);
 
   const handleExportCSV = async () => {
+    if (!weekParam) return;
     try {
       const res = await reportsApi.exportComplianceCSV({
         branch_id: branchParam,
-        start_date: startDate,
-        end_date: endDate,
+        year: selectedYear,
+        week_number: weekParam,
         status: statusFilter !== "ALL" ? statusFilter : undefined,
       });
       const blob = new Blob([res.data as BlobPart], { type: "text/csv" });
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = url;
-      link.download = `cluster_compliance_${startDate}_${endDate}.csv`;
+      link.download = `cluster_compliance_${selectedYear}_w${weekParam}.csv`;
       link.click();
       window.URL.revokeObjectURL(url);
     } catch (err) {
       console.error("Failed to export CSV", err);
     }
   };
+
+  const notePeriod = useMemo(() => {
+    const numbers = weekParam
+      ? weekParam
+          .split(",")
+          .map((week) => Number(week))
+          .filter((week) => Number.isInteger(week))
+      : [];
+    const weeks = numbers.length > 0 ? numbers : [todayIso.week];
+    const year = numbers.length > 0 ? selectedYear : todayIso.year;
+    const ranges = weeks.map((week) => getIsoWeekDateRange(year, week));
+    const start = ranges.reduce(
+      (earliest, range) => (range.start < earliest ? range.start : earliest),
+      ranges[0].start,
+    );
+    const end = ranges.reduce(
+      (latest, range) => (range.end > latest ? range.end : latest),
+      ranges[0].end,
+    );
+    const toInput = (date: Date) => {
+      const month = String(date.getMonth() + 1).padStart(2, "0");
+      const day = String(date.getDate()).padStart(2, "0");
+      return `${date.getFullYear()}-${month}-${day}`;
+    };
+    return { start: toInput(start), end: toInput(end) };
+  }, [selectedYear, weekParam]);
 
   const clusterOptions = useMemo(
     () =>
@@ -263,28 +380,49 @@ export default function ComplianceDashboard({
       )}
 
       <Card>
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
-          <div>
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-6">
+          <div className="xl:col-span-2">
             <label className="mb-1 block text-base font-medium text-foreground">
-              Start Date
+              Week
             </label>
-            <input
-              type="date"
-              value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
-              className="w-full rounded-md border border-gray-300 px-3 py-2"
+            <ScalableSelect
+              multiple
+              options={weekOptions}
+              values={selectedWeeks}
+              onValuesChange={handleWeeksChange}
+              pinnedOption={{ value: ALL_WEEKS, label: "All Weeks" }}
+              scrollToValue={
+                weekOptions.some(
+                  (option) => option.value === String(todayIso.week),
+                )
+                  ? String(todayIso.week)
+                  : selectedWeeks[selectedWeeks.length - 1]
+              }
+              placeholder="Select weeks"
+              searchPlaceholder="Search weeks..."
+              className="w-full"
+              showSearch
+              maxHeight={280}
+              emptyMessage="No weeks found"
             />
           </div>
           <div>
             <label className="mb-1 block text-base font-medium text-foreground">
-              End Date
+              Year
             </label>
-            <input
-              type="date"
-              value={endDate}
-              onChange={(e) => setEndDate(e.target.value)}
-              className="w-full rounded-md border border-gray-300 px-3 py-2"
-            />
+            <select
+              value={selectedYear}
+              onChange={(event) =>
+                handleYearChange(parseInt(event.target.value, 10))
+              }
+              className="h-11 w-full rounded-md border border-gray-300 px-3 py-2"
+            >
+              {availableYears.map((year) => (
+                <option key={year} value={year}>
+                  {year}
+                </option>
+              ))}
+            </select>
           </div>
           <div>
             <label className="mb-1 block text-base font-medium text-foreground">
@@ -295,7 +433,7 @@ export default function ComplianceDashboard({
               onChange={(e) =>
                 setStatusFilter(e.target.value as ComplianceStatus | "ALL")
               }
-              className="h-[42px] w-full rounded-md border border-gray-300 px-3 py-2"
+              className="h-11 w-full rounded-md border border-gray-300 px-3 py-2"
             >
               <option value="ALL">All</option>
               <option value="COMPLIANT">Compliant</option>
@@ -303,13 +441,18 @@ export default function ComplianceDashboard({
               <option value="NON_COMPLIANT">Non-Compliant</option>
             </select>
           </div>
-          <div className="flex w-full items-end">
+          <div className="flex w-full items-end xl:col-span-2">
             <AnalyticsExportButton
               onClick={handleExportCSV}
               reportName="compliance"
             />
           </div>
         </div>
+        {!weekParam && (
+          <p className="mt-3 text-sm text-foreground/60">
+            Select at least one week.
+          </p>
+        )}
       </Card>
 
       <ComplianceHistoryChart history={history} loading={loading} />
@@ -334,6 +477,7 @@ export default function ComplianceDashboard({
                   "Status",
                   "Compliance Rate",
                   "Reports",
+                  "Cancelled",
                   "Last Report",
                   "Days Since",
                   "Trend",
@@ -400,6 +544,21 @@ export default function ComplianceDashboard({
                   <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-900">
                     {item.reports_submitted} / {item.reports_expected}
                   </td>
+                  <td className="px-6 py-4 text-sm text-gray-900">
+                    {item.cancelled_weeks?.length ? (
+                      <div className="space-y-1">
+                        {item.cancelled_weeks.map((entry, index) => (
+                          <div key={`${entry.week}-${entry.group ?? ""}-${index}`}>
+                            Week {entry.week}
+                            {entry.group ? ` — ${entry.group}` : ""}
+                            {entry.reason ? `: ${entry.reason}` : ""}
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      "—"
+                    )}
+                  </td>
                   <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-900">
                     {item.last_report_date
                       ? formatLocaleDate(item.last_report_date)
@@ -432,8 +591,8 @@ export default function ComplianceDashboard({
       <ComplianceNotes
         notes={notes}
         clusterOptions={clusterOptions}
-        defaultPeriodStart={startDate}
-        defaultPeriodEnd={endDate}
+        defaultPeriodStart={notePeriod.start}
+        defaultPeriodEnd={notePeriod.end}
         loading={loading}
         onNoteAdded={fetchAll}
       />

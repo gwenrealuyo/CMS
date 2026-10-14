@@ -102,6 +102,13 @@ def is_scoped_lessons_teacher(user: Optional[Person]) -> bool:
     return has_lessons_teacher_assignment(user)
 
 
+def can_view_lesson_timeline(user: Optional[Person]) -> bool:
+    """Coordinators see the branch. Lessons teachers see their own students."""
+    if can_review_lesson_assignment_requests(user):
+        return True
+    return has_lessons_teacher_assignment(user)
+
+
 def can_review_lesson_assignment_requests(user: Optional[Person]) -> bool:
     """Admin, pastor, Lessons coordinators, and NCC primary/support."""
     if user is None or not getattr(user, "pk", None):

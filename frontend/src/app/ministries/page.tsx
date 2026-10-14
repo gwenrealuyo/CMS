@@ -16,6 +16,7 @@ import MinistryForm, {
 } from "@/src/components/ministries/MinistryForm";
 import MinistryView from "@/src/components/ministries/MinistryView";
 import { useMinistries } from "@/src/hooks/useMinistries";
+import { usePageTitle } from "@/src/hooks/usePageTitle";
 import { usePeople } from "@/src/hooks/usePeople";
 import { useBranches } from "@/src/hooks/useBranches";
 import { ministriesApi } from "@/src/lib/api";
@@ -33,6 +34,7 @@ import {
 import { formatPersonName } from "@/src/lib/name";
 
 export default function MinistriesPage() {
+  usePageTitle("Ministries");
   const {
     ministries,
     filters,

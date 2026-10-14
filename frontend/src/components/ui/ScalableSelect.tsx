@@ -73,6 +73,8 @@ interface ScalableSelectProps {
   scrollToValue?: string;
   /** Shown above the scrolling list and kept visible while the list moves. */
   pinnedOption?: SelectOption;
+  /** Open menu is at least this many pixels wide, even when the button is narrower. */
+  menuMinWidth?: number;
 }
 
 export default function ScalableSelect({
@@ -95,6 +97,7 @@ export default function ScalableSelect({
   onValuesChange,
   scrollToValue,
   pinnedOption,
+  menuMinWidth,
 }: ScalableSelectProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -205,10 +208,16 @@ export default function ScalableSelect({
   const updateDropdownPosition = () => {
     if (triggerRef.current) {
       const rect = triggerRef.current.getBoundingClientRect();
+      const width = Math.max(rect.width, menuMinWidth ?? 0);
+      const margin = 8;
+      let left = rect.left;
+      if (left + width > window.innerWidth - margin) {
+        left = Math.max(margin, window.innerWidth - width - margin);
+      }
       setDropdownPosition({
         top: rect.bottom + 4, // 4px gap, using fixed positioning so no scroll offset needed
-        left: rect.left,
-        width: rect.width,
+        left,
+        width,
       });
     }
   };
@@ -224,7 +233,7 @@ export default function ScalableSelect({
       window.removeEventListener("scroll", updateDropdownPosition, true);
       window.removeEventListener("resize", updateDropdownPosition);
     };
-  }, [isOpen]);
+  }, [isOpen, menuMinWidth]);
 
   // Focus search input when dropdown opens
   useEffect(() => {

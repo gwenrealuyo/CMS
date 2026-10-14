@@ -311,3 +311,234 @@ class EvangelismComplianceAPITests(APITestCase):
         self.assertIn("COMP-NONE", body)
         self.assertIn("No group", body)
         self.assertNotIn("COMP-PART", body)
+
+    def _cancel(self, group, meeting_date, year, week_number):
+        return EvangelismWeeklyReport.objects.create(
+            evangelism_group=group,
+            year=year,
+            week_number=week_number,
+            meeting_date=meeting_date,
+            cancelled=True,
+            cancellation_reason="Storm",
+            gathering_type=None,
+        )
+
+    def test_cancelled_week_does_not_lower_compliance(self):
+        group = EvangelismGroup.objects.get(name="Partial BS")
+        self._cancel(group, date(2026, 1, 12), 2026, 3)
+        response = self._get(
+            self.admin,
+            start_date="2026-01-05",
+            end_date="2026-01-12",
+            branch_id=self.branch.id,
+        )
+        self.assertEqual(response.status_code, 200, response.data)
+        partial = next(
+            row
+            for row in response.data["clusters"]
+            if row["cluster"]["code"] == "COMP-PART"
+        )
+        self.assertEqual(partial["reports_expected"], 1)
+        self.assertEqual(partial["reports_submitted"], 1)
+        self.assertEqual(partial["missing_weeks"], [])
+        self.assertEqual(
+            partial["cancelled_weeks"],
+            [{"week": 3, "reason": "Storm", "group": "Partial BS"}],
+        )
+        self.assertEqual(partial["status"], "COMPLIANT")
+        self.assertEqual(partial["compliance_rate"], 100.0)
+
+    def test_only_cancelled_weeks_stay_compliant(self):
+        cluster = Cluster.objects.create(
+            name="Cancel Only",
+            code="COMP-CAN",
+            branch=self.branch,
+            is_active=True,
+        )
+        group = EvangelismGroup.objects.create(
+            name="Cancel BS",
+            cluster=cluster,
+            branch=self.branch,
+            is_active=True,
+            approval_status=EvangelismGroup.ApprovalStatus.APPROVED,
+        )
+        self._cancel(group, date(2026, 1, 5), 2026, 2)
+        response = self._get(
+            self.admin,
+            start_date="2026-01-05",
+            end_date="2026-01-05",
+            branch_id=self.branch.id,
+        )
+        row = next(
+            item
+            for item in response.data["clusters"]
+            if item["cluster"]["code"] == "COMP-CAN"
+        )
+        self.assertEqual(row["reports_expected"], 0)
+        self.assertEqual(row["reports_submitted"], 0)
+        self.assertEqual(row["missing_weeks"], [])
+        self.assertEqual(
+            row["cancelled_weeks"],
+            [{"week": 2, "reason": "Storm", "group": "Cancel BS"}],
+        )
+        self.assertEqual(row["status"], "COMPLIANT")
+        self.assertEqual(row["compliance_rate"], 100.0)
+        self.assertEqual(row["last_report_date"], "2026-01-05")
+
+    def test_missing_week_beside_cancellation_stays_missing(self):
+        cluster = Cluster.objects.create(
+            name="Cancel Gap",
+            code="COMP-GAP",
+            branch=self.branch,
+            is_active=True,
+        )
+        group = EvangelismGroup.objects.create(
+            name="Gap BS",
+            cluster=cluster,
+            branch=self.branch,
+            is_active=True,
+            approval_status=EvangelismGroup.ApprovalStatus.APPROVED,
+        )
+        self._cancel(group, date(2026, 1, 5), 2026, 2)
+        response = self._get(
+            self.admin,
+            start_date="2026-01-05",
+            end_date="2026-01-12",
+            branch_id=self.branch.id,
+        )
+        row = next(
+            item
+            for item in response.data["clusters"]
+            if item["cluster"]["code"] == "COMP-GAP"
+        )
+        self.assertEqual(row["reports_expected"], 1)
+        self.assertEqual(row["reports_submitted"], 0)
+        self.assertEqual(row["missing_weeks"], [3])
+        self.assertEqual(row["status"], "NON_COMPLIANT")
+
+    def test_held_report_from_another_group_still_counts(self):
+        group_a = EvangelismGroup.objects.get(name="Double A")
+        self._cancel(group_a, date(2026, 1, 6), 2026, 2)
+        response = self._get(
+            self.admin,
+            start_date="2026-01-05",
+            end_date="2026-01-05",
+            branch_id=self.branch.id,
+        )
+        doubled = next(
+            row
+            for row in response.data["clusters"]
+            if row["cluster"]["code"] == "COMP-DBL"
+        )
+        self.assertEqual(doubled["reports_expected"], 1)
+        self.assertEqual(doubled["reports_submitted"], 1)
+        self.assertEqual(doubled["cancelled_weeks"], [])
+        self.assertEqual(doubled["status"], "COMPLIANT")
+
+    def _unclustered(self, name, frequency):
+        return EvangelismGroup.objects.create(
+            name=name,
+            cluster=None,
+            branch=self.branch,
+            is_active=True,
+            approval_status=EvangelismGroup.ApprovalStatus.APPROVED,
+            meeting_frequency=frequency,
+        )
+
+    def _row_named(self, response, name):
+        return next(
+            row
+            for row in response.data["clusters"]
+            if row["cluster"]["name"] == name
+        )
+
+    def test_unclustered_weekly_group_is_still_expected(self):
+        Frequency = EvangelismGroup.MeetingFrequency
+        self._unclustered("Street Weekly", Frequency.WEEKLY)
+        self._unclustered("Whenever", Frequency.IRREGULAR)
+        EvangelismGroup.objects.create(
+            name="Other Branch Weekly",
+            cluster=None,
+            branch=self.other_branch,
+            is_active=True,
+            approval_status=EvangelismGroup.ApprovalStatus.APPROVED,
+            meeting_frequency=Frequency.WEEKLY,
+        )
+        response = self._get(
+            self.admin,
+            start_date="2026-01-05",
+            end_date="2026-01-12",
+            branch_id=self.branch.id,
+        )
+        names = [row["cluster"]["name"] for row in response.data["clusters"]]
+        self.assertIn("Street Weekly", names)
+        self.assertNotIn("Whenever", names)
+        self.assertNotIn("Other Branch Weekly", names)
+        row = self._row_named(response, "Street Weekly")
+        self.assertEqual(row["cluster"]["code"], "No cluster")
+        self.assertEqual(row["groups"], [{"id": row["groups"][0]["id"], "name": "Weekly"}])
+        self.assertEqual(row["reports_expected"], 2)
+        self.assertEqual(row["reports_submitted"], 0)
+        self.assertEqual(row["missing_weeks"], [2, 3])
+        self.assertEqual(row["status"], "NON_COMPLIANT")
+        self.assertEqual(response.data["summary"]["total_clusters"], 5)
+        self.assertGreaterEqual(
+            response.data["summary"]["non_compliant_clusters"], 1
+        )
+
+    def test_unclustered_cancellation_excuses_only_that_group(self):
+        Frequency = EvangelismGroup.MeetingFrequency
+        cancelled = self._unclustered("Cancelled Street", Frequency.WEEKLY)
+        self._unclustered("Still Meeting", Frequency.WEEKLY)
+        self._cancel(cancelled, date(2026, 1, 5), 2026, 2)
+        response = self._get(
+            self.admin,
+            start_date="2026-01-05",
+            end_date="2026-01-11",
+            branch_id=self.branch.id,
+        )
+        excused = self._row_named(response, "Cancelled Street")
+        self.assertEqual(excused["reports_expected"], 0)
+        self.assertEqual(excused["reports_submitted"], 0)
+        self.assertEqual(excused["status"], "COMPLIANT")
+        self.assertEqual(excused["last_report_date"], "2026-01-05")
+        self.assertEqual(
+            excused["cancelled_weeks"],
+            [{"week": 2, "reason": "Storm", "group": None}],
+        )
+        still = self._row_named(response, "Still Meeting")
+        self.assertEqual(still["reports_expected"], 1)
+        self.assertEqual(still["reports_submitted"], 0)
+        self.assertEqual(still["missing_weeks"], [2])
+        self.assertEqual(still["cancelled_weeks"], [])
+        self.assertEqual(still["status"], "NON_COMPLIANT")
+
+    def test_unclustered_biweekly_and_monthly_follow_frequency(self):
+        Frequency = EvangelismGroup.MeetingFrequency
+        biweekly = self._unclustered("Every Other", Frequency.BIWEEKLY)
+        monthly = self._unclustered("Once a Month", Frequency.MONTHLY)
+        self._report(biweekly, date(2026, 1, 5), 2026, 2)
+        self._report(monthly, date(2026, 1, 20), 2026, 4)
+        biweekly_response = self._get(
+            self.admin,
+            start_date="2026-01-05",
+            end_date="2026-02-01",
+            branch_id=self.branch.id,
+        )
+        every_other = self._row_named(biweekly_response, "Every Other")
+        self.assertEqual(every_other["groups"][0]["name"], "Biweekly")
+        self.assertEqual(every_other["reports_expected"], 2)
+        self.assertEqual(every_other["reports_submitted"], 1)
+        self.assertEqual(every_other["missing_weeks"], [4])
+        self.assertEqual(every_other["status"], "PARTIAL")
+        monthly_response = self._get(
+            self.admin,
+            start_date="2026-01-05",
+            end_date="2026-01-18",
+            branch_id=self.branch.id,
+        )
+        once = self._row_named(monthly_response, "Once a Month")
+        self.assertEqual(once["groups"][0]["name"], "Monthly")
+        self.assertEqual(once["reports_expected"], 1)
+        self.assertEqual(once["reports_submitted"], 1)
+        self.assertEqual(once["status"], "COMPLIANT")

@@ -135,3 +135,18 @@ class EvangelismReportDueCadenceTests(TestCase):
             is_active=False,
         )
         self.assertEqual(_build_evangelism_report_due(self.coordinator), [])
+
+    @patch("apps.notifications.services.church_today", return_value=CHURCH_TODAY)
+    def test_cancelled_current_week_is_not_due(self, _today):
+        group = self._group(
+            "Cancelled Weekly",
+            EvangelismGroup.MeetingFrequency.WEEKLY,
+            cluster=self.cluster,
+        )
+        self._report(group, CHURCH_TODAY)
+        EvangelismWeeklyReport.objects.filter(evangelism_group=group).update(
+            cancelled=True,
+            cancellation_reason="No venue",
+            gathering_type=None,
+        )
+        self.assertEqual(_build_evangelism_report_due(self.coordinator), [])

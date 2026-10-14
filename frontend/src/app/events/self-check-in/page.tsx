@@ -1,6 +1,7 @@
 "use client";
 
 import { Suspense } from "react";
+import { usePageTitle } from "@/src/hooks/usePageTitle";
 
 import EventSelfCheckInView from "@/src/components/events/EventSelfCheckInView";
 import PublicSelfCheckInView from "@/src/components/events/PublicSelfCheckInView";
@@ -26,6 +27,7 @@ function EventSelfCheckInContent() {
 }
 
 export default function EventSelfCheckInPage() {
+  usePageTitle("Online Check-In");
   return (
     <Suspense
       fallback={

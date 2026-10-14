@@ -88,22 +88,34 @@ export default function GroupReportsSection({
               {
                 header: "Gathering",
                 accessor: "gathering_type" as keyof EvangelismWeeklyReport,
-                render: (value) => (
-                  <span
-                    className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getEvangelismGatheringTypeChipClass(
-                      value as string,
-                    )}`}
-                  >
-                    {(value as string) || "N/A"}
-                  </span>
-                ),
+                render: (_value, row) =>
+                  row.cancelled ? (
+                    <span className="inline-flex flex-col items-start gap-1">
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800">
+                        Cancelled
+                      </span>
+                      {row.cancellation_reason && (
+                        <span className="text-xs text-gray-600">
+                          {row.cancellation_reason}
+                        </span>
+                      )}
+                    </span>
+                  ) : (
+                    <span
+                      className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getEvangelismGatheringTypeChipClass(
+                        row.gathering_type,
+                      )}`}
+                    >
+                      {row.gathering_type || "N/A"}
+                    </span>
+                  ),
               },
               {
                 header: "Members",
                 accessor: "members_attended" as keyof EvangelismWeeklyReport,
                 render: (_value, row) => (
                   <span className="text-sm text-gray-700">
-                    {row.members_attended?.length || 0}
+                    {row.cancelled ? "—" : row.members_attended?.length || 0}
                   </span>
                 ),
               },
@@ -112,7 +124,7 @@ export default function GroupReportsSection({
                 accessor: "visitors_attended" as keyof EvangelismWeeklyReport,
                 render: (_value, row) => (
                   <span className="text-sm text-gray-700">
-                    {row.visitors_attended?.length || 0}
+                    {row.cancelled ? "—" : row.visitors_attended?.length || 0}
                   </span>
                 ),
               },

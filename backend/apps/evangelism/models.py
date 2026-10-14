@@ -180,11 +180,22 @@ class EvangelismWeeklyReport(models.Model):
     )
     gathering_type = models.CharField(
         max_length=20,
+        blank=True,
+        null=True,
         choices=[
             ("PHYSICAL", "Physical"),
             ("ONLINE", "Online"),
             ("HYBRID", "Hybrid"),
         ],
+        help_text="How the gathering was held. Empty when the week was cancelled.",
+    )
+    cancelled = models.BooleanField(
+        default=False,
+        help_text="The group excused this week; no gathering was held.",
+    )
+    cancellation_reason = models.TextField(
+        blank=True,
+        help_text="Why the gathering was cancelled.",
     )
     topic = models.CharField(max_length=200, blank=True)
     activities_held = models.TextField(blank=True)

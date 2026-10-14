@@ -10,6 +10,7 @@ import LoadingSpinner from "@/src/components/ui/LoadingSpinner";
 import Pagination from "@/src/components/ui/Pagination";
 import Modal from "@/src/components/ui/Modal";
 import ConfirmationModal from "@/src/components/ui/ConfirmationModal";
+import { usePageTitle } from "@/src/hooks/usePageTitle";
 import {
   useEvangelismGroup,
   useEvangelismWeeklyReports,
@@ -137,6 +138,7 @@ function isEvangelismPageTab(v: string | null): v is EvangelismPageTab {
 }
 
 export default function EvangelismPage() {
+  usePageTitle("Evangelism");
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();

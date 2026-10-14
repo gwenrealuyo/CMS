@@ -91,6 +91,23 @@ from apps.clusters.permissions import (
 )
 
 
+def _format_cancelled_weeks(items) -> str:
+    parts = []
+    for item in items or []:
+        week = item.get("week")
+        group = (item.get("group") or "").strip()
+        reason = (item.get("reason") or "").strip()
+        if group and reason:
+            parts.append(f"{week}: {group}: {reason}")
+        elif reason:
+            parts.append(f"{week}: {reason}")
+        elif group:
+            parts.append(f"{week}: {group}")
+        else:
+            parts.append(str(week))
+    return "; ".join(parts)
+
+
 class ClusterPagination(PageNumberPagination):
     page_size = 25
     page_size_query_param = "page_size"
@@ -626,7 +643,7 @@ class ClusterWeeklyReportViewSet(viewsets.ModelViewSet):
         """Generate analytics from cluster weekly reports"""
         # get_queryset() already applies filters from filterset_fields (cluster, year, gathering_type)
         # and the month filter from get_queryset() override
-        queryset = self.get_queryset()
+        queryset = self.get_queryset().filter(cancelled=False)
 
         report_count = queryset.count()
 
@@ -993,6 +1010,7 @@ class ClusterWeeklyReportViewSet(viewsets.ModelViewSet):
                 "reports_expected": cluster_compliance["reports_expected"],
                 "compliance_rate": cluster_compliance["compliance_rate"],
                 "missing_weeks": cluster_compliance["missing_weeks"],
+                "cancelled_weeks": cluster_compliance["cancelled_weeks"],
                 "last_report_date": cluster_compliance["last_report_date"],
                 "days_since_last_report": cluster_compliance["days_since_last_report"],
                 "consecutive_missing_weeks": cluster_compliance["consecutive_missing_weeks"],
@@ -1185,17 +1203,26 @@ class ClusterWeeklyReportViewSet(viewsets.ModelViewSet):
                 week_start = datetime.strptime(f"{year}-W{week:02d}-1", "%Y-W%W-%w").date()
                 week_end = week_start + timedelta(days=6)
                 
-                # Calculate compliance for this week
-                total_expected = clusters.count()
-                total_submitted = ClusterWeeklyReport.objects.filter(
+                # Cancelled weeks are excused: drop them from both sides.
+                week_reports = ClusterWeeklyReport.objects.filter(
                     cluster__in=clusters,
                     year=year,
                     week_number=week,
+                )
+                excused = week_reports.filter(cancelled=True).count()
+                total_expected = max(clusters.count() - excused, 0)
+                total_submitted = week_reports.filter(
+                    cancelled=False,
                     meeting_date__gte=week_start,
-                    meeting_date__lte=week_end
+                    meeting_date__lte=week_end,
                 ).count()
-                
-                compliance_rate = (total_submitted / total_expected * 100) if total_expected > 0 else 0.0
+
+                if total_expected > 0:
+                    compliance_rate = total_submitted / total_expected * 100
+                elif excused > 0:
+                    compliance_rate = 100.0
+                else:
+                    compliance_rate = 0.0
                 
                 history_data.append({
                     "period": f"{year}-W{week:02d}",
@@ -1217,15 +1244,23 @@ class ClusterWeeklyReportViewSet(viewsets.ModelViewSet):
                     next_month = current.replace(month=current.month + 1, day=1)
                     month_end = next_month - timedelta(days=1)
                 
-                # Calculate compliance for this month
-                total_expected = clusters.count() * 4  # Approx 4 weeks per month
-                total_submitted = ClusterWeeklyReport.objects.filter(
+                # Approx 4 weeks per month. Cancelled reports are excused.
+                month_reports = ClusterWeeklyReport.objects.filter(
                     cluster__in=clusters,
                     meeting_date__gte=month_start,
-                    meeting_date__lte=month_end
-                ).count()
-                
-                compliance_rate = (total_submitted / total_expected * 100) if total_expected > 0 else 0.0
+                    meeting_date__lte=month_end,
+                )
+                excused = month_reports.filter(cancelled=True).count()
+                raw_expected = clusters.count() * 4
+                total_expected = max(raw_expected - excused, 0)
+                total_submitted = month_reports.filter(cancelled=False).count()
+
+                if total_expected > 0:
+                    compliance_rate = total_submitted / total_expected * 100
+                elif excused > 0:
+                    compliance_rate = 100.0
+                else:
+                    compliance_rate = 0.0
                 
                 history_data.append({
                     "period": f"{current.year}-{current.month:02d}",
@@ -1357,7 +1392,7 @@ class ClusterWeeklyReportViewSet(viewsets.ModelViewSet):
         writer.writerow([
             'Cluster Code', 'Cluster Name', 'Coordinator', 'Status',
             'Reports Submitted', 'Reports Expected', 'Compliance Rate (%)',
-            'Missing Weeks', 'Last Report Date', 'Days Since Last Report',
+            'Missing Weeks', 'Cancelled Weeks', 'Last Report Date', 'Days Since Last Report',
             'Consecutive Missing Weeks', 'Trend'
         ])
         
@@ -1373,6 +1408,7 @@ class ClusterWeeklyReportViewSet(viewsets.ModelViewSet):
                 cluster_data['reports_expected'],
                 cluster_data['compliance_rate'],
                 ', '.join(map(str, cluster_data['missing_weeks'])),
+                _format_cancelled_weeks(cluster_data.get('cancelled_weeks')),
                 cluster_data['last_report_date'] or '',
                 cluster_data['days_since_last_report'] or '',
                 cluster_data['consecutive_missing_weeks'],

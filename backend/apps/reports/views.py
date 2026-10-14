@@ -10,6 +10,7 @@ from rest_framework.views import APIView
 
 from apps.attendance.models import AttendanceRecord
 from apps.clusters.models import Cluster, ClusterComplianceNote, ClusterWeeklyReport
+from apps.clusters.utils import parse_iso_weeks, week_span
 from apps.clusters.serializers import ClusterComplianceNoteSerializer
 from apps.evangelism.models import EvangelismWeeklyReport
 from apps.lessons.models import PersonLessonProgress
@@ -31,6 +32,56 @@ def _parse_date(value):
             {"error": "Invalid date format. Use YYYY-MM-DD."},
             status=http_status.HTTP_400_BAD_REQUEST,
         )
+
+
+def _compliance_period(request):
+    """Resolve ``(start_date, end_date, weeks_or_none)`` or an error response."""
+    week_values = []
+    for value in request.query_params.getlist("week_number"):
+        week_values.extend(
+            part.strip() for part in str(value).split(",") if part.strip()
+        )
+
+    if week_values:
+        today = church_today()
+        year_raw = request.query_params.get("year")
+        if year_raw:
+            try:
+                year = int(year_raw)
+            except (TypeError, ValueError):
+                return None, Response(
+                    {"error": "Invalid year."},
+                    status=http_status.HTTP_400_BAD_REQUEST,
+                )
+        else:
+            year = today.isocalendar().year
+        try:
+            selected_weeks = parse_iso_weeks(year, [int(value) for value in week_values])
+        except ValueError as exc:
+            return None, Response(
+                {"error": str(exc)},
+                status=http_status.HTTP_400_BAD_REQUEST,
+            )
+        if not selected_weeks:
+            return None, Response(
+                {"error": "Select at least one week."},
+                status=http_status.HTTP_400_BAD_REQUEST,
+            )
+        start_date, end_date = week_span(selected_weeks)
+        return (start_date, end_date, selected_weeks), None
+
+    today = church_today()
+    start_date, err = _parse_date(request.query_params.get("start_date"))
+    if err:
+        return None, err
+    end_date, err = _parse_date(request.query_params.get("end_date"))
+    if err:
+        return None, err
+    if start_date is None:
+        start_date = today - timedelta(weeks=4)
+    if end_date is None:
+        end_date = today
+    return (start_date, end_date, None), None
 
 
 def _scoped_clusters(request):
@@ -170,18 +221,10 @@ class ComplianceView(APIView):
     permission_classes = [IsReportsViewer]
 
     def get(self, request):
-        today = church_today()
-
-        start_date, err = _parse_date(request.query_params.get("start_date"))
-        if err:
-            return err
-        end_date, err = _parse_date(request.query_params.get("end_date"))
-        if err:
-            return err
-        if start_date is None:
-            start_date = today - timedelta(weeks=4)
-        if end_date is None:
-            end_date = today
+        period, period_error = _compliance_period(request)
+        if period_error:
+            return period_error
+        start_date, end_date, selected_weeks = period
 
         clusters = _scoped_clusters(request)
 
@@ -208,6 +251,7 @@ class ComplianceView(APIView):
             end_date,
             status=status_filter,
             min_rate=min_rate,
+            weeks=selected_weeks,
         )
         return Response(payload)
 
@@ -354,24 +398,20 @@ class ComplianceExportCsvView(APIView):
     permission_classes = [IsReportsViewer]
 
     def get(self, request):
-        today = church_today()
-
-        start_date, err = _parse_date(request.query_params.get("start_date"))
-        if err:
-            return err
-        end_date, err = _parse_date(request.query_params.get("end_date"))
-        if err:
-            return err
-        if start_date is None:
-            start_date = today - timedelta(weeks=4)
-        if end_date is None:
-            end_date = today
+        period, period_error = _compliance_period(request)
+        if period_error:
+            return period_error
+        start_date, end_date, selected_weeks = period
 
         clusters = _scoped_clusters(request)
         status_filter = request.query_params.get("status") or None
 
         payload = services.build_compliance_payload(
-            clusters, start_date, end_date, status=status_filter
+            clusters,
+            start_date,
+            end_date,
+            status=status_filter,
+            weeks=selected_weeks,
         )
         csv_text = services.build_compliance_csv(payload)
 

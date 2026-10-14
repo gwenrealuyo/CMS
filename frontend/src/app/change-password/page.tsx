@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { usePageTitle } from "@/src/hooks/usePageTitle";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/src/contexts/AuthContext";
 import Button from "@/src/components/ui/Button";
@@ -29,6 +30,7 @@ function ChangePasswordPageContent() {
   const [isReturningToLogin, setIsReturningToLogin] = useState(false);
   const [error, setError] = useState("");
   const isFirstLogin = user?.first_login || false;
+  usePageTitle(isFirstLogin ? "Set Your Password" : "Change Your Password");
 
   // Redirect if user doesn't need to change password
   useEffect(() => {

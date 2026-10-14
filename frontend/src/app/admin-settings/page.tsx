@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, Fragment } from "react";
+import { usePageTitle } from "@/src/hooks/usePageTitle";
 import { useAuth } from "@/src/contexts/AuthContext";
 import DashboardLayout from "@/src/components/layout/DashboardLayout";
 import ProtectedRoute from "@/src/components/auth/ProtectedRoute";
@@ -51,6 +52,7 @@ type Tab =
   | "admin-accounts";
 
 export default function AdminSettingsPage() {
+  usePageTitle("Admin Settings");
   return (
     <ProtectedRoute allowedRoles={["ADMIN"]}>
       <AdminSettingsPageContent />

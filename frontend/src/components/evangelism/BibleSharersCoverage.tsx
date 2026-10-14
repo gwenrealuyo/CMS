@@ -138,6 +138,7 @@ export default function BibleSharersCoverageComponent() {
   const [viewMode, setViewMode] = useState<"table" | "cards">(() =>
     getInitialListViewMode("table"),
   );
+  const [peopleOpen, setPeopleOpen] = useState(false);
   const isTabletUp = useIsTabletUp();
   const isMdUp = useIsMdUp();
   const effectiveViewMode = effectiveListViewMode(viewMode, isTabletUp);
@@ -528,20 +529,32 @@ export default function BibleSharersCoverageComponent() {
 
       <Card>
         <div className="space-y-5">
-          <div>
-            <h2 className="text-lg font-semibold text-gray-900">People</h2>
-            <p className="mt-1 text-sm text-gray-500">
-              Facilitators on the HQ roster and people assigned as Bible Sharers
-              on evangelism groups. Unassigned people cannot file weekly reports
-              until they are assigned to a group.
-            </p>
-          </div>
+          <button
+            type="button"
+            onClick={() => setPeopleOpen((open) => !open)}
+            className="flex w-full items-start justify-between gap-3 text-left"
+            aria-expanded={peopleOpen}
+          >
+            <div>
+              <h2 className="text-lg font-semibold text-gray-900">People</h2>
+              <p className="mt-1 text-sm text-gray-500">
+                {peopleOpen
+                  ? "Facilitators on the HQ roster and people assigned as Bible Sharers on evangelism groups. Unassigned people cannot file weekly reports until they are assigned to a group."
+                  : `${filteredPeople.length} ${filteredPeople.length === 1 ? "person" : "people"}`}
+              </p>
+            </div>
+            {peopleOpen ? (
+              <ChevronUpIcon className="mt-1 h-5 w-5 shrink-0 text-gray-500" />
+            ) : (
+              <ChevronDownIcon className="mt-1 h-5 w-5 shrink-0 text-gray-500" />
+            )}
+          </button>
 
-          {filteredPeople.length === 0 ? (
+          {peopleOpen && filteredPeople.length === 0 ? (
             <p className="text-gray-500 text-center py-8">
               No Bible Sharers found
             </p>
-          ) : effectiveViewMode === "cards" ? (
+          ) : peopleOpen && effectiveViewMode === "cards" ? (
             <div className="space-y-3">
               {paginatedPeople.map((person) => (
                 <article
@@ -570,7 +583,7 @@ export default function BibleSharersCoverageComponent() {
                 </article>
               ))}
             </div>
-          ) : (
+          ) : peopleOpen ? (
             <div className="overflow-x-auto rounded-lg border">
               <table className="w-full min-w-[720px] divide-y divide-gray-200">
                 <thead className="bg-gray-50">
@@ -631,9 +644,9 @@ export default function BibleSharersCoverageComponent() {
                 </tbody>
               </table>
             </div>
-          )}
+          ) : null}
 
-          {filteredPeople.length > itemsPerPage ? (
+          {peopleOpen && filteredPeople.length > itemsPerPage ? (
             <Pagination
               currentPage={page}
               totalPages={totalPages}
@@ -648,7 +661,9 @@ export default function BibleSharersCoverageComponent() {
             />
           ) : null}
 
-          {summary?.can_manage_roster && summary.bible_sharers_ministry_id ? (
+          {peopleOpen &&
+          summary?.can_manage_roster &&
+          summary.bible_sharers_ministry_id ? (
             <p className="text-sm text-gray-500">
               <Link
                 href={`/ministries?open=${summary.bible_sharers_ministry_id}`}

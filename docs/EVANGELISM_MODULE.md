@@ -80,7 +80,8 @@ Key features include:
   - `members_attended` (ManyToMany to `people.Person`, filtered to role="MEMBER") – members who attended
   - `visitors_attended` (ManyToMany to `people.Person`, filtered to role="VISITOR") – visitors who attended
   - `prospects_invited` (ManyToMany to `evangelism.Prospect`, blank, `related_name="evangelism_reports_invited_to"`) – invited visitors recorded on this report who have **not** attended yet (no Person required)
-  - `gathering_type` (CharField, choices: PHYSICAL, ONLINE, HYBRID) – how the meeting was conducted
+  - `gathering_type` (CharField, choices: PHYSICAL, ONLINE, HYBRID, blank when cancelled) – how the meeting was conducted
+  - `cancelled` (Boolean, default false) – the gathering did not happen. Requires `cancellation_reason`. The week is excused from cluster evangelism compliance when every report for that cluster-week is cancelled, and the row is left out of the unified weekly tally. A held report from another group on the same cluster still counts as submitted. Approved groups with no cluster are scored on the same compliance table by `meeting_frequency` (weekly, biweekly, or monthly). A cancellation excuses only that group's own slot. Irregular groups are not expected to report. The compliance table lists each excused week and its reason; the rate stays excused.
   - `topic` (string, max 200 chars, blank) – Bible study topic
   - `activities_held` (TextField, blank) – activities/events during the meeting
   - `prayer_requests` (TextField, blank) – prayer requests shared
@@ -268,7 +269,7 @@ All routes live under `/api/evangelism/` (namespaced in `core.urls`):
   - `GET /{id}/summary/` – Group statistics
   - `GET /bible_sharers_coverage/` – Bible Sharers people directory plus cluster coverage
     - Query: `?branch=` (same meaning as the group list; omit for all branches)
-    - Counts unique people with **group-scoped** `BIBLE_SHARER` assignments on **active** groups. Module-wide roster grants do not cover a cluster
+    - Counts unique people with **group-scoped** `BIBLE_SHARER` assignments on **active** groups. An HQ Bible Sharers roster member who is the group **coordinator** also counts for that group on this payload; their assignment row stays `COORDINATOR`. Module-wide roster grants do not cover a cluster
     - HQ roster members (and grant-only people) are included when the filter is HQ or all branches; a satellite branch omits the idle HQ roster
     - Inactive groups do not count as assigned
     - Response includes:
@@ -614,7 +615,7 @@ The Groups tab toolbar mirrors the clusters page layout:
   - Leader selection
   - Cluster selection (optional)
   - Location, meeting time, meeting day inputs
-  - Bible Sharer and Reporter pickers (must be members; coordinator cannot hold those roles). On HQ groups, Bible Sharers must also be on the headquarters Bible Sharers ministry roster.
+  - Bible Sharer and Reporter pickers (must be members; coordinator cannot hold those roles). On HQ groups, Bible Sharers must also be on the headquarters Bible Sharers ministry roster. Adding an HQ roster member pre-selects Bible Sharer; the chip can be removed before save. The coordinator is not pre-selected.
 - **`GroupMembersSection`**: Section displaying and managing group members
   - Table of enrolled members with role, join date, status
   - Add member button
@@ -771,7 +772,7 @@ The Groups tab toolbar mirrors the clusters page layout:
   - Toolbar: search, branch filter (locked to assignment like Groups), status filter (All / Assigned / Unassigned / Roster only / Grant only), Table / Cards
   - Summary cards: unique Bible Sharers, assigned, unassigned, clusters uncovered
   - People directory (primary): name (People profile link), status chips (Assigned/Unassigned, HQ roster, Inactive on roster, Evangelism access vs Roster only), group chips (`?tab=groups&openGroup=`), cluster code badges
-  - Includes HQ roster members with no group, grant-only people, and assignments on groups with no cluster
+  - Includes HQ roster members with no group, grant-only people, and assignments on groups with no cluster. An HQ roster member who coordinates a group still counts as a Bible Sharer for that group here; the saved role stays Coordinator
   - Roster managers see a Ministries deep link to manage the HQ roster (editing stays in Ministries)
   - Cluster coverage table: Covered / Not covered, people names, uncovered-cluster alert, cluster code click-through, **No cluster** row when needed
 

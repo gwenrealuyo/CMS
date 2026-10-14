@@ -438,3 +438,43 @@ class LessonSessionReport(models.Model):
 
     class Meta:
         ordering = ("-session_date", "-session_start", "-created_at")
+
+
+class LessonFollowUpCase(models.Model):
+    """
+    Coordinator decision for a student whose lessons have gone quiet.
+
+    One open case per student. A newer session deletes the case. Journey notes
+    written when the case is saved stay on the person.
+    """
+
+    class Status(models.TextChoices):
+        ACTION_PLANNED = "ACTION_PLANNED", "Action planned"
+        DROPPED = "DROPPED", "Dropped"
+
+    student = models.OneToOneField(
+        Person,
+        on_delete=models.CASCADE,
+        related_name="lesson_follow_up_case",
+    )
+    status = models.CharField(max_length=20, choices=Status.choices)
+    action_text = models.TextField(blank=True)
+    excuse_text = models.TextField(blank=True)
+    who = models.CharField(max_length=150, blank=True)
+    when_date = models.DateField(null=True, blank=True)
+    remarks = models.TextField(blank=True)
+    updated_by = models.ForeignKey(
+        Person,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="lesson_follow_ups_updated",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-updated_at", "-id"]
+
+    def __str__(self) -> str:
+        return f"{self.student_id} ({self.status})"

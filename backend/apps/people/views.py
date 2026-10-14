@@ -18,6 +18,10 @@ from .models import (
 )
 from .filters import PersonFilter, FamilyFilter
 from .family_counts import annotate_family_roster_counts
+from .first_attendance import (
+    annotate_first_attendance_places,
+    resolve_first_attendance_place,
+)
 from .serializers import (
     BranchSerializer,
     PersonSerializer,
@@ -472,6 +476,34 @@ class PersonViewSet(viewsets.ModelViewSet):
             return super().destroy(request, *args, **kwargs)
         except ProtectedError:
             return _person_delete_blocked_response(instance)
+
+    @action(detail=False, methods=["get"], url_path="first-attendance-places")
+    def first_attendance_places(self, request):
+        """Cluster, evangelism group, or activity for each person's first attendance."""
+        raw_ids = request.query_params.get("ids", "")
+        person_ids = []
+        for part in raw_ids.split(","):
+            part = part.strip()
+            if part.isdigit():
+                person_ids.append(int(part))
+        person_ids = person_ids[:20]
+        if not person_ids:
+            return Response([])
+
+        people = annotate_first_attendance_places(
+            self.get_queryset()
+            .filter(pk__in=person_ids, date_first_attended__isnull=False)
+            .select_related("first_activity_attended")
+        )
+        return Response(
+            [
+                {
+                    "id": person.id,
+                    "place": resolve_first_attendance_place(person),
+                }
+                for person in people
+            ]
+        )
 
     @action(detail=False, methods=["get"], url_path="possible-duplicates")
     def possible_duplicates(self, request):

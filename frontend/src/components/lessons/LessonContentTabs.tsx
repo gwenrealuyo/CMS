@@ -7,6 +7,7 @@ export type LessonContentTab =
   | "progress"
   | "teachers"
   | "awaiting-teacher"
+  | "timeline"
   | "sessions"
   | "commitment";
 
@@ -15,6 +16,7 @@ interface LessonContentTabsProps {
   onTabChange: (tab: LessonContentTab) => void;
   hideProgress?: boolean;
   hideTeachers?: boolean;
+  hideTimeline?: boolean;
   hideAwaitingTeacher?: boolean;
   awaitingTeacherCount?: number | null;
   hideSessions?: boolean;
@@ -30,6 +32,7 @@ export default function LessonContentTabs({
   onTabChange,
   hideProgress,
   hideTeachers,
+  hideTimeline,
   hideAwaitingTeacher,
   awaitingTeacherCount,
   hideSessions,
@@ -43,23 +46,20 @@ export default function LessonContentTabs({
     label: string;
     mobileLabel: string;
     disabled: boolean;
-    minWidthClass: string;
   }> = [
     {
       id: "lesson",
-      label: "Lesson Content",
+      label: "Content",
       mobileLabel: "Content",
       disabled: false,
-      minWidthClass: "min-w-[68px] md:min-w-[100px]",
     },
     ...(!hideProgress
       ? [
           {
             id: "progress" as const,
-            label: "Student Progress",
+            label: "Progress",
             mobileLabel: "Progress",
             disabled: false,
-            minWidthClass: "min-w-[72px] md:min-w-[120px]",
           },
         ]
       : []),
@@ -70,7 +70,6 @@ export default function LessonContentTabs({
             label: "Teachers",
             mobileLabel: "Teachers",
             disabled: false,
-            minWidthClass: "min-w-[72px] md:min-w-[88px]",
           },
         ]
       : []),
@@ -81,7 +80,16 @@ export default function LessonContentTabs({
             label: "Awaiting Teacher",
             mobileLabel: "Awaiting",
             disabled: false,
-            minWidthClass: "min-w-[96px] md:min-w-[150px]",
+          },
+        ]
+      : []),
+    ...(!hideTimeline
+      ? [
+          {
+            id: "timeline" as const,
+            label: "Timeline",
+            mobileLabel: "Timeline",
+            disabled: false,
           },
         ]
       : []),
@@ -89,10 +97,9 @@ export default function LessonContentTabs({
       ? [
           {
             id: "sessions" as const,
-            label: "Session Reports",
+            label: "Reports",
             mobileLabel: "Reports",
             disabled: false,
-            minWidthClass: "min-w-[72px] md:min-w-[110px]",
           },
         ]
       : []),
@@ -101,7 +108,6 @@ export default function LessonContentTabs({
       label: "Files",
       mobileLabel: "Files",
       disabled: Boolean(disableCommitment),
-      minWidthClass: "min-w-[52px] md:min-w-[64px]",
     },
   ];
 
@@ -117,7 +123,7 @@ export default function LessonContentTabs({
     <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
       <div className="min-w-0 flex-1 border-b border-gray-200">
         <nav
-          className="-mb-px flex snap-x snap-mandatory gap-4 overflow-x-auto scroll-smooth sm:gap-8"
+          className="-mb-px flex snap-x snap-mandatory gap-4 overflow-x-auto scroll-smooth"
           role="tablist"
         >
           {tabs.map((tab) => {
@@ -136,7 +142,7 @@ export default function LessonContentTabs({
                     onTabChange(tab.id);
                   }
                 }}
-                className={`${TAB_BUTTON_BASE_CLASS} ${tab.minWidthClass} ${
+                className={`${TAB_BUTTON_BASE_CLASS} ${
                   isActive
                     ? "border-primary text-primary"
                     : "border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700"

@@ -59,6 +59,7 @@ export interface VisitorAwaitingTeacher {
   cluster_codes: string[];
   phone: string;
   visitor_since: string | null;
+  inviter_name: string;
   enrollment_id: number | null;
 }
 
@@ -221,4 +222,63 @@ export interface LessonAssignmentRequest {
   review_note: string;
   created_at: string;
   updated_at: string;
+}
+
+export type LessonFollowUpStatus = "ACTION_PLANNED" | "DROPPED";
+
+export type LessonTimelineDaysAnchor = "session" | "enrollment" | "assignment";
+
+export interface LessonFollowUpCase {
+  id: number;
+  status: LessonFollowUpStatus;
+  action_text: string;
+  excuse_text: string;
+  who: string;
+  when: string | null;
+  remarks: string;
+  updated_at: string | null;
+}
+
+export interface LessonTimelineCatalogLesson {
+  id: number;
+  title: string;
+  order: number;
+  code: string;
+}
+
+export interface LessonTimelineLessonMark {
+  lesson_id: number;
+  status: LessonProgressStatus | null;
+  completed_on: string | null;
+}
+
+export interface LessonTimelineStudent {
+  person: LessonPersonSummary;
+  teacher: LessonPersonSummary | null;
+  teacher_name: string;
+  has_finished_lessons: boolean;
+  water_baptism_date: string | null;
+  spirit_baptism_date: string | null;
+  cluster_codes: string[];
+  lessons: LessonTimelineLessonMark[];
+  last_session_date: string | null;
+  days_since_last_session: number | null;
+  days_anchor: LessonTimelineDaysAnchor | null;
+  next_session_date: string | null;
+  follow_up: LessonFollowUpCase | null;
+}
+
+export interface LessonTimelinePayload {
+  lessons: LessonTimelineCatalogLesson[];
+  students: LessonTimelineStudent[];
+}
+
+export interface LessonFollowUpInput {
+  student_id: number;
+  status: LessonFollowUpStatus;
+  action_text?: string;
+  excuse_text?: string;
+  who?: string;
+  when?: string | null;
+  remarks?: string;
 }

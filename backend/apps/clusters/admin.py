@@ -49,10 +49,11 @@ class ClusterWeeklyReportAdmin(admin.ModelAdmin):
         "week_number",
         "meeting_date",
         "gathering_type",
+        "cancelled",
         "submitted_by",
         "submitted_at",
     )
-    list_filter = ("year", "week_number", "gathering_type", "submitted_at")
+    list_filter = ("year", "week_number", "gathering_type", "cancelled", "submitted_at")
     search_fields = ("cluster__name", "cluster__code")
     filter_horizontal = ("members_attended", "visitors_attended", "prospects_invited")
     fieldsets = (
@@ -65,6 +66,8 @@ class ClusterWeeklyReportAdmin(admin.ModelAdmin):
                     "week_number",
                     "meeting_date",
                     "gathering_type",
+                    "cancelled",
+                    "cancellation_reason",
                 )
             },
         ),

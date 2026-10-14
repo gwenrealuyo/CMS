@@ -25,6 +25,29 @@ function toNumberId(id: string | number): number | null {
 export async function buildEvangelismWeeklyReportPayloadFromFormValues(
   values: EvangelismWeeklyReportFormValues
 ): Promise<Record<string, unknown>> {
+  if (values.cancelled) {
+    const reason = (values.cancellation_reason || "").trim();
+    if (!reason) {
+      throw new Error(
+        "A reason is required when the gathering is cancelled."
+      );
+    }
+    return {
+      evangelism_group_id: values.evangelism_group_id,
+      year: values.year,
+      week_number: values.week_number,
+      meeting_date: values.meeting_date,
+      cancelled: true,
+      cancellation_reason: reason,
+      conversions_this_week: 0,
+      topic: "",
+      activities_held: "",
+      prayer_requests: "",
+      testimonies: "",
+      notes: "",
+    };
+  }
+
   const prospectIds = (values.visitors_attended || [])
     .filter((id) => isProspectAttendanceId(id))
     .map((id) => id.replace("prospect:", ""));
@@ -87,6 +110,8 @@ export async function buildEvangelismWeeklyReportPayloadFromFormValues(
     year: values.year,
     week_number: values.week_number,
     meeting_date: values.meeting_date,
+    cancelled: false,
+    cancellation_reason: "",
     gathering_type: values.gathering_type,
     topic: values.topic,
     activities_held: values.activities_held,

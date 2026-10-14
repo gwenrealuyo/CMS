@@ -113,6 +113,12 @@ export const faqCategories: FaqCategory[] = [
           "Go to Clusters, or use Dashboard → Submit Report or + → Submit Cluster Report. Select your cluster, enter the meeting date, gathering type (Physical / Online / Hybrid), and attendance. Add activities, prayer requests, and other notes as needed, then save. Attendance is reflected on each person’s Journey.",
       },
       {
+        id: "cancelled-gathering",
+        question: "What if our cluster cancels a gathering for a week?",
+        answer:
+          "Still file the weekly report for that week. On the report form, check Gathering was cancelled and enter a short reason. That week is excused: it does not count as a missed report, and it does not count as a meeting for attendance, offerings, or gathering type. Filing it keeps the cluster from looking overdue. Senior coordinators still see that week and the reason on the compliance table. A week with no report at all still counts as missing.",
+      },
+      {
         id: "cannot-submit",
         question: "Why can’t I submit a cluster report?",
         answer:
@@ -165,6 +171,12 @@ export const faqCategories: FaqCategory[] = [
         question: "What can I do in Evangelism?",
         answer:
           "Evangelism covers Bible study groups, visitor follow-up, and conversion tracking. Coordinators manage groups and prospects, record baptisms and Holy Ghost reception, and submit evangelism reports. Use + → Submit Evangelism Report when available for your role.",
+      },
+      {
+        id: "evangelism-cancelled-gathering",
+        question: "What if a cluster Bible study cancels for a week?",
+        answer:
+          "Still file the evangelism weekly report for that week. On the report form, check Gathering was cancelled and enter a short reason. You do not fill in attendance or meeting notes for a cancelled week. For a cluster-linked group, that week is excused: it does not count as a missed report, and it does not count as a meeting for attendance or the weekly tally. A held report from another group on the same cluster still covers the week. Groups that are not linked to a cluster are still expected to report on their own schedule — weekly, every two weeks, or monthly. Irregular groups are not held to that schedule. A cancellation excuses only that group's own report. Senior coordinators still see each excused week and its reason on the compliance table. A week with no report at all still counts as missing.",
       },
       {
         id: "sunday-school",

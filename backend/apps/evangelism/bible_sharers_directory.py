@@ -78,14 +78,9 @@ def build_bible_sharers_coverage(*, user, branch_id: Optional[int]) -> dict:
     groups_by_cluster = defaultdict(dict)
     directory_groups = defaultdict(dict)
 
-    for assignment in assignments:
-        group = groups_by_id.get(assignment.resource_id)
-        if not group:
-            continue
-        person = assignment.person
+    def _record_person_group(person: Person, group: EvangelismGroup) -> None:
         if not _assignment_in_scope(group, person, branch_id):
-            continue
-
+            return
         directory_groups[person.id][group.id] = group
         cluster_key = group.cluster_id if group.cluster_id else NO_CLUSTER_KEY
         person_entry = people_by_cluster[cluster_key].setdefault(
@@ -110,6 +105,32 @@ def build_bible_sharers_coverage(*, user, branch_id: Optional[int]) -> dict:
             },
         )
 
+    for assignment in assignments:
+        group = groups_by_id.get(assignment.resource_id)
+        if not group:
+            continue
+        _record_person_group(assignment.person, group)
+
+    ministry = get_bible_sharers_ministry()
+    roster_active_by_person = {}
+    if ministry is not None:
+        roster_active_by_person = dict(
+            MinistryMember.objects.filter(ministry=ministry).values_list(
+                "member_id", "is_active"
+            )
+        )
+
+    # Coordinators stay COORDINATOR. Roster members who lead a group still
+    # count as Bible Sharers on this coverage payload only.
+    if roster_active_by_person:
+        coordinator_groups = EvangelismGroup.objects.filter(
+            is_active=True,
+            coordinator_id__in=roster_active_by_person.keys(),
+        ).select_related("cluster", "cluster__branch", "branch", "coordinator")
+        for group in coordinator_groups:
+            if group.coordinator is not None:
+                _record_person_group(group.coordinator, group)
+
     for cluster_key, people in people_by_cluster.items():
         for person_entry in people.values():
             for gid in person_entry["group_ids"]:
@@ -122,15 +143,6 @@ def build_bible_sharers_coverage(*, user, branch_id: Optional[int]) -> dict:
             resource_id__isnull=True,
         ).values_list("person_id", flat=True)
     )
-
-    ministry = get_bible_sharers_ministry()
-    roster_active_by_person = {}
-    if ministry is not None:
-        roster_active_by_person = dict(
-            MinistryMember.objects.filter(ministry=ministry).values_list(
-                "member_id", "is_active"
-            )
-        )
 
     include_roster = _include_hq_roster(branch_id)
     directory_ids = set(directory_groups.keys())

@@ -102,8 +102,29 @@ export default function ViewEvangelismWeeklyReportModal({
   };
 
   const groupTitle = report.evangelism_group?.name ?? "Evangelism group";
+  const rosterMemberIds = (() => {
+    const members = report.evangelism_group?.members;
+    if (!Array.isArray(members)) return null;
+    const ids = new Set(
+      members
+        .map((member) => member?.id)
+        .filter((id) => id != null && String(id) !== "")
+        .map((id) => String(id)),
+    );
+    const coordinatorId =
+      report.evangelism_group?.coordinator?.id ??
+      report.evangelism_group?.coordinator_id;
+    if (coordinatorId != null && String(coordinatorId) !== "") {
+      ids.add(String(coordinatorId));
+    }
+    return ids;
+  })();
 
-  function renderPersonCard(person: Person, variant: "member" | "visitor") {
+  function renderPersonCard(
+    person: Person,
+    variant: "member" | "visitor",
+    satIn = false,
+  ) {
     return (
       <div
         key={person.id}
@@ -115,6 +136,11 @@ export default function ViewEvangelismWeeklyReportModal({
             {formatPersonName(person) ||
               person.username ||
               `ID ${person.id}`}
+            {satIn ? (
+              <span className="ml-1.5 text-[10px] font-semibold uppercase tracking-wide text-gray-500">
+                Sat in
+              </span>
+            ) : null}
           </p>
           {person.email ? (
             <p className="text-xs text-gray-600 truncate">{person.email}</p>
@@ -212,6 +238,16 @@ export default function ViewEvangelismWeeklyReportModal({
               </div>
             </div>
 
+            {report.cancelled ? (
+              <div className="bg-white rounded-lg border border-amber-200 p-4 shadow-sm">
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                  Gathering cancelled
+                </h3>
+                <p className="text-sm text-gray-700 whitespace-pre-wrap">
+                  {report.cancellation_reason || "No reason recorded."}
+                </p>
+              </div>
+            ) : (
             <div className="bg-white rounded-lg border border-gray-200 p-4 shadow-sm">
               <h3 className="text-lg font-semibold text-gray-900 mb-3">
                 Attendance & Gathering
@@ -265,6 +301,7 @@ export default function ViewEvangelismWeeklyReportModal({
                 </div>
               </div>
             </div>
+            )}
 
             {(membersDetails.length > 0 || visitorsDetails.length > 0) && (
               <div className="bg-white rounded-lg border border-gray-200 p-4 shadow-sm">
@@ -322,7 +359,14 @@ export default function ViewEvangelismWeeklyReportModal({
                       {(membersExpanded ?
                         membersDetails
                       : membersDetails.slice(0, INITIAL_DISPLAY_COUNT)
-                      ).map((m) => renderPersonCard(m, "member"))}
+                      ).map((m) =>
+                        renderPersonCard(
+                          m,
+                          "member",
+                          rosterMemberIds != null &&
+                            !rosterMemberIds.has(String(m.id)),
+                        ),
+                      )}
                     </div>
                   </div>
                 )}

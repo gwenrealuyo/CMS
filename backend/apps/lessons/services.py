@@ -5,22 +5,26 @@ from dataclasses import dataclass
 from typing import Iterable, Optional
 
 from django.db import IntegrityError, transaction
-from django.db.models import Count, Q
+from django.db.models import Count, Prefetch, Q, QuerySet
 from django.utils import timezone
 from rest_framework.exceptions import ValidationError
 
 from apps.people.models import Journey, Person
-from core.datetime_utils import church_calendar_date, get_church_timezone
+from core.datetime_utils import church_calendar_date, church_today, get_church_timezone
 
 from .models import (
     Lesson,
     LessonAssignmentRequest,
+    LessonFollowUpCase,
     LessonJourney,
     LessonStudentEnrollment,
     LessonSessionReport,
     LessonTeacherTransfer,
     PersonLessonProgress,
 )
+
+FOLLOW_UP_DROPPED_TITLE = "Lessons follow-up dropped"
+FOLLOW_UP_PLAN_TITLE = "Lessons follow-up plan"
 
 
 @dataclass
@@ -928,6 +932,11 @@ def build_lesson_progress_summary(
     Person-level COMPLETED counts only students whose course finish date
     (``completed_at`` or ``lessons_finished_at``) falls in ``year``. Historical
     graduates and undated bulk imports are excluded from the yearly cohort.
+
+    Lesson rows use that same cohort: students still in the course, plus
+    students who finished every in-scope lesson in ``year``. Each lesson's
+    completed/total counts are current status for those students, not
+    all-time progress records.
     """
     queryset = progress_qs
 
@@ -994,7 +1003,8 @@ def build_lesson_progress_summary(
         cohort_person_ids.append(person_id)
 
     lesson_breakdown = (
-        queryset.values(
+        queryset.filter(person_id__in=cohort_person_ids)
+        .values(
             "lesson_id",
             "lesson__title",
             "lesson__version_label",
@@ -1033,3 +1043,349 @@ def build_lesson_progress_summary(
             for row in lesson_breakdown
         ],
     }
+
+
+def _person_brief(person: Person) -> dict:
+    return {
+        "id": person.id,
+        "first_name": person.first_name or "",
+        "middle_name": person.middle_name or "",
+        "last_name": person.last_name or "",
+        "suffix": person.suffix or "",
+        "username": person.username,
+    }
+
+
+def _enrollment_for(person: Person) -> Optional[LessonStudentEnrollment]:
+    try:
+        return person.lesson_enrollment
+    except LessonStudentEnrollment.DoesNotExist:
+        return None
+
+
+def _follow_up_for(person: Person) -> Optional[LessonFollowUpCase]:
+    try:
+        return person.lesson_follow_up_case
+    except LessonFollowUpCase.DoesNotExist:
+        return None
+
+
+def _follow_up_payload(case: LessonFollowUpCase) -> dict:
+    return {
+        "id": case.id,
+        "status": case.status,
+        "action_text": case.action_text,
+        "excuse_text": case.excuse_text,
+        "who": case.who,
+        "when": case.when_date.isoformat() if case.when_date else None,
+        "remarks": case.remarks,
+        "updated_at": case.updated_at.isoformat() if case.updated_at else None,
+    }
+
+
+def _lesson_completion_date(
+    lesson_id: int,
+    progress: Optional[PersonLessonProgress],
+    lesson_session_dates: dict[int, date],
+) -> Optional[date]:
+    if lesson_id in lesson_session_dates:
+        return lesson_session_dates[lesson_id]
+    if progress is None or progress.status != PersonLessonProgress.Status.COMPLETED:
+        return None
+    return church_calendar_date(progress.completed_at)
+
+
+def _days_since(anchor: date, today: date) -> int:
+    return (today - anchor).days
+
+
+def build_lesson_timeline(people: QuerySet[Person]) -> dict:
+    """
+    One row per student who has lesson progress or an enrollment.
+
+    Days since the last session are the follow-up alert. Baptism and Holy Ghost
+    dates are markers only.
+    """
+    catalog = list(
+        Lesson.objects.filter(is_latest=True, is_active=True).order_by("order", "id")
+    )
+    people = people.select_related(
+        "lesson_enrollment__teacher",
+        "lesson_follow_up_case",
+    ).prefetch_related(
+        "clusters",
+        Prefetch(
+            "lesson_progress",
+            queryset=PersonLessonProgress.objects.select_related("lesson"),
+        ),
+        Prefetch(
+            "lesson_reports_as_student",
+            queryset=LessonSessionReport.objects.select_related("lesson").order_by(
+                "-session_date", "-session_start", "-id"
+            ),
+        ),
+    )
+
+    today = church_today()
+    students = []
+    for person in people:
+        reports = list(person.lesson_reports_as_student.all())
+        latest = reports[0] if reports else None
+        lesson_session_dates: dict[int, date] = {}
+        for report in reports:
+            if (
+                report.session_type != LessonSessionReport.SessionType.LESSON
+                or not report.lesson_id
+            ):
+                continue
+            lesson_session_dates.setdefault(report.lesson_id, report.session_date)
+
+        progress_by_lesson = {
+            progress.lesson_id: progress for progress in person.lesson_progress.all()
+        }
+        enrollment = _enrollment_for(person)
+        last_session_date = latest.session_date if latest else None
+        if last_session_date is not None:
+            days_since = _days_since(last_session_date, today)
+            days_anchor = "session"
+        else:
+            anchor_date = None
+            days_anchor = None
+            if enrollment is not None and enrollment.assigned_at:
+                anchor_date = church_calendar_date(enrollment.assigned_at)
+                days_anchor = "enrollment"
+            else:
+                assigned_at_values = [
+                    progress.assigned_at
+                    for progress in progress_by_lesson.values()
+                    if progress.assigned_at
+                ]
+                if assigned_at_values:
+                    anchor_date = church_calendar_date(min(assigned_at_values))
+                    days_anchor = "assignment"
+            days_since = (
+                _days_since(anchor_date, today) if anchor_date is not None else None
+            )
+
+        teacher = None
+        teacher_name = ""
+        if enrollment is not None:
+            if enrollment.teacher_id and enrollment.teacher is not None:
+                teacher = _person_brief(enrollment.teacher)
+                teacher_name = (
+                    enrollment.teacher.get_full_name() or enrollment.teacher.username
+                )
+            else:
+                teacher_name = " ".join(
+                    part
+                    for part in (
+                        enrollment.historical_teacher_first_name,
+                        enrollment.historical_teacher_last_name,
+                    )
+                    if part
+                ).strip()
+
+        follow_up = _follow_up_for(person)
+        lesson_rows = []
+        for lesson in catalog:
+            progress = progress_by_lesson.get(lesson.id)
+            completed_on = _lesson_completion_date(
+                lesson.id, progress, lesson_session_dates
+            )
+            lesson_rows.append(
+                {
+                    "lesson_id": lesson.id,
+                    "status": progress.status if progress else None,
+                    "completed_on": completed_on.isoformat() if completed_on else None,
+                }
+            )
+
+        students.append(
+            {
+                "person": _person_brief(person),
+                "teacher": teacher,
+                "teacher_name": teacher_name,
+                "has_finished_lessons": bool(person.has_finished_lessons),
+                "water_baptism_date": (
+                    person.water_baptism_date.isoformat()
+                    if person.water_baptism_date
+                    else None
+                ),
+                "spirit_baptism_date": (
+                    person.spirit_baptism_date.isoformat()
+                    if person.spirit_baptism_date
+                    else None
+                ),
+                "cluster_codes": sorted(
+                    code for cluster in person.clusters.all() if (code := cluster.code)
+                ),
+                "lessons": lesson_rows,
+                "last_session_date": (
+                    last_session_date.isoformat() if last_session_date else None
+                ),
+                "days_since_last_session": days_since,
+                "days_anchor": days_anchor,
+                "next_session_date": (
+                    latest.next_session_date.isoformat()
+                    if latest and latest.next_session_date
+                    else None
+                ),
+                "follow_up": _follow_up_payload(follow_up) if follow_up else None,
+            }
+        )
+
+    students.sort(
+        key=lambda row: (
+            row["days_since_last_session"] is None,
+            -(row["days_since_last_session"] or 0),
+            (row["person"]["last_name"] or "").lower(),
+            (row["person"]["first_name"] or "").lower(),
+        )
+    )
+    return {
+        "lessons": [
+            {
+                "id": lesson.id,
+                "title": lesson.title,
+                "order": lesson.order,
+                "code": lesson.code,
+            }
+            for lesson in catalog
+        ],
+        "students": students,
+    }
+
+
+def _follow_up_journey_description(
+    *,
+    status: str,
+    action_text: str,
+    excuse_text: str,
+    who: str,
+    when_date: Optional[date],
+    remarks: str,
+) -> str:
+    if status == LessonFollowUpCase.Status.DROPPED:
+        lines = [excuse_text.strip() or "Stopped the remaining lessons."]
+    else:
+        lines = [action_text.strip()]
+    if who.strip():
+        lines.append(f"Who: {who.strip()}")
+    if when_date:
+        lines.append(f"When: {when_date.isoformat()}")
+    if remarks.strip():
+        lines.append(remarks.strip())
+    return "\n".join(line for line in lines if line)
+
+
+@transaction.atomic
+def save_lesson_follow_up(
+    *,
+    student: Person,
+    actor: Optional[Person],
+    status: str,
+    action_text: str = "",
+    excuse_text: str = "",
+    who: str = "",
+    when_date: Optional[date] = None,
+    remarks: str = "",
+) -> LessonFollowUpCase:
+    action_text = (action_text or "").strip()
+    excuse_text = (excuse_text or "").strip()
+    who = (who or "").strip()
+    remarks = (remarks or "").strip()
+
+    if status == LessonFollowUpCase.Status.ACTION_PLANNED and not action_text:
+        raise ValidationError({"action_text": "Describe the action plan."})
+    if status not in LessonFollowUpCase.Status.values:
+        raise ValidationError({"status": "Choose an action plan or a drop."})
+
+    case, _created = LessonFollowUpCase.objects.update_or_create(
+        student=student,
+        defaults={
+            "status": status,
+            "action_text": action_text,
+            "excuse_text": excuse_text,
+            "who": who,
+            "when_date": when_date,
+            "remarks": remarks,
+            "updated_by": actor,
+        },
+    )
+    title = (
+        FOLLOW_UP_DROPPED_TITLE
+        if status == LessonFollowUpCase.Status.DROPPED
+        else FOLLOW_UP_PLAN_TITLE
+    )
+    Journey.objects.create(
+        user=student,
+        type="NOTE",
+        title=title,
+        description=_follow_up_journey_description(
+            status=status,
+            action_text=action_text,
+            excuse_text=excuse_text,
+            who=who,
+            when_date=when_date,
+            remarks=remarks,
+        ),
+        date=church_today(),
+        verified_by=actor if isinstance(actor, Person) else None,
+    )
+    if status == LessonFollowUpCase.Status.DROPPED:
+        stop_remaining_lessons(student)
+    return case
+
+
+def stop_remaining_lessons(student: Person) -> None:
+    """
+    Close every active lesson the student has not completed.
+
+    Completed lessons stay completed. Unfinished and not-yet-started lessons
+    are marked skipped, and the enrollment is no longer active.
+    """
+    lessons = Lesson.objects.filter(is_latest=True, is_active=True).order_by("order", "id")
+    existing = {
+        progress.lesson_id: progress
+        for progress in PersonLessonProgress.objects.filter(
+            person=student,
+            lesson__in=lessons,
+        )
+    }
+    for lesson in lessons:
+        progress = existing.get(lesson.id)
+        if progress is None:
+            PersonLessonProgress.objects.create(
+                person=student,
+                lesson=lesson,
+                status=PersonLessonProgress.Status.SKIPPED,
+            )
+            continue
+        if progress.status == PersonLessonProgress.Status.COMPLETED:
+            continue
+        if progress.status != PersonLessonProgress.Status.SKIPPED:
+            progress.status = PersonLessonProgress.Status.SKIPPED
+            progress.save(update_fields=["status", "updated_at"])
+
+    LessonStudentEnrollment.objects.filter(student=student, is_active=True).update(
+        is_active=False,
+        updated_at=timezone.now(),
+    )
+
+
+def clear_lesson_follow_up_for_newer_session(report: LessonSessionReport) -> None:
+    """Delete the open follow-up case when a session is logged after it. Notes stay."""
+    if report.student_id is None or report.session_date is None:
+        return
+    try:
+        case = report.student.lesson_follow_up_case
+    except LessonFollowUpCase.DoesNotExist:
+        return
+    case_day = church_calendar_date(case.updated_at)
+    if case_day is None:
+        return
+    session_is_newer = report.session_date > case_day or (
+        report.session_date == case_day and report.created_at > case.updated_at
+    )
+    if session_is_newer:
+        case.delete()

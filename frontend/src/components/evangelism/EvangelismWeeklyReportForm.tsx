@@ -146,6 +146,13 @@ function groupHasPersonRoster(g?: EvangelismGroup | null): boolean {
   return typeof first === "object" && first != null && "id" in first;
 }
 
+function groupBranchId(group?: EvangelismGroup | null): number | null {
+  const raw = group?.branch ?? group?.branch_id ?? null;
+  if (raw == null) return null;
+  const id = Number(raw);
+  return Number.isFinite(id) ? id : null;
+}
+
 function groupClusterChip(
   group: EvangelismGroup,
   clusters: Cluster[] = [],
@@ -187,6 +194,8 @@ export interface EvangelismWeeklyReportFormValues {
   >;
   pending_new_visitors?: Record<string, EvangelismReportNewVisitorInput>;
   gathering_type: "PHYSICAL" | "ONLINE" | "HYBRID";
+  cancelled?: boolean;
+  cancellation_reason?: string;
   topic?: string;
   activities_held?: string;
   prayer_requests?: string;
@@ -324,6 +333,8 @@ export default function EvangelismWeeklyReportForm({
     visitors_attended: [],
     prospects_invited: [],
     gathering_type: "PHYSICAL",
+    cancelled: false,
+    cancellation_reason: "",
     topic: "",
     activities_held: "",
     prayer_requests: "",
@@ -354,7 +365,9 @@ export default function EvangelismWeeklyReportForm({
       members_attended: (initialData.members_attended || []).map(String),
       visitors_attended: (initialData.visitors_attended || []).map(String),
       prospects_invited: (initialData.prospects_invited || []).map(String),
-      gathering_type: initialData.gathering_type,
+      gathering_type: initialData.gathering_type || "PHYSICAL",
+      cancelled: Boolean(initialData.cancelled),
+      cancellation_reason: initialData.cancellation_reason || "",
       topic: initialData.topic || "",
       activities_held: initialData.activities_held || "",
       prayer_requests: initialData.prayer_requests || "",
@@ -585,7 +598,7 @@ export default function EvangelismWeeklyReportForm({
     const savedAttendeeIds = new Set(
       (initialData?.members_attended || []).map((id) => String(id)),
     );
-    return combined.filter((person) => {
+    const rosterOptions = combined.filter((person) => {
       if (!person.id || seen.has(person.id)) return false;
       const personId = String(person.id);
       const onThisReport = savedAttendeeIds.has(personId);
@@ -595,12 +608,22 @@ export default function EvangelismWeeklyReportForm({
       seen.add(person.id);
       return true;
     });
+
+    const branchId = groupBranchId(rosterGroup);
+    for (const person of people) {
+      if (!person.id || seen.has(person.id)) continue;
+      if (person.role !== "MEMBER") continue;
+      if (branchId != null && Number(person.branch) !== branchId) continue;
+      seen.add(person.id);
+      rosterOptions.push(person);
+    }
+    return rosterOptions;
   }, [
     allowedMemberIds,
     coordinatorOption,
     initialData?.members_attended,
     initialData?.members_attended_details,
-    rosterGroup?.members,
+    rosterGroup,
     people,
   ]);
 
@@ -1098,6 +1121,45 @@ export default function EvangelismWeeklyReportForm({
           </div>
         </div>
 
+        <div>
+          <label className="flex items-center gap-2 text-sm font-medium text-gray-700">
+            <input
+              type="checkbox"
+              checked={Boolean(formData.cancelled)}
+              onChange={(e) =>
+                setFormData((prev) => ({
+                  ...prev,
+                  cancelled: e.target.checked,
+                }))
+              }
+              className="h-4 w-4 rounded border-gray-300"
+            />
+            Gathering was cancelled
+          </label>
+          {formData.cancelled && (
+            <div className="mt-3">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Reason *
+              </label>
+              <textarea
+                value={formData.cancellation_reason || ""}
+                onChange={(e) =>
+                  setFormData((prev) => ({
+                    ...prev,
+                    cancellation_reason: e.target.value,
+                  }))
+                }
+                rows={3}
+                required
+                className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm"
+                placeholder="Why was this week's gathering cancelled?"
+              />
+            </div>
+          )}
+        </div>
+
+        {!formData.cancelled && (
+        <>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -1145,6 +1207,8 @@ export default function EvangelismWeeklyReportForm({
               setFormData((prev) => ({ ...prev, members_attended: ids }))
             }
             allowedIds={allowedMemberIds}
+            sitInSearch={Boolean(selectedGroupId) && !loadingRoster}
+            hint="Search to add a member who sat in, including someone from another cluster. This records them for this meeting only and does not add them to the group."
             autoSelectScopeId={selectedGroupId || undefined}
             previouslyAttendedIds={previouslyAttendedMemberIds}
             mostRecentAttendedIds={mostRecentAttendedMemberIds}
@@ -1296,6 +1360,8 @@ export default function EvangelismWeeklyReportForm({
             />
           </div>
         </div>
+        </>
+        )}
 
         <div className="mt-8 flex w-full flex-col-reverse sm:flex-row gap-3 border-t border-gray-200 pt-4">
           <Button

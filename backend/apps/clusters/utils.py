@@ -77,8 +77,10 @@ def calculate_cluster_compliance(cluster, start_date, end_date, weeks=None):
     Calculate compliance metrics for a cluster in a given date range.
 
     When ``weeks`` is a list of ``(iso_year, week_number)`` pairs, only those
-    weeks are expected and only reports for those weeks are counted. The last
-    report date still comes from the cluster's latest report of any week.
+    weeks are expected and only reports for those weeks are counted. A
+    cancelled report excuses that week: it is not expected, not missing, and
+    not submitted. The last report date still comes from the cluster's latest
+    report of any week, including a cancellation.
 
     Returns:
         dict with compliance metrics
@@ -103,14 +105,37 @@ def calculate_cluster_compliance(cluster, start_date, end_date, weeks=None):
             cluster=cluster, meeting_date__gte=start_date, meeting_date__lte=end_date
         ).select_related("cluster", "submitted_by")
 
+    report_rows = list(reports)
+    cancelled_weeks = {
+        (r.year, r.week_number) for r in report_rows if r.cancelled
+    }
+    cancelled_week_details = [
+        {"week": week, "reason": reason, "group": None}
+        for _year, week, reason in sorted(
+            (
+                r.year,
+                r.week_number,
+                (r.cancellation_reason or "").strip(),
+            )
+            for r in report_rows
+            if r.cancelled
+        )
+    ]
+    weeks_in_range = [
+        week for week in weeks_in_range if week not in cancelled_weeks
+    ]
     weeks_expected = len(weeks_in_range)
 
-    # Count submitted reports
-    reports_submitted = reports.count()
+    # Held reports only. A cancelled week is excused, not submitted.
+    expected_weeks = set(weeks_in_range)
+    submitted_weeks = {
+        (r.year, r.week_number)
+        for r in report_rows
+        if not r.cancelled and (r.year, r.week_number) in expected_weeks
+    }
+    reports_submitted = len(submitted_weeks)
 
     # Find missing weeks
-    submitted_weeks = set((r.year, r.week_number) for r in reports)
-    expected_weeks = set(weeks_in_range)
     missing_weeks_list = sorted(
         [week for week in expected_weeks if week not in submitted_weeks]
     )
@@ -139,10 +164,13 @@ def calculate_cluster_compliance(cluster, start_date, end_date, weeks=None):
 
         consecutive_missing = max_consecutive
 
-    # Calculate compliance rate
-    compliance_rate = (
-        (reports_submitted / weeks_expected * 100) if weeks_expected > 0 else 0.0
-    )
+    # A period whose weeks are all cancelled has nothing left to expect.
+    if weeks_expected > 0:
+        compliance_rate = reports_submitted / weeks_expected * 100
+    elif cancelled_weeks:
+        compliance_rate = 100.0
+    else:
+        compliance_rate = 0.0
 
     # Determine status
     if compliance_rate == 100.0:
@@ -175,6 +203,7 @@ def calculate_cluster_compliance(cluster, start_date, end_date, weeks=None):
         "reports_expected": weeks_expected,
         "compliance_rate": round(compliance_rate, 2),
         "missing_weeks": missing_weeks,
+        "cancelled_weeks": cancelled_week_details,
         "last_report_date": last_report_date,
         "days_since_last_report": days_since_last_report,
         "consecutive_missing_weeks": consecutive_missing,

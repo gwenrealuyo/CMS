@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo, useCallback, useRef, useEffect } from "react";
+import { usePageTitle } from "@/src/hooks/usePageTitle";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import toast from "react-hot-toast";
 import DashboardLayout from "@/src/components/layout/DashboardLayout";
@@ -101,6 +102,7 @@ function buildDefaultBranchFilter(
 }
 
 export default function PeoplePage() {
+  usePageTitle("People");
   const searchParams = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();

@@ -4,6 +4,7 @@ from apps.people.models import Person
 from .models import (
     Lesson,
     LessonAssignmentRequest,
+    LessonFollowUpCase,
     LessonJourney,
     LessonSessionReport,
     LessonSettings,
@@ -59,6 +60,20 @@ class PersonLessonProgressAdmin(admin.ModelAdmin):
     )
     autocomplete_fields = ("person", "lesson", "assigned_by", "completed_by")
     ordering = ("lesson__order", "-updated_at")
+
+
+@admin.register(LessonFollowUpCase)
+class LessonFollowUpCaseAdmin(admin.ModelAdmin):
+    list_display = ("student", "status", "who", "when_date", "updated_by", "updated_at")
+    list_filter = ("status",)
+    search_fields = (
+        "student__first_name",
+        "student__last_name",
+        "student__username",
+        "excuse_text",
+        "action_text",
+    )
+    autocomplete_fields = ("student", "updated_by")
 
 
 @admin.register(LessonStudentEnrollment)

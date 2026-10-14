@@ -28,6 +28,7 @@ from apps.ministries.ncc import (
 from apps.lessons.branch_scope import can_pick_lessons_branch
 from apps.lessons.coordinator_access import (
     can_review_lesson_assignment_requests,
+    can_view_lesson_timeline,
     has_lessons_browse_all,
     has_lessons_teacher_assignment,
     is_scoped_lessons_teacher,
@@ -46,6 +47,7 @@ from .serializers import (
     LessonAssignmentRequestSerializer,
     LessonBulkAssignSerializer,
     LessonCompletionSerializer,
+    LessonFollowUpInputSerializer,
     LessonSerializer,
     LessonSettingsSerializer,
     LessonSessionReportSerializer,
@@ -59,11 +61,15 @@ from .services import (
     approve_lesson_assignment_request,
     bulk_assign_lessons,
     build_lesson_progress_summary,
+    build_lesson_timeline,
+    clear_lesson_follow_up_for_newer_session,
     clear_pre_lesson_session_journey,
     mark_progress_completed,
     reconcile_student_progress_from_reports,
     reject_lesson_assignment_request,
+    save_lesson_follow_up,
     student_cannot_be_own_teacher_error,
+    _follow_up_payload,
     submit_lesson_assignment_request,
     sync_pre_lesson_session_journey,
 )
@@ -206,7 +212,7 @@ def visitors_awaiting_teacher(request):
         .exclude(status="DECEASED")
         .exclude(has_finished_lessons=True)
         .exclude(Exists(live_teacher))
-        .select_related("branch")
+        .select_related("branch", "inviter")
         .prefetch_related(
             Prefetch(
                 "clusters",
@@ -234,6 +240,10 @@ def visitors_awaiting_teacher(request):
         branch_code = ""
         if person.branch_id and person.branch is not None:
             branch_code = (person.branch.code or "").strip()
+        inviter = person.inviter
+        inviter_name = ""
+        if inviter is not None:
+            inviter_name = inviter.get_full_name() or inviter.username
         payload.append(
             {
                 "id": person.id,
@@ -245,6 +255,7 @@ def visitors_awaiting_teacher(request):
                 "cluster_codes": cluster_codes,
                 "phone": person.phone or "",
                 "visitor_since": _visitor_since(person),
+                "inviter_name": inviter_name,
                 "enrollment_id": enrollment_ids.get(person.id),
             }
         )
@@ -510,6 +521,52 @@ class PersonLessonProgressViewSet(
 
         return Response(payload)
 
+    def _timeline_people(self):
+        progress_ids = PersonLessonProgress.objects.values("person_id")
+        enrollment_ids = LessonStudentEnrollment.objects.values("student_id")
+        people = Person.objects.filter(
+            Q(pk__in=progress_ids) | Q(pk__in=enrollment_ids)
+        ).distinct()
+        people = apply_branch_to_person_queryset(
+            people, self.request.user, self.request
+        )
+        if is_scoped_lessons_teacher(self.request.user):
+            people = people.filter(lesson_enrollment__teacher=self.request.user)
+        return people
+
+    @action(detail=False, methods=["get"], url_path="timeline")
+    def timeline(self, request):
+        if not can_view_lesson_timeline(request.user):
+            raise PermissionDenied(
+                "You do not have permission to view the lessons timeline."
+            )
+        return Response(build_lesson_timeline(self._timeline_people()))
+
+    @action(detail=False, methods=["post"], url_path="follow-up")
+    def follow_up(self, request):
+        if not can_view_lesson_timeline(request.user):
+            raise PermissionDenied(
+                "You do not have permission to record a lessons follow-up."
+            )
+        serializer = LessonFollowUpInputSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        student = serializer.validated_data["student"]
+        if not self._timeline_people().filter(pk=student.pk).exists():
+            raise PermissionDenied(
+                "That student is outside your lessons timeline."
+            )
+        case = save_lesson_follow_up(
+            student=student,
+            actor=request.user if isinstance(request.user, Person) else None,
+            status=serializer.validated_data["status"],
+            action_text=serializer.validated_data.get("action_text") or "",
+            excuse_text=serializer.validated_data.get("excuse_text") or "",
+            who=serializer.validated_data.get("who") or "",
+            when_date=serializer.validated_data.get("when"),
+            remarks=serializer.validated_data.get("remarks") or "",
+        )
+        return Response(_follow_up_payload(case))
+
 
 class LessonSessionReportViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticatedAndNotVisitor]
@@ -625,6 +682,7 @@ class LessonSessionReportViewSet(viewsets.ModelViewSet):
             reconcile_student_progress_from_reports(student, force_report_rules=True)
 
     def _sync_report_side_effects(self, report: LessonSessionReport) -> None:
+        clear_lesson_follow_up_for_newer_session(report)
         if report.session_type == LessonSessionReport.SessionType.PRE_LESSON:
             sync_pre_lesson_session_journey(report)
             return

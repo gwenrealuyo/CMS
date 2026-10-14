@@ -1,11 +1,13 @@
 "use client";
 
 import DashboardLayout from "@/src/components/layout/DashboardLayout";
+import { usePageTitle } from "@/src/hooks/usePageTitle";
 import ProtectedRoute from "@/src/components/auth/ProtectedRoute";
 import FaqAccordion from "@/src/components/faq/FaqAccordion";
 import { faqCategories } from "@/src/data/faqContent";
 
 export default function FaqPage() {
+  usePageTitle("FAQ");
   return (
     <ProtectedRoute>
       <FaqPageContent />

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { usePageTitle } from "@/src/hooks/usePageTitle";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/src/contexts/AuthContext";
@@ -9,6 +10,7 @@ import PasswordInput from "@/src/components/ui/PasswordInput";
 import AppLogo from "@/src/components/brand/AppLogo";
 
 export default function LoginPage() {
+  usePageTitle("Sign in");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [rememberMe, setRememberMe] = useState(false);

@@ -251,3 +251,109 @@ class BibleSharersDirectoryAPITests(APITestCase):
     def test_invalid_branch_returns_400(self):
         response = self.client.get(COVERAGE_URL, {"branch": "abc"})
         self.assertEqual(response.status_code, 400)
+
+    def test_roster_coordinator_counts_as_bible_sharer_on_coverage(self):
+        roster_coordinator = Person.objects.create_user(
+            username="bscovcoord",
+            password="pass12345",
+            first_name="Cora",
+            last_name="RosterCoord",
+            role="MEMBER",
+            status="ACTIVE",
+            branch=self.hq,
+        )
+        plain_coordinator = Person.objects.create_user(
+            username="bscovplaincoord",
+            password="pass12345",
+            first_name="Pat",
+            last_name="PlainCoord",
+            role="MEMBER",
+            status="ACTIVE",
+            branch=self.hq,
+        )
+        MinistryMember.objects.create(
+            ministry=self.ministry,
+            member=roster_coordinator,
+        )
+        led_cluster = Cluster.objects.create(
+            name="Led Cluster",
+            code="BS-LED",
+            branch=self.hq,
+            is_active=True,
+        )
+        plain_cluster = Cluster.objects.create(
+            name="Plain Led Cluster",
+            code="BS-PLAIN",
+            branch=self.hq,
+            is_active=True,
+        )
+        led_group = EvangelismGroup.objects.create(
+            name="Led Study",
+            cluster=led_cluster,
+            coordinator=roster_coordinator,
+            is_active=True,
+        )
+        plain_group = EvangelismGroup.objects.create(
+            name="Plain Study",
+            cluster=plain_cluster,
+            coordinator=plain_coordinator,
+            is_active=True,
+        )
+        ModuleCoordinator.objects.create(
+            person=roster_coordinator,
+            module=ModuleCoordinator.ModuleType.EVANGELISM,
+            level=ModuleCoordinator.CoordinatorLevel.COORDINATOR,
+            resource_id=led_group.id,
+            resource_type="EvangelismGroup",
+        )
+        ModuleCoordinator.objects.create(
+            person=plain_coordinator,
+            module=ModuleCoordinator.ModuleType.EVANGELISM,
+            level=ModuleCoordinator.CoordinatorLevel.COORDINATOR,
+            resource_id=plain_group.id,
+            resource_type="EvangelismGroup",
+        )
+
+        response = self.client.get(COVERAGE_URL, {"branch": self.hq.id})
+        self.assertEqual(response.status_code, 200, response.data)
+        people = self._people_by_id(response.data)
+        row = people[roster_coordinator.id]
+        self.assertTrue(row["on_hq_roster"])
+        self.assertTrue(row["assigned"])
+        self.assertEqual(row["groups"][0]["id"], led_group.id)
+
+        led_coverage = next(
+            item
+            for item in response.data["coverage"]
+            if item["cluster"]["id"] == led_cluster.id
+        )
+        self.assertTrue(led_coverage["has_bible_sharers"])
+        self.assertIn(
+            roster_coordinator.id,
+            [person["id"] for person in led_coverage["bible_sharers"]],
+        )
+
+        plain_coverage = next(
+            item
+            for item in response.data["coverage"]
+            if item["cluster"]["id"] == plain_cluster.id
+        )
+        self.assertFalse(plain_coverage["has_bible_sharers"])
+        self.assertNotIn(plain_coordinator.id, people)
+
+        self.assertFalse(
+            ModuleCoordinator.objects.filter(
+                person=roster_coordinator,
+                module=ModuleCoordinator.ModuleType.EVANGELISM,
+                level=ModuleCoordinator.CoordinatorLevel.BIBLE_SHARER,
+                resource_id=led_group.id,
+            ).exists()
+        )
+        self.assertTrue(
+            ModuleCoordinator.objects.filter(
+                person=roster_coordinator,
+                module=ModuleCoordinator.ModuleType.EVANGELISM,
+                level=ModuleCoordinator.CoordinatorLevel.COORDINATOR,
+                resource_id=led_group.id,
+            ).exists()
+        )

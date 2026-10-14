@@ -35,6 +35,11 @@ export function hasLessonsSeniorAccess(user: User | null): boolean {
   );
 }
 
+/** Coordinators see every student in scope. Lessons teachers see their own. */
+export function canViewLessonTimeline(user: User | null): boolean {
+  return canBrowseAllLessonStudents(user) || isLessonsTeacherScoped(user);
+}
+
 /** Admin, pastor, Lessons coordinators, and NCC ministry coordinators. */
 export function canBrowseAllLessonStudents(user: User | null): boolean {
   if (!user) return false;

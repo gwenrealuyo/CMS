@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import DashboardLayout from "@/src/components/layout/DashboardLayout";
 import ProtectedRoute from "@/src/components/auth/ProtectedRoute";
 import Card from "@/src/components/ui/Card";
@@ -14,6 +15,7 @@ import {
   evangelismApi,
   eventsApi,
   lessonsApi,
+  peopleApi,
   sundaySchoolApi,
 } from "@/src/lib/api";
 import {
@@ -22,6 +24,7 @@ import {
 } from "@/src/types/lesson";
 import { usePeople } from "@/src/hooks/usePeople";
 import { useModuleSettings } from "@/src/hooks/useModuleSettings";
+import { usePageTitle } from "@/src/hooks/usePageTitle";
 import { canWriteLessons } from "@/src/lib/lessons/lessonsPermissions";
 import { Person } from "@/src/types/person";
 import { ArrowDownRight, ArrowUpRight, Minus } from "lucide-react";
@@ -262,6 +265,7 @@ function averageClusterMemberRates(
 }
 
 export default function Dashboard() {
+  usePageTitle("Dashboard");
   const { user, isModuleCoordinator, isSeniorCoordinator } = useAuth();
   const { moduleEnabled } = useModuleSettings();
   const [lessonSummary, setLessonSummary] =
@@ -274,6 +278,9 @@ export default function Dashboard() {
   const [eventsLoading, setEventsLoading] = useState(false);
   const [eventsError, setEventsError] = useState<string | null>(null);
   const [eventActivity, setEventActivity] = useState<EventActivity[]>([]);
+  const [firstAttendancePlaces, setFirstAttendancePlaces] = useState<
+    Record<string, string>
+  >({});
   const [showReportForm, setShowReportForm] = useState(false);
   const [peopleTallyMonth, setPeopleTallyMonth] =
     useState<EvangelismPeopleTallyRow | null>(null);
@@ -314,8 +321,7 @@ export default function Dashboard() {
   const canViewPeople = useMemo(() => {
     if (!user) return false;
     return (
-      ["MEMBER", "PASTOR", "ADMIN"].includes(user.role) ||
-      isSeniorCoordinator()
+      ["MEMBER", "PASTOR", "ADMIN"].includes(user.role) || isSeniorCoordinator()
     );
   }, [user, isSeniorCoordinator]);
 
@@ -821,10 +827,50 @@ export default function Dashboard() {
     upcomingEvents.length,
   ]);
 
+  const recentFirstTimerIds = useMemo(() => {
+    if (!allowPeopleMetrics) return [];
+    return people
+      .filter((person) => person.date_first_attended)
+      .map((person) => ({
+        id: String(person.id),
+        date: new Date(person.date_first_attended as string),
+      }))
+      .filter(({ date }) => !Number.isNaN(date.getTime()))
+      .sort((a, b) => b.date.getTime() - a.date.getTime())
+      .slice(0, 3)
+      .map(({ id }) => id);
+  }, [allowPeopleMetrics, people]);
+
+  useEffect(() => {
+    if (!allowPeopleMetrics || recentFirstTimerIds.length === 0) {
+      setFirstAttendancePlaces({});
+      return;
+    }
+    let cancelled = false;
+    peopleApi
+      .firstAttendancePlaces(recentFirstTimerIds)
+      .then((response) => {
+        if (cancelled) return;
+        const next: Record<string, string> = {};
+        for (const row of response.data) {
+          if (row.place) next[String(row.id)] = row.place;
+        }
+        setFirstAttendancePlaces(next);
+      })
+      .catch(() => {
+        if (!cancelled) setFirstAttendancePlaces({});
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [allowPeopleMetrics, recentFirstTimerIds]);
+
   const recentActivities = useMemo<RecentActivityItem[]>(() => {
     const items: Array<{
       id: string;
       type: "people" | "event";
+      name?: string;
+      place?: string;
       description: string;
       date: Date;
     }> = [];
@@ -841,12 +887,14 @@ export default function Dashboard() {
         .slice(0, 3);
 
       recentPeople.forEach(({ person, date }) => {
-        const name =
-          person.full_name || formatPersonName(person);
+        const name = person.full_name || formatPersonName(person);
+        const place = firstAttendancePlaces[String(person.id)];
         items.push({
           id: `person-${person.id}`,
           type: "people",
-          description: `${name} attended for the first time.`,
+          name,
+          place: place || undefined,
+          description: "attended for the first time.",
           date,
         });
       });
@@ -869,10 +917,18 @@ export default function Dashboard() {
       .map((item) => ({
         id: item.id,
         type: item.type,
+        name: item.name,
+        place: item.place,
         description: item.description,
         timestamp: formatRelativeTime(item.date),
       }));
-  }, [allowEventsWidgets, allowPeopleMetrics, eventActivity, people]);
+  }, [
+    allowEventsWidgets,
+    allowPeopleMetrics,
+    eventActivity,
+    firstAttendancePlaces,
+    people,
+  ]);
 
   const activityEmptyMessage =
     allowPeopleMetrics || allowEventsWidgets
@@ -1145,38 +1201,28 @@ export default function Dashboard() {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {allowLessonWidgets && (
               <Card>
-                <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-4">
-                  <div>
-                    <h3 className="text-lg font-semibold text-foreground">
+                <div className="mb-4">
+                  <h3 className="text-lg font-semibold text-foreground">
+                    <Link href="/lessons" className="hover:underline">
                       NCC Completion Pipeline
-                    </h3>
-                    <p className="text-sm text-gray-500">
-                      Track lesson status across current and superseded
-                      versions.
-                    </p>
-                  </div>
-                  <Button
-                    variant="tertiary"
-                    className="text-xs w-full sm:w-auto"
-                    onClick={() => {
-                      window.location.href = "/lessons";
-                    }}
-                  >
-                    Manage Lessons
-                  </Button>
+                    </Link>
+                  </h3>
+                  <p className="text-sm text-gray-500">
+                    {lessonMetrics.completed}/{lessonMetrics.total}
+                  </p>
                 </div>
                 {lessonSummaryLoading ? (
                   <LoadingSpinner />
                 ) : topLessons.length === 0 ? (
                   <p className="text-sm text-gray-500">
-                    No NCC assignments recorded yet.
+                    No students in this year&apos;s course.
                   </p>
                 ) : (
-                  <div className="space-y-3">
+                  <div className="scrollbar-visible max-h-64 space-y-2 overscroll-contain pr-1">
                     {topLessons.map((lesson) => (
                       <div
                         key={`${lesson.lesson_id}-${lesson.version_label}`}
-                        className="border rounded-lg px-4 py-3"
+                        className="border rounded-lg px-3 py-2"
                       >
                         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                           <div className="flex-1 min-w-0">
@@ -1189,10 +1235,10 @@ export default function Dashboard() {
                             </p>
                           </div>
                           <span className="text-sm font-semibold text-primary flex-shrink-0">
-                            {lesson.completed}/{lesson.total} completed
+                            {lesson.completed}/{lesson.total}
                           </span>
                         </div>
-                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mt-3 text-xs text-gray-600">
+                        <div className="grid grid-cols-3 gap-2 mt-2 text-xs text-gray-600">
                           <div>
                             <span className="block font-semibold text-gray-700">
                               Not started

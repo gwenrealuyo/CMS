@@ -1,3 +1,5 @@
+from decimal import Decimal, InvalidOperation
+
 from rest_framework import serializers
 from django.db import transaction
 from django.utils import timezone
@@ -743,6 +745,8 @@ class ClusterWeeklyReportSerializer(serializers.ModelSerializer):
             "prospects_invited_count",
             "member_attendance_rate",
             "gathering_type",
+            "cancelled",
+            "cancellation_reason",
             "activities_held",
             "prayer_requests",
             "testimonies",
@@ -824,6 +828,69 @@ class ClusterWeeklyReportSerializer(serializers.ModelSerializer):
             for person in obj.visitors_attended.exclude(role="ADMIN")
         ]
 
+    _CANCELLED_ATTENDANCE_FIELDS = (
+        "members_attended",
+        "visitors_attended",
+        "prospects_invited",
+        "new_prospects",
+        "new_visitors",
+        "prospects_attended",
+    )
+
+    def _is_cancelled(self, attrs):
+        if "cancelled" in attrs:
+            return bool(attrs.get("cancelled"))
+        if self.instance is not None:
+            return bool(self.instance.cancelled)
+        return False
+
+    def _apply_cancelled_rules(self, attrs):
+        reason = attrs.get("cancellation_reason")
+        if reason is None and self.instance is not None:
+            reason = self.instance.cancellation_reason
+        reason = (reason or "").strip()
+        if not reason:
+            raise serializers.ValidationError(
+                {
+                    "cancellation_reason": (
+                        "A reason is required when the gathering is cancelled."
+                    )
+                }
+            )
+
+        errors = {}
+        for field in self._CANCELLED_ATTENDANCE_FIELDS:
+            value = attrs.get(field, serializers.empty)
+            if value is not serializers.empty and value:
+                errors[field] = (
+                    "Cannot record attendance when the gathering is cancelled."
+                )
+        offerings = attrs.get("offerings", serializers.empty)
+        if offerings is not serializers.empty and offerings is not None:
+            try:
+                amount = Decimal(offerings)
+            except (InvalidOperation, TypeError, ValueError):
+                amount = None
+            if amount is not None and amount > 0:
+                errors["offerings"] = (
+                    "Offerings must be 0 when the gathering is cancelled."
+                )
+        if errors:
+            raise serializers.ValidationError(errors)
+
+        attrs["cancelled"] = True
+        attrs["cancellation_reason"] = reason
+        attrs["gathering_type"] = None
+        attrs["offerings"] = Decimal("0")
+        return attrs
+
+    def _clear_cancelled_attendance(self, report):
+        if not report.cancelled:
+            return
+        report.members_attended.clear()
+        report.visitors_attended.clear()
+        report.prospects_invited.clear()
+
     def get_prospects_invited_details(self, obj):
         details = []
         for prospect in obj.prospects_invited.select_related("invited_by").all():
@@ -885,6 +952,26 @@ class ClusterWeeklyReportSerializer(serializers.ModelSerializer):
                         f"({year}) already exists. Choose a different week."
                     )
                 )
+
+        if self._is_cancelled(attrs):
+            attrs = self._apply_cancelled_rules(attrs)
+            attrs["_meeting_date_for_prospects"] = meeting_date
+            return attrs
+
+        gathering_type = attrs.get("gathering_type", serializers.empty)
+        if gathering_type is serializers.empty:
+            gathering_type = (
+                getattr(self.instance, "gathering_type", None)
+                if self.instance is not None
+                else None
+            )
+        if not gathering_type:
+            raise serializers.ValidationError(
+                {"gathering_type": "This field is required."}
+            )
+        if "cancelled" in attrs and not attrs.get("cancelled"):
+            attrs["cancellation_reason"] = ""
+
         new_prospects = attrs.get("new_prospects") or []
         prospects_attended = attrs.get("prospects_attended") or []
         prospects_invited = attrs.get("prospects_invited", serializers.empty)
@@ -1061,6 +1148,14 @@ class ClusterWeeklyReportSerializer(serializers.ModelSerializer):
         members_attended = validated_data.pop("members_attended", [])
         visitors_attended = validated_data.pop("visitors_attended", [])
 
+        if validated_data.get("cancelled"):
+            new_prospects_data = []
+            new_visitors_data = []
+            prospects_attended = []
+            prospects_invited = []
+            members_attended = []
+            visitors_attended = []
+
         cluster = validated_data["cluster"]
         created_prospects = self._create_new_prospects(
             cluster, meeting_date, new_prospects_data
@@ -1097,6 +1192,7 @@ class ClusterWeeklyReportSerializer(serializers.ModelSerializer):
         if invited_set:
             report.prospects_invited.set(invited_set)
 
+        self._clear_cancelled_attendance(report)
         return report
 
     @transaction.atomic
@@ -1111,6 +1207,15 @@ class ClusterWeeklyReportSerializer(serializers.ModelSerializer):
         prospects_invited = validated_data.pop("prospects_invited", serializers.empty)
         members_attended = validated_data.pop("members_attended", serializers.empty)
         visitors_attended = validated_data.pop("visitors_attended", serializers.empty)
+
+        cancelled = bool(validated_data.get("cancelled", instance.cancelled))
+        if cancelled:
+            new_prospects_data = None
+            new_visitors_data = None
+            prospects_attended = None
+            prospects_invited = serializers.empty
+            members_attended = serializers.empty
+            visitors_attended = serializers.empty
 
         cluster = validated_data.get("cluster", instance.cluster)
 
@@ -1172,6 +1277,7 @@ class ClusterWeeklyReportSerializer(serializers.ModelSerializer):
             # Unlink only — never delete Prospect rows
             instance.prospects_invited.set(invited_set)
 
+        self._clear_cancelled_attendance(instance)
         return instance
 
 
@@ -1203,6 +1309,12 @@ class ClusterComplianceNoteSerializer(serializers.ModelSerializer):
         return None
 
 
+class CancelledComplianceWeekSerializer(serializers.Serializer):
+    week = serializers.IntegerField()
+    reason = serializers.CharField(allow_blank=True)
+    group = serializers.CharField(allow_null=True, allow_blank=True, required=False)
+
+
 class ClusterComplianceSerializer(serializers.Serializer):
     cluster = ClusterSerializer(read_only=True)
     status = serializers.CharField()
@@ -1210,6 +1322,7 @@ class ClusterComplianceSerializer(serializers.Serializer):
     reports_expected = serializers.IntegerField()
     compliance_rate = serializers.FloatField()
     missing_weeks = serializers.ListField(child=serializers.IntegerField())
+    cancelled_weeks = CancelledComplianceWeekSerializer(many=True)
     last_report_date = serializers.DateField(allow_null=True)
     days_since_last_report = serializers.IntegerField(allow_null=True)
     consecutive_missing_weeks = serializers.IntegerField()

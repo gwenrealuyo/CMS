@@ -22,6 +22,7 @@ import ConfirmationModal from "@/src/components/ui/ConfirmationModal";
 import ScalableSelect from "@/src/components/ui/ScalableSelect";
 import { financeApi, peopleApi } from "@/src/lib/api";
 import { useAuth } from "@/src/contexts/AuthContext";
+import { usePageTitle } from "@/src/hooks/usePageTitle";
 import { canHardDelete } from "@/src/lib/canHardDelete";
 import { isSelectablePerson } from "@/src/lib/peopleSelectors";
 import { formatPersonName } from "@/src/lib/name";
@@ -63,6 +64,7 @@ const createEmptyContributionForm = () => ({
 const formatDate = (value: string) => formatLocaleDate(value) || "—";
 
 export default function FinancePage() {
+  usePageTitle("Finance");
   const searchParams = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();

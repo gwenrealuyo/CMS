@@ -12,6 +12,8 @@ interface LessonStatsCardsProps {
   error?: string | null;
   /** Teachers see completed / ongoing / average for their assigned students only. */
   scopedToAssignedStudents?: boolean;
+  /** Coordinators can open the Awaiting Teacher list from this card. */
+  onVisitorsAwaitingClick?: () => void;
 }
 
 const formatNumber = (value: number) =>
@@ -24,6 +26,7 @@ export default function LessonStatsCards({
   loading,
   error,
   scopedToAssignedStudents = false,
+  onVisitorsAwaitingClick,
 }: LessonStatsCardsProps) {
   if (loading) {
     return (
@@ -78,6 +81,7 @@ export default function LessonStatsCards({
           value={formatNumber(visitorsAwaitingCount)}
           subtitle={visitorsSubtitle}
           valueClassName="text-red-600"
+          onClick={onVisitorsAwaitingClick}
         />
         <SummaryCard
           title="Ongoing Students"
@@ -108,6 +112,7 @@ interface SummaryCardProps {
   value: string | number;
   subtitle: string;
   valueClassName?: string;
+  onClick?: () => void;
 }
 
 function SummaryCard({
@@ -115,12 +120,29 @@ function SummaryCard({
   value,
   subtitle,
   valueClassName = "text-primary",
+  onClick,
 }: SummaryCardProps) {
-  return (
-    <Card>
+  const body = (
+    <>
       <p className="text-sm text-gray-500">{title}</p>
       <p className={`text-3xl font-bold mt-2 ${valueClassName}`}>{value}</p>
       <p className="text-xs text-gray-500 mt-1">{subtitle}</p>
+    </>
+  );
+
+  if (!onClick) {
+    return <Card>{body}</Card>;
+  }
+
+  return (
+    <Card className="transition-colors hover:bg-gray-50">
+      <button
+        type="button"
+        onClick={onClick}
+        className="w-full text-left"
+      >
+        {body}
+      </button>
     </Card>
   );
 }

@@ -38,6 +38,11 @@ import {
   TableCellsIcon,
 } from "@heroicons/react/24/outline";
 import * as XLSX from "xlsx";
+
+function reportGatheringLabel(report: ClusterWeeklyReport): string {
+  if (report.cancelled) return "Cancelled";
+  return report.gathering_type || "—";
+}
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 import {
@@ -773,6 +778,7 @@ export default function ClusterReportsDashboard({
       { cluster: string; attendanceRate: number; avgAttendance: number }
     > = {};
     reports.forEach((report) => {
+      if (report.cancelled) return;
       const clusterId = report.cluster?.toString() || "";
       const cluster = clustersForFilters.find(
         (c) => c.id.toString() === clusterId,
@@ -791,7 +797,7 @@ export default function ClusterReportsDashboard({
     });
     Object.keys(clusterData).forEach((clusterId) => {
       const clusterReports = reports.filter(
-        (r) => r.cluster?.toString() === clusterId,
+        (r) => !r.cancelled && r.cluster?.toString() === clusterId,
       );
       if (clusterReports.length > 0) {
         clusterData[clusterId].avgAttendance = Math.round(
@@ -830,6 +836,7 @@ export default function ClusterReportsDashboard({
     }
     const typeCounts: Record<string, number> = {};
     reports.forEach((report) => {
+      if (report.cancelled) return;
       const type = report.gathering_type || "UNKNOWN";
       typeCounts[type] = (typeCounts[type] || 0) + 1;
     });
@@ -973,10 +980,13 @@ export default function ClusterReportsDashboard({
           report.prospects_invited_count ??
           report.prospects_invited?.length ??
           0,
-        "Member Attendance Rate": report.member_attendance_rate
-          ? `${report.member_attendance_rate.toFixed(1)}%`
-          : "N/A",
-        "Gathering Type": report.gathering_type,
+        "Member Attendance Rate": report.cancelled
+          ? "—"
+          : report.member_attendance_rate
+            ? `${report.member_attendance_rate.toFixed(1)}%`
+            : "N/A",
+        "Gathering Type": reportGatheringLabel(report),
+        "Cancellation Reason": report.cancellation_reason || "",
         Offerings: report.offerings,
         "Submitted By": report.submitted_by_details
           ? formatPersonName(report.submitted_by_details as any)
@@ -1011,10 +1021,12 @@ export default function ClusterReportsDashboard({
       formatLocaleDate(report.meeting_date),
       report.members_present.toString(),
       report.visitors_present.toString(),
-      report.member_attendance_rate
-        ? `${report.member_attendance_rate.toFixed(1)}%`
-        : "N/A",
-      report.gathering_type,
+      report.cancelled
+        ? "—"
+        : report.member_attendance_rate
+          ? `${report.member_attendance_rate.toFixed(1)}%`
+          : "N/A",
+      reportGatheringLabel(report),
       formatCurrency(
         typeof report.offerings === "number"
           ? report.offerings
@@ -1043,12 +1055,14 @@ export default function ClusterReportsDashboard({
           report.cluster_name || report.cluster_code || "",
           `${report.year} W${report.week_number}`,
           formatLocaleDate(report.meeting_date),
-          report.members_present,
-          report.visitors_present,
-          report.member_attendance_rate
-            ? `${report.member_attendance_rate.toFixed(1)}%`
-            : "N/A",
-          report.gathering_type,
+          report.cancelled ? "" : report.members_present,
+          report.cancelled ? "" : report.visitors_present,
+          report.cancelled
+            ? "—"
+            : report.member_attendance_rate
+              ? `${report.member_attendance_rate.toFixed(1)}%`
+              : "N/A",
+          reportGatheringLabel(report),
           report.offerings,
           report.submitted_by_details
             ? formatPersonName(report.submitted_by_details as any)
@@ -2090,6 +2104,10 @@ export default function ClusterReportsDashboard({
                               Attendance
                             </span>
                             <p className="text-sm text-gray-900">
+                              {report.cancelled ? (
+                                "Cancelled"
+                              ) : (
+                                <>
                               {report.members_present}M /{" "}
                               <span
                                 className={
@@ -2111,6 +2129,8 @@ export default function ClusterReportsDashboard({
                                   P
                                 </span>
                               )}
+                                </>
+                              )}
                             </p>
                           </div>
                         )}
@@ -2124,9 +2144,11 @@ export default function ClusterReportsDashboard({
                               />
                             </span>
                             <p className="text-sm text-gray-900">
-                              {report.member_attendance_rate !== undefined
-                                ? `${report.member_attendance_rate.toFixed(1)}%`
-                                : "N/A"}
+                              {report.cancelled
+                                ? "—"
+                                : report.member_attendance_rate !== undefined
+                                  ? `${report.member_attendance_rate.toFixed(1)}%`
+                                  : "N/A"}
                             </p>
                           </div>
                         )}
@@ -2136,12 +2158,26 @@ export default function ClusterReportsDashboard({
                               Type
                             </span>
                             <span
-                              className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getEvangelismGatheringTypeChipClass(
-                                report.gathering_type,
-                              )}`}
+                              className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                                report.cancelled
+                                  ? "bg-amber-100 text-amber-800"
+                                  : getEvangelismGatheringTypeChipClass(
+                                      report.gathering_type,
+                                    )
+                              }`}
+                              title={
+                                report.cancelled
+                                  ? report.cancellation_reason || undefined
+                                  : undefined
+                              }
                             >
-                              {report.gathering_type}
+                              {reportGatheringLabel(report)}
                             </span>
+                            {report.cancelled && report.cancellation_reason && (
+                              <p className="mt-1 text-xs text-gray-600">
+                                {report.cancellation_reason}
+                              </p>
+                            )}
                           </div>
                         )}
                         {visibleColumns.has("offerings") && (
@@ -2150,11 +2186,14 @@ export default function ClusterReportsDashboard({
                               Offerings
                             </span>
                             <p className="text-sm text-gray-900">
-                              {formatCurrency(
-                                typeof report.offerings === "number"
-                                  ? report.offerings
-                                  : parseFloat(String(report.offerings)) || 0,
-                              )}
+                              {report.cancelled
+                                ? "—"
+                                : formatCurrency(
+                                    typeof report.offerings === "number"
+                                      ? report.offerings
+                                      : parseFloat(String(report.offerings)) ||
+                                          0,
+                                  )}
                             </p>
                           </div>
                         )}
@@ -2275,8 +2314,12 @@ export default function ClusterReportsDashboard({
                             );
                             break;
                           case "attendance":
-                            cellContent = (
+                              cellContent = (
                               <span className="text-sm text-gray-900">
+                                {report.cancelled ? (
+                                  "Cancelled"
+                                ) : (
+                                  <>
                                 {report.members_present}M /{" "}
                                 <span
                                   className={
@@ -2298,12 +2341,17 @@ export default function ClusterReportsDashboard({
                                     P
                                   </span>
                                 )}
+                                  </>
+                                )}
                               </span>
                             );
                             break;
                           case "member_attendance_rate":
-                            const rate = report.member_attendance_rate ?? 0;
-                            const isLowAttendance = rate < 50;
+                            const rate = report.cancelled
+                              ? null
+                              : (report.member_attendance_rate ?? 0);
+                            const isLowAttendance =
+                              rate !== null && rate < 50;
                             cellContent = (
                               <span
                                 className={`text-sm ${
@@ -2312,33 +2360,55 @@ export default function ClusterReportsDashboard({
                                     : "text-gray-900"
                                 }`}
                               >
-                                {report.member_attendance_rate !== undefined
-                                  ? `${report.member_attendance_rate.toFixed(
-                                      1,
-                                    )}%`
-                                  : "N/A"}
+                                {report.cancelled
+                                  ? "—"
+                                  : report.member_attendance_rate !== undefined
+                                    ? `${report.member_attendance_rate.toFixed(
+                                        1,
+                                      )}%`
+                                    : "N/A"}
                               </span>
                             );
                             break;
                           case "type":
                             cellContent = (
-                              <span
-                                className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getEvangelismGatheringTypeChipClass(
-                                  report.gathering_type,
-                                )}`}
-                              >
-                                {report.gathering_type}
+                              <span className="inline-flex flex-col items-start gap-1">
+                                <span
+                                  className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                                    report.cancelled
+                                      ? "bg-amber-100 text-amber-800"
+                                      : getEvangelismGatheringTypeChipClass(
+                                          report.gathering_type,
+                                        )
+                                  }`}
+                                  title={
+                                    report.cancelled
+                                      ? report.cancellation_reason || undefined
+                                      : undefined
+                                  }
+                                >
+                                  {reportGatheringLabel(report)}
+                                </span>
+                                {report.cancelled &&
+                                  report.cancellation_reason && (
+                                    <span className="text-xs text-gray-600">
+                                      {report.cancellation_reason}
+                                    </span>
+                                  )}
                               </span>
                             );
                             break;
                           case "offerings":
                             cellContent = (
                               <span className="text-sm text-gray-900">
-                                {formatCurrency(
-                                  typeof report.offerings === "number"
-                                    ? report.offerings
-                                    : parseFloat(String(report.offerings)) || 0,
-                                )}
+                                {report.cancelled
+                                  ? "—"
+                                  : formatCurrency(
+                                      typeof report.offerings === "number"
+                                        ? report.offerings
+                                        : parseFloat(String(report.offerings)) ||
+                                            0,
+                                    )}
                               </span>
                             );
                             break;

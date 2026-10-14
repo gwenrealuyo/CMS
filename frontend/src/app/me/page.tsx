@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { usePageTitle } from "@/src/hooks/usePageTitle";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/src/contexts/AuthContext";
@@ -16,6 +17,7 @@ import { useFamilies } from "@/src/hooks/useFamilies";
 import SundaySelfCheckInBanner from "@/src/components/events/SundaySelfCheckInBanner";
 
 export default function MePage() {
+  usePageTitle("My record");
   return (
     <ProtectedRoute>
       <MePageContent />

@@ -172,7 +172,9 @@ export interface ClusterWeeklyReport {
   visitors_present: number;
   prospects_invited_count?: number;
   member_attendance_rate: number;
-  gathering_type: GatheringType;
+  gathering_type: GatheringType | null;
+  cancelled?: boolean;
+  cancellation_reason?: string;
   activities_held: string;
   prayer_requests: string;
   testimonies: string;
@@ -227,7 +229,9 @@ export interface ClusterWeeklyReportInput {
   new_prospects?: ClusterReportNewProspectInput[];
   new_visitors?: ClusterReportNewVisitorInput[];
   prospects_attended?: number[];
-  gathering_type: GatheringType;
+  gathering_type?: GatheringType | null;
+  cancelled?: boolean;
+  cancellation_reason?: string;
   activities_held?: string;
   prayer_requests?: string;
   testimonies?: string;
@@ -249,6 +253,8 @@ export interface ClusterWeeklyReportFormValues {
   pending_new_prospects: Record<string, ClusterReportNewProspectInput>;
   pending_new_visitors: Record<string, ClusterReportNewVisitorInput>;
   gathering_type?: GatheringType;
+  cancelled?: boolean;
+  cancellation_reason?: string;
   activities_held?: string;
   prayer_requests?: string;
   testimonies?: string;
@@ -326,6 +332,12 @@ export interface ComplianceNote {
   period_end: string;
 }
 
+export interface CancelledComplianceWeek {
+  week: number;
+  reason: string;
+  group: string | null;
+}
+
 export interface ClusterCompliance {
   cluster: Cluster;
   status: ComplianceStatus;
@@ -333,6 +345,7 @@ export interface ClusterCompliance {
   reports_expected: number;
   compliance_rate: number;
   missing_weeks: number[];
+  cancelled_weeks: CancelledComplianceWeek[];
   last_report_date: string | null;
   days_since_last_report: number | null;
   consecutive_missing_weeks: number;

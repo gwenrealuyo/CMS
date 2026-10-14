@@ -30,6 +30,9 @@ from apps.clusters.utils import (
     calculate_trend,
     get_weeks_in_range,
     is_at_risk,
+    previous_iso_weeks,
+    recent_iso_weeks,
+    week_span,
 )
 
 
@@ -40,23 +43,43 @@ def build_compliance_payload(
     *,
     status=None,
     min_rate=None,
+    weeks=None,
 ):
-    """Build the {summary, clusters, by_status} compliance payload."""
+    """Build the {summary, clusters, by_status} compliance payload.
+
+    When ``weeks`` is a list of ``(iso_year, week_number)`` pairs, only those
+    weeks are scored. Trend stays on the latest four weeks.
+    """
     compliance_data = []
     for cluster in clusters:
         cluster_compliance = calculate_cluster_compliance(
-            cluster, start_date, end_date
+            cluster, start_date, end_date, weeks=weeks
         )
 
-        # Trend vs the immediately preceding period of equal length.
-        previous_start = start_date - timedelta(
-            days=(end_date - start_date).days + 1
-        )
-        previous_end = start_date - timedelta(days=1)
-        previous_compliance = calculate_cluster_compliance(
-            cluster, previous_start, previous_end
-        )
-        trend = calculate_trend(cluster_compliance, previous_compliance)
+        if weeks:
+            trend_weeks = recent_iso_weeks(4)
+            prior_weeks = previous_iso_weeks(trend_weeks)
+            trend_start, trend_end = week_span(trend_weeks)
+            current_for_trend = calculate_cluster_compliance(
+                cluster, trend_start, trend_end, weeks=trend_weeks
+            )
+            previous_start, previous_end = week_span(prior_weeks)
+            previous_compliance = calculate_cluster_compliance(
+                cluster,
+                previous_start,
+                previous_end,
+                weeks=prior_weeks,
+            )
+        else:
+            current_for_trend = cluster_compliance
+            previous_start = start_date - timedelta(
+                days=(end_date - start_date).days + 1
+            )
+            previous_end = start_date - timedelta(days=1)
+            previous_compliance = calculate_cluster_compliance(
+                cluster, previous_start, previous_end
+            )
+        trend = calculate_trend(current_for_trend, previous_compliance)
 
         notes = (
             ClusterComplianceNote.objects.filter(
@@ -76,6 +99,7 @@ def build_compliance_payload(
                 "reports_expected": cluster_compliance["reports_expected"],
                 "compliance_rate": cluster_compliance["compliance_rate"],
                 "missing_weeks": cluster_compliance["missing_weeks"],
+                "cancelled_weeks": cluster_compliance["cancelled_weeks"],
                 "last_report_date": cluster_compliance["last_report_date"],
                 "days_since_last_report": cluster_compliance[
                     "days_since_last_report"
@@ -111,7 +135,9 @@ def build_compliance_payload(
         else 0.0
     )
 
-    weeks_expected = len(get_weeks_in_range(start_date, end_date))
+    weeks_expected = (
+        len(weeks) if weeks is not None else len(get_weeks_in_range(start_date, end_date))
+    )
 
     summary = {
         "total_clusters": total_clusters,
@@ -323,6 +349,7 @@ def build_compliance_csv(payload):
             "Reports Expected",
             "Compliance Rate (%)",
             "Missing Weeks",
+            "Cancelled Weeks",
             "Last Report Date",
             "Days Since Last Report",
             "Consecutive Missing Weeks",
@@ -349,6 +376,12 @@ def build_compliance_csv(payload):
                 row["reports_expected"],
                 row["compliance_rate"],
                 ", ".join(map(str, row["missing_weeks"])),
+                "; ".join(
+                    f"{item['week']}: {item['reason']}"
+                    if item.get("reason")
+                    else str(item["week"])
+                    for item in row.get("cancelled_weeks") or []
+                ),
                 row["last_report_date"] or "",
                 row["days_since_last_report"]
                 if row["days_since_last_report"] is not None

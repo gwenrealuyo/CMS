@@ -20,6 +20,7 @@ import AssignmentRequestQueue from "@/src/components/lessons/AssignmentRequestQu
 import MemberProgressSection from "@/src/components/lessons/MemberProgressSection";
 import TeacherOverviewSection from "@/src/components/lessons/TeacherOverviewSection";
 import AwaitingTeacherSection from "@/src/components/lessons/AwaitingTeacherSection";
+import LessonTimelineSection from "@/src/components/lessons/LessonTimelineSection";
 import SessionReportsSection, {
   LessonPersonLike,
 } from "@/src/components/lessons/SessionReportsSection";
@@ -35,12 +36,14 @@ import ConfirmationModal from "@/src/components/ui/ConfirmationModal";
 import NoteInputModal from "@/src/components/ui/NoteInputModal";
 import { useAuth } from "@/src/contexts/AuthContext";
 import { useModuleSettings } from "@/src/hooks/useModuleSettings";
-import { canWriteLessons, canManageLessonCatalog, canBrowseAllLessonStudents, isLessonsTeacherScoped } from "@/src/lib/lessons/lessonsPermissions";
+import { canWriteLessons, canManageLessonCatalog, canBrowseAllLessonStudents, canViewLessonTimeline, isLessonsTeacherScoped } from "@/src/lib/lessons/lessonsPermissions";
 import { TeacherProgressGroup } from "@/src/lib/lessonsUtils";
 import {
   Lesson,
   LessonAssignmentRequest,
   LessonCommitmentSettings,
+  LessonFollowUpInput,
+  LessonTimelinePayload,
   LessonProgressStatus,
   LessonProgressSummary,
   LessonSessionReport,
@@ -126,6 +129,11 @@ interface LessonsPageViewProps {
   visitorsAwaitingTeacherLoading: boolean;
   visitorsAwaitingTeacherError: string | null;
   visitorsAwaitingTeacherLoaded: boolean;
+  lessonTimeline: LessonTimelinePayload | null;
+  lessonTimelineLoading: boolean;
+  lessonTimelineError: string | null;
+  lessonTimelineSaving: boolean;
+  onSaveLessonFollowUp: (input: LessonFollowUpInput) => Promise<void>;
   assignedStudentIds: Set<number>;
   studentTeacherById: Map<number, LessonPersonSummary>;
   progressFilterLessonId: number | null;
@@ -418,6 +426,11 @@ export default function LessonsPageView({
   visitorsAwaitingTeacherLoading,
   visitorsAwaitingTeacherError,
   visitorsAwaitingTeacherLoaded,
+  lessonTimeline,
+  lessonTimelineLoading,
+  lessonTimelineError,
+  lessonTimelineSaving,
+  onSaveLessonFollowUp,
   assignedStudentIds,
   studentTeacherById,
   progressFilterLessonId,
@@ -470,6 +483,8 @@ export default function LessonsPageView({
   const showStudentWorkflowTabs = !user || canWriteLessonsAccess;
   const showTeachersTab =
     showStudentWorkflowTabs && canBrowseAllLessonStudents(user);
+  const showTimelineTab =
+    showStudentWorkflowTabs && canViewLessonTimeline(user);
   const enrollmentTeacherByStudentId = useMemo(() => {
     const map = new Map<number, number>();
     enrollmentByStudent.forEach((enrollment, studentId) => {
@@ -585,6 +600,11 @@ export default function LessonsPageView({
             error={summaryError}
             ongoingStudentsCount={ongoingStudentsCount}
             scopedToAssignedStudents={isLessonsTeacherScoped(user)}
+            onVisitorsAwaitingClick={
+              showTeachersTab
+                ? () => onSetActiveContentTab("awaiting-teacher")
+                : undefined
+            }
           />
         )}
 
@@ -594,6 +614,7 @@ export default function LessonsPageView({
             onTabChange={onSetActiveContentTab}
             hideProgress={!showStudentWorkflowTabs}
             hideTeachers={!showTeachersTab}
+            hideTimeline={!showTimelineTab}
             hideAwaitingTeacher={!showTeachersTab}
             awaitingTeacherCount={
               visitorsAwaitingTeacherLoaded
@@ -719,6 +740,25 @@ export default function LessonsPageView({
                 loading={allProgressLoading}
                 error={allProgressError}
                 onTeacherClick={onTeacherOverviewClick}
+              />
+            </div>
+          ) : null}
+
+          {showTimelineTab ? (
+            <div
+              className={
+                activeContentTab === "timeline"
+                  ? "min-w-0 space-y-6"
+                  : "hidden"
+              }
+            >
+              <LessonTimelineSection
+                timeline={lessonTimeline}
+                loading={lessonTimelineLoading}
+                error={lessonTimelineError}
+                saving={lessonTimelineSaving}
+                formatDateOnly={formatDateOnly}
+                onSaveFollowUp={onSaveLessonFollowUp}
               />
             </div>
           ) : null}

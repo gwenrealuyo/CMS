@@ -87,11 +87,22 @@ class ClusterWeeklyReport(models.Model):
     # Gathering Information
     gathering_type = models.CharField(
         max_length=20,
+        blank=True,
+        null=True,
         choices=[
             ("PHYSICAL", "Physical"),
             ("ONLINE", "Online"),
             ("HYBRID", "Hybrid"),
         ],
+        help_text="How the gathering was held. Empty when the week was cancelled.",
+    )
+    cancelled = models.BooleanField(
+        default=False,
+        help_text="The cluster excused this week; no gathering was held.",
+    )
+    cancellation_reason = models.TextField(
+        blank=True,
+        help_text="Why the gathering was cancelled.",
     )
 
     # Activities and Events

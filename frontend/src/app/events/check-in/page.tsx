@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
+import { usePageTitle } from "@/src/hooks/usePageTitle";
 import { useSearchParams } from "next/navigation";
 
 import ProtectedRoute from "@/src/components/auth/ProtectedRoute";
@@ -35,6 +36,7 @@ function EventCheckInContent({
 }
 
 export default function EventCheckInPage() {
+  usePageTitle("Check-In");
   const searchParams = useSearchParams();
   const eventId = searchParams.get("event") ?? "";
   const occurrenceParam = searchParams.get("occurrence");

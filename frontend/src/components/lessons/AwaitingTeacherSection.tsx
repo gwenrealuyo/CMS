@@ -50,7 +50,12 @@ interface AwaitingTeacherSectionProps {
 
 const DEFAULT_ITEMS_PER_PAGE = 10;
 
-type AwaitingTeacherSortField = "name" | "branch" | "cluster" | "visitorSince";
+type AwaitingTeacherSortField =
+  | "name"
+  | "branch"
+  | "cluster"
+  | "visitorSince"
+  | "inviter";
 
 function compareText(first: string, second: string, direction: number): number {
   const firstEmpty = !first.trim();
@@ -125,7 +130,12 @@ export default function AwaitingTeacherSection({
     const query = searchQuery.trim().toLowerCase();
     const filtered = query
       ? rows.filter((row) => {
-          const haystack = [row.name, row.branch_code, ...row.cluster_codes]
+          const haystack = [
+            row.name,
+            row.inviter_name,
+            row.branch_code,
+            ...row.cluster_codes,
+          ]
             .join(" ")
             .toLowerCase();
           return haystack.includes(query);
@@ -146,6 +156,12 @@ export default function AwaitingTeacherSection({
           return compareText(
             first.visitor_since ?? "",
             second.visitor_since ?? "",
+            direction,
+          );
+        case "inviter":
+          return compareText(
+            first.inviter_name ?? "",
+            second.inviter_name ?? "",
             direction,
           );
         case "name":
@@ -205,6 +221,7 @@ export default function AwaitingTeacherSection({
       ? [{ id: "branch" as const, label: "Branch" }]
       : []),
     { id: "cluster", label: "Cluster" },
+    { id: "inviter", label: "Inviter" },
     { id: "visitorSince", label: "Visitor since" },
     { id: "teacher", label: "Teacher" },
   ];
@@ -290,6 +307,10 @@ export default function AwaitingTeacherSection({
                     </dd>
                   </div>
                   <div>
+                    <dt className="text-gray-500">Inviter</dt>
+                    <dd className="text-gray-900">{row.inviter_name || "—"}</dd>
+                  </div>
+                  <div>
                     <dt className="text-gray-500">Visitor since</dt>
                     <dd className="text-gray-900">
                       {formatDateOnly(row.visitor_since)}
@@ -357,6 +378,9 @@ export default function AwaitingTeacherSection({
                     ) : null}
                     <td className="px-4 py-4 text-sm text-gray-700">
                       {displayList(row.cluster_codes)}
+                    </td>
+                    <td className="px-4 py-4 text-sm text-gray-700">
+                      {row.inviter_name || "—"}
                     </td>
                     <td className="px-4 py-4 text-sm text-gray-700">
                       {formatDateOnly(row.visitor_since)}
@@ -465,7 +489,7 @@ function AssignTeacherControls({
   );
 
   return (
-    <div className="flex min-w-[220px] flex-col gap-2 sm:flex-row sm:items-center">
+    <div className="flex w-full min-w-[18rem] flex-col gap-2 sm:w-[24rem] sm:shrink-0 sm:flex-row sm:items-center">
       <div className="min-w-0 flex-1">
         <ScalableSelect
           options={options}
@@ -475,6 +499,7 @@ function AssignTeacherControls({
           searchPlaceholder="Search teachers..."
           emptyMessage={NCC_TEACHER_ROSTER_EMPTY_MESSAGE}
           disabled={assigning || options.length === 0}
+          menuMinWidth={384}
         />
       </div>
       <Button
@@ -488,3 +513,4 @@ function AssignTeacherControls({
     </div>
   );
 }
+

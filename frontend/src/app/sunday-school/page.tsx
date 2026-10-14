@@ -34,6 +34,7 @@ import {
   useSundaySchoolAttendanceReport,
   useCreateRecurringSessions,
 } from "@/src/hooks/useSundaySchool";
+import { usePageTitle } from "@/src/hooks/usePageTitle";
 import { sundaySchoolApi } from "@/src/lib/api";
 import {
   SundaySchoolClass,
@@ -44,6 +45,7 @@ import {
 } from "@/src/types/sundaySchool";
 
 export default function SundaySchoolPage() {
+  usePageTitle("Sunday School");
   const { user } = useAuth();
   const userCanHardDelete = canHardDelete(user);
   const {

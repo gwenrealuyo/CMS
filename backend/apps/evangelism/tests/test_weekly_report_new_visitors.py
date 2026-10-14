@@ -30,6 +30,7 @@ class EvangelismWeeklyReportNewVisitorsTests(APITestCase):
             last_name="Member",
             role="MEMBER",
             status="ACTIVE",
+            water_baptism_date=date(2020, 1, 1),
             branch=self.branch,
         )
         self.cluster = Cluster.objects.create(
@@ -184,13 +185,130 @@ class EvangelismWeeklyReportNewVisitorsTests(APITestCase):
             {self.member.id, former.id},
         )
 
-        rejected = self.client.patch(
+        sat_in = self.client.patch(
             f"/api/evangelism/weekly-reports/{report.id}/",
             {"members_attended": [self.member.id, former.id, outsider.id]},
             format="json",
         )
-        self.assertEqual(rejected.status_code, 400, rejected.data)
-        self.assertIn("members_attended", rejected.data.get("details", rejected.data))
+        self.assertEqual(sat_in.status_code, 200, sat_in.data)
+        self.assertEqual(
+            set(sat_in.data["members_attended"]),
+            {self.member.id, former.id, outsider.id},
+        )
+        self.group.refresh_from_db()
+        self.assertNotIn(
+            outsider.id,
+            set(self.group.members.values_list("id", flat=True)),
+        )
+        self.assertNotIn(
+            outsider.id,
+            set(self.cluster.members.values_list("id", flat=True)),
+        )
+
+    def test_same_branch_member_can_sit_in_without_joining_the_group(self):
+        other_cluster = Cluster.objects.create(
+            name="South Cluster",
+            code="NEV-SOUTH",
+            branch=self.branch,
+            is_active=True,
+        )
+        sitter = Person.objects.create_user(
+            username="sit-in-member",
+            password="pass12345",
+            first_name="Sam",
+            last_name="Sitter",
+            role="MEMBER",
+            status="INACTIVE",
+            water_baptism_date=date(2019, 6, 1),
+            branch=self.branch,
+        )
+        other_cluster.members.add(sitter)
+
+        response = self.client.post(
+            "/api/evangelism/weekly-reports/",
+            {
+                "evangelism_group_id": self.group.id,
+                "year": 2026,
+                "week_number": 42,
+                "meeting_date": "2026-10-12",
+                "gathering_type": "PHYSICAL",
+                "members_attended": [self.member.id, sitter.id],
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, 201, response.data)
+        self.assertEqual(
+            set(response.data["members_attended"]),
+            {self.member.id, sitter.id},
+        )
+        self.assertNotIn(
+            sitter.id,
+            set(self.group.members.values_list("id", flat=True)),
+        )
+        self.assertNotIn(
+            sitter.id,
+            set(self.cluster.members.values_list("id", flat=True)),
+        )
+        self.assertIn(sitter.id, set(other_cluster.members.values_list("id", flat=True)))
+
+    def test_other_branch_member_cannot_sit_in(self):
+        other_branch = Branch.objects.create(
+            name="Laguna",
+            code="NEV-LAG",
+            is_active=True,
+        )
+        outsider = Person.objects.create_user(
+            username="other-branch-member",
+            password="pass12345",
+            first_name="Bea",
+            last_name="Branch",
+            role="MEMBER",
+            status="ACTIVE",
+            water_baptism_date=date(2018, 3, 1),
+            branch=other_branch,
+        )
+        response = self.client.post(
+            "/api/evangelism/weekly-reports/",
+            {
+                "evangelism_group_id": self.group.id,
+                "year": 2026,
+                "week_number": 42,
+                "meeting_date": "2026-10-13",
+                "gathering_type": "PHYSICAL",
+                "members_attended": [self.member.id, outsider.id],
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, 400, response.data)
+        self.assertIn("members_attended", response.data.get("details", response.data))
+        self.assertNotIn(
+            outsider.id,
+            set(self.group.members.values_list("id", flat=True)),
+        )
+
+    def test_visitor_cannot_be_recorded_as_a_member_attendee(self):
+        visitor = Person.objects.create_user(
+            username="not-a-sit-in",
+            password="pass12345",
+            first_name="Vic",
+            last_name="Visitor",
+            role="VISITOR",
+            status="ONGOING",
+            branch=self.branch,
+        )
+        response = self.client.post(
+            "/api/evangelism/weekly-reports/",
+            {
+                "evangelism_group_id": self.group.id,
+                "year": 2026,
+                "week_number": 42,
+                "meeting_date": "2026-10-14",
+                "gathering_type": "PHYSICAL",
+                "members_attended": [self.member.id, visitor.id],
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, 400, response.data)
 
     def test_update_keeps_visitors_who_later_became_members(self):
         attended = Person.objects.create_user(

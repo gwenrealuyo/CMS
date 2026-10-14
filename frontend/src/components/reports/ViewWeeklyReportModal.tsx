@@ -247,7 +247,16 @@ export default function ViewWeeklyReportModal({
               </div>
             </div>
 
-            {/* Attendance and Gathering Type */}
+            {report.cancelled ? (
+              <div className="bg-white rounded-lg border border-amber-200 p-4 shadow-sm">
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                  Gathering cancelled
+                </h3>
+                <p className="text-sm text-gray-700 whitespace-pre-wrap">
+                  {report.cancellation_reason || "No reason recorded."}
+                </p>
+              </div>
+            ) : (
             <div className="bg-white rounded-lg border border-gray-200 p-4 shadow-sm">
               <h3 className="text-lg font-semibold text-gray-900 mb-3">
                 Attendance & Gathering
@@ -306,6 +315,7 @@ export default function ViewWeeklyReportModal({
                 </div>
               </div>
             </div>
+            )}
 
             {/* Members & Visitors Who Attended */}
             {((report.members_attended_details &&

@@ -11,6 +11,7 @@ from apps.people.models import Person
 from .models import (
     Lesson,
     LessonAssignmentRequest,
+    LessonFollowUpCase,
     LessonJourney,
     LessonSessionReport,
     LessonSettings,
@@ -749,3 +750,17 @@ class LessonAssignmentRequestSerializer(serializers.ModelSerializer):
             requested_by=user,
             lessons=lessons,
         )
+
+
+class LessonFollowUpInputSerializer(serializers.Serializer):
+    student_id = serializers.PrimaryKeyRelatedField(
+        queryset=Person.objects.all(), source="student"
+    )
+    status = serializers.ChoiceField(choices=LessonFollowUpCase.Status.choices)
+    action_text = serializers.CharField(required=False, allow_blank=True, default="")
+    excuse_text = serializers.CharField(required=False, allow_blank=True, default="")
+    who = serializers.CharField(
+        required=False, allow_blank=True, default="", max_length=150
+    )
+    when = serializers.DateField(required=False, allow_null=True)
+    remarks = serializers.CharField(required=False, allow_blank=True, default="")

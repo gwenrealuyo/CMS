@@ -341,6 +341,27 @@ export function buildTeacherOverviewRows(
   return noTeacher ? [...named, noTeacher] : named;
 }
 
+function formatCount(count: number, singular: string, plural: string): string {
+  return `${count} ${count === 1 ? singular : plural}`;
+}
+
+function formatStudentsPerTeacher(students: number, teachers: number): string {
+  const value = Math.round((students / teachers) * 10) / 10;
+  const ratio = Number.isInteger(value) ? String(value) : value.toFixed(1);
+  return `1:${ratio}`;
+}
+
+/** Branch staffing line for the Teachers tab. Ignores the unassigned group and teachers with no students. */
+export function formatTeacherStudentRatio(rows: TeacherProgressGroup[]): string {
+  const assignedRows = rows.filter((row) => row.teacher && row.total > 0);
+  const students = assignedRows.reduce((sum, row) => sum + row.total, 0);
+  const teachers = assignedRows.length;
+  if (students === 0 || teachers === 0) {
+    return "0 students assigned to a teacher.";
+  }
+  return `${formatCount(students, "student", "students")} across ${formatCount(teachers, "teacher", "teachers")} · ${formatStudentsPerTeacher(students, teachers)}`;
+}
+
 export function formatTeacherGroupHeader(group: TeacherProgressGroup): string {
   const teacherName = group.teacher
     ? formatPersonName(group.teacher)

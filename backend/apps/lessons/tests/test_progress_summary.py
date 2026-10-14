@@ -152,3 +152,31 @@ class LessonProgressSummaryYearTests(TestCase):
 
         self.assertEqual(payload["overall"]["COMPLETED"], 1)
         self.assertEqual(payload["total_participants"], 1)
+
+    def test_lesson_rows_follow_yearly_cohort(self):
+        historical = self._person("oldlesson")
+        finished = self._person("newlesson")
+        ongoing = self._person("ongoinglesson")
+        self._complete_course(historical, completed_on=date(self.year - 1, 6, 15))
+        self._complete_course(finished, completed_on=date(self.year, 3, 1))
+        PersonLessonProgress.objects.create(
+            person=ongoing,
+            lesson=self.lesson_one,
+            status=PersonLessonProgress.Status.COMPLETED,
+            completed_at=_as_aware_datetime(date(self.year - 1, 11, 1)),
+        )
+        PersonLessonProgress.objects.create(
+            person=ongoing,
+            lesson=self.lesson_two,
+            status=PersonLessonProgress.Status.ASSIGNED,
+        )
+
+        payload = self._summary()
+        by_lesson = {row["lesson_id"]: row for row in payload["lessons"]}
+
+        self.assertEqual(payload["overall"]["COMPLETED"], 1)
+        self.assertEqual(by_lesson[self.lesson_one.id]["completed"], 2)
+        self.assertEqual(by_lesson[self.lesson_one.id]["total"], 2)
+        self.assertEqual(by_lesson[self.lesson_two.id]["completed"], 1)
+        self.assertEqual(by_lesson[self.lesson_two.id]["assigned"], 1)
+        self.assertEqual(by_lesson[self.lesson_two.id]["total"], 2)

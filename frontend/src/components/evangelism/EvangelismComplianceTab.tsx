@@ -479,6 +479,7 @@ export default function EvangelismComplianceTab() {
                     "Compliance Rate",
                     "Reports",
                     "Missing Weeks",
+                    "Cancelled",
                     "Last Report",
                   ].map((header) => (
                     <th
@@ -494,7 +495,12 @@ export default function EvangelismComplianceTab() {
                 {data.clusters.map((item) => {
                   const rate = item.compliance_rate;
                   return (
-                    <tr key={item.cluster.id}>
+                    <tr
+                      key={
+                        item.cluster.id ??
+                        `group-${item.groups[0]?.id ?? item.cluster.name}`
+                      }
+                    >
                       <td className="whitespace-nowrap px-6 py-4">
                         <div className="text-sm font-medium text-gray-900">
                           {item.cluster.name ||
@@ -551,6 +557,21 @@ export default function EvangelismComplianceTab() {
                         {item.missing_weeks.length > 0
                           ? item.missing_weeks.join(", ")
                           : "—"}
+                      </td>
+                      <td className="px-6 py-4 text-sm text-gray-900">
+                        {item.cancelled_weeks?.length ? (
+                          <div className="space-y-1">
+                            {item.cancelled_weeks.map((entry, index) => (
+                              <div key={`${entry.week}-${entry.group ?? ""}-${index}`}>
+                                Week {entry.week}
+                                {entry.group ? ` — ${entry.group}` : ""}
+                                {entry.reason ? `: ${entry.reason}` : ""}
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          "—"
+                        )}
                       </td>
                       <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-900">
                         {item.last_report_date

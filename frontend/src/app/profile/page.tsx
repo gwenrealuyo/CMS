@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo, useRef } from "react";
+import { usePageTitle } from "@/src/hooks/usePageTitle";
 import Link from "next/link";
 import { useAuth } from "@/src/contexts/AuthContext";
 import DashboardLayout from "@/src/components/layout/DashboardLayout";
@@ -20,6 +21,7 @@ import {
 } from "@/src/lib/personPhoto";
 
 export default function ProfilePage() {
+  usePageTitle("Your Profile");
   return (
     <ProtectedRoute>
       <ProfilePageContent />

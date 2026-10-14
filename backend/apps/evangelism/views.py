@@ -32,6 +32,7 @@ from .compliance import (
     build_evangelism_compliance,
     build_evangelism_compliance_csv,
     clusters_for_compliance,
+    unclustered_groups_for_compliance,
     resolve_compliance_dates,
     resolve_compliance_weeks,
     user_can_view_evangelism_compliance,
@@ -694,17 +695,19 @@ class EvangelismWeeklyReportViewSet(viewsets.ModelViewSet):
                     request.query_params.get("end_date"),
                 )
                 weeks = None
-            clusters = clusters_for_compliance(
-                request.user,
-                request.query_params.get("branch_id")
-                or request.query_params.get("branch"),
+            branch_raw = request.query_params.get("branch_id") or request.query_params.get(
+                "branch"
             )
+            clusters = clusters_for_compliance(request.user, branch_raw)
             payload = build_evangelism_compliance(
                 clusters,
                 start_date,
                 end_date,
                 status=request.query_params.get("status") or None,
                 weeks=weeks,
+                unclustered_groups=unclustered_groups_for_compliance(
+                    request.user, branch_raw
+                ),
             )
         except ComplianceQueryError as exc:
             return None, Response({"error": exc.message}, status=status.HTTP_400_BAD_REQUEST)
@@ -1355,8 +1358,8 @@ class EvangelismWeeklyReportViewSet(viewsets.ModelViewSet):
         year = request.query_params.get("year")
         week_number = request.query_params.get("week_number")
 
-        evangelism_qs = EvangelismWeeklyReport.objects.all()
-        cluster_qs = ClusterWeeklyReport.objects.all()
+        evangelism_qs = EvangelismWeeklyReport.objects.filter(cancelled=False)
+        cluster_qs = ClusterWeeklyReport.objects.filter(cancelled=False)
 
         if year:
             evangelism_qs = evangelism_qs.filter(year=year)

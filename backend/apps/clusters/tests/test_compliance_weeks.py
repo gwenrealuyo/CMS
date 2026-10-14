@@ -36,13 +36,14 @@ class ComplianceWeekFilterTests(APITestCase):
         self._report(40, date(2026, 9, 28))
         self._report(42, date(2026, 10, 12))
 
-    def _report(self, week_number, meeting_date):
+    def _report(self, week_number, meeting_date, **extra):
         return ClusterWeeklyReport.objects.create(
             cluster=self.cluster,
             year=2026,
             week_number=week_number,
             meeting_date=meeting_date,
-            gathering_type="PHYSICAL",
+            gathering_type=extra.pop("gathering_type", "PHYSICAL"),
+            **extra,
         )
 
     def _row(self, response):
@@ -150,3 +151,93 @@ class ComplianceWeekFilterTests(APITestCase):
         row = self._row(response)
         self.assertEqual(row["reports_submitted"], 0)
         self.assertEqual(row["trend"], "IMPROVING")
+
+    def test_cancelled_week_does_not_lower_compliance(self):
+        self._report(
+            41,
+            date(2026, 10, 5),
+            cancelled=True,
+            cancellation_reason="Storm",
+            gathering_type=None,
+        )
+        response = self.client.get(
+            COMPLIANCE_URL,
+            {"year": 2026, "week_number": "41,42"},
+        )
+        self.assertEqual(response.status_code, 200)
+        row = self._row(response)
+        self.assertEqual(row["reports_expected"], 1)
+        self.assertEqual(row["reports_submitted"], 1)
+        self.assertEqual(row["missing_weeks"], [])
+        self.assertEqual(
+            row["cancelled_weeks"],
+            [{"week": 41, "reason": "Storm", "group": None}],
+        )
+        self.assertEqual(row["status"], "COMPLIANT")
+        self.assertEqual(row["compliance_rate"], 100.0)
+
+    def test_only_cancelled_weeks_stay_compliant(self):
+        self._report(
+            41,
+            date(2026, 10, 5),
+            cancelled=True,
+            cancellation_reason="Holiday",
+            gathering_type=None,
+        )
+        response = self.client.get(
+            COMPLIANCE_URL,
+            {"year": 2026, "week_number": "41"},
+        )
+        self.assertEqual(response.status_code, 200)
+        row = self._row(response)
+        self.assertEqual(row["reports_expected"], 0)
+        self.assertEqual(row["reports_submitted"], 0)
+        self.assertEqual(row["missing_weeks"], [])
+        self.assertEqual(
+            row["cancelled_weeks"],
+            [{"week": 41, "reason": "Holiday", "group": None}],
+        )
+        self.assertEqual(row["status"], "COMPLIANT")
+        self.assertEqual(row["compliance_rate"], 100.0)
+        self.assertEqual(row["last_report_date"], "2026-10-12")
+
+    def test_cancellation_still_updates_last_report_date(self):
+        self._report(
+            43,
+            date(2026, 10, 19),
+            cancelled=True,
+            cancellation_reason="Venue closed",
+            gathering_type=None,
+        )
+        response = self.client.get(
+            COMPLIANCE_URL,
+            {"year": 2026, "week_number": "43"},
+        )
+        self.assertEqual(response.status_code, 200)
+        row = self._row(response)
+        self.assertEqual(row["last_report_date"], "2026-10-19")
+        self.assertEqual(row["reports_expected"], 0)
+        self.assertEqual(row["status"], "COMPLIANT")
+
+    def test_real_missing_week_beside_cancellation_stays_missing(self):
+        self._report(
+            41,
+            date(2026, 10, 5),
+            cancelled=True,
+            cancellation_reason="Storm",
+            gathering_type=None,
+        )
+        response = self.client.get(
+            COMPLIANCE_URL,
+            {"year": 2026, "week_number": "41,43"},
+        )
+        self.assertEqual(response.status_code, 200)
+        row = self._row(response)
+        self.assertEqual(row["reports_expected"], 1)
+        self.assertEqual(row["reports_submitted"], 0)
+        self.assertEqual(row["missing_weeks"], [43])
+        self.assertEqual(
+            row["cancelled_weeks"],
+            [{"week": 41, "reason": "Storm", "group": None}],
+        )
+        self.assertEqual(row["status"], "NON_COMPLIANT")

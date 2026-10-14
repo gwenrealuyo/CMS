@@ -4,12 +4,12 @@ import { useMemo, useState } from "react";
 import Card from "@/src/components/ui/Card";
 import ErrorMessage from "@/src/components/ui/ErrorMessage";
 import LoadingSpinner from "@/src/components/ui/LoadingSpinner";
-import Pagination from "@/src/components/ui/Pagination";
 import ToolbarSearch from "@/src/components/ui/ToolbarSearch";
 import ViewModeToggle from "@/src/components/ui/ViewModeToggle";
 import { LessonCountChip } from "@/src/components/lessons/LessonCountChip";
 import {
   TeacherProgressGroup,
+  formatTeacherStudentRatio,
   lessonProgressStatusLabel,
 } from "@/src/lib/lessonsUtils";
 import { formatPersonName } from "@/src/lib/name";
@@ -37,7 +37,7 @@ interface TeacherOverviewSectionProps {
   onTeacherClick: (group: TeacherProgressGroup) => void;
 }
 
-const DEFAULT_ITEMS_PER_PAGE = 25;
+const TEACHER_LIST_HEIGHT_CLASS = "max-h-[28rem]";
 
 export default function TeacherOverviewSection({
   rows,
@@ -49,8 +49,6 @@ export default function TeacherOverviewSection({
   const [sortField, setSortField] =
     useState<TeacherOverviewSortField>("assigned");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
-  const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(DEFAULT_ITEMS_PER_PAGE);
   const [viewMode, setViewMode] = useState<"table" | "cards">(() =>
     getInitialListViewMode("table"),
   );
@@ -96,12 +94,29 @@ export default function TeacherOverviewSection({
     });
   }, [rows, searchQuery, sortField, sortDirection]);
 
-  const totalPages = Math.ceil(filteredRows.length / itemsPerPage) || 1;
-  const page = Math.min(currentPage, totalPages);
-  const paginatedRows = filteredRows.slice(
-    (page - 1) * itemsPerPage,
-    page * itemsPerPage,
-  );
+  const headerCounts = useMemo(() => {
+    let teachers = 0;
+    let assigned = 0;
+    let inProgress = 0;
+    let completed = 0;
+    let notStarted = 0;
+    for (const row of filteredRows) {
+      if (row.teacher) {
+        teachers += 1;
+      }
+      assigned += row.total;
+      inProgress += row.inProgress;
+      completed += row.completed;
+      notStarted += row.notStarted;
+    }
+    return {
+      teacher: teachers,
+      assigned,
+      inProgress,
+      completed,
+      notStarted,
+    };
+  }, [filteredRows]);
 
   const handleSort = (field: TeacherOverviewSortField) => {
     if (sortField === field) {
@@ -168,6 +183,9 @@ export default function TeacherOverviewSection({
           no students yet. Open a teacher to see their students on Student
           Progress.
         </p>
+        <p className="text-sm font-medium text-foreground">
+          {formatTeacherStudentRatio(rows)}
+        </p>
 
         <div className={TOOLBAR_CARD_CLASS}>
           <div className="flex flex-col gap-3 md:flex-row md:items-center md:gap-2">
@@ -175,10 +193,7 @@ export default function TeacherOverviewSection({
               fullWidth
               className="md:min-w-0 md:max-w-none md:flex-[2]"
               value={searchQuery}
-              onChange={(value) => {
-                setSearchQuery(value);
-                setCurrentPage(1);
-              }}
+              onChange={setSearchQuery}
               placeholder="Search teacher..."
               ariaLabel="Search teacher"
             />
@@ -198,8 +213,8 @@ export default function TeacherOverviewSection({
             No teachers found for this branch.
           </div>
         ) : effectiveViewMode === "cards" ? (
-          <div className="space-y-3">
-            {paginatedRows.map((row) => (
+          <div className={`${TEACHER_LIST_HEIGHT_CLASS} space-y-3 overflow-y-auto`}>
+            {filteredRows.map((row) => (
               <article
                 key={row.key}
                 className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm"
@@ -219,7 +234,7 @@ export default function TeacherOverviewSection({
             ))}
           </div>
         ) : (
-          <div className="overflow-x-auto rounded-lg border">
+          <div className={`${TEACHER_LIST_HEIGHT_CLASS} overflow-auto rounded-lg border`}>
             <table className="w-full min-w-[720px] divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
@@ -234,11 +249,18 @@ export default function TeacherOverviewSection({
                   ).map(([field, label]) => (
                     <th
                       key={field}
-                      className="cursor-pointer px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500 hover:bg-gray-100"
+                      className={`sticky top-0 z-10 cursor-pointer px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500 hover:bg-gray-100 ${
+                        sortField === field ? "bg-gray-100" : "bg-gray-50"
+                      }`}
                       onClick={() => handleSort(field)}
                     >
                       <div className="flex items-center gap-1">
-                        <span>{label}</span>
+                        <span>
+                          {label}{" "}
+                          <span className="font-semibold text-foreground">
+                            ({headerCounts[field]})
+                          </span>
+                        </span>
                         {renderSortIcon(field)}
                       </div>
                     </th>
@@ -246,7 +268,7 @@ export default function TeacherOverviewSection({
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200 bg-white">
-                {paginatedRows.map((row) => (
+                {filteredRows.map((row) => (
                   <tr key={row.key} className="hover:bg-gray-50">
                     <td className="px-4 py-4">
                       <button
@@ -297,21 +319,6 @@ export default function TeacherOverviewSection({
             </table>
           </div>
         )}
-
-        {filteredRows.length > itemsPerPage ? (
-          <Pagination
-            currentPage={page}
-            totalPages={totalPages}
-            totalItems={filteredRows.length}
-            itemsPerPage={itemsPerPage}
-            onPageChange={setCurrentPage}
-            onItemsPerPageChange={(value) => {
-              setItemsPerPage(value);
-              setCurrentPage(1);
-            }}
-            showItemsPerPage
-          />
-        ) : null}
       </div>
     </Card>
   );

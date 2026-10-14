@@ -16,6 +16,8 @@ import {
   Lesson,
   LessonAssignmentRequest,
   LessonCommitmentSettings,
+  LessonFollowUpInput,
+  LessonTimelinePayload,
   LessonProgressStatus,
   LessonProgressSummary,
   LessonSessionReport,
@@ -34,6 +36,7 @@ import {
   canWriteLessons,
   canManageLessonCatalog,
   canBrowseAllLessonStudents,
+  canViewLessonTimeline,
   isLessonsTeacherScoped,
 } from "@/src/lib/lessons/lessonsPermissions";
 import {
@@ -163,6 +166,13 @@ export default function LessonsPageContainer() {
     useState<string | null>(null);
   const [visitorsAwaitingTeacherLoaded, setVisitorsAwaitingTeacherLoaded] =
     useState(false);
+  const [lessonTimeline, setLessonTimeline] =
+    useState<LessonTimelinePayload | null>(null);
+  const [lessonTimelineLoading, setLessonTimelineLoading] = useState(false);
+  const [lessonTimelineError, setLessonTimelineError] = useState<string | null>(
+    null,
+  );
+  const [lessonTimelineSaving, setLessonTimelineSaving] = useState(false);
 
   const [personProgressModal, setPersonProgressModal] = useState<{
     isOpen: boolean;
@@ -779,8 +789,14 @@ export default function LessonsPageContainer() {
   }, [action, canWriteLessonsAccess, pathname, router]);
 
   useEffect(() => {
-    if (tabParam === "teachers" && canBrowseAllLessonStudents(user)) {
+    if (
+      tabParam === "teachers" &&
+      canBrowseAllLessonStudents(user)
+    ) {
       setActiveContentTab("teachers");
+    }
+    if (tabParam === "timeline" && canViewLessonTimeline(user)) {
+      setActiveContentTab("timeline");
     }
   }, [tabParam, user]);
 
@@ -790,6 +806,7 @@ export default function LessonsPageContainer() {
       (activeContentTab === "progress" ||
         activeContentTab === "teachers" ||
         activeContentTab === "awaiting-teacher" ||
+        activeContentTab === "timeline" ||
         activeContentTab === "sessions")
     ) {
       setActiveContentTab("lesson");
@@ -800,6 +817,13 @@ export default function LessonsPageContainer() {
       !canBrowseAllLessonStudents(user) &&
       (activeContentTab === "teachers" ||
         activeContentTab === "awaiting-teacher")
+    ) {
+      setActiveContentTab("progress");
+    }
+    if (
+      showStudentWorkflowTabs &&
+      !canViewLessonTimeline(user) &&
+      activeContentTab === "timeline"
     ) {
       setActiveContentTab("progress");
     }
@@ -830,6 +854,58 @@ export default function LessonsPageContainer() {
       setProgress([]);
     }
   }, [selectedLessonId, showStudentWorkflowTabs]);
+
+  const fetchLessonTimeline = useCallback(async () => {
+    if (branchApiParams === null) {
+      return;
+    }
+    try {
+      setLessonTimelineLoading(true);
+      const response = await lessonsApi.getTimeline(branchApiParams);
+      setLessonTimeline(response.data);
+      setLessonTimelineError(null);
+    } catch (err) {
+      console.error(err);
+      setLessonTimelineError(
+        extractErrorMessage(err, "Failed to load the lessons timeline"),
+      );
+    } finally {
+      setLessonTimelineLoading(false);
+    }
+  }, [branchApiParams]);
+
+  const handleSaveLessonFollowUp = useCallback(
+    async (input: LessonFollowUpInput) => {
+      setLessonTimelineSaving(true);
+      try {
+        await lessonsApi.saveFollowUp(input);
+        await fetchLessonTimeline();
+      } finally {
+        setLessonTimelineSaving(false);
+      }
+    },
+    [fetchLessonTimeline],
+  );
+
+  useEffect(() => {
+    if (
+      !showStudentWorkflowTabs ||
+      !canViewLessonTimeline(user) ||
+      branchApiParams === null
+    ) {
+      return;
+    }
+    if (activeContentTab !== "timeline") {
+      return;
+    }
+    fetchLessonTimeline();
+  }, [
+    activeContentTab,
+    branchApiParams,
+    fetchLessonTimeline,
+    showStudentWorkflowTabs,
+    user,
+  ]);
 
   useEffect(() => {
     if (!showStudentWorkflowTabs || activeContentTab !== "sessions") {
@@ -1960,6 +2036,11 @@ export default function LessonsPageContainer() {
       visitorsAwaitingTeacherLoading={visitorsAwaitingTeacherLoading}
       visitorsAwaitingTeacherError={visitorsAwaitingTeacherError}
       visitorsAwaitingTeacherLoaded={visitorsAwaitingTeacherLoaded}
+      lessonTimeline={lessonTimeline}
+      lessonTimelineLoading={lessonTimelineLoading}
+      lessonTimelineError={lessonTimelineError}
+      lessonTimelineSaving={lessonTimelineSaving}
+      onSaveLessonFollowUp={handleSaveLessonFollowUp}
       assignedStudentIds={assignedStudentIds}
       studentTeacherById={studentTeacherById}
       focusTeacherKey={focusTeacherKey}

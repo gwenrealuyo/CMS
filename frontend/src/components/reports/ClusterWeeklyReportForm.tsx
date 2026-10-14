@@ -248,6 +248,8 @@ export default function ClusterWeeklyReportForm({
     week_number: todayIsoParts.week,
     meeting_date: new Date().toISOString().split("T")[0],
     gathering_type: "PHYSICAL" as GatheringType,
+    cancelled: false,
+    cancellation_reason: "",
     activities_held: "",
     prayer_requests: "",
     testimonies: "",
@@ -532,6 +534,8 @@ export default function ClusterWeeklyReportForm({
         cluster: initialData.cluster ?? prev.cluster,
         meeting_date: initialData.meeting_date ?? prev.meeting_date,
         gathering_type: initialData.gathering_type ?? prev.gathering_type,
+        cancelled: Boolean(initialData.cancelled),
+        cancellation_reason: initialData.cancellation_reason ?? "",
         activities_held: initialData.activities_held ?? prev.activities_held,
         prayer_requests: initialData.prayer_requests ?? prev.prayer_requests,
         testimonies: initialData.testimonies ?? prev.testimonies,
@@ -1054,6 +1058,8 @@ export default function ClusterWeeklyReportForm({
         week_number: formData.week_number,
         meeting_date: formData.meeting_date,
         gathering_type: formData.gathering_type,
+        cancelled: formData.cancelled,
+        cancellation_reason: formData.cancellation_reason,
         activities_held: formData.activities_held,
         prayer_requests: formData.prayer_requests,
         testimonies: formData.testimonies,
@@ -1242,25 +1248,58 @@ export default function ClusterWeeklyReportForm({
           )}
         </div>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Gathering Type *
-          </label>
-          <select
-            value={formData.gathering_type || "PHYSICAL"}
-            onChange={(e) =>
-              handleChange("gathering_type", e.target.value as GatheringType)
-            }
-            className="w-full px-3 py-2 min-h-[44px] border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent"
-            required
-          >
-            <option value="PHYSICAL">Physical</option>
-            <option value="ONLINE">Online</option>
-            <option value="HYBRID">Hybrid</option>
-          </select>
-        </div>
+        {!formData.cancelled && (
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Gathering Type *
+            </label>
+            <select
+              value={formData.gathering_type || "PHYSICAL"}
+              onChange={(e) =>
+                handleChange("gathering_type", e.target.value as GatheringType)
+              }
+              className="w-full px-3 py-2 min-h-[44px] border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent"
+              required
+            >
+              <option value="PHYSICAL">Physical</option>
+              <option value="ONLINE">Online</option>
+              <option value="HYBRID">Hybrid</option>
+            </select>
+          </div>
+        )}
       </div>
 
+      <div className="mb-6">
+        <label className="flex items-center gap-2 text-sm font-medium text-gray-700">
+          <input
+            type="checkbox"
+            checked={Boolean(formData.cancelled)}
+            onChange={(e) => handleChange("cancelled", e.target.checked)}
+            className="h-4 w-4 rounded border-gray-300"
+          />
+          Gathering was cancelled
+        </label>
+        {formData.cancelled && (
+          <div className="mt-3">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Reason *
+            </label>
+            <textarea
+              value={formData.cancellation_reason || ""}
+              onChange={(e) =>
+                handleChange("cancellation_reason", e.target.value)
+              }
+              rows={3}
+              required
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent"
+              placeholder="Why was this week's gathering cancelled?"
+            />
+          </div>
+        )}
+      </div>
+
+      {!formData.cancelled && (
+      <>
       {/* Attendance Selection */}
       {loadingPeople ? (
         <div className="mb-6 text-center py-8 text-gray-500">
@@ -1397,6 +1436,8 @@ export default function ClusterWeeklyReportForm({
           className="w-full px-3 py-2 min-h-[44px] border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent"
         />
       </div>
+      </>
+      )}
 
       {/* Add Visitor Modal */}
       <AddVisitorModal
@@ -1436,6 +1477,8 @@ export default function ClusterWeeklyReportForm({
         />
       </Modal>
 
+      {!formData.cancelled && (
+      <>
       {/* Activities and Content */}
       <div className="mb-6">
         <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -1502,6 +1545,8 @@ export default function ClusterWeeklyReportForm({
           className="w-full px-3 py-2 min-h-[44px] border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent"
         />
       </div>
+      </>
+      )}
 
       {/* Action Buttons */}
       <div className="flex flex-col-reverse sm:flex-row gap-4 pt-4">

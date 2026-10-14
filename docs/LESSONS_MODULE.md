@@ -7,6 +7,7 @@
 - `PersonLessonProgress` links a `Person` to a specific lesson version and tracks status (`ASSIGNED`, `IN_PROGRESS`, `COMPLETED`, `SKIPPED`) along with timestamps and notes. Completing a lesson automatically creates (or updates) a `people.models.Journey` of type `LESSON`.
 - `LessonStudentEnrollment` is the canonical per-student lessons record (teacher assignment + one-time commitment signature fields: `commitment_signed`, `commitment_signed_at`, `commitment_signed_by`).
 - `LessonSettings` is a singleton row (id=1) that stores the globally uploaded commitment-form PDF (`commitment_form`) and the printable NCC lessons booklet (`ncc_lessons_pdf`), plus who uploaded each file.
+- `LessonFollowUpCase` is one open coordinator decision per student (`ACTION_PLANNED` or `DROPPED`): action text or an optional note, who, when, and remarks. Saving it writes a `NOTE` journey. **Drop** marks every unfinished active lesson `SKIPPED` and sets the enrollment inactive. Completed lessons stay completed. A newer session deletes the open case and leaves the note.
 - `LessonSessionReport` captures the 1-on-1 teaching workflow:
   - `session_type`: `LESSON` (linked to a catalog lesson) or `PRE_LESSON` (introduction / other pre-course sessions; `lesson` is null).
   - `pre_lesson_kind`: `INTRODUCTION` or `OTHER` when `session_type=PRE_LESSON`.
@@ -31,6 +32,7 @@ This drops all `lessons_*` tables and re-migrates (clears lesson progress, enrol
 - Commitment form signatures are tracked on `LessonStudentEnrollment` and create a `NOTE`-type journey titled “Commitment Form Signed”. Clearing the signature removes that journey entry.
 - **LESSON session reports** call `_sync_progress` inside `LessonSessionReportViewSet`: if a matching `PersonLessonProgress` does not exist it is created, then completion is applied via `mark_progress_completed`.
 - **PRE_LESSON session reports** (Introduction and Other) do not complete catalog progress. They upsert a `LESSON` journey on the student via `sync_pre_lesson_session_journey`: title is the pre-lesson kind label (`Introduction` / `Other`), description is the session remarks, and date is `session_date`. The report stores a OneToOne link on `LessonSessionReport.journey`.
+- **Creating or updating a session report** clears an open `LessonFollowUpCase` when `session_date` is after the case day, or on the same day if the session was logged after the case was saved. The journey note stays.
 - **Creating a session report** (API or Django admin, LESSON or PRE_LESSON) also set-once fills `Person.lessons_started_at` and any empty `Conversion.lesson_start_date` for that student with `session_date`. Existing start dates are not overwritten. People with `has_finished_lessons=True` (legacy completers) are skipped. Edits to existing reports do not backfill.
 - **Deleting a session report** (API or Django admin) first clears any linked pre-lesson journey, then calls `reconcile_student_progress_from_reports(student, force_report_rules=True)`, which realigns progress with remaining LESSON-type reports. Students with zero LESSON reports keep legacy completion via `has_finished_lessons` / `lessons_finished_at` when applicable.
 
@@ -129,7 +131,9 @@ Applied to:
 | `/api/lessons/assignment-requests/` | Teacher requests to take a student (`lesson_ids` optional). List is the teacher's own requests, or branch-scoped requests for coordinators and above. |
 | `/api/lessons/assignment-requests/{id}/approve/` | Coordinator (or admin/pastor) approves a pending request: enrollment, lesson progress, sibling requests rejected. |
 | `/api/lessons/assignment-requests/{id}/reject/` | Coordinator (or admin/pastor) rejects a pending request. Student stays unassigned. |
-| `/api/lessons/progress/summary/` | Person-level status buckets (COMPLETED = finished all lessons in `year`, dated by `completed_at` else `lessons_finished_at`), lesson breakdown, `unassigned_visitors`; supports `year`, `lesson`, `include_superseded`, `branch_id`. |
+| `/api/lessons/progress/summary/` | Person-level status buckets (COMPLETED = finished all lessons in `year`, dated by `completed_at` else `lessons_finished_at`). Lesson breakdown uses that same yearly cohort (still in the course, or finished the full course in `year`), not all-time records. Also returns `unassigned_visitors`. Supports `year`, `lesson`, `include_superseded`, `branch_id`. |
+| `/api/lessons/progress/timeline/` | Coordinator timeline: one row per student with lesson progress or an enrollment, including finished students. Each row has catalog lesson completion dates, water baptism and Holy Ghost dates, cluster codes, days since the last session (or since enrollment/assignment when there is no session), the planned next session date, and the open follow-up case. Scoped like progress (`branch_id`). |
+| `/api/lessons/progress/follow-up/` | POST an action plan or a drop for a timeline student. Writes a `NOTE` journey (`Lessons follow-up plan` or `Lessons follow-up dropped`). Drop does not require a note. It marks unfinished lessons skipped and deactivates the enrollment. A newer session report clears the open case and leaves the journey note. |
 | `/api/lessons/lessons/commitment-form/` | GET/POST global commitment PDF; GET also returns the NCC booklet fields. |
 | `/api/lessons/lessons/ncc-lessons-pdf/` | POST global NCC lessons booklet PDF. |
 | `/api/lessons/enrollments/` | Student–teacher enrollments; filter: `student`, `teacher`, `branch_id`. |
@@ -147,7 +151,8 @@ Entry: [`frontend/src/app/lessons/page.tsx`](../frontend/src/app/lessons/page.ts
 |-----|---------|
 | **Lesson Content** | Sidebar lesson catalog + `LessonDetailPanel`; global, not branch-filtered. |
 | **Student Progress** | `MemberProgressSection` + `LessonProgressTable`; branch-scoped. Students are grouped under collapsible teacher headers with total assigned / in progress / completed / not started counts. Person column shows **status** and **cluster** chips (not member ID). Person-level `ASSIGNED` status is labeled **Not started**. Clicking a teacher on the Teachers tab opens this tab with that group expanded. |
-| **Teachers** | Coordinator overview (`TeacherOverviewSection`): per-teacher assigned / in progress / completed / not started counts. Includes NCC roster teachers with zero students. **For approval** queue lists pending teacher requests (approve or reject). Hidden from Lessons teachers (TEACHER assignment only) and from users without Lessons write access. Deep link: `/lessons?tab=teachers&approval=pending`. |
+| **Teachers** | Coordinator overview (`TeacherOverviewSection`): per-teacher assigned / in progress / completed / not started counts. Includes NCC roster teachers with zero students. **For approval** queue lists pending teacher requests (approve or reject). Hidden from Lessons teachers (TEACHER assignment only) and from users without Lessons write access. Deep link: `/lessons?tab=teachers&approval=pending`. Coordinators can also open Awaiting Teacher from the **Visitors Awaiting Lessons** card. |
+| **Timeline** | Pace scan (`LessonTimelineSection`) for Lessons coordinators and Lessons teachers. Coordinators see the branch. Teachers see only students enrolled with them. One row per student with progress or an enrollment, including students who already finished. Lessons run in catalog order with completion dates. Water baptism, Holy Ghost, and cluster code are markers on that same line (cluster has no join date, so the chip shows the code and sits after the lessons). Each row shows days since the last session (or "No session yet" plus days since enrollment or assignment). The list starts with the longest gaps. Sort (days, name, or teacher) and page size are on the toolbar. **Needs follow-up** hides dropped students; **Dropped** shows students who stopped the remaining lessons. Click a row to record an action plan, or drop the student so they do not continue the remaining lessons. A drop note is optional. Both decisions write a journey note. A newer session clears the case. Deep link: `/lessons?tab=timeline`. |
 | **Session Reports** | `SessionReportsSection`; branch-scoped; see above. |
 | **Files** | `NccLessonsPdfSection` + `CommitmentFormSection`; global PDFs (NCC booklet and commitment form). Internal tab id remains `commitment`. |
 
@@ -162,12 +167,14 @@ Entry: [`frontend/src/app/lessons/page.tsx`](../frontend/src/app/lessons/page.ts
 - `LessonSessionReportForm` — log/edit sessions (lesson vs pre-lesson topic picker).
 - `LessonContentTabs` — tab bar plus optional `branchFilter` slot on the right.
 - `TeacherOverviewSection` — coordinator Teachers tab; roster plus student load; click-through to Student Progress.
+- `LessonTimelineSection` — Timeline tab for coordinators and Lessons teachers. Teachers see only their assigned students. Lesson dates, baptism, Holy Ghost, and cluster-code markers, days since the last session, action plan or drop. Sort and pagination sit in the toolbar.
 
 ### Permissions (UI)
 
 - Lesson write / assign / session log: module coordinators, **NCC ministry primary/support coordinators**, and roles with `HasModuleAccess('LESSONS', 'write')` (see [ACCESS_CONTROL.md](./ACCESS_CONTROL.md)).
 - **Student Progress** and **Session Reports** tabs: hidden unless the user has Lessons write access. Plain Members see **Lesson Content** and **Files** only.
 - **Teachers** tab: Admin, Pastor, Lessons coordinators, and NCC primary/support coordinators only. Lessons teachers who are not coordinators stay on Student Progress (their assigned students) and see their own requests under **Waiting for approval**.
+- **Timeline** tab: those same coordinators, plus Lessons teachers. Teachers only see students assigned to them.
 - Branch picker: ADMIN, PASTOR, and HQ Lessons seniors (including HQ NCC primary) only. Hidden when Progress/Reports tabs are hidden.
 
 NCC ministry roles:

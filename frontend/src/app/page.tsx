@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { usePageTitle } from "@/src/hooks/usePageTitle";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { QrCodeIcon } from "@heroicons/react/24/outline";
@@ -26,6 +27,7 @@ function selfCheckInButtonLabel(
 }
 
 export default function Home() {
+  usePageTitle();
   const { isAuthenticated, isLoading } = useAuth();
   const router = useRouter();
   const [selfCheckInOpen, setSelfCheckInOpen] = useState(false);

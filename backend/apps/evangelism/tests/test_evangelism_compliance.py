@@ -5,6 +5,7 @@ from rest_framework.test import APITestCase
 from apps.clusters.models import Cluster
 from apps.evangelism.models import EvangelismGroup, EvangelismWeeklyReport
 from apps.people.models import Branch, ModuleCoordinator, Person
+from core.datetime_utils import church_today
 
 COMPLIANCE_URL = "/api/evangelism/weekly-reports/compliance/"
 CSV_URL = "/api/evangelism/weekly-reports/compliance_export_csv/"
@@ -257,6 +258,41 @@ class EvangelismComplianceAPITests(APITestCase):
         codes = {row["cluster"]["code"] for row in response.data["clusters"]}
         self.assertIn("COMP-NONE", codes)
         self.assertNotIn("COMP-OTH", codes)
+
+    def test_week_filter_keeps_latest_report_outside_selection(self):
+        response = self._get(
+            self.admin,
+            year=2026,
+            week_number="3",
+            branch_id=self.branch.id,
+        )
+        self.assertEqual(response.status_code, 200, response.content)
+        by_code = {row["cluster"]["code"]: row for row in response.data["clusters"]}
+
+        partial = by_code["COMP-PART"]
+        self.assertEqual(partial["reports_submitted"], 0)
+        self.assertEqual(partial["reports_expected"], 1)
+        self.assertEqual(partial["status"], "NON_COMPLIANT")
+        self.assertEqual(partial["last_report_date"], "2026-01-05")
+        self.assertEqual(
+            partial["days_since_last_report"],
+            (church_today() - date(2026, 1, 5)).days,
+        )
+
+        doubled = by_code["COMP-DBL"]
+        self.assertEqual(doubled["reports_submitted"], 1)
+        self.assertEqual(doubled["reports_expected"], 1)
+        self.assertEqual(doubled["status"], "COMPLIANT")
+        self.assertEqual(doubled["last_report_date"], "2026-01-12")
+
+    def test_invalid_week_number_is_rejected(self):
+        response = self._get(
+            self.admin,
+            year=2026,
+            week_number="99",
+            branch_id=self.branch.id,
+        )
+        self.assertEqual(response.status_code, 400, response.content)
 
     def test_csv_export(self):
         self.client.force_authenticate(self.admin)

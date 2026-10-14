@@ -8,7 +8,7 @@ from collections import defaultdict
 from datetime import date, timedelta
 
 from apps.clusters.models import Cluster
-from apps.clusters.utils import get_weeks_in_range
+from apps.clusters.utils import get_weeks_in_range, parse_iso_weeks, week_span
 from apps.people.models import ModuleCoordinator
 from core.datetime_utils import church_today
 
@@ -51,6 +51,32 @@ def _parse_date(raw, field_name: str) -> date:
         ) from exc
 
 
+def resolve_compliance_weeks(year_raw, week_values, today: date | None = None):
+    """ISO weeks for the compliance filter. ``week_values`` may be comma-separated."""
+    today = today or church_today()
+    if year_raw in (None, ""):
+        year = today.isocalendar().year
+    else:
+        try:
+            year = int(year_raw)
+        except (TypeError, ValueError) as exc:
+            raise ComplianceQueryError("Invalid year.") from exc
+
+    numbers = []
+    for value in week_values:
+        numbers.extend(part.strip() for part in str(value).split(",") if part.strip())
+    if not numbers:
+        raise ComplianceQueryError("Select at least one week.")
+    try:
+        weeks = parse_iso_weeks(year, [int(number) for number in numbers])
+    except ValueError as exc:
+        raise ComplianceQueryError(str(exc)) from exc
+    if not weeks:
+        raise ComplianceQueryError("Select at least one week.")
+    start_date, end_date = week_span(weeks)
+    return start_date, end_date, weeks
+
+
 def resolve_compliance_dates(start_raw, end_raw, today: date | None = None):
     today = today or church_today()
     if start_raw in (None, ""):
@@ -91,11 +117,16 @@ def _status_for_rate(rate: float) -> str:
     return "PARTIAL"
 
 
-def build_evangelism_compliance(clusters, start_date: date, end_date: date, *, status=None):
+def build_evangelism_compliance(
+    clusters, start_date: date, end_date: date, *, status=None, weeks=None
+):
     """
     Setup coverage counts every cluster. Report compliance averages only clusters
     that have an active, approved Cluster BS group. ``status`` filters table rows
     and does not change the summary.
+
+    When ``weeks`` is set, only those ISO weeks are expected. Last report date
+    still comes from the latest report of any week.
     """
     if status not in (None, "") and status not in COMPLIANCE_STATUSES:
         raise ComplianceQueryError(
@@ -104,7 +135,12 @@ def build_evangelism_compliance(clusters, start_date: date, end_date: date, *, s
 
     cluster_list = list(clusters.order_by("name", "code", "id"))
     cluster_ids = [cluster.id for cluster in cluster_list]
-    expected_weeks = set(get_weeks_in_range(start_date, end_date))
+    selected_weeks = set(weeks) if weeks is not None else None
+    expected_weeks = (
+        selected_weeks
+        if selected_weeks is not None
+        else set(get_weeks_in_range(start_date, end_date))
+    )
     weeks_expected = len(expected_weeks)
 
     groups = EvangelismGroup.objects.filter(
@@ -123,19 +159,25 @@ def build_evangelism_compliance(clusters, start_date: date, end_date: date, *, s
     if group_ids:
         reports = EvangelismWeeklyReport.objects.filter(
             evangelism_group_id__in=group_ids,
-            meeting_date__gte=start_date,
-            meeting_date__lte=end_date,
-        ).values_list(
+        )
+        if selected_weeks is None:
+            reports = reports.filter(
+                meeting_date__gte=start_date,
+                meeting_date__lte=end_date,
+            )
+        for cluster_id, year, week_number, meeting_date in reports.values_list(
             "evangelism_group__cluster_id",
             "year",
             "week_number",
             "meeting_date",
-        )
-        for cluster_id, year, week_number, meeting_date in reports:
-            submitted_by_cluster[cluster_id].add((year, week_number))
-            previous = last_date_by_cluster.get(cluster_id)
-            if previous is None or meeting_date > previous:
-                last_date_by_cluster[cluster_id] = meeting_date
+        ):
+            in_period = selected_weeks is None or (year, week_number) in expected_weeks
+            if in_period:
+                submitted_by_cluster[cluster_id].add((year, week_number))
+            if selected_weeks is not None or in_period:
+                previous = last_date_by_cluster.get(cluster_id)
+                if previous is None or meeting_date > previous:
+                    last_date_by_cluster[cluster_id] = meeting_date
 
     today = church_today()
     rows = []

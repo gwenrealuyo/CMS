@@ -33,6 +33,7 @@ from .compliance import (
     build_evangelism_compliance_csv,
     clusters_for_compliance,
     resolve_compliance_dates,
+    resolve_compliance_weeks,
     user_can_view_evangelism_compliance,
 )
 from .filters import ConversionFilter, EvangelismGroupFilter, ProspectFilter
@@ -681,10 +682,18 @@ class EvangelismWeeklyReportViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_403_FORBIDDEN,
             )
         try:
-            start_date, end_date = resolve_compliance_dates(
-                request.query_params.get("start_date"),
-                request.query_params.get("end_date"),
-            )
+            week_values = request.query_params.getlist("week_number")
+            if week_values:
+                start_date, end_date, weeks = resolve_compliance_weeks(
+                    request.query_params.get("year"),
+                    week_values,
+                )
+            else:
+                start_date, end_date = resolve_compliance_dates(
+                    request.query_params.get("start_date"),
+                    request.query_params.get("end_date"),
+                )
+                weeks = None
             clusters = clusters_for_compliance(
                 request.user,
                 request.query_params.get("branch_id")
@@ -695,6 +704,7 @@ class EvangelismWeeklyReportViewSet(viewsets.ModelViewSet):
                 start_date,
                 end_date,
                 status=request.query_params.get("status") or None,
+                weeks=weeks,
             )
         except ComplianceQueryError as exc:
             return None, Response({"error": exc.message}, status=status.HTTP_400_BAD_REQUEST)
@@ -706,8 +716,10 @@ class EvangelismWeeklyReportViewSet(viewsets.ModelViewSet):
         Cluster BS setup coverage and weekly-report compliance.
 
         Query params:
-        - start_date (YYYY-MM-DD): default 4 weeks ago
-        - end_date (YYYY-MM-DD): default today
+        - year + week_number: ISO weeks to score (comma-separated or repeated).
+          Last report is the latest report of any week.
+        - start_date (YYYY-MM-DD): used when week_number is omitted; default 4 weeks ago
+        - end_date (YYYY-MM-DD): used when week_number is omitted; default today
         - branch_id: filter by branch when the user may change branch
         - status: filters table rows only (COMPLIANT, NON_COMPLIANT, PARTIAL, NO_GROUP)
         """

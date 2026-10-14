@@ -2060,6 +2060,8 @@ export const evangelismApi = {
   compliance: (params?: {
     start_date?: string;
     end_date?: string;
+    year?: number;
+    week_number?: string;
     branch_id?: number | string;
     status?: string;
   }) =>
@@ -2070,6 +2072,8 @@ export const evangelismApi = {
   exportComplianceCSV: (params?: {
     start_date?: string;
     end_date?: string;
+    year?: number;
+    week_number?: string;
     branch_id?: number | string;
     status?: string;
   }) =>

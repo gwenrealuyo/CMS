@@ -512,7 +512,7 @@ export default function ScalableSelect({
                 onChange={(e) => setSearchQuery(e.target.value)}
                 onKeyDown={handleSearchKeyDown}
                 placeholder={searchPlaceholder}
-                className="w-full pl-8 pr-3 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent"
+                className="w-full pl-8 pr-3 py-1.5 text-base md:text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent"
               />
             </div>
           </div>

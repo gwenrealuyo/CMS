@@ -181,7 +181,7 @@ export default function SearchableSelect({
       <div className="relative">
         <div
           ref={triggerRef}
-          className={`w-full rounded-md border border-gray-300 px-3 py-2 text-sm bg-white ${controlClassName} ${
+          className={`w-full rounded-md border border-gray-300 px-3 py-2 text-base md:text-sm bg-white ${controlClassName} ${
             disabled
               ? "bg-gray-50 cursor-not-allowed opacity-60"
               : "focus-within:border-primary focus-within:outline-none focus-within:ring-1 focus-within:ring-ring cursor-pointer"

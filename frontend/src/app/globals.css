@@ -70,9 +70,26 @@
   }
 }
 
+/*
+ * iOS Safari (and some Android browsers) auto-zoom focused form controls
+ * when their computed font-size is below 16px. Force 16px on small screens
+ * so text-sm / text-xs utilities do not trigger zoom. Desktop keeps design sizes.
+ */
+@media screen and (max-width: 767px) {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not(
+      [type="button"]
+    ):not([type="submit"]):not([type="reset"]):not([type="image"]):not(
+      [type="file"]
+    ):not([type="hidden"]):not([type="color"]),
+  textarea,
+  select {
+    font-size: 16px !important;
+  }
+}
+
 @layer components {
   .input-field {
-    @apply w-full px-4 py-2.5 md:py-2 rounded-md border border-gray-300 bg-white focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent min-h-[44px] md:min-h-0 text-base;
+    @apply w-full px-4 py-2.5 md:py-2 rounded-md border border-gray-300 bg-white focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent min-h-[44px] md:min-h-0 text-base md:text-sm;
   }
 
   .card-shadow {

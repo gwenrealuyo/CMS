@@ -42,7 +42,7 @@ const STAGE_OPTIONS = [
 type StageFilter = (typeof STAGE_OPTIONS)[number]["value"];
 
 const FILTER_SELECT_CLASS =
-  "block h-11 w-full min-w-0 rounded-lg border border-gray-300 bg-white pl-3 pr-8 text-sm text-gray-900 focus:ring-2 focus:ring-ring focus:border-transparent";
+  "block h-11 w-full min-w-0 rounded-lg border border-gray-300 bg-white pl-3 pr-8 text-base md:text-sm text-gray-900 focus:ring-2 focus:ring-ring focus:border-transparent";
 
 interface ProspectsBrowseProps {
   branches: Branch[];

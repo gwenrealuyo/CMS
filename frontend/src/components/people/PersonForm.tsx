@@ -1,5 +1,7 @@
 import {
+  forwardRef,
   useEffect,
+  useImperativeHandle,
   useRef,
   useState,
   useMemo,
@@ -115,6 +117,11 @@ const toDateOnly = (value?: string | null): string => {
   return String(value).slice(0, 10);
 };
 
+export type PersonFormHandle = {
+  /** Close with the same unsaved-changes prompt as Cancel. */
+  requestClose: () => void;
+};
+
 interface PersonFormProps {
   onSubmit: (data: Partial<Person> | FormData) => Promise<Person | void>;
   onClose: () => void;
@@ -206,19 +213,23 @@ function applyWaterBaptismRoleRules(
   return next;
 }
 
-export default function PersonForm({
-  onSubmit,
-  onClose,
-  onBackToProfile,
-  onJourneySaved,
-  initialData,
-  isEditingFromProfile = false,
-  startOnTimelineTab = false,
-  peopleOptions = [],
-  familyOptions = [],
-  clusterOptions = [],
-  panelLayout = false,
-}: PersonFormProps) {
+const PersonForm = forwardRef<PersonFormHandle, PersonFormProps>(
+  function PersonForm(
+    {
+      onSubmit,
+      onClose,
+      onBackToProfile,
+      onJourneySaved,
+      initialData,
+      isEditingFromProfile = false,
+      startOnTimelineTab = false,
+      peopleOptions = [],
+      familyOptions = [],
+      clusterOptions = [],
+      panelLayout = false,
+    },
+    ref,
+  ) {
   const {
     user,
     hasAnyModuleCoordinatorAssignment,
@@ -455,6 +466,7 @@ export default function PersonForm({
     useState(false);
   const photoInputRef = useRef<HTMLInputElement>(null);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [closeConfirmationOpen, setCloseConfirmationOpen] = useState(false);
   const { branches, getBranches } = useBranches();
 
   // Users who submit branch on create/update via API (not MEMBER visitor flow — branch server-set)
@@ -568,6 +580,30 @@ export default function PersonForm({
     setPhoneLocal(nextLocal);
     syncPhoneToForm(code, nextLocal);
   };
+
+  const performClose = useCallback(() => {
+    if (isEditingFromProfile && onBackToProfile) {
+      onBackToProfile();
+    } else {
+      onClose();
+    }
+  }, [isEditingFromProfile, onBackToProfile, onClose]);
+
+  const handleRequestClose = useCallback(() => {
+    if (hasUnsavedChanges) {
+      setCloseConfirmationOpen(true);
+      return;
+    }
+    performClose();
+  }, [hasUnsavedChanges, performClose]);
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      requestClose: handleRequestClose,
+    }),
+    [handleRequestClose],
+  );
 
   const handleTabSwitch = (targetTab: "basic" | "timeline") => {
     // Prevent switching to timeline tab if user doesn't have permission
@@ -3150,11 +3186,7 @@ export default function PersonForm({
               <Button
                 variant="tertiary"
                 className="w-full sm:flex-1 min-h-[44px]"
-                onClick={
-                  isEditingFromProfile && onBackToProfile
-                    ? () => onBackToProfile()
-                    : onClose
-                }
+                onClick={handleRequestClose}
                 disabled={loading}
               >
                 {panelLayout ? "Back" : "Cancel"}
@@ -3611,7 +3643,6 @@ export default function PersonForm({
         onConfirm={() => {
           if (tabSwitchConfirmation.targetTab) {
             setActiveTab(tabSwitchConfirmation.targetTab);
-            setHasUnsavedChanges(false);
             setTabSwitchConfirmation({ isOpen: false, targetTab: null });
           }
         }}
@@ -3620,6 +3651,24 @@ export default function PersonForm({
         confirmText="Switch Anyway"
         cancelText="Stay Here"
         variant="warning"
+        zIndex={80}
+      />
+
+      {/* Close / cancel confirmation */}
+      <ConfirmationModal
+        isOpen={closeConfirmationOpen}
+        onClose={() => setCloseConfirmationOpen(false)}
+        onConfirm={() => {
+          setCloseConfirmationOpen(false);
+          setHasUnsavedChanges(false);
+          performClose();
+        }}
+        title="Unsaved Changes"
+        message="You have unsaved changes. Are you sure you want to close? Your changes will be lost if you don't save first."
+        confirmText="Close Anyway"
+        cancelText="Keep Editing"
+        variant="warning"
+        zIndex={80}
       />
 
       <ConfirmationModal
@@ -3667,4 +3716,9 @@ export default function PersonForm({
       />
     </>
   );
-}
+},
+);
+
+PersonForm.displayName = "PersonForm";
+
+export default PersonForm;

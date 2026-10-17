@@ -5,7 +5,9 @@ import { usePageTitle } from "@/src/hooks/usePageTitle";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import toast from "react-hot-toast";
 import DashboardLayout from "@/src/components/layout/DashboardLayout";
-import PersonForm from "@/src/components/people/PersonForm";
+import PersonForm, {
+  type PersonFormHandle,
+} from "@/src/components/people/PersonForm";
 import PersonProfile from "@/src/components/people/PersonProfile";
 import FamilyForm from "@/src/components/families/FamilyForm";
 import Button from "@/src/components/ui/Button";
@@ -140,6 +142,7 @@ export default function PeoplePage() {
   const [isDesktop, setIsDesktop] = useState(false);
   const [viewEditPerson, setViewEditPerson] = useState<Person | null>(null);
   const viewEditPersonRef = useRef<Person | null>(null);
+  const personFormRef = useRef<PersonFormHandle>(null);
   useEffect(() => {
     viewEditPersonRef.current = viewEditPerson;
   }, [viewEditPerson]);
@@ -1746,6 +1749,7 @@ export default function PeoplePage() {
 
       return (
         <PersonForm
+          ref={personFormRef}
           initialData={viewEditPerson}
           isEditingFromProfile={true}
           startOnTimelineTab={startOnTimelineTab}
@@ -1794,6 +1798,7 @@ export default function PeoplePage() {
 
     return (
       <PersonForm
+        ref={personFormRef}
         onJourneySaved={refreshPersonJourneyData}
         onSubmit={async (data) => {
           const created = await handleCreatePerson(data);
@@ -2137,7 +2142,17 @@ export default function PeoplePage() {
               <PersonDetailPanel
                 isOpen={personPanelOpen}
                 title={personPanelTitle}
-                onClose={closePersonPanel}
+                onClose={() => {
+                  if (
+                    (personPanelMode === "create" ||
+                      personPanelMode === "edit") &&
+                    personFormRef.current
+                  ) {
+                    personFormRef.current.requestClose();
+                    return;
+                  }
+                  closePersonPanel();
+                }}
                 onExpand={
                   canExpandPersonPanel ? expandPersonFromPanel : undefined
                 }
@@ -2569,8 +2584,18 @@ export default function PeoplePage() {
             collapsePersonModalToPanel();
             return;
           }
+          // Create Person: confirm before discarding unsaved form data
+          if (
+            modalType === "person" &&
+            viewEditPerson === null &&
+            personFormRef.current
+          ) {
+            personFormRef.current.requestClose();
+            return;
+          }
           setIsModalOpen(false);
           setViewEditPerson(null);
+          setCreateInitialData(undefined);
           setEditFamily(null);
           setViewFamily(null);
           setFamilyViewMode("view");

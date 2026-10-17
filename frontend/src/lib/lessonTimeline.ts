@@ -18,9 +18,40 @@ export function formatLessonGapLabel(
   return `No session yet · ${ago}`;
 }
 
+export function isTimelineStudentFinished(
+  row: Pick<
+    LessonTimelineStudent,
+    | "has_finished_lessons"
+    | "water_baptism_date"
+    | "spirit_baptism_date"
+    | "cluster_codes"
+  >,
+): boolean {
+  return (
+    row.has_finished_lessons &&
+    Boolean(row.water_baptism_date) &&
+    Boolean(row.spirit_baptism_date) &&
+    row.cluster_codes.length > 0
+  );
+}
+
 export function lessonGapTone(
-  row: Pick<LessonTimelineStudent, "days_since_last_session" | "days_anchor">,
+  row: Pick<
+    LessonTimelineStudent,
+    | "days_since_last_session"
+    | "days_anchor"
+    | "has_finished_lessons"
+    | "water_baptism_date"
+    | "spirit_baptism_date"
+    | "cluster_codes"
+  >,
 ): string {
+  if (isTimelineStudentFinished(row)) {
+    return "bg-emerald-100 text-emerald-800";
+  }
+  if (row.has_finished_lessons) {
+    return "bg-gray-100 text-gray-700";
+  }
   const days = row.days_since_last_session;
   if (row.days_anchor !== "session" || days == null || days < 8) {
     return "bg-gray-100 text-gray-700";
@@ -42,17 +73,17 @@ export type LessonTimelineVisualMark =
   | {
       kind: "baptism";
       key: string;
-      date: string;
+      date: string | null;
     }
   | {
       kind: "spirit";
       key: string;
-      date: string;
+      date: string | null;
     }
   | {
       kind: "cluster";
       key: string;
-      code: string;
+      code: string | null;
     };
 
 export function buildTimelineMarks(
@@ -62,22 +93,42 @@ export function buildTimelineMarks(
   const progressByLesson = new Map(
     student.lessons.map((lesson) => [lesson.lesson_id, lesson]),
   );
-  const markers: Array<{ kind: "baptism" | "spirit"; date: string; key: string }> = [];
+  const datedMarkers: Array<{
+    kind: "baptism" | "spirit";
+    date: string;
+    key: string;
+  }> = [];
+  const pendingMilestones: LessonTimelineVisualMark[] = [];
+
   if (student.water_baptism_date) {
-    markers.push({
+    datedMarkers.push({
       kind: "baptism",
       date: student.water_baptism_date,
       key: `baptism-${student.water_baptism_date}`,
     });
+  } else {
+    pendingMilestones.push({
+      kind: "baptism",
+      date: null,
+      key: "baptism-pending",
+    });
   }
+
   if (student.spirit_baptism_date) {
-    markers.push({
+    datedMarkers.push({
       kind: "spirit",
       date: student.spirit_baptism_date,
       key: `spirit-${student.spirit_baptism_date}`,
     });
+  } else {
+    pendingMilestones.push({
+      kind: "spirit",
+      date: null,
+      key: "spirit-pending",
+    });
   }
-  markers.sort((first, second) => first.date.localeCompare(second.date));
+
+  datedMarkers.sort((first, second) => first.date.localeCompare(second.date));
 
   const lessonMarks: LessonTimelineVisualMark[] = catalog.map((lesson) => ({
     kind: "lesson",
@@ -87,25 +138,41 @@ export function buildTimelineMarks(
     status: progressByLesson.get(lesson.id)?.status ?? null,
   }));
 
-  const clusterMarks: LessonTimelineVisualMark[] = student.cluster_codes.map(
-    (code) => ({
+  const activeClusterMarks: LessonTimelineVisualMark[] =
+    student.cluster_codes.map((code) => ({
       kind: "cluster",
       key: `cluster-${code}`,
       code,
-    }),
-  );
+    }));
+
+  if (student.cluster_codes.length === 0) {
+    pendingMilestones.push({
+      kind: "cluster",
+      key: "cluster-pending",
+      code: null,
+    });
+  }
+
   const anyCompleted = lessonMarks.some(
     (mark) => mark.kind === "lesson" && mark.completedOn,
   );
   if (!anyCompleted) {
-    return [...markers, ...lessonMarks, ...clusterMarks];
+    return [
+      ...datedMarkers,
+      ...lessonMarks,
+      ...activeClusterMarks,
+      ...pendingMilestones,
+    ];
   }
 
   const marks: LessonTimelineVisualMark[] = [];
   let markerIndex = 0;
   const flushUntil = (date: string) => {
-    while (markerIndex < markers.length && markers[markerIndex].date <= date) {
-      marks.push(markers[markerIndex]);
+    while (
+      markerIndex < datedMarkers.length &&
+      datedMarkers[markerIndex].date <= date
+    ) {
+      marks.push(datedMarkers[markerIndex]);
       markerIndex += 1;
     }
   };
@@ -116,9 +183,9 @@ export function buildTimelineMarks(
     }
     marks.push(lesson);
   }
-  while (markerIndex < markers.length) {
-    marks.push(markers[markerIndex]);
+  while (markerIndex < datedMarkers.length) {
+    marks.push(datedMarkers[markerIndex]);
     markerIndex += 1;
   }
-  return [...marks, ...clusterMarks];
+  return [...marks, ...activeClusterMarks, ...pendingMilestones];
 }

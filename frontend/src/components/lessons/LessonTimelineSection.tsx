@@ -12,6 +12,7 @@ import { extractErrorMessage } from "@/src/lib/lessonsUtils";
 import {
   buildTimelineMarks,
   formatLessonGapLabel,
+  isTimelineStudentFinished,
   lessonGapTone,
 } from "@/src/lib/lessonTimeline";
 import { formatPersonName } from "@/src/lib/name";
@@ -26,7 +27,7 @@ import {
   LessonTimelineStudent,
 } from "@/src/types/lesson";
 
-type TimelineFilter = "all" | "follow-up" | "dropped";
+type TimelineFilter = "follow-up" | "finished" | "dropped" | "all";
 type TimelineSortField = "days" | "name" | "teacher";
 type SortDirection = "asc" | "desc";
 
@@ -78,7 +79,10 @@ function followUpErrorMessage(error: unknown): string {
 function matchesFilter(row: LessonTimelineStudent, filter: TimelineFilter): boolean {
   const status = row.follow_up?.status;
   if (filter === "follow-up") {
-    return status !== "DROPPED";
+    return !row.has_finished_lessons && status !== "DROPPED";
+  }
+  if (filter === "finished") {
+    return row.has_finished_lessons;
   }
   if (filter === "dropped") {
     return status === "DROPPED";
@@ -116,7 +120,7 @@ export default function LessonTimelineSection({
   onSaveFollowUp,
 }: LessonTimelineSectionProps) {
   const [searchQuery, setSearchQuery] = useState("");
-  const [filter, setFilter] = useState<TimelineFilter>("all");
+  const [filter, setFilter] = useState<TimelineFilter>("follow-up");
   const [sortField, setSortField] = useState<TimelineSortField>("days");
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
   const [sortOpen, setSortOpen] = useState(false);
@@ -163,6 +167,13 @@ export default function LessonTimelineSection({
     });
     const direction = sortDirection === "asc" ? 1 : -1;
     return [...filtered].sort((left, right) => {
+      if (filter === "finished") {
+        const leftCompletedAll = isTimelineStudentFinished(left);
+        const rightCompletedAll = isTimelineStudentFinished(right);
+        if (leftCompletedAll !== rightCompletedAll) {
+          return leftCompletedAll ? 1 : -1;
+        }
+      }
       let result = 0;
       if (sortField === "days") {
         result = compareDays(
@@ -242,9 +253,10 @@ export default function LessonTimelineSection({
                   setCurrentPage(1);
                 }}
                 options={[
-                  { id: "all", label: "All" },
                   { id: "follow-up", label: "Needs follow-up" },
+                  { id: "finished", label: "Finished" },
                   { id: "dropped", label: "Dropped" },
+                  { id: "all", label: "All" },
                 ]}
               />
             </div>
@@ -434,27 +446,57 @@ function TimelineRow({
       <div className="mt-3 flex min-w-0 touch-pan-x gap-2 overflow-x-auto overscroll-x-contain px-4 pb-4">
           {marks.map((mark) => {
             if (mark.kind === "cluster") {
+              const hasCluster = Boolean(mark.code);
               return (
                 <div
                   key={mark.key}
-                  className="w-28 shrink-0 rounded-lg border border-sky-200 bg-sky-50 px-2 py-2"
+                  className={`w-28 shrink-0 rounded-lg border px-2 py-2 ${
+                    hasCluster
+                      ? "border-sky-200 bg-sky-50"
+                      : "border-dashed border-gray-200/70 bg-gray-50/40 opacity-40"
+                  }`}
                 >
-                  <p className="text-xs font-semibold text-sky-800">Cluster</p>
-                  <p className="break-words text-xs text-sky-700">{mark.code}</p>
+                  <p
+                    className={`text-xs font-semibold ${
+                      hasCluster ? "text-sky-800" : "text-gray-400"
+                    }`}
+                  >
+                    Cluster
+                  </p>
+                  <p
+                    className={`mt-1 break-words text-xs ${
+                      hasCluster ? "text-sky-700" : "text-gray-400"
+                    }`}
+                  >
+                    {mark.code || "Not yet"}
+                  </p>
                 </div>
               );
             }
             if (mark.kind === "baptism" || mark.kind === "spirit") {
+              const hasDate = Boolean(mark.date);
               return (
                 <div
                   key={mark.key}
-                  className="w-28 shrink-0 rounded-lg border border-indigo-200 bg-indigo-50 px-2 py-2"
+                  className={`w-28 shrink-0 rounded-lg border px-2 py-2 ${
+                    hasDate
+                      ? "border-indigo-200 bg-indigo-50"
+                      : "border-dashed border-gray-200/70 bg-gray-50/40 opacity-40"
+                  }`}
                 >
-                  <p className="text-xs font-semibold text-indigo-800">
+                  <p
+                    className={`text-xs font-semibold ${
+                      hasDate ? "text-indigo-800" : "text-gray-400"
+                    }`}
+                  >
                     {mark.kind === "baptism" ? "Baptized" : "Holy Ghost"}
                   </p>
-                  <p className="text-xs text-indigo-700">
-                    {formatDateOnly(mark.date)}
+                  <p
+                    className={`mt-1 text-xs ${
+                      hasDate ? "text-indigo-700" : "text-gray-400"
+                    }`}
+                  >
+                    {mark.date ? formatDateOnly(mark.date) : "Not yet"}
                   </p>
                 </div>
               );

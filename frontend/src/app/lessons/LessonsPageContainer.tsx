@@ -911,10 +911,20 @@ export default function LessonsPageContainer() {
     if (!showStudentWorkflowTabs || activeContentTab !== "sessions") {
       return;
     }
+    if (branchApiParams === null) {
+      return;
+    }
     fetchSessionReports(sessionFilters);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeContentTab, sessionFilters, showStudentWorkflowTabs]);
+  }, [
+    activeContentTab,
+    branchApiParams,
+    sessionFilters,
+    showStudentWorkflowTabs,
+  ]);
 
+  // Branch-scoped overview data only — do not refetch on content-tab changes
+  // (that was causing LessonStatsCards to flash loading on every tab switch).
   useEffect(() => {
     if (branchApiParams === null) {
       return;
@@ -927,14 +937,11 @@ export default function LessonsPageContainer() {
     fetchEnrollments();
     fetchAssignmentRequests();
     fetchLatestSessionActivity();
-    if (activeContentTab === "sessions") {
-      fetchSessionReports(sessionFilters);
-    }
     if (selectedLessonId) {
       fetchProgress(selectedLessonId);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [branchApiParams, selectedBranchId, activeContentTab, sessionFilters, showStudentWorkflowTabs]);
+  }, [branchApiParams, selectedBranchId, showStudentWorkflowTabs]);
 
   const fetchLessons = async () => {
     try {

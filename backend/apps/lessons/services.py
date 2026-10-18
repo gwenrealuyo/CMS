@@ -1200,12 +1200,19 @@ def build_lesson_timeline(people: QuerySet[Person]) -> dict:
                 }
             )
 
+        completed_all_catalog = bool(catalog) and all(
+            row["status"] == PersonLessonProgress.Status.COMPLETED
+            or row["completed_on"] is not None
+            for row in lesson_rows
+        )
+        has_finished_lessons = bool(person.has_finished_lessons) or completed_all_catalog
+
         students.append(
             {
                 "person": _person_brief(person),
                 "teacher": teacher,
                 "teacher_name": teacher_name,
-                "has_finished_lessons": bool(person.has_finished_lessons),
+                "has_finished_lessons": has_finished_lessons,
                 "water_baptism_date": (
                     person.water_baptism_date.isoformat()
                     if person.water_baptism_date

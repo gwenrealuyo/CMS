@@ -3,10 +3,31 @@ import {
   LessonTimelineStudent,
 } from "@/src/types/lesson";
 
+export function hasCompletedTimelineLessons(
+  row: Pick<LessonTimelineStudent, "has_finished_lessons" | "lessons">,
+): boolean {
+  if (row.has_finished_lessons) {
+    return true;
+  }
+  return (
+    row.lessons.length > 0 &&
+    row.lessons.every(
+      (lesson) =>
+        lesson.status === "COMPLETED" || Boolean(lesson.completed_on),
+    )
+  );
+}
+
 export function formatLessonGapLabel(
-  row: Pick<LessonTimelineStudent, "days_since_last_session" | "days_anchor">,
+  row: Pick<
+    LessonTimelineStudent,
+    "days_since_last_session" | "days_anchor" | "has_finished_lessons" | "lessons"
+  >,
 ): string {
   const days = row.days_since_last_session;
+  if (hasCompletedTimelineLessons(row) && row.days_anchor !== "session") {
+    return "Completed";
+  }
   if (days == null) {
     return "No session yet";
   }
@@ -22,13 +43,14 @@ export function isTimelineStudentFinished(
   row: Pick<
     LessonTimelineStudent,
     | "has_finished_lessons"
+    | "lessons"
     | "water_baptism_date"
     | "spirit_baptism_date"
     | "cluster_codes"
   >,
 ): boolean {
   return (
-    row.has_finished_lessons &&
+    hasCompletedTimelineLessons(row) &&
     Boolean(row.water_baptism_date) &&
     Boolean(row.spirit_baptism_date) &&
     row.cluster_codes.length > 0
@@ -41,6 +63,7 @@ export function lessonGapTone(
     | "days_since_last_session"
     | "days_anchor"
     | "has_finished_lessons"
+    | "lessons"
     | "water_baptism_date"
     | "spirit_baptism_date"
     | "cluster_codes"
@@ -49,7 +72,7 @@ export function lessonGapTone(
   if (isTimelineStudentFinished(row)) {
     return "bg-emerald-100 text-emerald-800";
   }
-  if (row.has_finished_lessons) {
+  if (hasCompletedTimelineLessons(row)) {
     return "bg-gray-100 text-gray-700";
   }
   const days = row.days_since_last_session;

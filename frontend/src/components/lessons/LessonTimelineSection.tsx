@@ -12,6 +12,7 @@ import { extractErrorMessage } from "@/src/lib/lessonsUtils";
 import {
   buildTimelineMarks,
   formatLessonGapLabel,
+  hasCompletedTimelineLessons,
   isTimelineStudentFinished,
   lessonGapTone,
 } from "@/src/lib/lessonTimeline";
@@ -78,11 +79,12 @@ function followUpErrorMessage(error: unknown): string {
 
 function matchesFilter(row: LessonTimelineStudent, filter: TimelineFilter): boolean {
   const status = row.follow_up?.status;
+  const finishedLessons = hasCompletedTimelineLessons(row);
   if (filter === "follow-up") {
-    return !row.has_finished_lessons && status !== "DROPPED";
+    return !finishedLessons && status !== "DROPPED";
   }
   if (filter === "finished") {
-    return row.has_finished_lessons;
+    return finishedLessons;
   }
   if (filter === "dropped") {
     return status === "DROPPED";
@@ -420,7 +422,7 @@ function TimelineRow({
             </p>
             <p className="break-words text-sm text-gray-500">
               {row.teacher_name ? `Tr. ${row.teacher_name}` : "No teacher"}
-              {row.has_finished_lessons ? " · Finished lessons" : ""}
+              {hasCompletedTimelineLessons(row) ? " · Finished lessons" : ""}
             </p>
           </div>
           <span

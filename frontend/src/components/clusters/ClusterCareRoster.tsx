@@ -26,6 +26,7 @@ import {
 } from "@/src/components/clusters/CareCaseForm";
 
 const NO_CLUSTER_KEY = "none";
+const NO_CORD_KEY = "unassigned";
 
 type CareGroup = { label: string; rows: MemberCareCase[] };
 
@@ -63,6 +64,21 @@ function clusterGroupLabel(row: MemberCareCase): string {
   const labels = row.person?.cluster_labels || [];
   if (labels.length) return labels.join(", ");
   return "No cluster";
+}
+
+function cordGroupKey(row: MemberCareCase): string {
+  if (row.cord?.id != null) return `cord-${row.cord.id}`;
+  return NO_CORD_KEY;
+}
+
+function cordGroupLabel(row: MemberCareCase): string {
+  if (row.cord?.name) {
+    const sub = row.cord.sub_coordinator_name
+      ? ` · Sub: ${row.cord.sub_coordinator_name}`
+      : "";
+    return `${row.cord.name}${sub}`;
+  }
+  return "Not in a 5x5 Cord";
 }
 
 
@@ -227,6 +243,8 @@ export default function ClusterCareRoster({
         row.remarks,
         row.assigned_to_label,
         row.recommended_action_other,
+        row.cord?.name,
+        row.cord?.sub_coordinator_name,
         ...(row.person?.cluster_labels || []),
       ]
         .filter(Boolean)
@@ -239,10 +257,12 @@ export default function ClusterCareRoster({
   const grouped = useMemo(() => {
     const map: Map<string, CareGroup> = new Map();
     for (const row of visibleCases) {
-      const key = clusterId != null ? String(clusterId) : clusterGroupKey(row);
+      // Within a cluster detail, group by 5x5 Cord so care reflects the cord layer.
+      const key =
+        clusterId != null ? cordGroupKey(row) : clusterGroupKey(row);
       const label =
         clusterId != null
-          ? clusterGroupLabel(row)
+          ? cordGroupLabel(row)
           : key === NO_CLUSTER_KEY
             ? "No cluster"
             : clusterGroupLabel(row);
@@ -255,8 +275,8 @@ export default function ClusterCareRoster({
     }
     const entries = Array.from(map.entries());
     entries.sort(([aKey, aVal], [bKey, bVal]) => {
-      if (aKey === NO_CLUSTER_KEY) return 1;
-      if (bKey === NO_CLUSTER_KEY) return -1;
+      if (aKey === NO_CLUSTER_KEY || aKey === NO_CORD_KEY) return 1;
+      if (bKey === NO_CLUSTER_KEY || bKey === NO_CORD_KEY) return -1;
       return aVal.label.localeCompare(bVal.label);
     });
     return entries;
@@ -378,7 +398,9 @@ export default function ClusterCareRoster({
           <h2 className="text-lg font-semibold text-gray-900">Cluster Care</h2>
           <p className="text-sm text-gray-600">
             Follow up members who are semi-active, inactive, dormant, or fall
-            away. Setting no action keeps them on this list.
+            away. Within a cluster, cases are grouped by 5x5 Cord so care stays
+            with the cord that holds each person. Setting no action keeps them
+            on this list.
           </p>
         </div>
       )}
@@ -568,7 +590,7 @@ export default function ClusterCareRoster({
         <div className="space-y-3 md:hidden">
           {grouped.map(([key, group]) => (
             <section key={key} className="space-y-2">
-              {clusterId == null && (
+              {(clusterId == null || grouped.length > 1) && (
                 <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-600">
                   {group.label} ({group.rows.length})
                 </h3>
@@ -609,6 +631,12 @@ export default function ClusterCareRoster({
                         {clusterId == null && (
                           <p className="mt-0.5 text-xs text-gray-500">
                             {clusterGroupLabel(row)}
+                            {row.cord?.name ? ` · ${row.cord.name}` : ""}
+                          </p>
+                        )}
+                        {clusterId != null && row.cord?.name && grouped.length === 1 && (
+                          <p className="mt-0.5 text-xs text-gray-500">
+                            {row.cord.name}
                           </p>
                         )}
                       </div>
@@ -703,6 +731,7 @@ export default function ClusterCareRoster({
             <thead className="bg-gray-50 text-left text-xs font-semibold uppercase tracking-wide text-gray-600">
               <tr>
                 {clusterId == null && <th className="px-3 py-2">Cluster</th>}
+                {clusterId != null && <th className="px-3 py-2">5x5 Cord</th>}
                 <th className="px-3 py-2">Attendance status</th>
                 <th className="px-3 py-2">Name</th>
                 <th className="px-3 py-2">Details</th>
@@ -715,7 +744,7 @@ export default function ClusterCareRoster({
             </thead>
             {grouped.map(([key, group]) => (
               <tbody key={key} className="divide-y divide-gray-100">
-                {clusterId == null && grouped.length > 1 && (
+                {grouped.length > 1 && (
                   <tr className="bg-gray-50">
                     <td
                       colSpan={9}
@@ -737,6 +766,16 @@ export default function ClusterCareRoster({
                       {clusterId == null && (
                         <td className="whitespace-nowrap px-3 py-2 text-gray-700">
                           {clusterGroupLabel(row)}
+                          {row.cord?.name ? (
+                            <span className="block text-xs text-gray-500">
+                              {row.cord.name}
+                            </span>
+                          ) : null}
+                        </td>
+                      )}
+                      {clusterId != null && (
+                        <td className="whitespace-nowrap px-3 py-2 text-gray-700">
+                          {row.cord?.name || "—"}
                         </td>
                       )}
                       <td className="whitespace-nowrap px-3 py-2">
@@ -795,7 +834,7 @@ export default function ClusterCareRoster({
                     {isOpen && draft ? (
                       <tr className="bg-slate-50">
                         <td
-                          colSpan={clusterId == null ? 9 : 8}
+                          colSpan={9}
                           className="px-3 py-3"
                           onClick={(e) => e.stopPropagation()}
                         >

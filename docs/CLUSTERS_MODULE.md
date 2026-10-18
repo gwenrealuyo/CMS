@@ -5,11 +5,47 @@
 The Clusters module manages church clusters (small groups) and their weekly meeting reports. Key features include:
 
 - **Cluster Management**: Create, edit, delete, and manage clusters with coordinators, members, and families
+- **5x5 Cords**: Five-member pastoral care sub-groups within a cluster (see below)
 - **Weekly Reports**: Submit and track weekly cluster meeting reports with attendance, activities, and offerings
 - **Attendance Logging**: Efficient attendance selection with bulk options and previous attendance tracking
 - **Analytics Dashboard**: Visual charts and analytics showing attendance trends, cluster comparisons, and gathering type distribution
 - **Smart Pre-filling**: Automatically pre-fills attendance based on previous reports and active members
 - **Filter Independence**: Report forms work correctly regardless of dashboard filter settings
+
+## 5x5 Cords
+
+A **5x5 Cord** is a pastoral care cell inside a cluster. Cords do not replace cluster gatherings; they keep members seen and followed up so no one drifts alone.
+
+> “A cord… is not quickly broken” (Ecc 4:12)—we form small cords of five so each person is held by others.
+
+### Rules
+
+- **Eligibility**: Cluster members with status `ACTIVE` or `SEMIACTIVE` only (not visitors, not completely inactive).
+- **Size**: Soft target of 5; smaller or larger cords are allowed (API/UI warn when not exactly 5).
+- **One cord per person per cluster**: A person may belong to at most one active cord within a given cluster.
+- **Sub-coordinator**: Exactly one per cord; must be a cord member. Display badge only — no ModuleCoordinator row and no extra CMS permissions.
+- **Membership sync**: Removing someone from the cluster drops them from that cluster’s cords.
+
+### Care integration
+
+Follow-up for cord members uses the existing **Cluster Care** (`MemberCareCase`) feature:
+
+- Care case payloads include a `cord` summary (id, name, sub-coordinator).
+- Within a cluster, the Care roster groups cases by 5x5 Cord.
+- Cord cards show open care counts (`care_summary`) drawn from open Member Care cases.
+- Care assignees can include the cord’s sub-coordinator (labeled as such).
+- List filter: `GET /api/people/care-cases/?cluster_id=&cord_id=` (use `cord_id=unassigned` for people not in a cord).
+- Cluster detail shows an **Unassigned eligible** strip (ACTIVE / SEMIACTIVE members not yet in a cord).
+
+There is no separate cord check-in system; pastoral notes and status stay on Member Care.
+
+### API
+
+- `GET/POST /api/clusters/clusters/{id}/cords/`
+- `GET /api/clusters/clusters/{id}/cords/eligible-members/`
+- `GET/PATCH/DELETE /api/clusters/cords/{id}/` (DELETE soft-deactivates and clears memberships)
+
+Permissions match cluster mutation (cluster coordinator, senior CLUSTER, pastor, admin). Reporters cannot mutate cords.
 
 ## Data Model & Storage
 

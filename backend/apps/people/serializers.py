@@ -553,6 +553,7 @@ class MemberCareCaseSerializer(serializers.ModelSerializer):
         source="get_case_status_display", read_only=True
     )
     needs_attention = serializers.SerializerMethodField()
+    cord = serializers.SerializerMethodField()
 
     class Meta:
         model = MemberCareCase
@@ -575,6 +576,7 @@ class MemberCareCaseSerializer(serializers.ModelSerializer):
             "updated_at",
             "updated_by",
             "needs_attention",
+            "cord",
         ]
         read_only_fields = [
             "person",
@@ -586,6 +588,7 @@ class MemberCareCaseSerializer(serializers.ModelSerializer):
             "recommended_action_display",
             "case_status_display",
             "assigned_to_details",
+            "cord",
         ]
 
     def get_needs_attention(self, obj):
@@ -599,6 +602,23 @@ class MemberCareCaseSerializer(serializers.ModelSerializer):
         if obj.due_date and obj.due_date < church_today():
             return True
         return False
+
+    def get_cord(self, obj):
+        """Active 5x5 Cord for this person (scoped to cluster_id query when present)."""
+        from apps.clusters.cords import (
+            active_cord_membership_for_person,
+            cord_payload_from_membership,
+        )
+
+        cord_map = self.context.get("care_cord_by_person")
+        if cord_map is not None:
+            return cord_map.get(obj.person_id)
+
+        cluster_id = self.context.get("care_cluster_id")
+        membership = active_cord_membership_for_person(
+            obj.person_id, cluster_id=cluster_id
+        )
+        return cord_payload_from_membership(membership)
 
     def validate(self, attrs):
         action = attrs.get(

@@ -1,6 +1,12 @@
 from django.contrib import admin
 from .branch_membership import ensure_coordinator_in_members
-from .models import Cluster, ClusterWeeklyReport, ClusterComplianceNote
+from .models import (
+    Cluster,
+    ClusterCord,
+    ClusterCordMembership,
+    ClusterWeeklyReport,
+    ClusterComplianceNote,
+)
 
 
 @admin.register(Cluster)
@@ -113,6 +119,19 @@ class ClusterWeeklyReportAdmin(admin.ModelAdmin):
         ),
     )
     readonly_fields = ("submitted_at", "updated_at")
+
+
+class ClusterCordMembershipInline(admin.TabularInline):
+    model = ClusterCordMembership
+    extra = 0
+
+
+@admin.register(ClusterCord)
+class ClusterCordAdmin(admin.ModelAdmin):
+    list_display = ("name", "cluster", "sub_coordinator", "is_active", "updated_at")
+    list_filter = ("is_active", "cluster")
+    search_fields = ("name", "cluster__name", "cluster__code")
+    inlines = [ClusterCordMembershipInline]
 
 
 @admin.register(ClusterComplianceNote)

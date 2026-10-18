@@ -90,12 +90,64 @@ export interface Cluster {
   family_count?: number;
   /** Person IDs with CLUSTER REPORTER assignment for this cluster */
   reporter_ids?: number[];
+  /** Slim 5x5 Cord counts on cluster detail. */
+  cords_summary?: ClusterCordsSummary;
   branch?: number | null;
   location: string;
   meeting_schedule: string;
   description: string;
   is_active?: boolean;
   created_at: string;
+}
+
+export interface ClusterCordsSummary {
+  cord_count: number;
+  eligible_count: number;
+  unassigned_eligible_count: number;
+}
+
+export interface ClusterCordPersonSummary {
+  id: number;
+  first_name: string;
+  last_name: string;
+  middle_name?: string;
+  suffix?: string;
+  nickname?: string;
+  display_name?: string;
+  status?: string;
+  role?: string;
+}
+
+export interface ClusterCordCareSummary {
+  open_count: number;
+  needs_attention_count: number;
+}
+
+export interface ClusterCord {
+  id: number;
+  cluster_id: number;
+  name: string;
+  sub_coordinator: ClusterCordPersonSummary | null;
+  sub_coordinator_id?: number | null;
+  members_details: ClusterCordPersonSummary[];
+  member_count: number;
+  size_warning: string | null;
+  warnings: string[];
+  care_summary: ClusterCordCareSummary;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ClusterCordInput {
+  name?: string;
+  members?: number[];
+  sub_coordinator_id?: number | null;
+}
+
+export interface ClusterCordEligibleMember extends ClusterCordPersonSummary {
+  assigned_cord_id: number | null;
+  assigned_cord_name: string | null;
 }
 
 export interface ClusterInput {

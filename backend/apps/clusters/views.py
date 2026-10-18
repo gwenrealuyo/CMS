@@ -16,9 +16,16 @@ import io
 from .models import (
     Cluster,
     ClusterComplianceNote,
+    ClusterCord,
     ClusterWeeklyReport,
     member_attendance_rate_q,
 )
+from .cord_serializers import (
+    ClusterCordSerializer,
+    build_care_by_person_for_cluster,
+    build_eligible_members_payload,
+)
+from .cords import deactivate_cord
 from .filters import ClusterFilter
 from .roster_counts import annotate_cluster_roster_counts
 from .report_membership import sync_report_visitors_to_cluster_members
@@ -215,6 +222,16 @@ class ClusterViewSet(viewsets.ModelViewSet):
         if self.action in ("sunday_catchup", "sunday_catchup_remove"):
             # Reporters do not have cluster write. Scope is checked in the action.
             return [IsAuthenticatedAndNotVisitor()]
+        if self.action == "cords":
+            if self.request.method.lower() == "post":
+                return [
+                    IsAuthenticatedAndNotVisitor(),
+                    ClusterMutationAttemptPermission(),
+                    ClusterCoordinatorScopedPermission(),
+                ]
+            return [IsAuthenticatedAndNotVisitor(), HasModuleAccess("CLUSTER", "read")]
+        if self.action == "cords_eligible_members":
+            return [IsAuthenticatedAndNotVisitor(), HasModuleAccess("CLUSTER", "read")]
         if self.action == "create":
             # Only ADMIN, PASTOR, or Senior Coordinator can create
             return [IsAuthenticatedAndNotVisitor(), HasModuleAccess("CLUSTER", "create")]
@@ -514,6 +531,124 @@ class ClusterViewSet(viewsets.ModelViewSet):
         except SundayCatchupError as exc:
             return self._sunday_catchup_error(exc)
         return Response(build_sunday_catchup(cluster))
+
+    def _cord_queryset(self, cluster):
+        return (
+            ClusterCord.objects.filter(cluster=cluster, is_active=True)
+            .select_related("sub_coordinator")
+            .prefetch_related("memberships__person")
+            .order_by("name", "id")
+        )
+
+    @action(detail=True, methods=["get", "post"], url_path="cords")
+    def cords(self, request, pk=None):
+        cluster = self.get_object()
+        if request.method.lower() == "post":
+            ensure_user_manages_cluster_or_privileged(request.user, cluster)
+            serializer = ClusterCordSerializer(
+                data=request.data,
+                context={
+                    "request": request,
+                    "cluster": cluster,
+                    "care_by_person": build_care_by_person_for_cluster(cluster),
+                },
+            )
+            serializer.is_valid(raise_exception=True)
+            cord = serializer.save()
+            out = ClusterCordSerializer(
+                cord,
+                context={
+                    "request": request,
+                    "cluster": cluster,
+                    "care_by_person": build_care_by_person_for_cluster(cluster),
+                },
+            )
+            return Response(out.data, status=status.HTTP_201_CREATED)
+
+        care_by_person = build_care_by_person_for_cluster(cluster)
+        serializer = ClusterCordSerializer(
+            self._cord_queryset(cluster),
+            many=True,
+            context={
+                "request": request,
+                "cluster": cluster,
+                "care_by_person": care_by_person,
+            },
+        )
+        return Response(serializer.data)
+
+    @action(
+        detail=True,
+        methods=["get"],
+        url_path="cords/eligible-members",
+    )
+    def cords_eligible_members(self, request, pk=None):
+        cluster = self.get_object()
+        return Response(build_eligible_members_payload(cluster))
+
+
+class ClusterCordViewSet(viewsets.ModelViewSet):
+    """Retrieve / update / soft-deactivate a 5x5 Cord."""
+
+    queryset = ClusterCord.objects.select_related(
+        "cluster", "sub_coordinator"
+    ).prefetch_related("memberships__person")
+    serializer_class = ClusterCordSerializer
+    http_method_names = ["get", "patch", "put", "delete", "head", "options"]
+
+    def get_permissions(self):
+        if self.action in ("update", "partial_update", "destroy"):
+            return [
+                IsAuthenticatedAndNotVisitor(),
+                ClusterMutationAttemptPermission(),
+            ]
+        return [IsAuthenticatedAndNotVisitor(), HasModuleAccess("CLUSTER", "read")]
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        user = self.request.user
+        from apps.clusters.permissions import filter_clusters_for_read
+
+        allowed = filter_clusters_for_read(user, Cluster.objects.all())
+        allowed = apply_cluster_branch_scope(
+            allowed, user, self.request.query_params.get("branch_id")
+        )
+        return qs.filter(cluster_id__in=allowed.values_list("id", flat=True))
+
+    def _cord_context(self, cord):
+        return {
+            "request": self.request,
+            "cluster": cord.cluster,
+            "care_by_person": build_care_by_person_for_cluster(cord.cluster),
+        }
+
+    def retrieve(self, request, *args, **kwargs):
+        cord = self.get_object()
+        return Response(ClusterCordSerializer(cord, context=self._cord_context(cord)).data)
+
+    def partial_update(self, request, *args, **kwargs):
+        cord = self.get_object()
+        ensure_user_manages_cluster_or_privileged(request.user, cord.cluster)
+        serializer = ClusterCordSerializer(
+            cord,
+            data=request.data,
+            partial=True,
+            context=self._cord_context(cord),
+        )
+        serializer.is_valid(raise_exception=True)
+        cord = serializer.save()
+        return Response(
+            ClusterCordSerializer(cord, context=self._cord_context(cord)).data
+        )
+
+    def update(self, request, *args, **kwargs):
+        return self.partial_update(request, *args, **kwargs)
+
+    def destroy(self, request, *args, **kwargs):
+        cord = self.get_object()
+        ensure_user_manages_cluster_or_privileged(request.user, cord.cluster)
+        deactivate_cord(cord)
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 class ClusterWeeklyReportPagination(PageNumberPagination):

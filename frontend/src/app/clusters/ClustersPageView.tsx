@@ -30,14 +30,9 @@ import ToolbarSearch from "@/src/components/ui/ToolbarSearch";
 import ViewModeToggle from "@/src/components/ui/ViewModeToggle";
 import {
   TOOLBAR_BRANCH_SELECT_CLASS,
-  TOOLBAR_BRANCH_SELECT_FULL_WIDTH_CLASS,
   TOOLBAR_BRANCH_SELECT_LOCKED_CLASS,
   TOOLBAR_CARD_CLASS,
   TOOLBAR_DESKTOP_ACTION_BUTTON_CLASS,
-  TOOLBAR_PANEL_COMPACT_ACTIONS_CLASS,
-  TOOLBAR_PANEL_COMPACT_BRANCH_CLASS,
-  TOOLBAR_PANEL_COMPACT_CLASS,
-  TOOLBAR_PANEL_COMPACT_CONTROLS_CLASS,
   TOOLBAR_STACKED_ACTION_BUTTON_CLASS,
   TOOLBAR_STACKED_ACTIONS_ROW_CLASS,
   TOOLBAR_STACKED_CONTROLS_CLASS,
@@ -527,7 +522,7 @@ export default function ClustersPageView({
     clusterBranchCanChangeFilter,
   ]);
 
-  const renderClusterBranchSelect = (fullWidth = false) => {
+  const renderClusterBranchSelect = () => {
     const options =
       clusterBranchesLoading && clusterBranchCanChangeFilter ? (
         <option value="">Loading…</option>
@@ -557,9 +552,7 @@ export default function ClustersPageView({
         }}
         className={
           clusterBranchSelectInteractive
-            ? fullWidth
-              ? TOOLBAR_BRANCH_SELECT_FULL_WIDTH_CLASS
-              : TOOLBAR_BRANCH_SELECT_CLASS
+            ? TOOLBAR_BRANCH_SELECT_CLASS
             : TOOLBAR_BRANCH_SELECT_LOCKED_CLASS
         }
       >
@@ -570,12 +563,7 @@ export default function ClustersPageView({
     return clusterBranchSelectInteractive ? (
       selectEl
     ) : (
-      <LockedControlTooltip
-        label={clusterBranchHoverHint}
-        wrapperClassName={
-          fullWidth ? "block w-full min-w-0 cursor-default" : undefined
-        }
-      >
+      <LockedControlTooltip label={clusterBranchHoverHint}>
         {selectEl}
       </LockedControlTooltip>
     );
@@ -810,6 +798,7 @@ export default function ClustersPageView({
           showComplianceTab={canAccessCompliance}
           showReportsTab={canAccessClusterReports}
           showCareTab={canAccessMemberCare}
+          branchFilter={renderClusterBranchSelect()}
         />
 
         {activeTab === "tally" && (
@@ -835,6 +824,7 @@ export default function ClustersPageView({
                 ? Number(user.branch)
                 : ""
             }
+            hideBranchFilter
           />
         )}
 
@@ -995,13 +985,12 @@ export default function ClustersPageView({
                 </div>
               </div>
 
-              {/* Search + branch + actions (Families-style toolbar) */}
+              {/* Search + actions */}
               <div className={TOOLBAR_CARD_CLASS}>
-                {/* Search+branch row (desktop + panel), stacked toolbar (mobile) */}
                 <div
                   className={
                     useStackedToolbar
-                      ? TOOLBAR_PANEL_COMPACT_CLASS
+                      ? "flex flex-col gap-3"
                       : "flex flex-col gap-3 xl:hidden"
                   }
                 >
@@ -1013,50 +1002,18 @@ export default function ClustersPageView({
                     ariaLabel="Search clusters"
                   />
 
-                  {useStackedToolbar && (
-                    <div className={TOOLBAR_PANEL_COMPACT_BRANCH_CLASS}>
-                      <div className="min-w-0 flex-1">
-                        {renderClusterBranchSelect()}
-                      </div>
-                      <label className="flex shrink-0 items-center gap-2 text-sm text-gray-600 whitespace-nowrap">
-                        <input
-                          type="checkbox"
-                          checked={showInactiveClusters}
-                          onChange={(e) =>
-                            onShowInactiveClustersChange(e.target.checked)
-                          }
-                          className="rounded border-gray-300 text-primary focus:ring-ring"
-                        />
-                        Show inactive
-                      </label>
-                    </div>
-                  )}
-
-                  <div
-                    className={
-                      useStackedToolbar
-                        ? TOOLBAR_PANEL_COMPACT_CONTROLS_CLASS
-                        : TOOLBAR_STACKED_CONTROLS_CLASS
-                    }
-                  >
-                    {!useStackedToolbar && (
-                      <div className="flex w-full items-center gap-3">
-                        <div className="min-w-0 flex-1">
-                          {renderClusterBranchSelect(true)}
-                        </div>
-                        <label className="flex shrink-0 items-center gap-2 text-sm text-gray-600 whitespace-nowrap">
-                          <input
-                            type="checkbox"
-                            checked={showInactiveClusters}
-                            onChange={(e) =>
-                              onShowInactiveClustersChange(e.target.checked)
-                            }
-                            className="rounded border-gray-300 text-primary focus:ring-ring"
-                          />
-                          Show inactive
-                        </label>
-                      </div>
-                    )}
+                  <div className={TOOLBAR_STACKED_CONTROLS_CLASS}>
+                    <label className="flex shrink-0 items-center gap-2 text-sm text-gray-600 whitespace-nowrap">
+                      <input
+                        type="checkbox"
+                        checked={showInactiveClusters}
+                        onChange={(e) =>
+                          onShowInactiveClustersChange(e.target.checked)
+                        }
+                        className="rounded border-gray-300 text-primary focus:ring-ring"
+                      />
+                      Show inactive
+                    </label>
 
                     <ViewModeToggle
                       fullWidth
@@ -1065,13 +1022,7 @@ export default function ClustersPageView({
                     />
                   </div>
 
-                  <div
-                    className={
-                      useStackedToolbar
-                        ? TOOLBAR_PANEL_COMPACT_ACTIONS_CLASS
-                        : "relative"
-                    }
-                  >
+                  <div className="relative">
                     <div
                       className={
                         hasClusterModuleWideAccess
@@ -1268,9 +1219,6 @@ export default function ClustersPageView({
                       placeholder="Search clusters…"
                       ariaLabel="Search clusters"
                     />
-                    <div className="min-w-0 flex-1 max-w-xs">
-                      {renderClusterBranchSelect()}
-                    </div>
                   </div>
                   <div className="flex min-w-0 flex-wrap items-center gap-2">
                     <label className="flex items-center gap-2 text-sm text-gray-600 whitespace-nowrap">

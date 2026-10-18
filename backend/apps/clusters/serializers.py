@@ -37,6 +37,10 @@ from apps.clusters.coordinator_assignments import (
     prune_cluster_reporter_assignments_to_members,
     sync_cluster_reporter_assignments,
 )
+from apps.clusters.cords import (
+    cords_summary_for_cluster,
+    prune_cord_memberships_for_removed_cluster_members,
+)
 from .exceptions import DuplicateWeekReport
 from .models import Cluster, ClusterWeeklyReport, ClusterComplianceNote
 
@@ -178,6 +182,7 @@ class ClusterSerializer(serializers.ModelSerializer):
     members_details = serializers.SerializerMethodField()
     families_details = serializers.SerializerMethodField()
     reporter_ids = serializers.SerializerMethodField()
+    cords_summary = serializers.SerializerMethodField()
 
     class Meta:
         model = Cluster
@@ -193,6 +198,7 @@ class ClusterSerializer(serializers.ModelSerializer):
             "members_details",
             "families_details",
             "reporter_ids",
+            "cords_summary",
             "branch",
             "location",
             "meeting_schedule",
@@ -205,6 +211,7 @@ class ClusterSerializer(serializers.ModelSerializer):
             "members_details",
             "families_details",
             "reporter_ids",
+            "cords_summary",
         ]
 
     def _person_photo_url(self, person):
@@ -240,6 +247,9 @@ class ClusterSerializer(serializers.ModelSerializer):
                 resource_id=obj.id,
             ).values_list("person_id", flat=True)
         )
+
+    def get_cords_summary(self, obj):
+        return cords_summary_for_cluster(obj)
 
     def validate(self, attrs):
         attrs = super().validate(attrs)
@@ -587,6 +597,7 @@ class ClusterSerializer(serializers.ModelSerializer):
         if reporter_ids is not None:
             sync_cluster_reporter_assignments(instance, reporter_ids)
         prune_cluster_reporter_assignments_to_members(instance, final_member_ids)
+        prune_cord_memberships_for_removed_cluster_members(instance)
 
         return instance
 
@@ -668,6 +679,7 @@ class ClusterSerializer(serializers.ModelSerializer):
         if reporter_ids is not serializers.empty:
             sync_cluster_reporter_assignments(instance, reporter_ids)
         prune_cluster_reporter_assignments_to_members(instance, new_member_ids)
+        prune_cord_memberships_for_removed_cluster_members(instance)
 
         return instance
 

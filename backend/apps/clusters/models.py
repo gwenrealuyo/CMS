@@ -5,6 +5,10 @@ from django.db.models import Q
 # Person statuses counted in member_attendance_rate (roster and attended).
 MEMBER_ATTENDANCE_RATE_STATUSES = ("ACTIVE", "SEMIACTIVE", "INACTIVE")
 
+# 5x5 Cord target size (soft; over/under allowed with size_warning).
+CORD_TARGET_SIZE = 5
+CORD_ELIGIBLE_STATUSES = ("ACTIVE", "SEMIACTIVE")
+
 
 def member_attendance_rate_q(prefix=""):
     """Q() for people counted in member_attendance_rate (non-ADMIN + counted statuses)."""
@@ -203,3 +207,65 @@ class ClusterComplianceNote(models.Model):
     
     def __str__(self):
         return f"Note for {self.cluster} - {self.period_start} to {self.period_end}"
+
+
+class ClusterCord(models.Model):
+    """Five-member pastoral care sub-group (5x5 Cord) within a cluster."""
+
+    cluster = models.ForeignKey(
+        Cluster,
+        on_delete=models.CASCADE,
+        related_name="cords",
+    )
+    name = models.CharField(max_length=100)
+    sub_coordinator = models.ForeignKey(
+        "people.Person",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="coordinated_cords",
+    )
+    members = models.ManyToManyField(
+        "people.Person",
+        through="ClusterCordMembership",
+        related_name="cluster_cords",
+        blank=True,
+    )
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["name", "id"]
+        indexes = [
+            models.Index(fields=["cluster", "is_active"], name="cl_cord_cluster_active_idx"),
+        ]
+
+    def __str__(self):
+        return f"{self.name} ({self.cluster})"
+
+
+class ClusterCordMembership(models.Model):
+    """Through table for ClusterCord.members."""
+
+    cord = models.ForeignKey(
+        ClusterCord,
+        on_delete=models.CASCADE,
+        related_name="memberships",
+    )
+    person = models.ForeignKey(
+        "people.Person",
+        on_delete=models.CASCADE,
+        related_name="cord_memberships",
+    )
+    joined_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = [("cord", "person")]
+        indexes = [
+            models.Index(fields=["person"], name="cl_cord_memb_person_idx"),
+        ]
+
+    def __str__(self):
+        return f"{self.person_id} in cord {self.cord_id}"
+

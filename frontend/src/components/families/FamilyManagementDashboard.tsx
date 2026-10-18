@@ -13,14 +13,9 @@ import type { FamiliesListParams } from "@/src/lib/api";
 import {
   TOOLBAR_ACTION_BUTTON_CLASS,
   TOOLBAR_BRANCH_SELECT_CLASS,
-  TOOLBAR_BRANCH_SELECT_FULL_WIDTH_CLASS,
   TOOLBAR_BRANCH_SELECT_LOCKED_CLASS,
   TOOLBAR_CARD_CLASS,
   TOOLBAR_DESKTOP_ACTION_BUTTON_CLASS,
-  TOOLBAR_PANEL_COMPACT_ACTIONS_CLASS,
-  TOOLBAR_PANEL_COMPACT_BRANCH_CLASS,
-  TOOLBAR_PANEL_COMPACT_CLASS,
-  TOOLBAR_PANEL_COMPACT_CONTROLS_CLASS,
   TOOLBAR_STACKED_ACTION_BUTTON_CLASS,
   TOOLBAR_STACKED_CONTROLS_CLASS,
 } from "@/src/lib/toolbarStyles";
@@ -282,7 +277,7 @@ export default function FamilyManagementDashboard({
     canChangeFamilyBranchFilter,
   ]);
 
-  const renderFamilyBranchSelect = (fullWidth = false) => {
+  const renderFamilyBranchSelect = () => {
     const options =
       branchesLoading && canChangeFamilyBranchFilter ? (
         <option value="">Loading…</option>
@@ -313,9 +308,7 @@ export default function FamilyManagementDashboard({
         }}
         className={
           familyBranchSelectInteractive
-            ? fullWidth
-              ? TOOLBAR_BRANCH_SELECT_FULL_WIDTH_CLASS
-              : TOOLBAR_BRANCH_SELECT_CLASS
+            ? TOOLBAR_BRANCH_SELECT_CLASS
             : TOOLBAR_BRANCH_SELECT_LOCKED_CLASS
         }
       >
@@ -637,13 +630,19 @@ export default function FamilyManagementDashboard({
         )}
       </div>
 
+      {/* Branch filter (Lessons-style: right of module chrome) */}
+      <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-end">
+        <div className="flex w-full shrink-0 items-center md:w-auto">
+          {renderFamilyBranchSelect()}
+        </div>
+      </div>
+
       {/* Header */}
       <div className={TOOLBAR_CARD_CLASS}>
-        {/* Stacked toolbar (mobile), or search+branch row (desktop + panel) */}
         <div
           className={
             useStackedToolbar
-              ? TOOLBAR_PANEL_COMPACT_CLASS
+              ? "flex flex-col gap-3"
               : "flex flex-col gap-3 tablet:hidden"
           }
         >
@@ -658,20 +657,7 @@ export default function FamilyManagementDashboard({
             ariaLabel="Search families"
           />
 
-          {useStackedToolbar && (
-            <div className={TOOLBAR_PANEL_COMPACT_BRANCH_CLASS}>
-              {renderFamilyBranchSelect()}
-            </div>
-          )}
-
-          <div
-            className={
-              useStackedToolbar
-                ? TOOLBAR_PANEL_COMPACT_CONTROLS_CLASS
-                : TOOLBAR_STACKED_CONTROLS_CLASS
-            }
-          >
-            {!useStackedToolbar && renderFamilyBranchSelect(true)}
+          <div className={TOOLBAR_STACKED_CONTROLS_CLASS}>
             <ViewModeToggle
               fullWidth
               viewMode={viewMode}
@@ -679,13 +665,7 @@ export default function FamilyManagementDashboard({
             />
           </div>
 
-          <div
-            className={
-              useStackedToolbar
-                ? TOOLBAR_PANEL_COMPACT_ACTIONS_CLASS
-                : "relative"
-            }
-          >
+          <div className="relative">
             <div className="grid grid-cols-2 gap-2">
               <button
                 ref={mobileSortButtonRef}
@@ -880,9 +860,6 @@ export default function FamilyManagementDashboard({
               placeholder="Search families…"
               ariaLabel="Search families"
             />
-            <div className="min-w-0 flex-1 max-w-xs">
-              {renderFamilyBranchSelect()}
-            </div>
           </div>
           <div className="flex shrink-0 flex-wrap items-center gap-2">
             <ViewModeToggle

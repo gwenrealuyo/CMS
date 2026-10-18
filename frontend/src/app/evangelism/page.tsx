@@ -76,10 +76,6 @@ import ViewModeToggle from "@/src/components/ui/ViewModeToggle";
 import {
   TOOLBAR_CARD_CLASS,
   TOOLBAR_DESKTOP_ACTION_BUTTON_CLASS,
-  TOOLBAR_PANEL_COMPACT_ACTIONS_CLASS,
-  TOOLBAR_PANEL_COMPACT_BRANCH_CLASS,
-  TOOLBAR_PANEL_COMPACT_CLASS,
-  TOOLBAR_PANEL_COMPACT_CONTROLS_CLASS,
   TOOLBAR_STACKED_ACTION_BUTTON_CLASS,
   TOOLBAR_STACKED_ACTIONS_ROW_CLASS,
   TOOLBAR_STACKED_CONTROLS_CLASS,
@@ -91,7 +87,6 @@ import {
 import { DESKTOP_MIN } from "@/src/lib/breakpoints";
 import {
   EVANGELISM_BRANCH_SELECT_CLASS,
-  EVANGELISM_BRANCH_SELECT_FULL_WIDTH_CLASS,
   EVANGELISM_BRANCH_SELECT_LOCKED_CLASS,
 } from "@/src/components/evangelism/EvangelismToolbarSearch";
 import {
@@ -1305,7 +1300,7 @@ export default function EvangelismPage() {
     [filteredGroups, selectedGroups, buildGroupExportRows]
   );
 
-  const renderEvangelismGroupsBranchSelect = (fullWidth = false) => {
+  const renderEvangelismGroupsBranchSelect = () => {
     const evangelismBranchSelectInteractive = canChangeEvangelismBranch;
     const branchSelectEl = (
       <select
@@ -1317,15 +1312,21 @@ export default function EvangelismPage() {
         }
         onChange={(e) => {
           if (!evangelismBranchSelectInteractive) return;
-          setGroupListBranch(e.target.value || "all");
+          const next = e.target.value || "all";
+          setGroupListBranch(next);
+          if (next === "all" || next === "") {
+            setTallyBranch("");
+          } else {
+            const parsed = Number(next);
+            setTallyBranch(Number.isNaN(parsed) ? "" : parsed);
+          }
+          setTallyScope("");
         }}
-        className={`${
+        className={
           evangelismBranchSelectInteractive
-            ? fullWidth
-              ? EVANGELISM_BRANCH_SELECT_FULL_WIDTH_CLASS
-              : EVANGELISM_BRANCH_SELECT_CLASS
+            ? EVANGELISM_BRANCH_SELECT_CLASS
             : EVANGELISM_BRANCH_SELECT_LOCKED_CLASS
-        }${fullWidth ? " h-full min-h-[44px]" : ""}`}
+        }
       >
         {canChangeEvangelismBranch ? (
           <>
@@ -1360,12 +1361,7 @@ export default function EvangelismPage() {
     return evangelismBranchSelectInteractive ? (
       branchSelectEl
     ) : (
-      <LockedControlTooltip
-        label={EVANGELISM_BRANCH_LOCKED_HINT}
-        wrapperClassName={
-          fullWidth ? "block h-full w-full min-w-0 cursor-default" : undefined
-        }
-      >
+      <LockedControlTooltip label={EVANGELISM_BRANCH_LOCKED_HINT}>
         {branchSelectEl}
       </LockedControlTooltip>
     );
@@ -1590,87 +1586,116 @@ export default function EvangelismPage() {
           }}
         />
 
-        {/* Tabs */}
+        {/* Tabs + branch filter (Lessons-style) */}
         <div className="mt-10 border-t border-gray-200 pt-7">
-          <div className="border-b border-gray-200">
-            <nav className="-mb-px flex space-x-4 sm:space-x-8 overflow-x-auto">
-              <button
-                onClick={() => selectTab("groups")}
-                className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors whitespace-nowrap min-w-[60px] ${
-                  activeTab === "groups"
-                    ? "border-primary text-primary"
-                    : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
-                }`}
+          <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+            <div className="min-w-0 flex-1 border-b border-gray-200">
+              <nav
+                className="-mb-px flex snap-x snap-mandatory gap-4 overflow-x-auto scroll-smooth sm:gap-8"
+                role="tablist"
               >
-                Groups
-              </button>
-              {canBrowseProspectsTab && (
                 <button
-                  onClick={() => selectTab("prospects")}
-                  className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors whitespace-nowrap min-w-[80px] ${
-                    activeTab === "prospects"
+                  type="button"
+                  role="tab"
+                  aria-selected={activeTab === "groups"}
+                  onClick={() => selectTab("groups")}
+                  className={`shrink-0 snap-start py-4 px-1 border-b-2 font-medium text-sm transition-colors whitespace-nowrap min-w-[60px] ${
+                    activeTab === "groups"
                       ? "border-primary text-primary"
                       : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
                   }`}
                 >
-                  Prospects
+                  Groups
                 </button>
-              )}
-              <button
-                onClick={() => selectTab("each1reach1")}
-                className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors whitespace-nowrap min-w-[100px] ${
-                  activeTab === "each1reach1"
-                    ? "border-primary text-primary"
-                    : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
-                }`}
-              >
-                Each 1 Reach 1
-              </button>
-              <button
-                onClick={() => selectTab("tally")}
-                className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors whitespace-nowrap min-w-[70px] ${
-                  activeTab === "tally"
-                    ? "border-primary text-primary"
-                    : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
-                }`}
-              >
-                Tally
-              </button>
-              <button
-                onClick={() => selectTab("reports")}
-                className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors whitespace-nowrap min-w-[70px] ${
-                  activeTab === "reports"
-                    ? "border-primary text-primary"
-                    : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
-                }`}
-              >
-                Reports
-              </button>
-              {canAccessEvangelismComplianceTab && (
-              <button
-                onClick={() => selectTab("compliance")}
-                className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors whitespace-nowrap min-w-[90px] ${
-                  activeTab === "compliance"
-                    ? "border-primary text-primary"
-                    : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
-                }`}
-              >
-                Compliance
-              </button>
-              )}
-              {canBrowseBibleSharersTab && (
-              <button
-                onClick={() => selectTab("bible_sharers")}
-                className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors whitespace-nowrap min-w-[110px] ${
-                  activeTab === "bible_sharers"
-                    ? "border-primary text-primary"
-                    : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
-                }`}
-              >
-                Bible Sharers
-              </button>
-              )}
-            </nav>
+                {canBrowseProspectsTab && (
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={activeTab === "prospects"}
+                    onClick={() => selectTab("prospects")}
+                    className={`shrink-0 snap-start py-4 px-1 border-b-2 font-medium text-sm transition-colors whitespace-nowrap min-w-[80px] ${
+                      activeTab === "prospects"
+                        ? "border-primary text-primary"
+                        : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                    }`}
+                  >
+                    Prospects
+                  </button>
+                )}
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={activeTab === "each1reach1"}
+                  onClick={() => selectTab("each1reach1")}
+                  className={`shrink-0 snap-start py-4 px-1 border-b-2 font-medium text-sm transition-colors whitespace-nowrap min-w-[100px] ${
+                    activeTab === "each1reach1"
+                      ? "border-primary text-primary"
+                      : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                  }`}
+                >
+                  Each 1 Reach 1
+                </button>
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={activeTab === "tally"}
+                  onClick={() => selectTab("tally")}
+                  className={`shrink-0 snap-start py-4 px-1 border-b-2 font-medium text-sm transition-colors whitespace-nowrap min-w-[70px] ${
+                    activeTab === "tally"
+                      ? "border-primary text-primary"
+                      : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                  }`}
+                >
+                  Tally
+                </button>
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={activeTab === "reports"}
+                  onClick={() => selectTab("reports")}
+                  className={`shrink-0 snap-start py-4 px-1 border-b-2 font-medium text-sm transition-colors whitespace-nowrap min-w-[70px] ${
+                    activeTab === "reports"
+                      ? "border-primary text-primary"
+                      : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                  }`}
+                >
+                  Reports
+                </button>
+                {canAccessEvangelismComplianceTab && (
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={activeTab === "compliance"}
+                    onClick={() => selectTab("compliance")}
+                    className={`shrink-0 snap-start py-4 px-1 border-b-2 font-medium text-sm transition-colors whitespace-nowrap min-w-[90px] ${
+                      activeTab === "compliance"
+                        ? "border-primary text-primary"
+                        : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                    }`}
+                  >
+                    Compliance
+                  </button>
+                )}
+                {canBrowseBibleSharersTab && (
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={activeTab === "bible_sharers"}
+                    onClick={() => selectTab("bible_sharers")}
+                    className={`shrink-0 snap-start py-4 px-1 border-b-2 font-medium text-sm transition-colors whitespace-nowrap min-w-[110px] ${
+                      activeTab === "bible_sharers"
+                        ? "border-primary text-primary"
+                        : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                    }`}
+                  >
+                    Bible Sharers
+                  </button>
+                )}
+              </nav>
+            </div>
+            <div className="flex w-full shrink-0 items-center md:w-auto md:pb-1">
+              {renderEvangelismGroupsBranchSelect()}
+            </div>
           </div>
         </div>
 
@@ -1686,11 +1711,10 @@ export default function EvangelismPage() {
           <div className="min-w-0 space-y-6">
             {/* Filters */}
             <div className={TOOLBAR_CARD_CLASS}>
-              {/* Stacked toolbar (mobile), or search+branch row (desktop + panel) */}
               <div
                 className={
                   useStackedToolbar
-                    ? TOOLBAR_PANEL_COMPACT_CLASS
+                    ? "flex flex-col gap-3"
                     : "flex flex-col gap-3 xl:hidden"
                 }
               >
@@ -1702,30 +1726,8 @@ export default function EvangelismPage() {
                   ariaLabel="Search groups"
                 />
 
-                {useStackedToolbar && (
-                  <div className={TOOLBAR_PANEL_COMPACT_BRANCH_CLASS}>
-                    <div className="min-w-0 flex-1">
-                      {renderEvangelismGroupsBranchSelect()}
-                    </div>
-                    {renderShowInactiveGroupsCheckbox()}
-                  </div>
-                )}
-
-                <div
-                  className={
-                    useStackedToolbar
-                      ? TOOLBAR_PANEL_COMPACT_CONTROLS_CLASS
-                      : TOOLBAR_STACKED_CONTROLS_CLASS
-                  }
-                >
-                  {!useStackedToolbar && (
-                    <div className="flex w-full items-center gap-3">
-                      <div className="min-w-0 flex-1">
-                        {renderEvangelismGroupsBranchSelect(true)}
-                      </div>
-                      {renderShowInactiveGroupsCheckbox()}
-                    </div>
-                  )}
+                <div className={TOOLBAR_STACKED_CONTROLS_CLASS}>
+                  {renderShowInactiveGroupsCheckbox()}
                   <ViewModeToggle
                     fullWidth
                     viewMode={groupListViewMode}
@@ -1733,13 +1735,7 @@ export default function EvangelismPage() {
                   />
                 </div>
 
-                <div
-                  className={
-                    useStackedToolbar
-                      ? TOOLBAR_PANEL_COMPACT_ACTIONS_CLASS
-                      : "relative"
-                  }
-                >
+                <div className="relative">
                   <div className={TOOLBAR_STACKED_ACTIONS_ROW_CLASS}>
                     <button
                       type="button"
@@ -1933,7 +1929,6 @@ export default function EvangelismPage() {
                     placeholder="Search groups…"
                     ariaLabel="Search groups"
                   />
-                  {renderEvangelismGroupsBranchSelect()}
                   {renderShowInactiveGroupsCheckbox()}
                   <ViewModeToggle
                     compact
@@ -2303,6 +2298,7 @@ export default function EvangelismPage() {
                   ? user.branch
                   : ""
               }
+              hideBranchFilter
               allowedGroupIds={
                 isNonSeniorEvangelismCoordinator
                   ? reportablePickerGroups.map((group) => Number(group.id))

@@ -62,6 +62,15 @@ export interface MemberCareAssignee {
   full_name: string;
 }
 
+/** Active 5x5 Cord context on a care case (from cluster care / cord membership). */
+export interface MemberCareCordSummary {
+  id: number;
+  name: string;
+  cluster_id: number;
+  sub_coordinator_id: number | null;
+  sub_coordinator_name: string | null;
+}
+
 export interface MemberCareCase {
   id: number;
   person: MemberCareCasePerson;
@@ -81,6 +90,8 @@ export interface MemberCareCase {
   updated_at: string;
   updated_by: number | null;
   needs_attention: boolean;
+  /** 5x5 Cord the person belongs to (when assigned). */
+  cord?: MemberCareCordSummary | null;
 }
 
 export type Gender = "MALE" | "FEMALE" | "";

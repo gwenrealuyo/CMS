@@ -1051,6 +1051,33 @@ class MemberCareCaseViewSet(viewsets.ModelViewSet):
         elif unclustered in ("1", "true", "True"):
             queryset = queryset.filter(person__clusters__isnull=True)
 
+        cord_id = self.request.query_params.get("cord_id")
+        if cord_id in ("none", "0", "unassigned"):
+            from apps.clusters.models import ClusterCordMembership
+
+            assigned_ids = ClusterCordMembership.objects.filter(
+                cord__is_active=True,
+                **(
+                    {"cord__cluster_id": int(cluster_id)}
+                    if cluster_id and cluster_id not in ("none", "0")
+                    else {}
+                ),
+            ).values_list("person_id", flat=True)
+            queryset = queryset.exclude(person_id__in=assigned_ids)
+        elif cord_id:
+            try:
+                cord_pk = int(cord_id)
+            except (TypeError, ValueError):
+                queryset = queryset.none()
+            else:
+                from apps.clusters.models import ClusterCordMembership
+
+                person_ids = ClusterCordMembership.objects.filter(
+                    cord_id=cord_pk,
+                    cord__is_active=True,
+                ).values_list("person_id", flat=True)
+                queryset = queryset.filter(person_id__in=person_ids)
+
         person_status = self.request.query_params.get("person_status")
         if person_status:
             queryset = queryset.filter(person__status=person_status)
@@ -1078,6 +1105,54 @@ class MemberCareCaseViewSet(viewsets.ModelViewSet):
                 )
 
         return queryset.order_by("person__last_name", "person__first_name", "id")
+
+    def _care_cluster_id(self):
+        cluster_id = self.request.query_params.get("cluster_id")
+        if cluster_id and cluster_id not in ("none", "0"):
+            try:
+                return int(cluster_id)
+            except (TypeError, ValueError):
+                return None
+        return None
+
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        cluster_id = self._care_cluster_id()
+        if cluster_id is not None:
+            context["care_cluster_id"] = cluster_id
+        return context
+
+    def list(self, request, *args, **kwargs):
+        from apps.clusters.cords import cord_payload_from_membership
+        from apps.clusters.models import ClusterCordMembership
+
+        queryset = self.filter_queryset(self.get_queryset())
+        page = self.paginate_queryset(queryset)
+        cases = page if page is not None else list(queryset)
+
+        person_ids = [c.person_id for c in cases]
+        scoped_cluster = self._care_cluster_id()
+        memberships = ClusterCordMembership.objects.filter(
+            person_id__in=person_ids,
+            cord__is_active=True,
+        ).select_related("cord", "cord__sub_coordinator")
+        if scoped_cluster is not None:
+            memberships = memberships.filter(cord__cluster_id=scoped_cluster)
+
+        cord_map = {}
+        for membership in memberships:
+            # One active cord per person per cluster; first wins if data is messy
+            if membership.person_id not in cord_map:
+                cord_map[membership.person_id] = cord_payload_from_membership(
+                    membership
+                )
+
+        context = self.get_serializer_context()
+        context["care_cord_by_person"] = cord_map
+        serializer = self.get_serializer(cases, many=True, context=context)
+        if page is not None:
+            return self.get_paginated_response(serializer.data)
+        return Response(serializer.data)
 
     def perform_update(self, serializer):
         serializer.save(updated_by=self.request.user)

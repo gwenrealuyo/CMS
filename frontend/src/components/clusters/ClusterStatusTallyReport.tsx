@@ -33,6 +33,8 @@ interface ClusterStatusTallyReportProps {
   branchSelectionLocked?: boolean;
   branchLockedHint?: string;
   defaultLockedBranch?: number | "";
+  /** When true, branch is controlled elsewhere (e.g. page tab row). */
+  hideBranchFilter?: boolean;
 }
 
 type StatusMetric = ClusterStatusTallyStatus;
@@ -63,6 +65,7 @@ export default function ClusterStatusTallyReport({
   branchSelectionLocked = false,
   branchLockedHint,
   defaultLockedBranch = "",
+  hideBranchFilter = false,
 }: ClusterStatusTallyReportProps) {
   const selectedBranch = branch === "" ? "" : Number(branch);
   const [selectedYear, setSelectedYear] = useState(() =>
@@ -339,7 +342,13 @@ export default function ClusterStatusTallyReport({
             {asOfLabel ? ` (as of ${asOfLabel})` : ""}.
           </p>
         </div>
-        <div className="mb-4 grid grid-cols-1 gap-2 md:grid-cols-[minmax(0,6.75rem)_minmax(0,1fr)_minmax(0,1.5fr)_auto] md:items-center">
+        <div
+          className={`mb-4 grid grid-cols-1 gap-2 md:items-center ${
+            hideBranchFilter
+              ? "md:grid-cols-[minmax(0,6.75rem)_minmax(0,1.5fr)_auto]"
+              : "md:grid-cols-[minmax(0,6.75rem)_minmax(0,1fr)_minmax(0,1.5fr)_auto]"
+          }`}
+        >
           <select
             value={selectedYear}
             onChange={(event) => setSelectedYear(Number(event.target.value))}
@@ -353,20 +362,21 @@ export default function ClusterStatusTallyReport({
               </option>
             ))}
           </select>
-          {tallyBranchInteractive ? (
-            branchSelectEl
-          ) : (
-            <LockedControlTooltip
-              label={
-                branchLockedHint?.trim()
-                  ? branchLockedHint
-                  : "Branch is limited to your assignment."
-              }
-              wrapperClassName="block h-11 min-h-[44px] min-w-0 w-full cursor-default"
-            >
-              {branchSelectEl}
-            </LockedControlTooltip>
-          )}
+          {!hideBranchFilter &&
+            (tallyBranchInteractive ? (
+              branchSelectEl
+            ) : (
+              <LockedControlTooltip
+                label={
+                  branchLockedHint?.trim()
+                    ? branchLockedHint
+                    : "Branch is limited to your assignment."
+                }
+                wrapperClassName="block h-11 min-h-[44px] min-w-0 w-full cursor-default"
+              >
+                {branchSelectEl}
+              </LockedControlTooltip>
+            ))}
           <TallyMonthFilter
             year={selectedYear}
             months={months}

@@ -128,7 +128,31 @@ export const faqCategories: FaqCategory[] = [
         id: "cluster-tabs",
         question: "What are the Clusters tabs for?",
         answer:
-          "Clusters shows group details (members, families, coordinator, schedule). Reports lists submitted weekly reports. Compliance is an oversight view for senior cluster coordinators.",
+          "Clusters shows group details (members, families, 5x5 Cords, coordinator, schedule, and Cluster Care). Reports lists submitted weekly reports. Compliance is an oversight view for senior cluster coordinators.",
+      },
+      {
+        id: "what-is-5x5-cord",
+        question: "What is a 5x5 Cord?",
+        answer:
+          "A 5x5 Cord is a small care group of about five people inside a cluster. Cords do not replace cluster gatherings—they help members check on and follow up with each other so no one drifts alone. The idea comes from Ecclesiastes 4:12: “A cord… is not quickly broken”—we form small cords of five so each person is held by others. Only ACTIVE and SEMIACTIVE cluster members are included (not visitors or fully inactive people). Family members do not have to be in the same cord.",
+      },
+      {
+        id: "who-manages-5x5-cords",
+        question: "Who can create or edit 5x5 Cords?",
+        answer:
+          "Cluster coordinators for that cluster, Cluster senior coordinators, Pastors, and Admins. Reporters and regular members can view cords but cannot change them. Each cord has one sub-coordinator shown as a label only—that role does not grant extra login permissions. On a cluster’s detail, managers can create a cord or click a cord name to edit it; Deactivate is at the bottom left of the edit form.",
+      },
+      {
+        id: "5x5-cord-care",
+        question: "How do 5x5 Cords relate to Cluster Care?",
+        answer:
+          "Follow-up and pastoral notes stay on Cluster Care (member care cases). Cord cards show how many open care cases their members have. Within a cluster, the Care list is grouped by 5x5 Cord, and you can assign follow-up to the cord’s sub-coordinator when helpful. There is no separate cord check-in log.",
+      },
+      {
+        id: "5x5-unassigned-eligible",
+        question: "What does “Unassigned eligible” mean on a cluster?",
+        answer:
+          "It lists ACTIVE and SEMIACTIVE cluster members who are not yet in any 5x5 Cord. The section is collapsed by default—click the header to expand and see who still needs to be grouped. Soft target size is five members per cord; smaller or larger cords are allowed with a size warning.",
       },
     ],
   },

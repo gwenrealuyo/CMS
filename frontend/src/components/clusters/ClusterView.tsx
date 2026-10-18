@@ -31,6 +31,7 @@ import type {
 import ClusterProspectsSection from "@/src/components/clusters/ClusterProspectsSection";
 import ClusterSundayCatchup from "@/src/components/clusters/ClusterSundayCatchup";
 import ClusterCareRoster from "@/src/components/clusters/ClusterCareRoster";
+import ClusterCordsSection from "@/src/components/clusters/ClusterCordsSection";
 import ChangePersonStatusModal from "@/src/components/people/ChangePersonStatusModal";
 import { useAuth } from "@/src/contexts/AuthContext";
 import { userCanAccessMemberCare } from "@/src/lib/clusterPermissions";
@@ -1033,11 +1034,21 @@ export default function ClusterView({
             </div>
           )}
 
+          <ClusterCordsSection
+            clusterId={cluster.id}
+            canManage={canManageCluster}
+            compact={isPanelMode}
+          />
+
           {showMemberCare && (
             <div>
               <h3 className="text-lg font-semibold text-gray-900 mb-3">
                 Cluster Care
               </h3>
+              <p className="mb-3 text-sm text-gray-600">
+                Care cases are grouped by 5x5 Cord. Assign follow-up to the cord
+                sub-coordinator when helpful.
+              </p>
               <ClusterCareRoster
                 clusterId={cluster.id}
                 clusters={[cluster]}

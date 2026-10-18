@@ -2,6 +2,9 @@ import axios, { type AxiosResponse } from "axios";
 import { Person, Family, Journey, ModuleCoordinator, MemberCareCase } from "@/src/types/person";
 import {
   Cluster,
+  ClusterCord,
+  ClusterCordEligibleMember,
+  ClusterCordInput,
   ClusterStatusTallyDetailRow,
   ClusterStatusTallyRow,
   ClusterStatusTallyStatus,
@@ -497,6 +500,7 @@ export const peopleApi = {
   delete: (id: string) => api.delete(`/people/people/${id}/`),
   listCareCases: (params?: {
     cluster_id?: number | string;
+    cord_id?: number | string;
     unclustered?: boolean | string;
     person_status?: string;
     recommended_action?: string;
@@ -528,6 +532,7 @@ export const peopleApi = {
 export async function fetchAllCareCases(
   params: {
     cluster_id?: number | string;
+    cord_id?: number | string;
     unclustered?: boolean | string;
     person_status?: string;
     recommended_action?: string;
@@ -875,6 +880,23 @@ export const clustersApi = {
     api.delete<SundayCatchupPayload>(
       `/clusters/clusters/${id}/sunday-catchup/${attendanceId}/`,
     ),
+};
+
+export const clusterCordsApi = {
+  list: (clusterId: string | number) =>
+    api.get<ClusterCord[]>(`/clusters/clusters/${clusterId}/cords/`),
+  create: (clusterId: string | number, data: ClusterCordInput) =>
+    api.post<ClusterCord>(`/clusters/clusters/${clusterId}/cords/`, data),
+  eligibleMembers: (clusterId: string | number) =>
+    api.get<ClusterCordEligibleMember[]>(
+      `/clusters/clusters/${clusterId}/cords/eligible-members/`,
+    ),
+  getById: (id: string | number) =>
+    api.get<ClusterCord>(`/clusters/cords/${id}/`),
+  update: (id: string | number, data: ClusterCordInput) =>
+    api.patch<ClusterCord>(`/clusters/cords/${id}/`, data),
+  deactivate: (id: string | number) =>
+    api.delete(`/clusters/cords/${id}/`),
 };
 
 export const clusterReportsApi = {

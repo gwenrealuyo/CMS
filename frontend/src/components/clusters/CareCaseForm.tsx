@@ -107,6 +107,14 @@ export function buildCareAssigneeOptions(
     for (const assignee of row.assigned_to_details || []) {
       addPerson(assignee.id, assignee.full_name);
     }
+    if (row.cord?.sub_coordinator_id && row.cord.sub_coordinator_name) {
+      const key = String(row.cord.sub_coordinator_id);
+      const preferred = `${row.cord.sub_coordinator_name} (5x5 Cord sub-coordinator)`;
+      const existing = map.get(key);
+      if (!existing || !existing.label.includes("5x5 Cord")) {
+        map.set(key, { value: key, label: preferred });
+      }
+    }
   }
   return Array.from(map.values()).sort((a, b) => a.label.localeCompare(b.label));
 }

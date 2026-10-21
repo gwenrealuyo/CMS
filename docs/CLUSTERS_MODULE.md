@@ -265,9 +265,9 @@ All cluster CRUD and weekly reports live under `/api/clusters/` (namespaced in `
   - `PUT /{id}/` – Update a cluster (full update)
   - `PATCH /{id}/` – Partial update
   - `DELETE /{id}/` – Delete a cluster (cascades to reports)
-  - `GET /status_tally/?year=&branch_id=&months=` – Snapshot of member statuses per cluster at the end of the selected months. `branch` / `branch_id` is required. Rows are active clusters in that branch (zeros included), optional **Unassigned** (branch members with no cluster; omitted for reporter-only users), and **Total** (union of people, not a sum of cluster cells). Counts reconstruct status from `PersonStatusChange` as of the last day of the latest selected month, capped at today.
+  - `GET /status_tally/?year=&branch_id=&months=&week_number=` – Snapshot of member statuses per cluster at the end of the selected months (or weeks). `branch` / `branch_id` is required. Rows are active clusters in that branch (zeros included), optional **Unassigned** (branch members with no cluster; omitted for reporter-only users), and **Total** (union of people, not a sum of cluster cells). Counts reconstruct status from `PersonStatusChange` as of the last day of the latest selected month, capped at today. When `week_number` is provided (comma-separated or repeated ISO weeks), as-of is the Sunday of the latest selected week instead (also capped at today).
   - `GET /status_tally_years/?branch_id=` – Years present in status-change history for the branch, plus the current year
-  - `GET /status_tally_detail/?year=&months=&status=&cluster=` – Paginated people behind a tally cell. `status` is `ACTIVE`, `SEMIACTIVE`, `INACTIVE`, `DORMANT`, `FALLAWAY`, `DECEASED`, or `members`. `cluster={id}` for one cluster, `cluster=unassigned` for Unassigned, omit `cluster` for Total. Each row includes the snapshot transition (`from_status`, `to_status`, `changed_at`, `source`) and `in_window` when that change falls in the selected months. Plain members and reporter-only users receive 403; counts on `status_tally` stay available. Admin, Pastor, anyone with a non-reporter module assignment, and a member set as `Cluster.coordinator` may open the list.
+  - `GET /status_tally_detail/?year=&months=&week_number=&status=&cluster=` – Paginated people behind a tally cell. `status` is `ACTIVE`, `SEMIACTIVE`, `INACTIVE`, `DORMANT`, `FALLAWAY`, `DECEASED`, or `members`. `cluster={id}` for one cluster, `cluster=unassigned` for Unassigned, omit `cluster` for Total. Each row includes the snapshot transition (`from_status`, `to_status`, `changed_at`, `source`) and `in_window` when that change falls in the selected months (or weeks when `week_number` is set). Plain members and reporter-only users receive 403; counts on `status_tally` stay available. Admin, Pastor, anyone with a non-reporter module assignment, and a member set as `Cluster.coordinator` may open the list.
 
 ### Cluster Weekly Reports
 
@@ -514,7 +514,7 @@ All cluster models are registered in Django admin (`apps.clusters.admin`):
   - Cross-app ForeignKey relationships
   - Unique constraint on cluster/year/week_number
   - Pagination for reports
-  - Status tally snapshot (`test_status_tally.py`): current-month as-of, changes after as_of keep the old status, Total is a union, Q1 vs a single month, `cluster=unassigned` detail, 400 without branch
+  - Status tally snapshot (`test_status_tally.py`): current-month as-of, week_number as-of (Sunday of latest week), changes after as_of keep the old status, Total is a union, Q1 vs a single month, `cluster=unassigned` detail, 400 without branch
 - Run clusters tests with SQLite settings to avoid Postgres permissions:
 
 ```bash

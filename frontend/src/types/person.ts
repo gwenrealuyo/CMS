@@ -196,7 +196,7 @@ export interface Person {
   /** Effective 5x5 Cord (active membership, else intended_cord) */
   cord_id?: number | null;
   cord_name?: string | null;
-  /** True when an active cord membership exists (form field read-only). */
+  /** True when an active cord membership exists (informational; approval gate later). */
   cord_locked?: boolean;
   /** Formatted cluster membership for export: "(CODE) Name" */
   cluster_labels?: string[];

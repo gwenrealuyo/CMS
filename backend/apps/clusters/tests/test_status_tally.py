@@ -3,7 +3,7 @@ from datetime import date, datetime
 from django.utils import timezone
 from rest_framework.test import APITestCase
 
-from apps.clusters.models import Cluster
+from apps.clusters.models import Cluster, ClusterCord, ClusterCordMembership
 from apps.people.models import Branch, ModuleCoordinator, Person, PersonStatusChange
 from core.datetime_utils import church_today
 
@@ -76,12 +76,13 @@ class ClusterStatusTallyAPITests(APITestCase):
     def _aware(self, year, month, day=10, hour=12):
         return timezone.make_aware(datetime(year, month, day, hour, 0, 0))
 
-    def _row_for_kind(self, rows, row_kind, cluster_id=None):
+    def _row_for_kind(self, rows, row_kind, cluster_id=None, cord_id=None):
         matches = [
             row
             for row in rows
             if row.get("row_kind") == row_kind
             and (cluster_id is None or row.get("cluster_id") == cluster_id)
+            and (cord_id is None or row.get("cord_id") == cord_id)
         ]
         self.assertEqual(len(matches), 1, rows)
         return matches[0]
@@ -317,6 +318,61 @@ class ClusterStatusTallyAPITests(APITestCase):
         self.assertTrue(row["in_window"])
         self.assertIsNotNone(row["changed_at"])
 
+    def test_week_number_sets_as_of_to_sunday_of_latest_week(self):
+        member = self._person("statweek", first_name="Willa")
+        self.east.members.add(member)
+        # Status flips mid-week after ISO week 36 Sunday (2025-09-07).
+        self._set_status_change(
+            member,
+            "ACTIVE",
+            "INACTIVE",
+            self._aware(self.year, 9, 8),
+        )
+
+        week_snapshot = self.client.get(
+            TALLY_URL,
+            {
+                "year": self.year,
+                "branch_id": self.branch.id,
+                "months": "9",
+                "week_number": "36",
+            },
+        )
+        self.assertEqual(week_snapshot.status_code, 200, week_snapshot.data)
+        east_week = self._row_for_kind(week_snapshot.data, "cluster", self.east.id)
+        self.assertEqual(east_week["as_of"], f"{self.year}-09-07")
+        self.assertEqual(east_week["active_count"], 1)
+        self.assertEqual(east_week["inactive_count"], 0)
+
+        month_snapshot = self.client.get(
+            TALLY_URL,
+            {
+                "year": self.year,
+                "branch_id": self.branch.id,
+                "months": "9",
+            },
+        )
+        self.assertEqual(month_snapshot.status_code, 200, month_snapshot.data)
+        east_month = self._row_for_kind(month_snapshot.data, "cluster", self.east.id)
+        self.assertEqual(east_month["as_of"], f"{self.year}-09-30")
+        self.assertEqual(east_month["active_count"], 0)
+        self.assertEqual(east_month["inactive_count"], 1)
+
+        detail = self.client.get(
+            DETAIL_URL,
+            {
+                "year": self.year,
+                "branch_id": self.branch.id,
+                "months": "9",
+                "week_number": "36",
+                "status": "ACTIVE",
+                "cluster": self.east.id,
+            },
+        )
+        self.assertEqual(detail.status_code, 200, detail.data)
+        self.assertEqual(detail.data["count"], 1)
+        self.assertFalse(detail.data["results"][0]["in_window"])
+
     def _detail_params(self, **extra):
         params = {
             "year": self.year,
@@ -399,3 +455,98 @@ class ClusterStatusTallyAPITests(APITestCase):
         self.assertEqual(ok.status_code, 200, ok.data)
         self.assertIn(church_today().year, ok.data["years"])
         self.assertEqual(ok.data["default_year"], church_today().year)
+
+    def test_cord_mode_lists_cords_uncorded_and_total(self):
+        corded = self._person("statcorded", first_name="Corded")
+        loose = self._person("statloose", first_name="Loose")
+        self.east.members.add(corded, loose)
+
+        cord = ClusterCord.objects.create(
+            cluster=self.east,
+            name="Alpha 5x5",
+            sub_coordinator=corded,
+            is_active=True,
+        )
+        ClusterCordMembership.objects.create(cord=cord, person=corded)
+
+        today = church_today()
+        response = self.client.get(
+            TALLY_URL,
+            {
+                "year": today.year,
+                "branch_id": self.branch.id,
+                "months": str(today.month),
+                "group_by": "cord",
+            },
+        )
+        self.assertEqual(response.status_code, 200, response.data)
+        cord_row = self._row_for_kind(response.data, "cord", cord_id=cord.id)
+        uncorded = self._row_for_kind(response.data, "uncorded")
+        total = self._row_for_kind(response.data, "total")
+
+        self.assertEqual(cord_row["cord_name"], "Alpha 5x5")
+        self.assertEqual(cord_row["cluster_code"], "STAT-EAST")
+        self.assertEqual(cord_row["active_count"], 1)
+        self.assertEqual(cord_row["members_count"], 1)
+        self.assertEqual(uncorded["active_count"], 1)
+        self.assertEqual(uncorded["members_count"], 1)
+        self.assertEqual(total["active_count"], 2)
+        self.assertEqual(total["members_count"], 2)
+
+    def test_cord_mode_detail_filters_by_cord_and_uncorded(self):
+        corded = self._person("statcorddetail", first_name="InCord")
+        loose = self._person("statuncorddetail", first_name="NoCord")
+        self.east.members.add(corded, loose)
+
+        cord = ClusterCord.objects.create(
+            cluster=self.east,
+            name="Beta 5x5",
+            sub_coordinator=corded,
+            is_active=True,
+        )
+        ClusterCordMembership.objects.create(cord=cord, person=corded)
+
+        today = church_today()
+        cord_detail = self.client.get(
+            DETAIL_URL,
+            {
+                "year": today.year,
+                "branch_id": self.branch.id,
+                "months": str(today.month),
+                "status": "ACTIVE",
+                "cord": cord.id,
+            },
+        )
+        self.assertEqual(cord_detail.status_code, 200, cord_detail.data)
+        self.assertEqual(
+            [row["first_name"] for row in cord_detail.data["results"]],
+            ["InCord"],
+        )
+
+        uncorded_detail = self.client.get(
+            DETAIL_URL,
+            {
+                "year": today.year,
+                "branch_id": self.branch.id,
+                "months": str(today.month),
+                "status": "ACTIVE",
+                "cord": "uncorded",
+            },
+        )
+        self.assertEqual(uncorded_detail.status_code, 200, uncorded_detail.data)
+        self.assertEqual(
+            [row["first_name"] for row in uncorded_detail.data["results"]],
+            ["NoCord"],
+        )
+
+    def test_invalid_group_by_rejected(self):
+        response = self.client.get(
+            TALLY_URL,
+            {
+                "year": self.year,
+                "branch_id": self.branch.id,
+                "months": "9",
+                "group_by": "month",
+            },
+        )
+        self.assertEqual(response.status_code, 400, response.data)

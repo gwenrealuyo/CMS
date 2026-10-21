@@ -2,15 +2,18 @@
 
 from __future__ import annotations
 
+from datetime import date
 from typing import Iterable, Optional
 
 from django.db.models import Q, QuerySet
 
 from apps.people.models import Person
 from apps.people.name_formatting import format_person_display_name
+from core.datetime_utils import church_today
 
 from .models import (
     CORD_ELIGIBLE_STATUSES,
+    CORD_MIN_AGE_YEARS,
     CORD_TARGET_SIZE,
     Cluster,
     ClusterCord,
@@ -18,14 +21,41 @@ from .models import (
 )
 
 
+def cord_min_dob_for_eligibility(today: Optional[date] = None) -> date:
+    """
+    Latest date_of_birth that still means age >= CORD_MIN_AGE_YEARS on `today`.
+    Someone born on this date turns CORD_MIN_AGE_YEARS today.
+    """
+    ref = today or church_today()
+    try:
+        return ref.replace(year=ref.year - CORD_MIN_AGE_YEARS)
+    except ValueError:
+        # Feb 29 → Feb 28 in non-leap target year
+        return ref.replace(year=ref.year - CORD_MIN_AGE_YEARS, day=28)
+
+
+def person_meets_cord_age(person: Person, today: Optional[date] = None) -> bool:
+    """
+    True if the person is old enough for a required cord, or DOB is unknown.
+    Unknown DOB stays eligible so they remain in the unassigned pool until age is known.
+    """
+    dob = person.date_of_birth
+    if dob is None:
+        return True
+    return dob <= cord_min_dob_for_eligibility(today)
+
+
 def cord_eligible_q(prefix: str = "") -> Q:
-    """Q() for people eligible for 5x5 Cord membership."""
+    """Q() for people eligible for 5x5 Cord membership (status/role + age)."""
     role_field = f"{prefix}role"
     status_field = f"{prefix}status"
+    dob_field = f"{prefix}date_of_birth"
+    min_dob = cord_min_dob_for_eligibility()
     return (
         ~Q(**{role_field: "ADMIN"})
         & ~Q(**{role_field: "VISITOR"})
         & Q(**{f"{status_field}__in": CORD_ELIGIBLE_STATUSES})
+        & (Q(**{f"{dob_field}__isnull": True}) | Q(**{f"{dob_field}__lte": min_dob}))
     )
 
 
@@ -33,6 +63,8 @@ def is_person_cord_eligible(person: Person, cluster: Cluster) -> bool:
     if person.role in ("ADMIN", "VISITOR"):
         return False
     if person.status not in CORD_ELIGIBLE_STATUSES:
+        return False
+    if not person_meets_cord_age(person):
         return False
     return cluster.members.filter(id=person.id).exists()
 
@@ -180,6 +212,12 @@ def validate_cord_member_ids(
                 f"(status={person.status})."
             )
             continue
+        if not person_meets_cord_age(person):
+            errors.append(
+                f"{format_person_display_name(person)} is not eligible "
+                f"(under {CORD_MIN_AGE_YEARS})."
+            )
+            continue
         if pid in already_assigned:
             errors.append(
                 f"{format_person_display_name(person)} is already in another active cord "
@@ -239,10 +277,16 @@ def apply_intended_cord_membership(person: Person) -> Optional[ClusterCordMember
 
 def deactivate_cord(cord: ClusterCord) -> ClusterCord:
     """Soft-deactivate a cord and clear memberships so people become unassigned."""
+    from apps.clusters.coordinator_assignments import (
+        sync_cord_sub_coordinator_reporters,
+    )
+
+    cluster = cord.cluster
     ClusterCordMembership.objects.filter(cord=cord).delete()
     cord.sub_coordinator = None
     cord.is_active = False
     cord.save(update_fields=["sub_coordinator", "is_active", "updated_at"])
+    sync_cord_sub_coordinator_reporters(cluster)
     return cord
 
 
@@ -251,6 +295,10 @@ def prune_cord_memberships_for_removed_cluster_members(cluster: Cluster) -> int:
     Drop cord memberships for people no longer on the cluster roster.
     Clears sub_coordinator when they leave the roster.
     """
+    from apps.clusters.coordinator_assignments import (
+        sync_cord_sub_coordinator_reporters,
+    )
+
     roster_ids = set(cluster.members.values_list("id", flat=True))
     stale = ClusterCordMembership.objects.filter(cord__cluster=cluster).exclude(
         person_id__in=roster_ids
@@ -268,6 +316,7 @@ def prune_cord_memberships_for_removed_cluster_members(cluster: Cluster) -> int:
         ).exists():
             cord.sub_coordinator = None
             cord.save(update_fields=["sub_coordinator", "updated_at"])
+    sync_cord_sub_coordinator_reporters(cluster)
     return removed
 
 

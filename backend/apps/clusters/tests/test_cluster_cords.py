@@ -2,6 +2,7 @@ from datetime import date
 
 from rest_framework.test import APITestCase
 
+from apps.clusters.coordinator_assignments import sync_cluster_assistant_assignments
 from apps.clusters.models import Cluster, ClusterCord, ClusterCordMembership
 from apps.people.models import Branch, MemberCareCase, ModuleCoordinator, Person
 
@@ -362,6 +363,39 @@ class ClusterCordAPITests(APITestCase):
         self.assertEqual(by_id[a.id]["assigned_cord_id"], create.data["id"])
         self.assertIsNone(by_id[b.id]["assigned_cord_id"])
 
+    def test_under_12_excluded_from_eligible_and_create(self):
+        from core.datetime_utils import church_today
+
+        today = church_today()
+        adult = self._member("eligadult")
+        adult.date_of_birth = date(today.year - 20, 1, 15)
+        adult.save(update_fields=["date_of_birth"])
+        child = self._member("eligchild")
+        child.date_of_birth = date(today.year - 10, 6, 1)
+        child.save(update_fields=["date_of_birth"])
+        unknown = self._member("eligunknown")
+        # no date_of_birth — still eligible until age is known
+
+        response = self.client.get(
+            f"/api/clusters/clusters/{self.cluster.id}/cords/eligible-members/"
+        )
+        self.assertEqual(response.status_code, 200)
+        ids = {row["id"] for row in response.data}
+        self.assertIn(adult.id, ids)
+        self.assertIn(unknown.id, ids)
+        self.assertNotIn(child.id, ids)
+
+        create = self.client.post(
+            f"/api/clusters/clusters/{self.cluster.id}/cords/",
+            {
+                "name": "Age Cord",
+                "members": [adult.id, child.id],
+                "sub_coordinator_id": adult.id,
+            },
+            format="json",
+        )
+        self.assertEqual(create.status_code, 400, create.data)
+
     def test_deactivate_clears_memberships(self):
         a = self._member("deact1")
         b = self._member("deact2")
@@ -502,7 +536,7 @@ class ClusterCordAPITests(APITestCase):
         self.assertEqual(response.data.get("cord_id"), cord_id)
         self.assertTrue(response.data.get("cord_locked"))
 
-    def test_cord_locked_ignores_cord_id_write(self):
+    def test_cord_id_write_can_change_existing_membership(self):
         a = self._member("locka")
         b = self._member("lockb")
         first = self.client.post(
@@ -531,14 +565,14 @@ class ClusterCordAPITests(APITestCase):
             format="json",
         )
         self.assertEqual(response.status_code, 200, response.data)
-        self.assertEqual(response.data.get("cord_id"), first.data["id"])
+        self.assertEqual(response.data.get("cord_id"), second.data["id"])
         self.assertTrue(response.data.get("cord_locked"))
-        self.assertTrue(
+        self.assertFalse(
             ClusterCordMembership.objects.filter(
                 person=a, cord_id=first.data["id"]
             ).exists()
         )
-        self.assertFalse(
+        self.assertTrue(
             ClusterCordMembership.objects.filter(
                 person=a, cord_id=second.data["id"]
             ).exists()
@@ -580,3 +614,150 @@ class ClusterCordAPITests(APITestCase):
             ).exists()
         )
         self.assertTrue(response.data.get("cord_locked"))
+
+    def _reporter_row(self, person_id):
+        return ModuleCoordinator.objects.filter(
+            person_id=person_id,
+            module=ModuleCoordinator.ModuleType.CLUSTER,
+            resource_id=self.cluster.id,
+            level=ModuleCoordinator.CoordinatorLevel.REPORTER,
+        ).first()
+
+    def test_sub_coordinator_gets_cord_reporter_grant(self):
+        a = self._member("subrep1")
+        b = self._member("subrep2")
+        create = self.client.post(
+            f"/api/clusters/clusters/{self.cluster.id}/cords/",
+            {
+                "name": "Reporter Cord",
+                "members": [a.id, b.id],
+                "sub_coordinator_id": a.id,
+            },
+            format="json",
+        )
+        self.assertEqual(create.status_code, 201, create.data)
+        row = self._reporter_row(a.id)
+        self.assertIsNotNone(row)
+        self.assertEqual(row.resource_type, "ClusterCord")
+
+        # Change sub-coordinator away from a
+        patch = self.client.patch(
+            f"/api/clusters/cords/{create.data['id']}/",
+            {"sub_coordinator_id": b.id, "members": [a.id, b.id]},
+            format="json",
+        )
+        self.assertEqual(patch.status_code, 200, patch.data)
+        self.assertIsNone(self._reporter_row(a.id))
+        b_row = self._reporter_row(b.id)
+        self.assertIsNotNone(b_row)
+        self.assertEqual(b_row.resource_type, "ClusterCord")
+
+    def test_manual_reporter_kept_after_leaving_sub_coordinator(self):
+        a = self._member("manualrep")
+        b = self._member("manualrep2")
+        ModuleCoordinator.objects.create(
+            person=a,
+            module=ModuleCoordinator.ModuleType.CLUSTER,
+            level=ModuleCoordinator.CoordinatorLevel.REPORTER,
+            resource_id=self.cluster.id,
+            resource_type="Cluster",
+        )
+        create = self.client.post(
+            f"/api/clusters/clusters/{self.cluster.id}/cords/",
+            {
+                "name": "Manual Rep Cord",
+                "members": [a.id, b.id],
+                "sub_coordinator_id": a.id,
+            },
+            format="json",
+        )
+        self.assertEqual(create.status_code, 201, create.data)
+        row = self._reporter_row(a.id)
+        self.assertIsNotNone(row)
+        self.assertEqual(row.resource_type, "Cluster")
+
+        patch = self.client.patch(
+            f"/api/clusters/cords/{create.data['id']}/",
+            {"sub_coordinator_id": b.id, "members": [a.id, b.id]},
+            format="json",
+        )
+        self.assertEqual(patch.status_code, 200, patch.data)
+        kept = self._reporter_row(a.id)
+        self.assertIsNotNone(kept)
+        self.assertEqual(kept.resource_type, "Cluster")
+
+    def test_assistant_sub_coordinator_does_not_get_reporter_row(self):
+        a = self._member("assistsub")
+        b = self._member("assistsub2")
+        sync_cluster_assistant_assignments(self.cluster, [a.id])
+        create = self.client.post(
+            f"/api/clusters/clusters/{self.cluster.id}/cords/",
+            {
+                "name": "Assist Cord",
+                "members": [a.id, b.id],
+                "sub_coordinator_id": a.id,
+            },
+            format="json",
+        )
+        self.assertEqual(create.status_code, 201, create.data)
+        self.assertIsNone(self._reporter_row(a.id))
+        leadership = ModuleCoordinator.objects.get(
+            person_id=a.id,
+            module=ModuleCoordinator.ModuleType.CLUSTER,
+            resource_id=self.cluster.id,
+        )
+        self.assertEqual(
+            leadership.level,
+            ModuleCoordinator.CoordinatorLevel.ASSISTANT_COORDINATOR,
+        )
+
+    def test_cluster_coordinator_as_sub_coordinator_no_reporter_row(self):
+        b = self._member("coordsub2")
+        create = self.client.post(
+            f"/api/clusters/clusters/{self.cluster.id}/cords/",
+            {
+                "name": "Coord Cord",
+                "members": [self.coordinator.id, b.id],
+                "sub_coordinator_id": self.coordinator.id,
+            },
+            format="json",
+        )
+        self.assertEqual(create.status_code, 201, create.data)
+        self.assertIsNone(self._reporter_row(self.coordinator.id))
+
+    def test_multi_cord_sub_coordinator_keeps_reporter_until_all_cleared(self):
+        """Same person as sub-coord on two cords (ORM); grant until cleared from all."""
+        from apps.clusters.coordinator_assignments import (
+            sync_cord_sub_coordinator_reporters,
+        )
+
+        a = self._member("multisub")
+        b = self._member("multisub2")
+        c = self._member("multisub3")
+        cord1 = ClusterCord.objects.create(
+            cluster=self.cluster,
+            name="Multi Cord 1",
+            sub_coordinator=a,
+            is_active=True,
+        )
+        cord2 = ClusterCord.objects.create(
+            cluster=self.cluster,
+            name="Multi Cord 2",
+            sub_coordinator=a,
+            is_active=True,
+        )
+        ClusterCordMembership.objects.create(cord=cord1, person=b)
+        ClusterCordMembership.objects.create(cord=cord2, person=c)
+
+        sync_cord_sub_coordinator_reporters(self.cluster)
+        self.assertIsNotNone(self._reporter_row(a.id))
+
+        cord1.sub_coordinator = b
+        cord1.save(update_fields=["sub_coordinator", "updated_at"])
+        sync_cord_sub_coordinator_reporters(self.cluster)
+        self.assertIsNotNone(self._reporter_row(a.id))
+
+        cord2.sub_coordinator = c
+        cord2.save(update_fields=["sub_coordinator", "updated_at"])
+        sync_cord_sub_coordinator_reporters(self.cluster)
+        self.assertIsNone(self._reporter_row(a.id))

@@ -8,6 +8,8 @@ MEMBER_ATTENDANCE_RATE_STATUSES = ("ACTIVE", "SEMIACTIVE", "INACTIVE")
 # 5x5 Cord target size (soft; over/under allowed with size_warning).
 CORD_TARGET_SIZE = 5
 CORD_ELIGIBLE_STATUSES = ("ACTIVE", "SEMIACTIVE")
+# Only this age and above are required / eligible for a 5x5 Cord.
+CORD_MIN_AGE_YEARS = 12
 
 
 def member_attendance_rate_q(prefix=""):

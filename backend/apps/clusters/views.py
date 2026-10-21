@@ -41,6 +41,9 @@ from .serializers import (
 )
 from .status_tally import (
     MEMBER_STATUSES,
+    STATUS_TALLY_GROUP_BY_CORD,
+    STATUS_TALLY_GROUP_BY_CLUSTER,
+    build_status_tally_cord_rows,
     build_status_tally_rows,
     people_ids_for_status_tally_detail,
     should_include_unassigned,
@@ -49,6 +52,7 @@ from .status_tally import (
 )
 from apps.evangelism.services import (
     is_unassigned_cluster_param,
+    is_uncorded_cord_param,
     parse_people_tally_months,
 )
 from apps.people.name_formatting import format_person_display_name
@@ -309,6 +313,23 @@ class ClusterViewSet(viewsets.ModelViewSet):
         except ValueError as exc:
             raise ValidationError({"months": str(exc)}) from exc
 
+    def _status_tally_weeks(self, year: int):
+        week_values = []
+        for value in self.request.query_params.getlist("week_number"):
+            week_values.extend(
+                part.strip() for part in str(value).split(",") if part.strip()
+            )
+        if not week_values:
+            return None
+        try:
+            week_numbers = [int(value) for value in week_values]
+            selected = parse_iso_weeks(year, week_numbers)
+        except ValueError as exc:
+            raise ValidationError({"week_number": str(exc)}) from exc
+        if not selected:
+            raise ValidationError({"week_number": "Select at least one week."})
+        return [week for _year, week in selected]
+
     def _status_tally_clusters(self, branch_id: int):
         queryset = Cluster.objects.filter(is_active=True, branch_id=branch_id)
         queryset = filter_clusters_for_read(self.request.user, queryset)
@@ -317,19 +338,41 @@ class ClusterViewSet(viewsets.ModelViewSet):
         )
         return list(queryset.order_by("name", "id"))
 
+    def _status_tally_group_by(self):
+        raw = (self.request.query_params.get("group_by") or "").strip()
+        if raw in (None, "", STATUS_TALLY_GROUP_BY_CLUSTER):
+            return STATUS_TALLY_GROUP_BY_CLUSTER
+        if raw == STATUS_TALLY_GROUP_BY_CORD:
+            return STATUS_TALLY_GROUP_BY_CORD
+        raise ValidationError({"group_by": "group_by must be cluster or cord."})
+
     @action(detail=False, methods=["get"], url_path="status_tally")
     def status_tally(self, request):
         branch_id = self._status_tally_branch_id()
         year = self._status_tally_year()
         months = self._status_tally_months()
+        weeks = self._status_tally_weeks(year)
+        group_by = self._status_tally_group_by()
         clusters = self._status_tally_clusters(branch_id)
-        rows = build_status_tally_rows(
-            year=year,
-            months=months,
-            branch_id=branch_id,
-            clusters=clusters,
-            include_unassigned=should_include_unassigned(request.user),
-        )
+        include_unassigned = should_include_unassigned(request.user)
+        if group_by == STATUS_TALLY_GROUP_BY_CORD:
+            rows = build_status_tally_cord_rows(
+                year=year,
+                months=months,
+                weeks=weeks,
+                branch_id=branch_id,
+                clusters=clusters,
+                include_unassigned=include_unassigned,
+            )
+        else:
+            rows = build_status_tally_rows(
+                year=year,
+                months=months,
+                weeks=weeks,
+                branch_id=branch_id,
+                clusters=clusters,
+                include_unassigned=include_unassigned,
+            )
         serializer = ClusterStatusTallySerializer(rows, many=True)
         return Response(serializer.data)
 
@@ -351,6 +394,7 @@ class ClusterViewSet(viewsets.ModelViewSet):
         branch_id = self._status_tally_branch_id()
         year = self._status_tally_year()
         months = self._status_tally_months()
+        weeks = self._status_tally_weeks(year)
         status_param = (request.query_params.get("status") or "").strip()
         valid_statuses = set(MEMBER_STATUSES) | {"members"}
         if status_param not in valid_statuses:
@@ -374,6 +418,17 @@ class ClusterViewSet(viewsets.ModelViewSet):
                     {"cluster": "cluster must be an id or unassigned."}
                 ) from exc
 
+        cord_raw = request.query_params.get("cord")
+        uncorded = is_uncorded_cord_param(cord_raw)
+        cord_id = None
+        if cord_raw not in (None, "") and not uncorded:
+            try:
+                cord_id = int(cord_raw)
+            except (TypeError, ValueError) as exc:
+                raise ValidationError(
+                    {"cord": "cord must be an id or uncorded."}
+                ) from exc
+
         include_unassigned = should_include_unassigned(request.user)
         if unassigned and not include_unassigned:
             raise ValidationError({"cluster": "Unassigned is not available."})
@@ -382,11 +437,14 @@ class ClusterViewSet(viewsets.ModelViewSet):
         person_ids, snapshots, _as_of = people_ids_for_status_tally_detail(
             year=year,
             months=months,
+            weeks=weeks,
             branch_id=branch_id,
             clusters=clusters,
             include_unassigned=include_unassigned,
             cluster_id=cluster_id,
             unassigned=unassigned,
+            cord_id=cord_id,
+            uncorded=uncorded,
             status=status_param,
         )
         people = Person.objects.filter(id__in=person_ids).order_by(
@@ -414,7 +472,7 @@ class ClusterViewSet(viewsets.ModelViewSet):
                     "changed_at": changed_at,
                     "source": snapshot.get("source"),
                     "in_window": snapshot_change_in_window(
-                        changed_at, year, months
+                        changed_at, year, months, weeks
                     ),
                 }
             )

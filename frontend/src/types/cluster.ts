@@ -23,7 +23,12 @@ export interface ClusterFamilyDetail {
   member_count: number;
 }
 
-export type ClusterStatusTallyRowKind = "cluster" | "unassigned" | "total";
+export type ClusterStatusTallyRowKind =
+  | "cluster"
+  | "unassigned"
+  | "cord"
+  | "uncorded"
+  | "total";
 
 export type ClusterStatusTallyStatus =
   | "ACTIVE"
@@ -40,6 +45,8 @@ export interface ClusterStatusTallyRow {
   cluster_id: number | null;
   cluster_name: string | null;
   cluster_code: string | null;
+  cord_id?: number | null;
+  cord_name?: string | null;
   row_kind: ClusterStatusTallyRowKind;
   active_count: number;
   semiactive_count: number;

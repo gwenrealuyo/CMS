@@ -157,7 +157,15 @@ export interface EvangelismPeopleTallyRow {
   cluster_id?: number | null;
   cluster_name?: string | null;
   cluster_code?: string | null;
-  row_kind?: "cluster" | "unassigned" | "total" | null;
+  cord_id?: number | null;
+  cord_name?: string | null;
+  row_kind?:
+    | "cluster"
+    | "unassigned"
+    | "cord"
+    | "uncorded"
+    | "total"
+    | null;
 }
 
 export type EvangelismTallyDrilldownMetric =

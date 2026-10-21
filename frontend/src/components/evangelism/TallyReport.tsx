@@ -1,6 +1,10 @@
 "use client";
 
 import { useCallback, useMemo, useState } from "react";
+import {
+  ChevronDownIcon,
+  ChevronUpIcon,
+} from "@heroicons/react/24/outline";
 import Table from "@/src/components/ui/Table";
 import Modal from "@/src/components/ui/Modal";
 import ViewModeToggle from "@/src/components/ui/ViewModeToggle";
@@ -20,6 +24,16 @@ import {
 } from "@/src/lib/clusterRoster";
 import TallyDrilldownModal from "@/src/components/evangelism/TallyDrilldownModal";
 import { getInitialListViewMode, useIsMdUp } from "@/src/lib/listViewMode";
+import {
+  DEFAULT_TALLY_CLUSTER_SORT_DIR,
+  DEFAULT_TALLY_CLUSTER_SORT_KEY,
+  TallyClusterSortDir,
+  TallyClusterSortKey,
+  clusterCellLabels,
+  clusterSortHeaderLabel,
+  compareClusterRows,
+  nextClusterSort,
+} from "@/src/lib/tallyClusterSort";
 
 interface TallyReportProps {
   year?: number;
@@ -37,14 +51,35 @@ export default function TallyReport({
     year: selectedYear,
     cluster: clusterId,
   });
+  const [clusterSortKey, setClusterSortKey] = useState<TallyClusterSortKey>(
+    DEFAULT_TALLY_CLUSTER_SORT_KEY,
+  );
+  const [clusterSortDir, setClusterSortDir] = useState<TallyClusterSortDir>(
+    DEFAULT_TALLY_CLUSTER_SORT_DIR,
+  );
   const visibleRows = useMemo(() => {
-    if (allowedClusterIds == null) return rows;
-    const allowed = new Set(allowedClusterIds.map(Number));
-    return rows.filter(
-      (row) =>
-        row.cluster_id != null && allowed.has(Number(row.cluster_id)),
-    );
-  }, [rows, allowedClusterIds]);
+    const filtered =
+      allowedClusterIds == null
+        ? rows
+        : (() => {
+            const allowed = new Set(allowedClusterIds.map(Number));
+            return rows.filter(
+              (row) =>
+                row.cluster_id != null && allowed.has(Number(row.cluster_id)),
+            );
+          })();
+    return [...filtered].sort((left, right) => {
+      const clusterCmp = compareClusterRows(
+        left,
+        right,
+        clusterSortKey,
+        clusterSortDir,
+      );
+      if (clusterCmp !== 0) return clusterCmp;
+      if (left.year !== right.year) return right.year - left.year;
+      return right.week_number - left.week_number;
+    });
+  }, [allowedClusterIds, clusterSortDir, clusterSortKey, rows]);
   const [drilldown, setDrilldown] = useState<{
     year: number;
     weekNumber: number;
@@ -60,6 +95,12 @@ export default function TallyReport({
   );
   const isMdUp = useIsMdUp();
   const effectiveViewMode: "table" | "cards" = isMdUp ? "table" : viewMode;
+
+  const handleClusterHeaderClick = () => {
+    const next = nextClusterSort(clusterSortKey, clusterSortDir);
+    setClusterSortKey(next.key);
+    setClusterSortDir(next.dir);
+  };
 
   const openWeeklyDrilldown = (
     row: EvangelismTallyRow,
@@ -125,12 +166,25 @@ export default function TallyReport({
   };
 
   const renderClusterCell = (row: EvangelismTallyRow) => {
-    const code = row.cluster_code || "N/A";
-    const clusterName = row.cluster_name?.trim() || undefined;
+    const labels = clusterCellLabels({
+      cluster_id: row.cluster_id,
+      cluster_code: row.cluster_code || (row.cluster_id == null ? "N/A" : null),
+      cluster_name: row.cluster_name,
+    });
+    const content = (
+      <>
+        <span className="block">{labels.primary}</span>
+        {labels.secondary ? (
+          <span className="mt-0.5 block text-xs font-normal text-gray-500">
+            {labels.secondary}
+          </span>
+        ) : null}
+      </>
+    );
     if (row.cluster_id == null) {
       return (
-        <span className="text-sm text-gray-700" title={clusterName}>
-          {code}
+        <span className="text-sm text-gray-700" title={labels.title}>
+          {content}
         </span>
       );
     }
@@ -138,15 +192,23 @@ export default function TallyReport({
     return (
       <button
         type="button"
-        className="text-sm font-medium text-primary hover:text-primary hover:underline disabled:opacity-60"
+        className="text-left text-sm font-medium text-primary hover:text-primary hover:underline disabled:opacity-60"
         disabled={isLoading}
-        title={clusterName}
+        title={labels.title}
         onClick={() => void openClusterView(row)}
       >
-        {code}
+        {content}
       </button>
     );
   };
+
+  const clusterHeaderLabel = clusterSortHeaderLabel(clusterSortKey);
+  const clusterSortIcon =
+    clusterSortDir === "asc" ? (
+      <ChevronUpIcon className="h-4 w-4 text-gray-500" />
+    ) : (
+      <ChevronDownIcon className="h-4 w-4 text-gray-500" />
+    );
 
   const drilldownTitle = useMemo(() => {
     if (!drilldown) {
@@ -200,8 +262,15 @@ export default function TallyReport({
             mobileCardView={effectiveViewMode === "cards"}
             columns={[
               {
-                header: "Cluster",
+                header: clusterHeaderLabel,
                 accessor: "cluster_code" as keyof EvangelismTallyRow,
+                desktopHeader: (
+                  <div className="flex items-center gap-1">
+                    <span>{clusterHeaderLabel}</span>
+                    {clusterSortIcon}
+                  </div>
+                ),
+                onHeaderClick: handleClusterHeaderClick,
                 render: (_value, row) => renderClusterCell(row),
               },
               {

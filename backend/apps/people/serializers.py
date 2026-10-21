@@ -704,7 +704,7 @@ class PersonSerializer(serializers.ModelSerializer):
     cluster_codes = serializers.SerializerMethodField()
     cluster_labels = serializers.SerializerMethodField()
     cluster_memberships = serializers.SerializerMethodField()
-    # Write: intended cord (ignored when cord_locked). Read set in to_representation.
+    # Write: intended cord (+ membership when eligible). Read set in to_representation.
     cord_id = serializers.IntegerField(required=False, allow_null=True, write_only=True)
     cord_name = serializers.SerializerMethodField()
     cord_locked = serializers.SerializerMethodField()
@@ -1787,13 +1787,11 @@ class PersonSerializer(serializers.ModelSerializer):
 
     def _apply_cord_id_write(self, person: Person, cord_id_write) -> None:
         """
-        Persist intended_cord when unlocked. For cord-eligible people, also
-        create ClusterCordMembership.
+        Persist intended_cord. For cord-eligible people, also sync
+        ClusterCordMembership (including changing or clearing an existing one).
         """
-        from apps.clusters.cords import (
-            apply_intended_cord_membership,
-            active_cord_membership_for_person,
-        )
+        from apps.clusters.cords import apply_intended_cord_membership
+        from apps.clusters.models import ClusterCordMembership
 
         if cord_id_write is serializers.empty:
             # Still try to apply existing intended cord (e.g. after baptism).
@@ -1801,15 +1799,17 @@ class PersonSerializer(serializers.ModelSerializer):
             apply_intended_cord_membership(person)
             return
 
-        if active_cord_membership_for_person(person.id) is not None:
-            # Locked: ignore writes (approval flow later).
-            return
-
         cord = self._resolve_cord_for_write(cord_id_write)
         if cord is not None and not person.clusters.filter(id=cord.cluster_id).exists():
             person.clusters.add(cord.cluster)
         person.intended_cord = cord
         person.save(update_fields=["intended_cord"])
+        if cord is None:
+            ClusterCordMembership.objects.filter(
+                person_id=person.id,
+                cord__is_active=True,
+            ).delete()
+            return
         apply_intended_cord_membership(person)
 
     def get_branch_code(self, obj: Person):

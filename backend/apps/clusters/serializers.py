@@ -1500,7 +1500,13 @@ class ClusterStatusTallySerializer(serializers.Serializer):
     cluster_code = serializers.CharField(
         required=False, allow_null=True, allow_blank=True
     )
-    row_kind = serializers.ChoiceField(choices=["cluster", "unassigned", "total"])
+    cord_id = serializers.IntegerField(required=False, allow_null=True)
+    cord_name = serializers.CharField(
+        required=False, allow_null=True, allow_blank=True
+    )
+    row_kind = serializers.ChoiceField(
+        choices=["cluster", "unassigned", "cord", "uncorded", "total"]
+    )
     active_count = serializers.IntegerField()
     semiactive_count = serializers.IntegerField()
     inactive_count = serializers.IntegerField()

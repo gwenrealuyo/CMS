@@ -104,7 +104,7 @@ export const faqCategories: FaqCategory[] = [
         id: "person-form-5x5-cord",
         question: "How do I set a person’s 5x5 Cord on the People form?",
         answer:
-          "On create or edit, the Relationships section includes Cluster and 5x5 Cord. Choosing an inviter can prefill that person’s cluster and cord; you can still pick a different cluster or cord afterward. Visitors store the chosen cord as their intended cord until they become members (for example after water baptism)—then it becomes their real cord membership. If someone already has an active cord membership, the cord field is read-only for now (cord changes will use an approval flow later).",
+          "For members (and other non-visitor roles), the Relationships section includes a 5x5 Cord field. Choosing an inviter can prefill cluster and cord; you can still change them afterward. The cord field is hidden while the person is a Visitor—choosing an inviter still stores that inviter’s cord as the visitor’s intended cord until they become a member (for example after water baptism).",
       },
       {
         id: "where-cord-name-shows",
@@ -146,13 +146,13 @@ export const faqCategories: FaqCategory[] = [
         id: "what-is-5x5-cord",
         question: "What is a 5x5 Cord?",
         answer:
-          "A 5x5 Cord is a small care group of about five people inside a cluster. Cords do not replace cluster gatherings—they help members check on and follow up with each other so no one drifts alone. The idea comes from Ecclesiastes 4:12: “A cord… is not quickly broken”—we form small cords of five so each person is held by others. Only ACTIVE and SEMIACTIVE cluster members are cord members (not visitors or fully inactive people). Family members do not have to be in the same cord. Cord cards list members by nickname (when set) and show visitors invited by those members with a Visitor badge—those visitors are display-only, not cord members.",
+          "A 5x5 Cord is a small care group of about five people inside a cluster. Cords do not replace cluster gatherings—they help members check on and follow up with each other so no one drifts alone. The idea comes from Ecclesiastes 4:12: “A cord… is not quickly broken”—we form small cords of five so each person is held by others. Only ACTIVE and SEMIACTIVE cluster members ages 12 and above are required to be in a cord (not visitors, fully inactive people, or children under 12). Family members do not have to be in the same cord. Cord cards list members by nickname (when set) and show visitors invited by those members with a Visitor badge—those visitors are display-only, not cord members.",
       },
       {
         id: "who-manages-5x5-cords",
         question: "Who can create or edit 5x5 Cords?",
         answer:
-          "Cluster coordinators for that cluster, Cluster senior coordinators, Pastors, and Admins. Reporters and regular members can view cords but cannot change them. Each cord has one sub-coordinator shown as a label only—that role does not grant extra login permissions. On a cluster’s detail, managers can create a cord or click a cord name to edit it; Deactivate is at the bottom left of the edit form.",
+          "Cluster coordinators for that cluster, Cluster senior coordinators, Pastors, and Admins. Reporters and regular members can view cords but cannot change them. Each cord has one sub-coordinator. That person can submit weekly cluster reports like a cluster reporter (unless they already have a higher cluster role such as coordinator or assistant). On a cluster’s detail, managers can create a cord or click a cord name to edit it; Deactivate is at the bottom left of the edit form.",
       },
       {
         id: "5x5-cord-care",
@@ -164,13 +164,13 @@ export const faqCategories: FaqCategory[] = [
         id: "5x5-unassigned-eligible",
         question: "What does “Unassigned eligible” mean on a cluster?",
         answer:
-          "It lists ACTIVE and SEMIACTIVE cluster members who are not yet in any 5x5 Cord. The section is collapsed by default—click the header to expand and see who still needs to be grouped. Soft target size is five members per cord; smaller or larger cords are allowed with a size warning.",
+          "It lists ACTIVE and SEMIACTIVE cluster members ages 12 and above who are not yet in any 5x5 Cord. Children under 12 are not required to have a cord and do not appear here. People without a birth date still appear until age is known. The section is collapsed by default—click the header to expand and see who still needs to be grouped. Soft target size is five members per cord; smaller or larger cords are allowed with a size warning.",
       },
       {
         id: "5x5-visitor-intended-cord",
         question: "Do visitors join a 5x5 Cord?",
         answer:
-          "Visitors are not cord members. On a cord card you may see invited visitors (people whose inviter is on that cord) with a Visitor badge for awareness only. When you create or edit a visitor on the People form, you can set an intended 5x5 Cord (often prefilled from their inviter). That intended cord is kept until they become a member; then it becomes their real cord. Existing visitors are not backfilled automatically—only new or updated records going forward.",
+          "Visitors are not cord members. On a cord card you may see invited visitors (people whose inviter is on that cord) with a Visitor badge for awareness only. The People form hides the 5x5 Cord field for visitors; choosing an inviter still stores that inviter’s cord as their intended cord until they become a member. Existing visitors are not backfilled automatically—only new or updated records going forward.",
       },
     ],
   },

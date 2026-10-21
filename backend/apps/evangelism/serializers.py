@@ -1321,8 +1321,12 @@ class EvangelismPeopleTallySerializer(serializers.Serializer):
     cluster_code = serializers.CharField(
         required=False, allow_null=True, allow_blank=True
     )
+    cord_id = serializers.IntegerField(required=False, allow_null=True)
+    cord_name = serializers.CharField(
+        required=False, allow_null=True, allow_blank=True
+    )
     row_kind = serializers.ChoiceField(
-        choices=["cluster", "unassigned", "total"],
+        choices=["cluster", "unassigned", "cord", "uncorded", "total"],
         required=False,
         allow_null=True,
     )

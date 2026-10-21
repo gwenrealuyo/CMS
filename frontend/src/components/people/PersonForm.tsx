@@ -372,9 +372,6 @@ const PersonForm = forwardRef<PersonFormHandle, PersonFormProps>(
   const [clusterSearch, setClusterSearch] = useState("");
   const [showClusterDropdown, setShowClusterDropdown] = useState(false);
   const [cordOptions, setCordOptions] = useState<ClusterCord[]>([]);
-  const cordLocked = Boolean(
-    formData.cord_locked ?? initialData?.cord_locked,
-  );
 
   useEffect(() => {
     const clusterIds = formData.cluster_ids || [];
@@ -410,7 +407,7 @@ const PersonForm = forwardRef<PersonFormHandle, PersonFormProps>(
 
   const applyInviterClusterCordPrefill = useCallback(
     async (inviterId: string) => {
-      if (!inviterId || cordLocked || selfEditLocked) {
+      if (!inviterId || selfEditLocked) {
         setFormData((prev) => ({ ...prev, inviter: inviterId || undefined }));
         return;
       }
@@ -458,12 +455,7 @@ const PersonForm = forwardRef<PersonFormHandle, PersonFormProps>(
         };
       });
     },
-    [
-      cordLocked,
-      selfEditLocked,
-      peopleOptions,
-      clusterOptions,
-    ],
+    [selfEditLocked, peopleOptions, clusterOptions],
   );
 
   const creatableRoles = useMemo(() => {
@@ -1266,9 +1258,7 @@ const PersonForm = forwardRef<PersonFormHandle, PersonFormProps>(
     personData.cluster_ids = normalizeIdList(formData.cluster_ids);
     delete personData.cord_name;
     delete personData.cord_locked;
-    if (cordLocked) {
-      delete personData.cord_id;
-    } else if (
+    if (
       personData.cord_id === undefined ||
       personData.cord_id === null ||
       (typeof personData.cord_id === "string" && personData.cord_id === "")
@@ -1470,7 +1460,6 @@ const PersonForm = forwardRef<PersonFormHandle, PersonFormProps>(
     isCreating,
     statusChanged,
     statusChangeReason,
-    cordLocked,
   ]);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -2919,9 +2908,9 @@ const PersonForm = forwardRef<PersonFormHandle, PersonFormProps>(
                   Relationships
                 </h3>
                 <p className="text-xs text-gray-500 mb-4">
-                  Link inviter, family, cluster, and 5x5 Cord. Choosing an
-                  inviter prefills their cluster and cord; you can change
-                  those afterward.
+                  {formData.role === "VISITOR"
+                    ? "Link inviter, family, and cluster membership. Choosing an inviter prefills their cluster (and stores their cord for when this person becomes a member)."
+                    : "Link inviter, family, cluster, and 5x5 Cord. Choosing an inviter prefills their cluster and cord; you can change those afterward."}
                 </p>
                 {visitorOnlyCreate && (
                   <p className="text-xs text-primary mb-4">
@@ -3269,10 +3258,7 @@ const PersonForm = forwardRef<PersonFormHandle, PersonFormProps>(
                                         let nextCordId = prev.cord_id ?? null;
                                         let nextCordName =
                                           prev.cord_name ?? null;
-                                        if (
-                                          !cordLocked &&
-                                          nextCordId != null
-                                        ) {
+                                        if (nextCordId != null) {
                                           const selected = cordOptions.find(
                                             (c) => c.id === Number(nextCordId),
                                           );
@@ -3325,40 +3311,18 @@ const PersonForm = forwardRef<PersonFormHandle, PersonFormProps>(
                     </LockedField>
                   </div>
 
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      5x5 Cord
-                    </label>
-                    <LockedField
-                      locked={selfEditLocked || cordLocked}
-                      hint={
-                        cordLocked
-                          ? "Cord changes require approval."
-                          : STAFF_FIELD_HINT
-                      }
-                    >
-                      {cordLocked ? (
-                        <div className="space-y-1">
-                          <input
-                            type="text"
-                            readOnly
-                            disabled
-                            value={
-                              formData.cord_name?.trim() ||
-                              (formData.cord_id
-                                ? `Cord ${formData.cord_id}`
-                                : "No cord")
-                            }
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 cursor-not-allowed text-sm text-gray-800"
-                          />
-                          <p className="text-xs text-gray-500">
-                            Cord changes require approval.
-                          </p>
-                        </div>
-                      ) : (
+                  {formData.role !== "VISITOR" && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        5x5 Cord
+                      </label>
+                      <LockedField
+                        locked={selfEditLocked}
+                        hint={STAFF_FIELD_HINT}
+                      >
                         <SearchableSelect
                           value={
-                            formData.cord_id != null && formData.cord_id !== ""
+                            formData.cord_id != null
                               ? String(formData.cord_id)
                               : ""
                           }
@@ -3411,9 +3375,9 @@ const PersonForm = forwardRef<PersonFormHandle, PersonFormProps>(
                           showStatus={false}
                           showClusterCodes={true}
                         />
-                      )}
-                    </LockedField>
-                  </div>
+                      </LockedField>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>

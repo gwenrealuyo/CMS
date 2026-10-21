@@ -64,12 +64,13 @@ class PeopleTallyAPITests(APITestCase):
         self.assertEqual(len(matches), 1, rows)
         return matches[0]
 
-    def _row_for_kind(self, rows, row_kind, cluster_id=None):
+    def _row_for_kind(self, rows, row_kind, cluster_id=None, cord_id=None):
         matches = [
             row
             for row in rows
             if row.get("row_kind") == row_kind
             and (cluster_id is None or row.get("cluster_id") == cluster_id)
+            and (cord_id is None or row.get("cord_id") == cord_id)
         ]
         self.assertEqual(len(matches), 1, rows)
         return matches[0]
@@ -195,6 +196,61 @@ class PeopleTallyAPITests(APITestCase):
         self.assertEqual(east_jan["received_hg_count"], 0)
         self.assertEqual(east_jan["unique_hc_count"], 1)
 
+    def test_cluster_mode_week_number_filters_to_iso_weeks(self):
+        # 2026-01-05 is ISO week 2; 2026-01-20 is ISO week 4.
+        early = self._person("tallyweekearly", role="MEMBER", first_name="Early")
+        early.water_baptism_date = date(self.year, 1, 5)
+        early.save(update_fields=["water_baptism_date"])
+        self.east.members.add(early)
+
+        late = self._person("tallyweeklate", role="MEMBER", first_name="Late")
+        late.water_baptism_date = date(self.year, 1, 20)
+        late.save(update_fields=["water_baptism_date"])
+        self.east.members.add(late)
+
+        week_two = self.client.get(
+            TALLY_URL,
+            {
+                "year": self.year,
+                "branch": self.branch.id,
+                "group_by": "cluster",
+                "months": "1",
+                "week_number": "2",
+            },
+        )
+        self.assertEqual(week_two.status_code, 200, week_two.data)
+        east_week = self._row_for_kind(week_two.data, "cluster", self.east.id)
+        self.assertEqual(east_week["baptized_count"], 1)
+        self.assertEqual(east_week["unique_hc_count"], 1)
+
+        january = self.client.get(
+            TALLY_URL,
+            {
+                "year": self.year,
+                "branch": self.branch.id,
+                "group_by": "cluster",
+                "months": "1",
+            },
+        )
+        self.assertEqual(january.status_code, 200, january.data)
+        east_month = self._row_for_kind(january.data, "cluster", self.east.id)
+        self.assertEqual(east_month["baptized_count"], 2)
+
+        detail = self.client.get(
+            DETAIL_URL,
+            {
+                "year": self.year,
+                "branch": self.branch.id,
+                "months": "1",
+                "week_number": "2",
+                "metric": "baptized",
+                "cluster": self.east.id,
+            },
+        )
+        self.assertEqual(detail.status_code, 200, detail.data)
+        names = [row["first_name"] for row in detail.data["results"]]
+        self.assertEqual(names, ["Early"])
+
     def test_detail_accepts_months_and_unassigned_cluster(self):
         invited = self._person("tallyunass", role="VISITOR", first_name="Una")
         invited.date_joined = self._aware(self.year, 4)
@@ -280,3 +336,96 @@ class PeopleTallyAPITests(APITestCase):
         self.assertIn("TALLY-EAST", row.get("cluster_codes") or [])
         self.assertEqual(row.get("cord_name"), "Cord Alpha")
         self.assertEqual(row.get("cord_id"), cord.id)
+
+    def test_cord_mode_requires_branch(self):
+        response = self.client.get(
+            TALLY_URL,
+            {"year": self.year, "group_by": "cord"},
+        )
+        self.assertEqual(response.status_code, 400, response.data)
+
+    def test_cord_mode_lists_cords_uncorded_and_total(self):
+        corded = self._person("tally5x5", role="MEMBER", first_name="Corded")
+        corded.water_baptism_date = date(self.year, 3, 8)
+        corded.save(update_fields=["water_baptism_date"])
+        self.east.members.add(corded)
+
+        loose = self._person("tallyloose", role="MEMBER", first_name="Loose")
+        loose.water_baptism_date = date(self.year, 3, 15)
+        loose.save(update_fields=["water_baptism_date"])
+        self.east.members.add(loose)
+
+        cord = ClusterCord.objects.create(
+            cluster=self.east,
+            name="Gamma 5x5",
+            sub_coordinator=corded,
+            is_active=True,
+        )
+        ClusterCordMembership.objects.create(cord=cord, person=corded)
+
+        response = self.client.get(
+            TALLY_URL,
+            {
+                "year": self.year,
+                "branch": self.branch.id,
+                "group_by": "cord",
+                "months": "3",
+            },
+        )
+        self.assertEqual(response.status_code, 200, response.data)
+        cord_row = self._row_for_kind(response.data, "cord", cord_id=cord.id)
+        uncorded = self._row_for_kind(response.data, "uncorded")
+        total = self._row_for_kind(response.data, "total")
+
+        self.assertEqual(cord_row["cord_name"], "Gamma 5x5")
+        self.assertEqual(cord_row["cluster_code"], "TALLY-EAST")
+        self.assertEqual(cord_row["baptized_count"], 1)
+        self.assertEqual(uncorded["baptized_count"], 1)
+        self.assertEqual(total["baptized_count"], 2)
+
+    def test_cord_mode_detail_filters_by_cord_and_uncorded(self):
+        corded = self._person("tallycordfilt", role="MEMBER", first_name="InCord")
+        corded.water_baptism_date = date(self.year, 6, 4)
+        corded.save(update_fields=["water_baptism_date"])
+        self.east.members.add(corded)
+
+        loose = self._person("tallyuncordfilt", role="MEMBER", first_name="NoCord")
+        loose.water_baptism_date = date(self.year, 6, 12)
+        loose.save(update_fields=["water_baptism_date"])
+        self.east.members.add(loose)
+
+        cord = ClusterCord.objects.create(
+            cluster=self.east,
+            name="Delta 5x5",
+            sub_coordinator=corded,
+            is_active=True,
+        )
+        ClusterCordMembership.objects.create(cord=cord, person=corded)
+
+        cord_detail = self.client.get(
+            DETAIL_URL,
+            {
+                "year": self.year,
+                "branch": self.branch.id,
+                "months": "6",
+                "metric": "baptized",
+                "cord": cord.id,
+            },
+        )
+        self.assertEqual(cord_detail.status_code, 200, cord_detail.data)
+        self.assertEqual(cord_detail.data["count"], 1)
+        self.assertEqual(cord_detail.data["results"][0]["first_name"], "InCord")
+
+        uncorded_detail = self.client.get(
+            DETAIL_URL,
+            {
+                "year": self.year,
+                "branch": self.branch.id,
+                "months": "6",
+                "metric": "baptized",
+                "cord": "uncorded",
+            },
+        )
+        self.assertEqual(uncorded_detail.status_code, 200, uncorded_detail.data)
+        self.assertEqual(uncorded_detail.data["count"], 1)
+        self.assertEqual(uncorded_detail.data["results"][0]["first_name"], "NoCord")

@@ -330,7 +330,7 @@ All routes live under `/api/evangelism/` (namespaced in `core.urls`):
     - Query params: `?cluster={cluster_id}` – cluster scope (formal `Cluster` membership on `Person`); `cluster=unassigned` (or `null`/`none`) limits to people with no cluster
     - Query params: `?evangelism_group={group_id}` – evangelism-group scope (union of people in `EvangelismGroup.members` and prospects with a linked `Person` for that group); **do not send `cluster` and `evangelism_group` together**
     - Query params: `?group_by=month` (default) – 12 month rows for the year (`months` is ignored)
-    - Query params: `?group_by=cluster` – one row per active cluster in the branch, optional Unassigned, then Total. Requires `branch`. Do not send `evangelism_group`. Optional `months=1,2,3` (default all 12). Counts are distinct-person unions across those months, not sums of monthly cells. `row_kind` is `cluster` | `unassigned` | `total`
+    - Query params: `?group_by=cluster` – one row per active cluster in the branch, optional Unassigned, then Total. Requires `branch`. Do not send `evangelism_group`. Optional `months=1,2,3` (default all 12). Optional `week_number` (comma-separated or repeated ISO weeks) further limits milestone dates to those weeks instead of whole months. Counts are distinct-person unions across the window, not sums of monthly cells. `row_kind` is `cluster` | `unassigned` | `total`
     - Counts by month (each stage is independent — a person who hits multiple stages in the same month appears in **each** matching column):
       - **INVITED**: Visitor (`role=VISITOR`) with `date_joined` in month and no `date_first_attended` yet (date-based; not `Person.status`)
       - **ATTENDED**: Visitor (`role=VISITOR`) with `date_first_attended` in month (date-based; not `Person.status`)
@@ -343,7 +343,7 @@ All routes live under `/api/evangelism/` (namespaced in `core.urls`):
       - `GET /people_tally_years/` – years present in tally-related data for the current scope, always including the current church year (`default_year`)
       - `GET /people_tally_detail/` – paginated drill-down for a month window + metric
         - Required: `metric` ∈ `invited` | `attended` | `students` | `baptized` | `received_hg` | `reached` | `unique_hc`
-        - Required: `month` (single) or `months=1,2,3`
+        - Required: `month` (single) or `months=1,2,3`. Optional `week_number` (same as `/people_tally/`)
         - Optional: `cluster={id}` or `cluster=unassigned`
         - Returns people for that column (Unique HC returns the deduped union). Milestone date chips are included for display; the Unique HC UI highlights chips whose dates fall in the selected months
 

@@ -835,6 +835,8 @@ export const clustersApi = {
     year?: number;
     branch_id?: number | string;
     months?: string;
+    week_number?: string;
+    group_by?: "cluster" | "cord";
   }) =>
     api.get<ClusterStatusTallyRow[]>("/clusters/clusters/status_tally/", {
       params,
@@ -848,8 +850,10 @@ export const clustersApi = {
     year?: number;
     branch_id?: number | string;
     months?: string;
+    week_number?: string;
     status: ClusterStatusTallyStatus;
     cluster?: number | string;
+    cord?: number | string;
     page?: number;
     page_size?: number;
   }) =>
@@ -2210,8 +2214,9 @@ export const evangelismApi = {
     branch?: number | string;
     cluster?: number | string;
     evangelism_group?: number | string;
-    group_by?: "month" | "cluster";
+    group_by?: "month" | "cluster" | "cord";
     months?: string;
+    week_number?: string;
   }) =>
     api.get<EvangelismPeopleTallyRow[]>(
       "/evangelism/weekly-reports/people_tally/",
@@ -2231,8 +2236,10 @@ export const evangelismApi = {
     branch?: number | string;
     cluster?: number | string;
     evangelism_group?: number | string;
+    cord?: number | string;
     month?: number;
     months?: string;
+    week_number?: string;
     metric: "invited" | "attended" | "students" | "baptized" | "received_hg" | "reached" | "unique_hc";
     page?: number;
     page_size?: number;

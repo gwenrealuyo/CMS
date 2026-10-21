@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { ChevronDownIcon, ChevronUpIcon } from "@heroicons/react/24/outline";
 import Card from "@/src/components/ui/Card";
 import Button from "@/src/components/ui/Button";
 import Table from "@/src/components/ui/Table";
@@ -22,9 +23,31 @@ import {
 } from "@/src/components/evangelism/EvangelismToolbarSearch";
 import TallyDrilldownModal from "@/src/components/evangelism/TallyDrilldownModal";
 import TallyMonthFilter from "@/src/components/evangelism/TallyMonthFilter";
+import TallyWeekFilter, {
+  TALLY_ALL_WEEKS,
+  pruneSelectedWeeks,
+  weeksQueryParam,
+} from "@/src/components/evangelism/TallyWeekFilter";
 import { LockedControlTooltip } from "@/src/components/ui/LockedControlTooltip";
 import ViewModeToggle from "@/src/components/ui/ViewModeToggle";
 import { getInitialListViewMode, useIsMdUp } from "@/src/lib/listViewMode";
+import {
+  DEFAULT_TALLY_CLUSTER_SORT_DIR,
+  DEFAULT_TALLY_CLUSTER_SORT_KEY,
+  DEFAULT_TALLY_CORD_SORT_DIR,
+  DEFAULT_TALLY_CORD_SORT_KEY,
+  TallyClusterSortDir,
+  TallyClusterSortKey,
+  TallyCordSortKey,
+  clusterCellLabels,
+  clusterSortHeaderLabel,
+  compareClusterRows,
+  compareCordRows,
+  cordCellLabels,
+  cordClusterCellLabels,
+  isTallyWarningRow,
+  nextClusterSort,
+} from "@/src/lib/tallyClusterSort";
 import {
   MONTH_NAMES,
   defaultMonthsForYear,
@@ -80,7 +103,7 @@ type PeopleTallyMetric = Extract<
   | "unique_hc"
 >;
 
-type TallyLayoutMode = "cluster" | "month";
+type TallyLayoutMode = "cluster" | "cord" | "month";
 
 export default function PeopleTallyReport({
   year,
@@ -103,10 +126,37 @@ export default function PeopleTallyReport({
   const [months, setMonths] = useState<number[]>(() =>
     defaultMonthsForYear(selectedYear),
   );
+  const [selectedWeeks, setSelectedWeeks] = useState<string[]>([
+    TALLY_ALL_WEEKS,
+  ]);
+  const [clusterSortKey, setClusterSortKey] = useState<TallyClusterSortKey>(
+    DEFAULT_TALLY_CLUSTER_SORT_KEY,
+  );
+  const [clusterSortDir, setClusterSortDir] = useState<TallyClusterSortDir>(
+    DEFAULT_TALLY_CLUSTER_SORT_DIR,
+  );
+  const [cordSortKey, setCordSortKey] = useState<TallyCordSortKey>(
+    DEFAULT_TALLY_CORD_SORT_KEY,
+  );
+  const [cordSortDir, setCordSortDir] = useState<TallyClusterSortDir>(
+    DEFAULT_TALLY_CORD_SORT_DIR,
+  );
 
   const scopeParams = useMemo(() => parseTallyScope(tallyScope), [tallyScope]);
   const isClusterLayout = layoutMode === "cluster";
-  const needsBranchForClusters = isClusterLayout && selectedBranch === "";
+  const isCordLayout = layoutMode === "cord";
+  const usesBranchRows = isClusterLayout || isCordLayout;
+  const needsBranchForClusters = usesBranchRows && selectedBranch === "";
+  const weekParam = useMemo(
+    () => (usesBranchRows ? weeksQueryParam(selectedWeeks) : undefined),
+    [usesBranchRows, selectedWeeks],
+  );
+  const selectedWeekNumbers = useMemo(() => {
+    if (!weekParam) {
+      return null;
+    }
+    return weekParam.split(",").map((value) => Number(value));
+  }, [weekParam]);
 
   const [yearOptions, setYearOptions] = useState<number[]>([]);
   const [yearsLoading, setYearsLoading] = useState(false);
@@ -120,6 +170,16 @@ export default function PeopleTallyReport({
   useEffect(() => {
     setMonths(defaultMonthsForYear(selectedYear));
   }, [selectedYear]);
+
+  useEffect(() => {
+    setDrilldown(null);
+  }, [layoutMode]);
+
+  useEffect(() => {
+    setSelectedWeeks((current) =>
+      pruneSelectedWeeks(current, selectedYear, months),
+    );
+  }, [months, selectedYear]);
 
   useEffect(() => {
     let cancelled = false;
@@ -216,19 +276,49 @@ export default function PeopleTallyReport({
   const { rows, loading, error } = useEvangelismPeopleTally({
     year: selectedYear,
     branch: selectedBranch === "" ? undefined : selectedBranch,
-    ...(isClusterLayout ? {} : scopeParams),
-    group_by: isClusterLayout ? "cluster" : undefined,
-    months: isClusterLayout ? monthsQueryParam(months) : undefined,
+    ...(usesBranchRows ? {} : scopeParams),
+    group_by: isClusterLayout ? "cluster" : isCordLayout ? "cord" : undefined,
+    months: usesBranchRows ? monthsQueryParam(months) : undefined,
+    week_number: weekParam,
     enabled: !needsBranchForClusters,
   });
 
+  const displayRows = useMemo(() => {
+    if (!usesBranchRows) {
+      return rows;
+    }
+    const body = rows.filter((row) => row.row_kind !== "total");
+    const total = rows.filter((row) => row.row_kind === "total");
+    if (isCordLayout) {
+      body.sort((left, right) =>
+        compareCordRows(left, right, cordSortKey, cordSortDir),
+      );
+    } else {
+      body.sort((left, right) =>
+        compareClusterRows(left, right, clusterSortKey, clusterSortDir),
+      );
+    }
+    return [...body, ...total];
+  }, [
+    clusterSortDir,
+    clusterSortKey,
+    cordSortDir,
+    cordSortKey,
+    isCordLayout,
+    rows,
+    usesBranchRows,
+  ]);
+
   const [drilldown, setDrilldown] = useState<{
     months: number[];
+    weeks: number[] | null;
     metric: PeopleTallyMetric;
     label: string;
     clusterId?: number | "unassigned" | null;
+    cordId?: number | "uncorded" | null;
     rowKind?: EvangelismPeopleTallyRow["row_kind"];
     clusterName?: string | null;
+    cordName?: string | null;
   } | null>(null);
 
   /** Cards on mobile by default; table uses horizontal scroll on small screens. */
@@ -243,8 +333,12 @@ export default function PeopleTallyReport({
   );
 
   const filterGridClass = hideBranchFilter
-    ? "mb-4 grid grid-cols-1 gap-2 md:grid-cols-[minmax(0,6.75rem)_minmax(0,1fr)_auto] md:items-center"
-    : "mb-4 grid grid-cols-1 gap-2 md:grid-cols-[minmax(0,6.75rem)_minmax(0,1fr)_minmax(0,1.5fr)_auto] md:items-center";
+    ? usesBranchRows
+      ? "mb-4 grid grid-cols-1 gap-2 md:grid-cols-[minmax(0,6.75rem)_minmax(0,1.25fr)_minmax(0,1.5fr)_auto] md:items-center"
+      : "mb-4 grid grid-cols-1 gap-2 md:grid-cols-[minmax(0,6.75rem)_minmax(0,1fr)_auto] md:items-center"
+    : usesBranchRows
+      ? "mb-4 grid grid-cols-1 gap-2 md:grid-cols-[minmax(0,6.75rem)_minmax(0,1fr)_minmax(0,1.25fr)_minmax(0,1.5fr)_auto] md:items-center"
+      : "mb-4 grid grid-cols-1 gap-2 md:grid-cols-[minmax(0,6.75rem)_minmax(0,1fr)_minmax(0,1.5fr)_auto] md:items-center";
 
   const openDrilldown = (
     row: EvangelismPeopleTallyRow,
@@ -260,14 +354,34 @@ export default function PeopleTallyReport({
         row.row_kind === "unassigned"
           ? "unassigned"
           : row.row_kind === "cluster"
-            ? row.cluster_id ?? null
+            ? (row.cluster_id ?? null)
             : null;
       setDrilldown({
         months,
+        weeks: selectedWeekNumbers,
         metric,
         label,
         clusterId,
         rowKind: row.row_kind,
+        clusterName: row.cluster_name,
+      });
+      return;
+    }
+    if (isCordLayout) {
+      const cordId =
+        row.row_kind === "uncorded"
+          ? "uncorded"
+          : row.row_kind === "cord"
+            ? (row.cord_id ?? null)
+            : null;
+      setDrilldown({
+        months,
+        weeks: selectedWeekNumbers,
+        metric,
+        label,
+        cordId,
+        rowKind: row.row_kind,
+        cordName: row.cord_name,
         clusterName: row.cluster_name,
       });
       return;
@@ -277,6 +391,7 @@ export default function PeopleTallyReport({
     }
     setDrilldown({
       months: [row.month],
+      weeks: null,
       metric,
       label,
       clusterName: null,
@@ -323,10 +438,67 @@ export default function PeopleTallyReport({
     );
   };
 
-  const renderClusterName = (row: EvangelismPeopleTallyRow) => {
-    const name = (row.cluster_name || row.cluster_code || "Cluster").trim();
-    const isTotal = row.row_kind === "total";
+  const handleClusterHeaderClick = () => {
+    const next = nextClusterSort(clusterSortKey, clusterSortDir);
+    setClusterSortKey(next.key);
+    setClusterSortDir(next.dir);
+  };
+
+  const toggleCordSort = (key: TallyCordSortKey) => {
+    if (cordSortKey === key) {
+      setCordSortDir((previous) => (previous === "asc" ? "desc" : "asc"));
+      return;
+    }
+    setCordSortKey(key);
+    setCordSortDir("asc");
+  };
+
+  const renderLabeledCell = (
+    labels: ReturnType<typeof clusterCellLabels>,
+    warning: boolean,
+  ) => (
+    <span
+      className={`text-sm ${
+        warning
+          ? "font-medium text-red-600"
+          : labels.isTotal
+            ? "font-semibold text-gray-700"
+            : "text-gray-700"
+      }`}
+      title={labels.title}
+    >
+      <span className="block">{labels.primary}</span>
+      {labels.secondary ? (
+        <span
+          className={`mt-0.5 block text-xs font-normal ${
+            warning ? "text-red-500" : "text-gray-500"
+          }`}
+        >
+          {labels.secondary}
+        </span>
+      ) : null}
+    </span>
+  );
+
+  const renderEntityCell = (row: EvangelismPeopleTallyRow) => {
+    const labels = isCordLayout ? cordCellLabels(row) : clusterCellLabels(row);
+    const warning = isTallyWarningRow(row.row_kind);
+    const content = (
+      <>
+        <span className="block">{labels.primary}</span>
+        {labels.secondary ? (
+          <span
+            className={`mt-0.5 block text-xs font-normal ${
+              warning ? "text-red-500" : "text-gray-500"
+            }`}
+          >
+            {labels.secondary}
+          </span>
+        ) : null}
+      </>
+    );
     if (
+      !isCordLayout &&
       row.row_kind === "cluster" &&
       row.cluster_id != null &&
       onTallyScopeChange
@@ -334,39 +506,56 @@ export default function PeopleTallyReport({
       return (
         <button
           type="button"
-          className="text-sm font-medium text-primary hover:underline"
+          className="text-left text-sm font-medium text-primary hover:underline"
+          title={labels.title}
           onClick={() => {
             onTallyScopeChange(`cluster:${row.cluster_id}`);
             setLayoutMode("month");
           }}
         >
-          {name}
+          {content}
         </button>
       );
     }
     return (
       <span
-        className={`text-sm text-gray-700 ${isTotal ? "font-semibold" : ""}`}
+        className={`text-sm ${
+          warning
+            ? "font-medium text-red-600"
+            : labels.isTotal
+              ? "font-semibold text-gray-700"
+              : "text-gray-700"
+        }`}
+        title={labels.title}
       >
-        {name}
+        {content}
       </span>
     );
   };
+
+  const renderCordClusterCell = (row: EvangelismPeopleTallyRow) =>
+    renderLabeledCell(cordClusterCellLabels(row), false);
 
   const drilldownTitle = useMemo(() => {
     if (!drilldown) {
       return "Tally Records";
     }
-    const windowLabel = isClusterLayout
+    const windowLabel = usesBranchRows
       ? formatMonthsLabel(drilldown.months, selectedYear)
       : `${MONTH_NAMES[(drilldown.months[0] || 1) - 1]} ${selectedYear}`;
-    const scopeLabel = isClusterLayout
-      ? drilldown.clusterName || "All clusters"
-      : null;
+    const weekLabel =
+      drilldown.weeks && drilldown.weeks.length > 0
+        ? ` · W${drilldown.weeks.join(", W")}`
+        : "";
+    const scopeLabel = isCordLayout
+      ? drilldown.cordName || "All cords"
+      : isClusterLayout
+        ? drilldown.clusterName || "All clusters"
+        : null;
     return scopeLabel
-      ? `${drilldown.label} — ${windowLabel} — ${scopeLabel}`
-      : `${drilldown.label} - ${windowLabel}`;
-  }, [drilldown, isClusterLayout, selectedYear]);
+      ? `${drilldown.label} — ${windowLabel}${weekLabel} — ${scopeLabel}`
+      : `${drilldown.label} - ${windowLabel}${weekLabel}`;
+  }, [drilldown, isClusterLayout, isCordLayout, selectedYear, usesBranchRows]);
 
   useEffect(() => {
     const fetchAvailableYears = async () => {
@@ -374,7 +563,7 @@ export default function PeopleTallyReport({
         setYearsLoading(true);
         const response = await evangelismApi.getPeopleTallyYears({
           branch: selectedBranch === "" ? undefined : selectedBranch,
-          ...(isClusterLayout ? {} : scopeParams),
+          ...(usesBranchRows ? {} : scopeParams),
         });
         const currentYear = new Date().getFullYear();
         const reportedYears = response.data.years || [];
@@ -396,7 +585,7 @@ export default function PeopleTallyReport({
     };
 
     fetchAvailableYears();
-  }, [selectedBranch, scopeParams, isClusterLayout]);
+  }, [selectedBranch, scopeParams, usesBranchRows]);
 
   useEffect(() => {
     if (!onYearChange || yearOptions.length === 0) {
@@ -418,16 +607,31 @@ export default function PeopleTallyReport({
         ...(isClusterLayout
           ? {
               months: monthsQueryParam(drilldown.months),
+              ...(drilldown.weeks && drilldown.weeks.length > 0
+                ? { week_number: drilldown.weeks.join(",") }
+                : {}),
               ...(drilldown.rowKind === "unassigned"
                 ? { cluster: "unassigned" }
                 : drilldown.rowKind === "cluster" && drilldown.clusterId != null
                   ? { cluster: drilldown.clusterId }
                   : {}),
             }
-          : {
-              ...scopeParams,
-              month: drilldown.months[0],
-            }),
+          : isCordLayout
+            ? {
+                months: monthsQueryParam(drilldown.months),
+                ...(drilldown.weeks && drilldown.weeks.length > 0
+                  ? { week_number: drilldown.weeks.join(",") }
+                  : {}),
+                ...(drilldown.rowKind === "uncorded"
+                  ? { cord: "uncorded" }
+                  : drilldown.rowKind === "cord" && drilldown.cordId != null
+                    ? { cord: drilldown.cordId }
+                    : {}),
+              }
+            : {
+                ...scopeParams,
+                month: drilldown.months[0],
+              }),
         metric: drilldown.metric,
         page,
         page_size: 20,
@@ -440,6 +644,7 @@ export default function PeopleTallyReport({
       selectedBranch,
       scopeParams,
       isClusterLayout,
+      isCordLayout,
     ],
   );
 
@@ -466,6 +671,11 @@ export default function PeopleTallyReport({
     } else {
       setMonths(defaultMonthsForYear(selectedYear));
     }
+    setSelectedWeeks([TALLY_ALL_WEEKS]);
+    setClusterSortKey(DEFAULT_TALLY_CLUSTER_SORT_KEY);
+    setClusterSortDir(DEFAULT_TALLY_CLUSTER_SORT_DIR);
+    setCordSortKey(DEFAULT_TALLY_CORD_SORT_KEY);
+    setCordSortDir(DEFAULT_TALLY_CORD_SORT_DIR);
   };
 
   const metricColumns = [
@@ -513,14 +723,65 @@ export default function PeopleTallyReport({
     },
   ];
 
-  const columns = isClusterLayout
+  const entityHeaderLabel = isCordLayout
+    ? "Name"
+    : clusterSortHeaderLabel(clusterSortKey);
+  const entitySortDir = isCordLayout ? cordSortDir : clusterSortDir;
+  const entitySortActive = isCordLayout
+    ? cordSortKey === "cord_name"
+    : true;
+  const entitySortIcon =
+    entitySortActive &&
+    (entitySortDir === "asc" ? (
+      <ChevronUpIcon className="h-4 w-4 text-gray-500" />
+    ) : (
+      <ChevronDownIcon className="h-4 w-4 text-gray-500" />
+    ));
+  const cordClusterSortIcon =
+    cordSortKey === "cluster_code" ? (
+      cordSortDir === "asc" ? (
+        <ChevronUpIcon className="h-4 w-4 text-gray-500" />
+      ) : (
+        <ChevronDownIcon className="h-4 w-4 text-gray-500" />
+      )
+    ) : null;
+
+  const columns = usesBranchRows
     ? [
         {
-          header: "Cluster",
-          accessor: "cluster_name" as keyof EvangelismPeopleTallyRow,
+          header: entityHeaderLabel,
+          accessor: (isCordLayout
+            ? "cord_name"
+            : "cluster_code") as keyof EvangelismPeopleTallyRow,
+          desktopHeader: (
+            <div className="flex items-center gap-1">
+              <span>{entityHeaderLabel}</span>
+              {entitySortIcon}
+            </div>
+          ),
+          onHeaderClick: isCordLayout
+            ? () => toggleCordSort("cord_name")
+            : handleClusterHeaderClick,
           render: (_value: unknown, row: EvangelismPeopleTallyRow) =>
-            renderClusterName(row),
+            renderEntityCell(row),
         },
+        ...(isCordLayout
+          ? [
+              {
+                header: "Code",
+                accessor: "cluster_code" as keyof EvangelismPeopleTallyRow,
+                desktopHeader: (
+                  <div className="flex items-center gap-1">
+                    <span>Code</span>
+                    {cordClusterSortIcon}
+                  </div>
+                ),
+                onHeaderClick: () => toggleCordSort("cluster_code"),
+                render: (_value: unknown, row: EvangelismPeopleTallyRow) =>
+                  renderCordClusterCell(row),
+              },
+            ]
+          : []),
         ...metricColumns,
       ]
     : [
@@ -547,6 +808,7 @@ export default function PeopleTallyReport({
             fullWidthOnMobile
             options={[
               { id: "cluster", label: "By cluster" },
+              { id: "cord", label: "By 5x5 cord" },
               { id: "month", label: "By month" },
             ]}
           />
@@ -638,12 +900,20 @@ export default function PeopleTallyReport({
                   </LockedControlTooltip>
                 );
               })()}
-            {isClusterLayout ? (
-              <TallyMonthFilter
-                year={selectedYear}
-                months={months}
-                onChange={setMonths}
-              />
+            {usesBranchRows ? (
+              <>
+                <TallyMonthFilter
+                  year={selectedYear}
+                  months={months}
+                  onChange={setMonths}
+                />
+                <TallyWeekFilter
+                  year={selectedYear}
+                  months={months}
+                  weeks={selectedWeeks}
+                  onChange={setSelectedWeeks}
+                />
+              </>
             ) : (
               onTallyScopeChange && (
                 <div className="min-w-0">
@@ -676,13 +946,14 @@ export default function PeopleTallyReport({
         )}
         {needsBranchForClusters ? (
           <div className="text-center py-8 text-gray-500">
-            Select a branch to compare clusters.
+            Select a branch to compare {isCordLayout ? "5x5 cords" : "clusters"}
+            .
           </div>
         ) : loading ? (
           <div className="text-center py-8 text-gray-500">Loading tally...</div>
         ) : error ? (
           <div className="text-center py-8 text-red-500">Error: {error}</div>
-        ) : rows.length === 0 ? (
+        ) : displayRows.length === 0 ? (
           <div className="text-center py-8 text-gray-500">
             No tally data available
           </div>
@@ -702,7 +973,7 @@ export default function PeopleTallyReport({
             <Table
               mobileCardView={effectiveViewMode === "cards"}
               columns={columns}
-              data={rows}
+              data={displayRows}
             />
           </>
         )}
@@ -712,13 +983,20 @@ export default function PeopleTallyReport({
         title={drilldownTitle}
         requestKey={
           drilldown
-            ? `${layoutMode}-${selectedYear}-${monthsQueryParam(drilldown.months)}-${drilldown.metric}-${
+            ? `${layoutMode}-${selectedYear}-${monthsQueryParam(drilldown.months)}-${
+                drilldown.weeks?.join(",") || "all"
+              }-${drilldown.metric}-${
                 drilldown.rowKind || tallyScope || "all"
-              }-${drilldown.clusterId ?? ""}`
+              }-${drilldown.clusterId ?? ""}-${drilldown.cordId ?? ""}`
             : null
         }
         highlightMonths={
-          drilldown?.metric === "unique_hc" ? drilldown.months : null
+          drilldown?.metric === "unique_hc" && !drilldown.weeks?.length
+            ? drilldown.months
+            : null
+        }
+        highlightWeeks={
+          drilldown?.metric === "unique_hc" ? drilldown.weeks : null
         }
         highlightYear={drilldown?.metric === "unique_hc" ? selectedYear : null}
         onClose={() => setDrilldown(null)}

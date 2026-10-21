@@ -210,6 +210,10 @@ class ClusterCordSerializer(serializers.ModelSerializer):
         return attrs
 
     def create(self, validated_data):
+        from apps.clusters.coordinator_assignments import (
+            sync_cord_sub_coordinator_reporters,
+        )
+
         member_ids = validated_data.pop("_validated_member_ids", [])
         validated_data.pop("members", None)
         cluster = self.context["cluster"]
@@ -221,9 +225,14 @@ class ClusterCordSerializer(serializers.ModelSerializer):
             is_active=True,
         )
         set_cord_members(cord, member_ids)
+        sync_cord_sub_coordinator_reporters(cluster)
         return cord
 
     def update(self, instance, validated_data):
+        from apps.clusters.coordinator_assignments import (
+            sync_cord_sub_coordinator_reporters,
+        )
+
         member_ids = validated_data.pop("_validated_member_ids", None)
         validated_data.pop("members", None)
         for field in ("name", "sub_coordinator", "is_active"):
@@ -238,6 +247,7 @@ class ClusterCordSerializer(serializers.ModelSerializer):
             ):
                 instance.sub_coordinator = None
                 instance.save(update_fields=["sub_coordinator", "updated_at"])
+        sync_cord_sub_coordinator_reporters(instance.cluster)
         return instance
 
 

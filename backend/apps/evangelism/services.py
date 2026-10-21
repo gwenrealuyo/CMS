@@ -670,8 +670,11 @@ def calculate_monthly_statistics(
 UNASSIGNED_CLUSTER_SENTINELS = frozenset({"null", "none", "unassigned"})
 PEOPLE_TALLY_GROUP_BY_MONTH = "month"
 PEOPLE_TALLY_GROUP_BY_CLUSTER = "cluster"
+PEOPLE_TALLY_GROUP_BY_CORD = "cord"
 PEOPLE_TALLY_ROW_CLUSTER = "cluster"
 PEOPLE_TALLY_ROW_UNASSIGNED = "unassigned"
+PEOPLE_TALLY_ROW_CORD = "cord"
+PEOPLE_TALLY_ROW_UNCORDED = "uncorded"
 PEOPLE_TALLY_ROW_TOTAL = "total"
 
 
@@ -700,18 +703,63 @@ def parse_people_tally_months(raw: Optional[str]) -> List[int]:
     return months
 
 
+def date_field_in_iso_weeks_q(
+    field: str,
+    year: int,
+    weeks: Sequence[int],
+) -> Q:
+    """Match DateField / DateTimeField values that fall in any selected ISO week."""
+    q = Q()
+    for week in weeks:
+        start = date.fromisocalendar(year, int(week), 1)
+        end_exclusive = date.fromisocalendar(year, int(week), 7) + timedelta(days=1)
+        start_dt = timezone.make_aware(datetime.combine(start, datetime.min.time()))
+        end_exclusive_dt = timezone.make_aware(
+            datetime.combine(end_exclusive, datetime.min.time())
+        )
+        q |= Q(**{f"{field}__gte": start_dt, f"{field}__lt": end_exclusive_dt})
+    return q if weeks else Q(pk__in=[])
+
+
+def people_tally_date_window_q(
+    field: str,
+    *,
+    year: int,
+    months: Sequence[int],
+    weeks: Optional[Sequence[int]] = None,
+) -> Q:
+    """Year+months filter, or ISO-week ranges when ``weeks`` is provided."""
+    if weeks:
+        return date_field_in_iso_weeks_q(field, year, weeks)
+    month_list = list(months)
+    if not month_list:
+        return Q(pk__in=[])
+    return Q(**{f"{field}__year": year, f"{field}__month__in": month_list})
+
+
 def parse_people_tally_group_by(raw: Optional[str]) -> str:
     if raw in (None, "", PEOPLE_TALLY_GROUP_BY_MONTH):
         return PEOPLE_TALLY_GROUP_BY_MONTH
     if raw == PEOPLE_TALLY_GROUP_BY_CLUSTER:
         return PEOPLE_TALLY_GROUP_BY_CLUSTER
-    raise ValueError("group_by must be month or cluster.")
+    if raw == PEOPLE_TALLY_GROUP_BY_CORD:
+        return PEOPLE_TALLY_GROUP_BY_CORD
+    raise ValueError("group_by must be month, cluster, or cord.")
 
 
 def is_unassigned_cluster_param(raw: Optional[str]) -> bool:
     if raw in (None, ""):
         return False
     return str(raw).lower() in UNASSIGNED_CLUSTER_SENTINELS
+
+
+UNCORDED_CORD_SENTINELS = frozenset({"uncorded", "none", "null"})
+
+
+def is_uncorded_cord_param(raw: Optional[str]) -> bool:
+    if raw in (None, ""):
+        return False
+    return str(raw).lower() in UNCORDED_CORD_SENTINELS
 
 
 def person_ids_with_ncc_sessions_for_months(
@@ -723,17 +771,22 @@ def person_ids_with_ncc_sessions_for_months(
     evangelism_group_id: Optional[int] = None,
     group_person_ids: Optional[frozenset] = None,
     unclustered: bool = False,
+    weeks: Optional[Sequence[int]] = None,
 ) -> set:
-    """Distinct people with NCC lesson activity in any of the given months."""
+    """Distinct people with NCC lesson activity in any of the given months/weeks."""
     from apps.lessons.models import LessonSessionReport
 
     month_list = list(months)
-    if not month_list:
+    if not weeks and not month_list:
         return set()
 
     student_lsr = LessonSessionReport.objects.filter(
-        session_date__year=year,
-        session_date__month__in=month_list,
+        people_tally_date_window_q(
+            "session_date",
+            year=year,
+            months=month_list,
+            weeks=weeks,
+        )
     )
     if branch_id is not None:
         student_lsr = student_lsr.filter(student__branch_id=branch_id)
@@ -781,8 +834,9 @@ def people_tally_id_sets(
     evangelism_group_id: Optional[int] = None,
     group_person_ids: Optional[frozenset] = None,
     unclustered: bool = False,
+    weeks: Optional[Sequence[int]] = None,
 ) -> Dict[str, Set[int]]:
-    """Person ID sets for each people-tally column over the given months."""
+    """Person ID sets for each people-tally column over the given months/weeks."""
     month_list = list(months)
     scoped_qs = base_qs
     if unclustered:
@@ -791,21 +845,34 @@ def people_tally_id_sets(
     invited_ids = set(
         scoped_qs.filter(
             role="VISITOR",
-            date_joined__year=year,
-            date_joined__month__in=month_list,
             date_first_attended__isnull=True,
-        ).values_list("id", flat=True)
+        )
+        .filter(
+            people_tally_date_window_q(
+                "date_joined",
+                year=year,
+                months=month_list,
+                weeks=weeks,
+            )
+        )
+        .values_list("id", flat=True)
     )
     attended_ids = set(
-        scoped_qs.filter(
-            role="VISITOR",
-            date_first_attended__year=year,
-            date_first_attended__month__in=month_list,
-        ).values_list("id", flat=True)
+        scoped_qs.filter(role="VISITOR")
+        .filter(
+            people_tally_date_window_q(
+                "date_first_attended",
+                year=year,
+                months=month_list,
+                weeks=weeks,
+            )
+        )
+        .values_list("id", flat=True)
     )
     students_ids = person_ids_with_ncc_sessions_for_months(
         year=year,
         months=month_list,
+        weeks=weeks,
         branch_id=branch_id,
         cluster_id=cluster_id,
         evangelism_group_id=evangelism_group_id,
@@ -814,21 +881,33 @@ def people_tally_id_sets(
     )
     baptized_ids = set(
         scoped_qs.filter(
-            water_baptism_date__year=year,
-            water_baptism_date__month__in=month_list,
+            people_tally_date_window_q(
+                "water_baptism_date",
+                year=year,
+                months=month_list,
+                weeks=weeks,
+            )
         ).values_list("id", flat=True)
     )
     received_hg_ids = set(
         scoped_qs.filter(
-            spirit_baptism_date__year=year,
-            spirit_baptism_date__month__in=month_list,
+            people_tally_date_window_q(
+                "spirit_baptism_date",
+                year=year,
+                months=month_list,
+                weeks=weeks,
+            )
         ).values_list("id", flat=True)
     )
     reached_ids = set(
         annotate_people_reached_date(people_meeting_reached_milestones(scoped_qs))
         .filter(
-            reached_date__year=year,
-            reached_date__month__in=month_list,
+            people_tally_date_window_q(
+                "reached_date",
+                year=year,
+                months=month_list,
+                weeks=weeks,
+            )
         )
         .values_list("id", flat=True)
     )
@@ -921,6 +1000,7 @@ def build_people_tally_cluster_rows(
     months: Sequence[int],
     branch_id: int,
     base_qs,
+    weeks: Optional[Sequence[int]] = None,
 ) -> List[dict]:
     """One row per active cluster, optional Unassigned, then a Total union row."""
     clusters = list(
@@ -931,6 +1011,7 @@ def build_people_tally_cluster_rows(
     id_sets = people_tally_id_sets(
         year=year,
         months=months,
+        weeks=weeks,
         base_qs=base_qs,
         branch_id=branch_id,
     )
@@ -986,6 +1067,131 @@ def build_people_tally_cluster_rows(
             "year": year,
             "cluster_id": None,
             "cluster_name": "Total",
+            "cluster_code": None,
+            "row_kind": PEOPLE_TALLY_ROW_TOTAL,
+            **people_tally_counts_from_ids(id_sets),
+        }
+    )
+    return rows
+
+
+def _person_active_cord_map(
+    *,
+    branch_id: int,
+    person_ids: Set[int],
+    allowed_cluster_ids: Optional[Set[int]] = None,
+) -> Dict[int, "ClusterCord"]:
+    """Map person_id → first active cord in the branch (lowest cord id)."""
+    from apps.clusters.models import ClusterCord, ClusterCordMembership
+
+    if not person_ids:
+        return {}
+    qs = (
+        ClusterCordMembership.objects.filter(
+            person_id__in=person_ids,
+            cord__is_active=True,
+            cord__cluster__branch_id=branch_id,
+            cord__cluster__is_active=True,
+        )
+        .select_related("cord", "cord__cluster")
+        .order_by("person_id", "cord_id")
+    )
+    if allowed_cluster_ids is not None:
+        qs = qs.filter(cord__cluster_id__in=allowed_cluster_ids)
+    mapping: Dict[int, ClusterCord] = {}
+    for membership in qs:
+        if membership.person_id not in mapping:
+            mapping[membership.person_id] = membership.cord
+    return mapping
+
+
+def build_people_tally_cord_rows(
+    *,
+    year: int,
+    months: Sequence[int],
+    branch_id: int,
+    base_qs,
+    weeks: Optional[Sequence[int]] = None,
+    allowed_cluster_ids: Optional[Set[int]] = None,
+) -> List[dict]:
+    """One row per active 5x5 cord, optional Uncorded, then Total."""
+    from apps.clusters.models import ClusterCord
+
+    cords_qs = ClusterCord.objects.filter(
+        is_active=True,
+        cluster__branch_id=branch_id,
+        cluster__is_active=True,
+    ).select_related("cluster")
+    if allowed_cluster_ids is not None:
+        cords_qs = cords_qs.filter(cluster_id__in=allowed_cluster_ids)
+    cords = list(cords_qs.order_by("name", "id"))
+
+    id_sets = people_tally_id_sets(
+        year=year,
+        months=months,
+        weeks=weeks,
+        base_qs=base_qs,
+        branch_id=branch_id,
+    )
+    all_ids: Set[int] = set()
+    for ids in id_sets.values():
+        all_ids |= ids
+
+    person_cord = _person_active_cord_map(
+        branch_id=branch_id,
+        person_ids=all_ids,
+        allowed_cluster_ids=allowed_cluster_ids,
+    )
+    cord_member_ids: Dict[int, Set[int]] = defaultdict(set)
+    for person_id, cord in person_cord.items():
+        cord_member_ids[cord.id].add(person_id)
+
+    rows: List[dict] = []
+    for cord in cords:
+        subset = {
+            key: ids & cord_member_ids.get(cord.id, set())
+            for key, ids in id_sets.items()
+        }
+        cluster = cord.cluster
+        rows.append(
+            {
+                "month": None,
+                "year": year,
+                "cord_id": cord.id,
+                "cord_name": (cord.name or f"Cord {cord.id}").strip(),
+                "cluster_id": cluster.id,
+                "cluster_name": _cluster_display_name(cluster),
+                "cluster_code": cluster.code,
+                "row_kind": PEOPLE_TALLY_ROW_CORD,
+                **people_tally_counts_from_ids(subset),
+            }
+        )
+
+    corded_ids = set(person_cord.keys())
+    uncorded = {key: ids - corded_ids for key, ids in id_sets.items()}
+    if any(uncorded.values()):
+        rows.append(
+            {
+                "month": None,
+                "year": year,
+                "cord_id": None,
+                "cord_name": "Uncorded",
+                "cluster_id": None,
+                "cluster_name": None,
+                "cluster_code": None,
+                "row_kind": PEOPLE_TALLY_ROW_UNCORDED,
+                **people_tally_counts_from_ids(uncorded),
+            }
+        )
+
+    rows.append(
+        {
+            "month": None,
+            "year": year,
+            "cord_id": None,
+            "cord_name": "Total",
+            "cluster_id": None,
+            "cluster_name": None,
             "cluster_code": None,
             "row_kind": PEOPLE_TALLY_ROW_TOTAL,
             **people_tally_counts_from_ids(id_sets),

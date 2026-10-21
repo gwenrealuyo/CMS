@@ -11,6 +11,7 @@ import {
   formatPersonClusterLabel,
   getPersonClusterChipClass,
 } from "@/src/lib/personStatus";
+import { getIsoWeekPartsFromDateString } from "@/src/lib/isoWeek";
 import { EvangelismTallyDrilldownRow } from "@/src/types/evangelism";
 
 interface TallyDrilldownModalProps {
@@ -23,6 +24,8 @@ interface TallyDrilldownModalProps {
   ) => Promise<PaginatedResponse<EvangelismTallyDrilldownRow>>;
   /** When set (Unique HC), emphasize milestone chips whose date falls in these months. */
   highlightMonths?: number[] | null;
+  /** When set (Unique HC), emphasize milestone chips whose date falls in these ISO weeks. */
+  highlightWeeks?: number[] | null;
   highlightYear?: number | null;
 }
 
@@ -33,6 +36,7 @@ export default function TallyDrilldownModal({
   onClose,
   fetchPage,
   highlightMonths = null,
+  highlightWeeks = null,
   highlightYear = null,
 }: TallyDrilldownModalProps) {
   const [rows, setRows] = useState<EvangelismTallyDrilldownRow[]>([]);
@@ -70,8 +74,19 @@ export default function TallyDrilldownModal({
 
   const formatDate = (value?: string | null) => formatLocaleDate(value);
 
-  const isInHighlightMonth = (value?: string | null) => {
-    if (!highlightMonths?.length || highlightYear == null || !value) {
+  const isInHighlightWindow = (value?: string | null) => {
+    if (highlightYear == null || !value) {
+      return false;
+    }
+    if (highlightWeeks?.length) {
+      const parts = getIsoWeekPartsFromDateString(value.slice(0, 10));
+      return (
+        parts != null &&
+        parts.year === highlightYear &&
+        highlightWeeks.includes(parts.week)
+      );
+    }
+    if (!highlightMonths?.length) {
       return false;
     }
     const datePart = value.slice(0, 10);
@@ -85,7 +100,7 @@ export default function TallyDrilldownModal({
   };
 
   const chipClassName = (base: string, value?: string | null) =>
-    isInHighlightMonth(value)
+    isInHighlightWindow(value)
       ? `${base} ring-2 ring-offset-1 ring-gray-700 font-semibold`
       : base;
 

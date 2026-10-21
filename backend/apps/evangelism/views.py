@@ -17,6 +17,7 @@ from apps.events.models import Event, EventType
 from apps.people.models import Branch, ModuleCoordinator, Person
 from apps.clusters.models import Cluster, ClusterWeeklyReport
 from apps.clusters.cords import active_cord_map_for_people
+from apps.clusters.utils import parse_iso_weeks
 from apps.lessons.models import LessonSessionReport
 from core.datetime_utils import church_calendar_date, church_today
 from apps.authentication.permissions import (
@@ -103,9 +104,14 @@ from .services import (
     is_unassigned_cluster_param,
     build_people_tally_month_rows,
     build_people_tally_cluster_rows,
+    build_people_tally_cord_rows,
+    people_tally_date_window_q,
     people_tally_id_sets,
+    is_uncorded_cord_param,
     PEOPLE_TALLY_GROUP_BY_CLUSTER,
+    PEOPLE_TALLY_GROUP_BY_CORD,
     PEOPLE_TALLY_ROW_CLUSTER,
+    PEOPLE_TALLY_ROW_CORD,
     PEOPLE_TALLY_ROW_TOTAL,
     check_conversion_completion,
     endorse_visitor_to_cluster,
@@ -1023,6 +1029,23 @@ class EvangelismWeeklyReportViewSet(viewsets.ModelViewSet):
         except ValueError as exc:
             raise ValidationError({"months": str(exc)}) from exc
 
+    def _parse_people_tally_weeks(self, year: int):
+        week_values = []
+        for value in self.request.query_params.getlist("week_number"):
+            week_values.extend(
+                part.strip() for part in str(value).split(",") if part.strip()
+            )
+        if not week_values:
+            return None
+        try:
+            week_numbers = [int(value) for value in week_values]
+            selected = parse_iso_weeks(year, week_numbers)
+        except ValueError as exc:
+            raise ValidationError({"week_number": str(exc)}) from exc
+        if not selected:
+            raise ValidationError({"week_number": "Select at least one week."})
+        return [week for _year, week in selected]
+
     @staticmethod
     def _person_display_name(person: Person) -> str:
         if hasattr(person, "get_full_name"):
@@ -1464,42 +1487,56 @@ class EvangelismWeeklyReportViewSet(viewsets.ModelViewSet):
             branch_id, cluster_id, eg_id, group_person_ids, unclustered
         )
 
-        if group_by == PEOPLE_TALLY_GROUP_BY_CLUSTER:
+        if group_by in (PEOPLE_TALLY_GROUP_BY_CLUSTER, PEOPLE_TALLY_GROUP_BY_CORD):
             if eg_id is not None:
                 raise ValidationError(
                     {
                         "evangelism_group": (
-                            "Do not send evangelism_group with group_by=cluster."
+                            f"Do not send evangelism_group with group_by={group_by}."
                         )
                     }
                 )
             if branch_id is None:
                 raise ValidationError(
-                    {"branch": "branch is required when group_by=cluster."}
+                    {"branch": f"branch is required when group_by={group_by}."}
                 )
             months = self._parse_people_tally_months()
+            weeks = self._parse_people_tally_weeks(year_int)
             base_qs = Person.objects.exclude(role="ADMIN").filter(branch_id=branch_id)
             if group_person_ids is not None and eg_id is None:
                 gp_ids = group_person_ids or frozenset()
                 base_qs = (
                     base_qs.filter(id__in=gp_ids) if gp_ids else base_qs.none()
                 )
-            rows = build_people_tally_cluster_rows(
-                year=year_int,
-                months=months,
-                branch_id=branch_id,
-                base_qs=base_qs,
-            )
-            if allowed_clusters is not None:
-                rows = [
-                    row
-                    for row in rows
-                    if row.get("row_kind") == PEOPLE_TALLY_ROW_TOTAL
-                    or (
-                        row.get("row_kind") == PEOPLE_TALLY_ROW_CLUSTER
-                        and row.get("cluster_id") in allowed_clusters
-                    )
-                ]
+            if group_by == PEOPLE_TALLY_GROUP_BY_CORD:
+                rows = build_people_tally_cord_rows(
+                    year=year_int,
+                    months=months,
+                    weeks=weeks,
+                    branch_id=branch_id,
+                    base_qs=base_qs,
+                    allowed_cluster_ids=(
+                        set(allowed_clusters) if allowed_clusters is not None else None
+                    ),
+                )
+            else:
+                rows = build_people_tally_cluster_rows(
+                    year=year_int,
+                    months=months,
+                    weeks=weeks,
+                    branch_id=branch_id,
+                    base_qs=base_qs,
+                )
+                if allowed_clusters is not None:
+                    rows = [
+                        row
+                        for row in rows
+                        if row.get("row_kind") == PEOPLE_TALLY_ROW_TOTAL
+                        or (
+                            row.get("row_kind") == PEOPLE_TALLY_ROW_CLUSTER
+                            and row.get("cluster_id") in allowed_clusters
+                        )
+                    ]
             serializer = EvangelismPeopleTallySerializer(rows, many=True)
             return Response(serializer.data)
 
@@ -1653,6 +1690,7 @@ class EvangelismWeeklyReportViewSet(viewsets.ModelViewSet):
         try:
             year_int = int(year) if year else timezone.now().year
             months = self._parse_people_tally_months()
+            weeks = self._parse_people_tally_weeks(year_int)
         except (TypeError, ValueError, ValidationError) as exc:
             if isinstance(exc, ValidationError):
                 raise
@@ -1679,35 +1717,93 @@ class EvangelismWeeklyReportViewSet(viewsets.ModelViewSet):
                 base_people.filter(id__in=gp_ids) if gp_ids else base_people.none()
             )
 
+        cord_raw = request.query_params.get("cord")
+        if is_uncorded_cord_param(cord_raw):
+            from apps.clusters.models import ClusterCordMembership
+
+            corded_filter = ClusterCordMembership.objects.filter(
+                cord__is_active=True,
+            )
+            if branch_id is not None:
+                corded_filter = corded_filter.filter(
+                    cord__cluster__branch_id=branch_id,
+                    cord__cluster__is_active=True,
+                )
+            if _allowed_clusters is not None:
+                corded_filter = corded_filter.filter(
+                    cord__cluster_id__in=_allowed_clusters
+                )
+            base_people = base_people.exclude(
+                id__in=corded_filter.values_list("person_id", flat=True)
+            )
+        elif cord_raw not in (None, ""):
+            try:
+                cord_id = int(cord_raw)
+            except (TypeError, ValueError) as exc:
+                raise ValidationError(
+                    {"cord": "cord must be an id or uncorded."}
+                ) from exc
+            from apps.clusters.models import ClusterCord
+
+            cord_qs = ClusterCord.objects.filter(id=cord_id, is_active=True)
+            if branch_id is not None:
+                cord_qs = cord_qs.filter(
+                    cluster__branch_id=branch_id, cluster__is_active=True
+                )
+            if _allowed_clusters is not None:
+                cord_qs = cord_qs.filter(cluster_id__in=_allowed_clusters)
+            if not cord_qs.exists():
+                raise ValidationError({"cord": "Cord not found."})
+            base_people = base_people.filter(
+                cord_memberships__cord_id=cord_id,
+                cord_memberships__cord__is_active=True,
+            ).distinct()
+
         cord_scope = cluster_id if isinstance(cluster_id, int) else None
 
         if metric == "invited":
             rows = self._serialize_people_rows(
                 base_people.filter(
                     role="VISITOR",
-                    date_joined__year=year_int,
-                    date_joined__month__in=months,
                     date_first_attended__isnull=True,
-                ).order_by("first_name", "last_name", "username"),
+                )
+                .filter(
+                    people_tally_date_window_q(
+                        "date_joined",
+                        year=year_int,
+                        months=months,
+                        weeks=weeks,
+                    )
+                )
+                .order_by("first_name", "last_name", "username"),
                 metric,
                 date_attr="date_joined",
                 cord_cluster_id=cord_scope,
             )
         elif metric == "attended":
             rows = self._serialize_people_rows(
-                base_people.filter(
-                    role="VISITOR",
-                    date_first_attended__year=year_int,
-                    date_first_attended__month__in=months,
-                ).order_by("first_name", "last_name", "username"),
+                base_people.filter(role="VISITOR")
+                .filter(
+                    people_tally_date_window_q(
+                        "date_first_attended",
+                        year=year_int,
+                        months=months,
+                        weeks=weeks,
+                    )
+                )
+                .order_by("first_name", "last_name", "username"),
                 metric,
                 date_attr="date_first_attended",
                 cord_cluster_id=cord_scope,
             )
         elif metric == "students":
             lesson_base = LessonSessionReport.objects.filter(
-                session_date__year=year_int,
-                session_date__month__in=months,
+                people_tally_date_window_q(
+                    "session_date",
+                    year=year_int,
+                    months=months,
+                    weeks=weeks,
+                )
             )
             if branch_id is not None:
                 lesson_base = lesson_base.filter(student__branch_id=branch_id)
@@ -1745,8 +1841,12 @@ class EvangelismWeeklyReportViewSet(viewsets.ModelViewSet):
         elif metric == "baptized":
             rows = self._serialize_people_rows(
                 base_people.filter(
-                    water_baptism_date__year=year_int,
-                    water_baptism_date__month__in=months,
+                    people_tally_date_window_q(
+                        "water_baptism_date",
+                        year=year_int,
+                        months=months,
+                        weeks=weeks,
+                    )
                 ).order_by("first_name", "last_name", "username"),
                 metric,
                 date_attr="water_baptism_date",
@@ -1755,8 +1855,12 @@ class EvangelismWeeklyReportViewSet(viewsets.ModelViewSet):
         elif metric == "received_hg":
             rows = self._serialize_people_rows(
                 base_people.filter(
-                    spirit_baptism_date__year=year_int,
-                    spirit_baptism_date__month__in=months,
+                    people_tally_date_window_q(
+                        "spirit_baptism_date",
+                        year=year_int,
+                        months=months,
+                        weeks=weeks,
+                    )
                 ).order_by("first_name", "last_name", "username"),
                 metric,
                 date_attr="spirit_baptism_date",
@@ -1768,8 +1872,12 @@ class EvangelismWeeklyReportViewSet(viewsets.ModelViewSet):
                     people_meeting_reached_milestones(base_people)
                 )
                 .filter(
-                    reached_date__year=year_int,
-                    reached_date__month__in=months,
+                    people_tally_date_window_q(
+                        "reached_date",
+                        year=year_int,
+                        months=months,
+                        weeks=weeks,
+                    )
                 )
                 .order_by("first_name", "last_name", "username"),
                 metric,
@@ -1780,6 +1888,7 @@ class EvangelismWeeklyReportViewSet(viewsets.ModelViewSet):
             id_sets = people_tally_id_sets(
                 year=year_int,
                 months=months,
+                weeks=weeks,
                 base_qs=base_people,
                 branch_id=branch_id,
                 cluster_id=cluster_id,

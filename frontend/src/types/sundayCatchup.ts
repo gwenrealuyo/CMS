@@ -38,13 +38,15 @@ export interface SundayCatchupPayload {
   roster: SundayCatchupRosterRow[];
 }
 
-export const SUNDAY_CATCHUP_REASONS: { value: SundayCatchupReason; label: string }[] =
-  [
-    { value: "REPLAY", label: "Watched the replay" },
-    { value: "TIMEZONE", label: "Another timezone" },
-    { value: "FORGOT_CHECKIN", label: "Forgot to check in" },
-    { value: "OTHER", label: "Other" },
-  ];
+export const SUNDAY_CATCHUP_REASONS: {
+  value: SundayCatchupReason;
+  label: string;
+}[] = [
+  { value: "FORGOT_CHECKIN", label: "Forgot to check in" },
+  { value: "REPLAY", label: "Watched the replay" },
+  { value: "TIMEZONE", label: "Another timezone" },
+  { value: "OTHER", label: "Other" },
+];
 
 export function sundayCatchupReasonLabel(
   reason: string,
@@ -52,6 +54,7 @@ export function sundayCatchupReasonLabel(
 ): string {
   if (reason === "OTHER") return (note || "").trim() || "Other";
   return (
-    SUNDAY_CATCHUP_REASONS.find((item) => item.value === reason)?.label || reason
+    SUNDAY_CATCHUP_REASONS.find((item) => item.value === reason)?.label ||
+    reason
   );
 }

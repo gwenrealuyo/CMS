@@ -33,6 +33,7 @@ import ClusterSundayCatchup from "@/src/components/clusters/ClusterSundayCatchup
 import ClusterCareRoster from "@/src/components/clusters/ClusterCareRoster";
 import ClusterCordsSection from "@/src/components/clusters/ClusterCordsSection";
 import ChangePersonStatusModal from "@/src/components/people/ChangePersonStatusModal";
+import SegmentedControl from "@/src/components/ui/SegmentedControl";
 import { useAuth } from "@/src/contexts/AuthContext";
 import { userCanAccessMemberCare } from "@/src/lib/clusterPermissions";
 
@@ -41,6 +42,9 @@ type SortField =
   | "last_name"
   | "date_first_attended"
   | "water_baptism_date";
+
+/** In-detail areas: roster vs pastoral care vs inviting. */
+type ClusterDetailTab = "people" | "care" | "prospects";
 
 function getSortDropdownStyle(
   button: HTMLButtonElement | null,
@@ -238,13 +242,18 @@ export default function ClusterView({
     null as ClusterRosterPerson | null,
   );
   const [careReloadToken, setCareReloadToken] = useState(0);
-  const [careExpanded, setCareExpanded] = useState(false);
+  const [activeTab, setActiveTab] = useState<ClusterDetailTab>("people");
   const sortButtonRef = useRef<HTMLButtonElement>(null);
   const sortDropdownRef = useRef<HTMLDivElement>(null);
+  const careRosterRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    setActiveTab(selectedCareCaseId != null ? "care" : "people");
+  }, [cluster.id]);
 
   useEffect(() => {
     if (selectedCareCaseId != null) {
-      setCareExpanded(true);
+      setActiveTab("care");
     }
   }, [selectedCareCaseId]);
 
@@ -857,428 +866,447 @@ export default function ClusterView({
 
           <ClusterSundayCatchup cluster={cluster} />
 
-          {/* Members & visitors */}
-          {(sortedCoreMembers.length > 0 || sortedVisitors.length > 0) && (
-            <div className="w-full min-w-0">
-              <div
-                className={
-                  stackMemberActions
-                    ? "mb-4 flex w-full flex-col gap-3"
-                    : "mb-4 flex items-center justify-between gap-3"
-                }
-              >
-                <h3 className="text-base md:text-lg font-semibold text-gray-900 shrink-0">
-                  {sortedCoreMembers.length > 0
-                    ? `Members (${memberCount})`
-                    : `Visitors (${visitorCount})`}
-                </h3>
-                <div
-                  className={
-                    stackMemberActions
-                      ? "grid w-full grid-cols-3 items-stretch gap-1.5 sm:gap-2"
-                      : "flex shrink-0 flex-nowrap items-center gap-2"
-                  }
-                >
+          <div className="min-w-0">
+            <SegmentedControl
+              value={activeTab}
+              onChange={setActiveTab}
+              fullWidthOnMobile
+              options={[
+                { id: "people", label: "People" },
+                { id: "care", label: "Care" },
+                { id: "prospects", label: "Prospects" },
+              ]}
+            />
+            <p className="mt-2 text-xs text-gray-500">
+              {activeTab === "people" &&
+                "Who belongs to this cluster — members, visitors, and families."}
+              {activeTab === "care" &&
+                "How we care for them — 5x5 cords and follow-up cases."}
+              {activeTab === "prospects" &&
+                "Who we're inviting — prospects not yet attending."}
+            </p>
+          </div>
+
+          {activeTab === "people" && (
+            <div className="space-y-4 md:space-y-5">
+              {/* Members & visitors */}
+              {(sortedCoreMembers.length > 0 || sortedVisitors.length > 0) && (
+                <div className="w-full min-w-0">
                   <div
                     className={
                       stackMemberActions
-                        ? "relative min-w-0"
-                        : "relative shrink-0"
+                        ? "mb-4 flex w-full flex-col gap-3"
+                        : "mb-4 flex items-center justify-between gap-3"
                     }
                   >
-                    <button
-                      ref={sortButtonRef}
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setShowSortDropdown(!showSortDropdown);
-                      }}
-                      className={`inline-flex h-10 items-center justify-center py-2.5 md:py-2 border border-gray-300 shadow-sm leading-4 font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-ring transition-colors min-h-[44px] md:min-h-0 whitespace-nowrap ${
+                    <h3 className="text-base md:text-lg font-semibold text-gray-900 shrink-0">
+                      {sortedCoreMembers.length > 0
+                        ? `Members (${memberCount})`
+                        : `Visitors (${visitorCount})`}
+                    </h3>
+                    <div
+                      className={
                         stackMemberActions
-                          ? "w-full min-w-0 px-1.5 sm:px-3 text-xs sm:text-sm"
-                          : "w-auto shrink-0 px-3 text-sm"
+                          ? "grid w-full grid-cols-3 items-stretch gap-1.5 sm:gap-2"
+                          : "flex shrink-0 flex-nowrap items-center gap-2"
+                      }
+                    >
+                      <div
+                        className={
+                          stackMemberActions
+                            ? "relative min-w-0"
+                            : "relative shrink-0"
+                        }
+                      >
+                        <button
+                          ref={sortButtonRef}
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setShowSortDropdown(!showSortDropdown);
+                          }}
+                          className={`inline-flex h-10 items-center justify-center py-2.5 md:py-2 border border-gray-300 shadow-sm leading-4 font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-ring transition-colors min-h-[44px] md:min-h-0 whitespace-nowrap ${
+                            stackMemberActions
+                              ? "w-full min-w-0 px-1.5 sm:px-3 text-xs sm:text-sm"
+                              : "w-auto shrink-0 px-3 text-sm"
+                          }`}
+                        >
+                          <svg
+                            className="w-4 h-4 mr-1.5 shrink-0"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12"
+                            />
+                          </svg>
+                          Sort
+                        </button>
+
+                        {showSortDropdown && (
+                          <div
+                            ref={sortDropdownRef}
+                            className="fixed w-56 rounded-lg shadow-lg bg-white ring-1 ring-black ring-opacity-5 focus:outline-none z-50 max-w-[calc(100vw-2rem)]"
+                            style={getSortDropdownStyle(
+                              sortButtonRef.current,
+                              stackMemberActions ? "left" : "right",
+                            )}
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <div className="py-1">
+                              <button
+                                type="button"
+                                onClick={() => handleSortSelect("last_name")}
+                                className={`block w-full text-left px-4 py-3 sm:py-2 text-sm min-h-[44px] sm:min-h-0 ${
+                                  sortBy === "last_name"
+                                    ? "bg-primary/10 text-primary"
+                                    : "text-gray-700 hover:bg-gray-50"
+                                }`}
+                              >
+                                Last Name
+                                {sortBy === "last_name" && (
+                                  <span className="ml-2">
+                                    {sortOrder === "asc" ? "↑" : "↓"}
+                                  </span>
+                                )}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleSortSelect("first_name")}
+                                className={`block w-full text-left px-4 py-3 sm:py-2 text-sm min-h-[44px] sm:min-h-0 ${
+                                  sortBy === "first_name"
+                                    ? "bg-primary/10 text-primary"
+                                    : "text-gray-700 hover:bg-gray-50"
+                                }`}
+                              >
+                                First Name
+                                {sortBy === "first_name" && (
+                                  <span className="ml-2">
+                                    {sortOrder === "asc" ? "↑" : "↓"}
+                                  </span>
+                                )}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  handleSortSelect("date_first_attended")
+                                }
+                                className={`block w-full text-left px-4 py-3 sm:py-2 text-sm min-h-[44px] sm:min-h-0 ${
+                                  sortBy === "date_first_attended"
+                                    ? "bg-primary/10 text-primary"
+                                    : "text-gray-700 hover:bg-gray-50"
+                                }`}
+                              >
+                                Date First Attended
+                                {sortBy === "date_first_attended" && (
+                                  <span className="ml-2">
+                                    {sortOrder === "asc" ? "↑" : "↓"}
+                                  </span>
+                                )}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  handleSortSelect("water_baptism_date")
+                                }
+                                className={`block w-full text-left px-4 py-3 sm:py-2 text-sm min-h-[44px] sm:min-h-0 ${
+                                  sortBy === "water_baptism_date"
+                                    ? "bg-primary/10 text-primary"
+                                    : "text-gray-700 hover:bg-gray-50"
+                                }`}
+                              >
+                                Water Baptism Date
+                                {sortBy === "water_baptism_date" && (
+                                  <span className="ml-2">
+                                    {sortOrder === "asc" ? "↑" : "↓"}
+                                  </span>
+                                )}
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                      {canManageCluster && (
+                        <Button
+                          onClick={onAssignMembers}
+                          variant="secondary"
+                          className={`!text-white h-10 !py-2.5 md:!py-2 leading-4 !font-medium bg-green-600 border border-green-600 hover:bg-green-700 hover:border-green-700 inline-flex items-center justify-center !min-h-[44px] md:!min-h-0 !rounded-lg whitespace-nowrap ${
+                            stackMemberActions
+                              ? "!w-full min-w-0 !px-1.5 sm:!px-3 text-xs sm:text-sm gap-1 sm:gap-2"
+                              : "w-auto shrink-0 !px-3 text-sm gap-2"
+                          }`}
+                        >
+                          <svg
+                            className="w-4 h-4 shrink-0"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M12 6v6m0 0v6m0-6h6m-6 0H6"
+                            />
+                          </svg>
+                          <span>Assign Members</span>
+                        </Button>
+                      )}
+                      {showSubmitReportButton && (
+                        <Button
+                          onClick={onSubmitReport}
+                          variant="secondary"
+                          className={`!text-primary h-10 !py-2.5 md:!py-2 leading-4 !font-medium bg-white border border-primary/20 hover:bg-primary/10 hover:border-primary/30 inline-flex items-center justify-center !min-h-[44px] md:!min-h-0 !rounded-lg whitespace-nowrap ${
+                            stackMemberActions
+                              ? "!w-full min-w-0 !px-1.5 sm:!px-3 text-xs sm:text-sm gap-1 sm:gap-2"
+                              : "w-auto shrink-0 !px-3 text-sm gap-2"
+                          }`}
+                        >
+                          <svg
+                            className="w-4 h-4 shrink-0"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                            />
+                          </svg>
+                          <span>Submit Report</span>
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                  <ToolbarSearch
+                    value={memberSearch}
+                    onChange={setMemberSearch}
+                    placeholder="Search members…"
+                    ariaLabel="Search members"
+                    fullWidth
+                    className="mb-2"
+                  />
+                  {memberSearch.trim() && sortedCoreMembers.length > 0 && (
+                    <p className="mb-2 text-xs text-gray-500">
+                      Showing {filteredCoreMembers.length} of{" "}
+                      {sortedCoreMembers.length}
+                    </p>
+                  )}
+                  {filteredCoreMembers.length > 0 && (
+                    <div
+                      className={`max-h-80 overflow-y-auto pr-1${
+                        sortedVisitors.length > 0 ? " mb-6" : ""
                       }`}
                     >
-                      <svg
-                        className="w-4 h-4 mr-1.5 shrink-0"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12"
-                        />
-                      </svg>
-                      Sort
-                    </button>
-
-                    {showSortDropdown && (
-                      <div
-                        ref={sortDropdownRef}
-                        className="fixed w-56 rounded-lg shadow-lg bg-white ring-1 ring-black ring-opacity-5 focus:outline-none z-50 max-w-[calc(100vw-2rem)]"
-                        style={getSortDropdownStyle(
-                          sortButtonRef.current,
-                          stackMemberActions ? "left" : "right",
+                      <div className={peopleGridClass}>
+                        {filteredCoreMembers.map((member) =>
+                          renderPersonCard(member),
                         )}
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        <div className="py-1">
-                          <button
-                            type="button"
-                            onClick={() => handleSortSelect("last_name")}
-                            className={`block w-full text-left px-4 py-3 sm:py-2 text-sm min-h-[44px] sm:min-h-0 ${
-                              sortBy === "last_name"
-                                ? "bg-primary/10 text-primary"
-                                : "text-gray-700 hover:bg-gray-50"
-                            }`}
-                          >
-                            Last Name
-                            {sortBy === "last_name" && (
-                              <span className="ml-2">
-                                {sortOrder === "asc" ? "↑" : "↓"}
-                              </span>
-                            )}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleSortSelect("first_name")}
-                            className={`block w-full text-left px-4 py-3 sm:py-2 text-sm min-h-[44px] sm:min-h-0 ${
-                              sortBy === "first_name"
-                                ? "bg-primary/10 text-primary"
-                                : "text-gray-700 hover:bg-gray-50"
-                            }`}
-                          >
-                            First Name
-                            {sortBy === "first_name" && (
-                              <span className="ml-2">
-                                {sortOrder === "asc" ? "↑" : "↓"}
-                              </span>
-                            )}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() =>
-                              handleSortSelect("date_first_attended")
-                            }
-                            className={`block w-full text-left px-4 py-3 sm:py-2 text-sm min-h-[44px] sm:min-h-0 ${
-                              sortBy === "date_first_attended"
-                                ? "bg-primary/10 text-primary"
-                                : "text-gray-700 hover:bg-gray-50"
-                            }`}
-                          >
-                            Date First Attended
-                            {sortBy === "date_first_attended" && (
-                              <span className="ml-2">
-                                {sortOrder === "asc" ? "↑" : "↓"}
-                              </span>
-                            )}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() =>
-                              handleSortSelect("water_baptism_date")
-                            }
-                            className={`block w-full text-left px-4 py-3 sm:py-2 text-sm min-h-[44px] sm:min-h-0 ${
-                              sortBy === "water_baptism_date"
-                                ? "bg-primary/10 text-primary"
-                                : "text-gray-700 hover:bg-gray-50"
-                            }`}
-                          >
-                            Water Baptism Date
-                            {sortBy === "water_baptism_date" && (
-                              <span className="ml-2">
-                                {sortOrder === "asc" ? "↑" : "↓"}
-                              </span>
-                            )}
-                          </button>
+                      </div>
+                    </div>
+                  )}
+                  {filteredVisitors.length > 0 &&
+                    sortedCoreMembers.length > 0 && (
+                      <h3 className="text-base md:text-lg font-semibold text-gray-900 mb-4">
+                        Visitors ({visitorCount})
+                      </h3>
+                    )}
+                  {memberSearch.trim() &&
+                    sortedVisitors.length > 0 &&
+                    filteredVisitors.length > 0 && (
+                      <p className="mb-2 text-xs text-gray-500">
+                        Showing {filteredVisitors.length} of{" "}
+                        {sortedVisitors.length}
+                      </p>
+                    )}
+                  {filteredVisitors.length > 0 && (
+                    <div className="max-h-80 overflow-y-auto pr-1">
+                      <div className={peopleGridClass}>
+                        {filteredVisitors.map((member) =>
+                          renderPersonCard(member),
+                        )}
+                      </div>
+                    </div>
+                  )}
+                  {memberSearch.trim() &&
+                    filteredCoreMembers.length === 0 &&
+                    filteredVisitors.length === 0 && (
+                      <p className="text-sm text-gray-500 italic">
+                        No members match your search
+                      </p>
+                    )}
+                </div>
+              )}
+
+              {/* Families */}
+              {clusterFamilies.length > 0 && (
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                    Families ({clusterFamilies.length})
+                  </h3>
+                  <div
+                    className={`grid gap-2 ${
+                      isPanelMode
+                        ? "grid-cols-1"
+                        : "grid-cols-1 md:grid-cols-2 lg:grid-cols-3"
+                    }`}
+                  >
+                    {clusterFamilies.map((family) => {
+                      const canOpenFamily = Boolean(
+                        family.canOpenProfile && onViewFamily,
+                      );
+                      const memberLabelCount =
+                        family.member_count ?? family.members?.length ?? 0;
+                      return (
+                        <div
+                          key={family.id}
+                          className={`p-2 bg-white border border-gray-200 rounded-md ${
+                            canOpenFamily
+                              ? "cursor-pointer hover:bg-gray-50"
+                              : "cursor-default"
+                          }`}
+                          onClick={() =>
+                            canOpenFamily && onViewFamily?.(family)
+                          }
+                        >
+                          <h4 className="font-medium text-gray-900 text-sm">
+                            {family.name}
+                          </h4>
+                          <p className="text-xs text-gray-600">
+                            {memberLabelCount} members
+                          </p>
+                          {canOpenFamily && family.address && (
+                            <p className="text-xs text-gray-500 mt-1">
+                              {family.address}
+                            </p>
+                          )}
                         </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Empty States */}
+              {clusterMembers.length === 0 &&
+                clusterFamilies.length === 0 &&
+                !displayCoordinator && (
+                  <div className="text-center py-8">
+                    <svg
+                      className="mx-auto h-12 w-12 text-gray-400"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                      strokeWidth={2}
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"
+                      />
+                    </svg>
+                    <h3 className="mt-2 text-sm font-medium text-gray-900">
+                      No members or families
+                    </h3>
+                    <p className="mt-1 text-sm text-gray-500">
+                      This cluster doesn&rsquo;t have any members or families
+                      assigned yet.
+                    </p>
+                    {canManageCluster && (
+                      <div className="mt-4">
+                        <Button
+                          onClick={onAssignMembers}
+                          variant="secondary"
+                          className="!text-white py-2 px-4 text-sm font-normal bg-green-600 border border-green-600 hover:bg-green-700 hover:border-green-700 flex items-center justify-center space-x-2 mx-auto"
+                        >
+                          <svg
+                            className="w-4 h-4"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M12 6v6m0 0v6m0-6h6m-6 0H6"
+                            />
+                          </svg>
+                          <span>Assign Members</span>
+                        </Button>
                       </div>
                     )}
                   </div>
-                  {canManageCluster && (
-                    <Button
-                      onClick={onAssignMembers}
-                      variant="secondary"
-                      className={`!text-white h-10 !py-2.5 md:!py-2 leading-4 !font-medium bg-green-600 border border-green-600 hover:bg-green-700 hover:border-green-700 inline-flex items-center justify-center !min-h-[44px] md:!min-h-0 !rounded-lg whitespace-nowrap ${
-                        stackMemberActions
-                          ? "!w-full min-w-0 !px-1.5 sm:!px-3 text-xs sm:text-sm gap-1 sm:gap-2"
-                          : "w-auto shrink-0 !px-3 text-sm gap-2"
-                      }`}
-                    >
-                      <svg
-                        className="w-4 h-4 shrink-0"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M12 6v6m0 0v6m0-6h6m-6 0H6"
-                        />
-                      </svg>
-                      <span>Assign Members</span>
-                    </Button>
-                  )}
-                  {showSubmitReportButton && (
-                    <Button
-                      onClick={onSubmitReport}
-                      variant="secondary"
-                      className={`!text-primary h-10 !py-2.5 md:!py-2 leading-4 !font-medium bg-white border border-primary/20 hover:bg-primary/10 hover:border-primary/30 inline-flex items-center justify-center !min-h-[44px] md:!min-h-0 !rounded-lg whitespace-nowrap ${
-                        stackMemberActions
-                          ? "!w-full min-w-0 !px-1.5 sm:!px-3 text-xs sm:text-sm gap-1 sm:gap-2"
-                          : "w-auto shrink-0 !px-3 text-sm gap-2"
-                      }`}
-                    >
-                      <svg
-                        className="w-4 h-4 shrink-0"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                        />
-                      </svg>
-                      <span>Submit Report</span>
-                    </Button>
-                  )}
-                </div>
-              </div>
-              <ToolbarSearch
-                value={memberSearch}
-                onChange={setMemberSearch}
-                placeholder="Search members…"
-                ariaLabel="Search members"
-                fullWidth
-                className="mb-2"
-              />
-              {memberSearch.trim() && sortedCoreMembers.length > 0 && (
-                <p className="mb-2 text-xs text-gray-500">
-                  Showing {filteredCoreMembers.length} of{" "}
-                  {sortedCoreMembers.length}
-                </p>
-              )}
-              {filteredCoreMembers.length > 0 && (
-                <div
-                  className={`max-h-80 overflow-y-auto pr-1${
-                    sortedVisitors.length > 0 ? " mb-6" : ""
-                  }`}
-                >
-                  <div className={peopleGridClass}>
-                    {filteredCoreMembers.map((member) =>
-                      renderPersonCard(member),
-                    )}
-                  </div>
-                </div>
-              )}
-              {filteredVisitors.length > 0 &&
-                sortedCoreMembers.length > 0 && (
-                  <h3 className="text-base md:text-lg font-semibold text-gray-900 mb-4">
-                    Visitors ({visitorCount})
-                  </h3>
-                )}
-              {memberSearch.trim() &&
-                sortedVisitors.length > 0 &&
-                filteredVisitors.length > 0 && (
-                <p className="mb-2 text-xs text-gray-500">
-                  Showing {filteredVisitors.length} of {sortedVisitors.length}
-                </p>
-              )}
-              {filteredVisitors.length > 0 && (
-                <div className="max-h-80 overflow-y-auto pr-1">
-                  <div className={peopleGridClass}>
-                    {filteredVisitors.map((member) =>
-                      renderPersonCard(member),
-                    )}
-                  </div>
-                </div>
-              )}
-              {memberSearch.trim() &&
-                filteredCoreMembers.length === 0 &&
-                filteredVisitors.length === 0 && (
-                  <p className="text-sm text-gray-500 italic">
-                    No members match your search
-                  </p>
                 )}
             </div>
           )}
 
-          <ClusterCordsSection
-            clusterId={cluster.id}
-            canManage={canManageCluster}
-            compact={isPanelMode}
-          />
-
-          {showMemberCare && (
-            <div className="rounded-lg border border-gray-200 bg-white">
-              <button
-                type="button"
-                className="flex w-full min-h-[44px] items-center gap-3 px-3 py-3 text-left hover:bg-gray-50"
-                aria-expanded={careExpanded}
-                onClick={() => setCareExpanded((open) => !open)}
-              >
-                <svg
-                  className={`h-5 w-5 shrink-0 text-gray-500 transition-transform ${
-                    careExpanded ? "rotate-90" : ""
-                  }`}
-                  viewBox="0 0 20 20"
-                  fill="currentColor"
-                  aria-hidden
-                >
-                  <path
-                    fillRule="evenodd"
-                    d="M7.21 14.77a.75.75 0 01.02-1.06L11.168 10 7.23 6.29a.75.75 0 111.04-1.08l4.5 4.25a.75.75 0 010 1.08l-4.5 4.25a.75.75 0 01-1.06-.02z"
-                    clipRule="evenodd"
-                  />
-                </svg>
-                <span className="min-w-0 flex-1">
-                  <span className="block text-lg font-semibold text-gray-900">
-                    Cluster Care
-                  </span>
-                  <span className="block text-sm text-gray-600">
-                    Care cases are grouped by 5x5 Cord. Assign follow-up to the
-                    cord sub-coordinator when helpful.
-                  </span>
-                </span>
-                <span className="shrink-0 text-sm font-medium text-primary">
-                  {careExpanded ? "Hide" : "Show cases"}
-                </span>
-              </button>
-              {careExpanded ? (
-                <div className="border-t border-gray-100 px-3 pb-3 pt-2">
-                  <ClusterCareRoster
-                    clusterId={cluster.id}
-                    clusters={[cluster]}
-                    assigneePeople={[
-                      ...clusterMembers,
-                      ...(displayCoordinator ? [displayCoordinator] : []),
-                    ]}
-                    canEdit={canManageCluster}
-                    compact
-                    reloadToken={careReloadToken}
-                    onViewPerson={onViewPerson}
-                    onOpenCase={onEditCareCase}
-                    selectedCaseId={selectedCareCaseId}
-                  />
-                </div>
-              ) : null}
-            </div>
-          )}
-
-          <ClusterProspectsSection
-            clusterId={cluster.id}
-            compact={isPanelMode}
-            onViewPerson={onViewPerson}
-          />
-
-          {/* Families */}
-          {clusterFamilies.length > 0 && (
-            <div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                Families ({clusterFamilies.length})
-              </h3>
-              <div
-                className={`grid gap-2 ${
-                  isPanelMode
-                    ? "grid-cols-1"
-                    : "grid-cols-1 md:grid-cols-2 lg:grid-cols-3"
-                }`}
-              >
-                {clusterFamilies.map((family) => {
-                  const canOpenFamily = Boolean(
-                    family.canOpenProfile && onViewFamily
-                  );
-                  const memberLabelCount =
-                    family.member_count ?? family.members?.length ?? 0;
-                  return (
-                    <div
-                      key={family.id}
-                      className={`p-2 bg-white border border-gray-200 rounded-md ${
-                        canOpenFamily
-                          ? "cursor-pointer hover:bg-gray-50"
-                          : "cursor-default"
-                      }`}
-                      onClick={() =>
-                        canOpenFamily && onViewFamily?.(family)
+          {activeTab === "care" && (
+            <div className="space-y-4 md:space-y-5">
+              <ClusterCordsSection
+                clusterId={cluster.id}
+                canManage={canManageCluster}
+                compact={isPanelMode}
+                onCareFocus={
+                  showMemberCare
+                    ? () => {
+                        careRosterRef.current?.scrollIntoView({
+                          behavior: "smooth",
+                          block: "start",
+                        });
                       }
-                    >
-                      <h4 className="font-medium text-gray-900 text-sm">
-                        {family.name}
-                      </h4>
-                      <p className="text-xs text-gray-600">
-                        {memberLabelCount} members
-                      </p>
-                      {canOpenFamily && family.address && (
-                        <p className="text-xs text-gray-500 mt-1">
-                          {family.address}
-                        </p>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
+                    : undefined
+                }
+              />
+
+              {showMemberCare && (
+                <div
+                  ref={careRosterRef}
+                  className="rounded-lg border border-gray-200 bg-white"
+                >
+                  <div className="border-b border-gray-100 px-3 py-3">
+                    <h3 className="text-base font-semibold text-gray-900 md:text-lg">
+                      Cluster Care
+                    </h3>
+                    <p className="mt-0.5 text-sm text-gray-600">
+                      Cases are grouped by 5x5 Cord. Assign follow-up to the
+                      cord sub-coordinator when helpful.
+                    </p>
+                  </div>
+                  <div className="px-3 pb-3 pt-2">
+                    <ClusterCareRoster
+                      clusterId={cluster.id}
+                      clusters={[cluster]}
+                      assigneePeople={[
+                        ...clusterMembers,
+                        ...(displayCoordinator ? [displayCoordinator] : []),
+                      ]}
+                      canEdit={canManageCluster}
+                      compact
+                      reloadToken={careReloadToken}
+                      onViewPerson={onViewPerson}
+                      onOpenCase={onEditCareCase}
+                      selectedCaseId={selectedCareCaseId}
+                    />
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
-          {/* Empty States */}
-          {clusterMembers.length === 0 &&
-            clusterFamilies.length === 0 &&
-            !displayCoordinator && (
-              <div className="text-center py-8">
-                <svg
-                  className="mx-auto h-12 w-12 text-gray-400"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  strokeWidth={2}
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"
-                  />
-                </svg>
-                <h3 className="mt-2 text-sm font-medium text-gray-900">
-                  No members or families
-                </h3>
-                <p className="mt-1 text-sm text-gray-500">
-                  This cluster doesn&rsquo;t have any members or families
-                  assigned yet.
-                </p>
-                {canManageCluster && (
-                  <div className="mt-4">
-                    <Button
-                      onClick={onAssignMembers}
-                      variant="secondary"
-                      className="!text-white py-2 px-4 text-sm font-normal bg-green-600 border border-green-600 hover:bg-green-700 hover:border-green-700 flex items-center justify-center space-x-2 mx-auto"
-                    >
-                      <svg
-                        className="w-4 h-4"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M12 6v6m0 0v6m0-6h6m-6 0H6"
-                        />
-                      </svg>
-                      <span>Assign Members</span>
-                    </Button>
-                  </div>
-                )}
-              </div>
-            )}
+          {activeTab === "prospects" && (
+            <ClusterProspectsSection
+              clusterId={cluster.id}
+              compact={isPanelMode}
+              onViewPerson={onViewPerson}
+            />
+          )}
         </div>
       </div>
 

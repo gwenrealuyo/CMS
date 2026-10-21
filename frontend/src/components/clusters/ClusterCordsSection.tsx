@@ -19,6 +19,18 @@ import type {
 const VERSE_HOOK =
   "“A cord… is not quickly broken” (Ecc 4:12)—we form small cords of five so each person is held by others.";
 
+/** Nickname only for cord chips; falls back to first name, then full display name. */
+function cordDisplayNickname(person: {
+  nickname?: string | null;
+  first_name?: string | null;
+}): string {
+  const nick = (person.nickname ?? "").trim();
+  if (nick) return nick;
+  const first = (person.first_name ?? "").trim();
+  if (first) return first;
+  return formatPersonName(person);
+}
+
 export default function ClusterCordsSection({
   clusterId,
   canManage = false,
@@ -168,9 +180,13 @@ export default function ClusterCordsSection({
           ) : (
             <ul className="space-y-3">
               {cords.map((cord) => {
+                const subId = cord.sub_coordinator?.id ?? null;
                 const subName = cord.sub_coordinator
-                  ? formatPersonName(cord.sub_coordinator)
+                  ? cordDisplayNickname(cord.sub_coordinator)
                   : null;
+                const memberChips = cord.members_details.filter(
+                  (m) => subId == null || m.id !== subId,
+                );
                 const careOpen = cord.care_summary?.open_count ?? 0;
                 const careAttention =
                   cord.care_summary?.needs_attention_count ?? 0;
@@ -211,17 +227,40 @@ export default function ClusterCordsSection({
                           </span>
                         )}
                       </div>
-                      <div className="mt-2 flex flex-wrap gap-1.5">
-                        {cord.members_details.map((m) => (
-                          <span
-                            key={m.id}
-                            className="inline-flex rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-700"
-                          >
-                            {formatPersonName(m)}
-                            {cord.sub_coordinator?.id === m.id ? " ★" : ""}
-                          </span>
-                        ))}
-                      </div>
+                      {(memberChips.length > 0 ||
+                        (cord.invited_visitors?.length ?? 0) > 0) && (
+                        <div className="mt-2 flex flex-wrap gap-1.5">
+                          {memberChips.map((m) => (
+                            <span
+                              key={m.id}
+                              title={
+                                m.status
+                                  ? formatPersonStatusLabel(m.status)
+                                  : undefined
+                              }
+                              className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${getPersonStatusColor(m.status)}`}
+                            >
+                              {cordDisplayNickname(m)}
+                            </span>
+                          ))}
+                          {(cord.invited_visitors || []).map((v) => (
+                            <span
+                              key={`visitor-${v.id}`}
+                              title={`Visitor${
+                                v.status
+                                  ? ` · ${formatPersonStatusLabel(v.status)}`
+                                  : ""
+                              }`}
+                              className={`inline-flex items-center gap-1 rounded-full border border-dashed border-black/20 px-2 py-0.5 text-xs font-medium ${getPersonStatusColor(v.status)}`}
+                            >
+                              {cordDisplayNickname(v)}
+                              <span className="rounded bg-black/10 px-1 py-px text-[10px] font-medium uppercase tracking-wide">
+                                Visitor
+                              </span>
+                            </span>
+                          ))}
+                        </div>
+                      )}
                       {(careOpen > 0 || careAttention > 0) && (
                         <p className="mt-2 text-xs text-amber-800">
                           Cluster Care: {careOpen} open

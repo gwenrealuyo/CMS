@@ -53,6 +53,7 @@ export function mapPersonToResult(person: Person): GlobalSearchResult {
   const clusterCodes = (person.cluster_codes ?? []).filter(Boolean);
   const branchCode = person.branch_code?.trim() || undefined;
   const memberId = person.member_id?.trim() || undefined;
+  const cordName = person.cord_name?.trim() || undefined;
 
   return {
     id: String(person.id),
@@ -64,6 +65,7 @@ export function mapPersonToResult(person: Person): GlobalSearchResult {
       clusterCodes,
       branchCode,
       memberId,
+      cordName,
     },
   };
 }

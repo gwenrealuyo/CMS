@@ -15,6 +15,7 @@ export interface PersonSearchMeta {
   clusterCodes: string[];
   branchCode?: string;
   memberId?: string;
+  cordName?: string;
 }
 
 export interface GlobalSearchResult {

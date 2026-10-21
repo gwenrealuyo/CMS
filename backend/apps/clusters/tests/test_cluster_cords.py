@@ -271,6 +271,76 @@ class ClusterCordAPITests(APITestCase):
         )
         self.assertEqual(response.status_code, 201, response.data)
 
+    def test_invited_visitors_appear_on_cord(self):
+        a = self._member("host1")
+        b = self._member("host2")
+        visitor = Person.objects.create_user(
+            username="cordvisitor",
+            password="pass12345",
+            first_name="Vina",
+            last_name="Guest",
+            nickname="Vee",
+            role="VISITOR",
+            status="ONGOING",
+            branch=self.branch,
+            inviter=a,
+        )
+        create = self.client.post(
+            f"/api/clusters/clusters/{self.cluster.id}/cords/",
+            {
+                "name": "Visitor Cord",
+                "members": [a.id, b.id],
+                "sub_coordinator_id": a.id,
+            },
+            format="json",
+        )
+        self.assertEqual(create.status_code, 201, create.data)
+        cords = self.client.get(f"/api/clusters/clusters/{self.cluster.id}/cords/")
+        self.assertEqual(cords.status_code, 200)
+        cord_row = next(r for r in cords.data if r["id"] == create.data["id"])
+        visitor_ids = [v["id"] for v in cord_row.get("invited_visitors", [])]
+        self.assertIn(visitor.id, visitor_ids)
+        row = next(v for v in cord_row["invited_visitors"] if v["id"] == visitor.id)
+        self.assertEqual(row["role"], "VISITOR")
+        self.assertTrue(row.get("is_visitor"))
+        self.assertEqual(row["inviter_id"], a.id)
+        self.assertEqual(row["nickname"], "Vee")
+
+    def test_cluster_members_details_includes_member_cord_not_visitor_inviter(self):
+        host = self._member("visithost")
+        visitor = Person.objects.create_user(
+            username="clustervisitor",
+            password="pass12345",
+            first_name="Jorge",
+            last_name="Estrada",
+            role="VISITOR",
+            status="ONGOING",
+            branch=self.branch,
+            inviter=host,
+        )
+        self.cluster.members.add(visitor)
+        create = self.client.post(
+            f"/api/clusters/clusters/{self.cluster.id}/cords/",
+            {
+                "name": "Estrada Cord",
+                "members": [host.id],
+                "sub_coordinator_id": host.id,
+            },
+            format="json",
+        )
+        self.assertEqual(create.status_code, 201, create.data)
+        response = self.client.get(f"/api/clusters/clusters/{self.cluster.id}/")
+        self.assertEqual(response.status_code, 200, response.data)
+        details = response.data.get("members_details") or []
+        visitor_row = next((r for r in details if r["id"] == visitor.id), None)
+        host_row = next((r for r in details if r["id"] == host.id), None)
+        self.assertIsNotNone(visitor_row)
+        self.assertIsNotNone(host_row)
+        self.assertEqual(host_row.get("cord_name"), "Estrada Cord")
+        # Visitors do not inherit inviter cord on existing roster rows.
+        self.assertIsNone(visitor_row.get("cord_id"))
+        self.assertIsNone(visitor_row.get("cord_name"))
+
     def test_eligible_members_marks_assigned(self):
         a = self._member("elig1")
         b = self._member("elig2")
@@ -311,3 +381,44 @@ class ClusterCordAPITests(APITestCase):
         cord = ClusterCord.objects.get(pk=cord_id)
         self.assertFalse(cord.is_active)
         self.assertEqual(cord.memberships.count(), 0)
+
+    def test_people_list_includes_cord_name(self):
+        member = self._member("searchcord", first_name="Brittany", last_name="Hall")
+        create = self.client.post(
+            f"/api/clusters/clusters/{self.cluster.id}/cords/",
+            {
+                "name": "Hall Cord",
+                "members": [member.id],
+                "sub_coordinator_id": member.id,
+            },
+            format="json",
+        )
+        self.assertEqual(create.status_code, 201, create.data)
+        response = self.client.get(
+            "/api/people/people/",
+            {"search": "Brittany", "page_size": 5},
+        )
+        self.assertEqual(response.status_code, 200, response.data)
+        results = response.data.get("results", response.data)
+        row = next((r for r in results if r["id"] == member.id), None)
+        self.assertIsNotNone(row)
+        self.assertEqual(row.get("cord_id"), create.data["id"])
+        self.assertEqual(row.get("cord_name"), "Hall Cord")
+        self.assertIn("CORD-1", row.get("cluster_codes") or [])
+
+    def test_people_retrieve_includes_cord_name(self):
+        member = self._member("profilecord", first_name="Pat", last_name="Cord")
+        create = self.client.post(
+            f"/api/clusters/clusters/{self.cluster.id}/cords/",
+            {
+                "name": "Profile Cord",
+                "members": [member.id],
+                "sub_coordinator_id": member.id,
+            },
+            format="json",
+        )
+        self.assertEqual(create.status_code, 201, create.data)
+        response = self.client.get(f"/api/people/people/{member.id}/")
+        self.assertEqual(response.status_code, 200, response.data)
+        self.assertEqual(response.data.get("cord_id"), create.data["id"])
+        self.assertEqual(response.data.get("cord_name"), "Profile Cord")

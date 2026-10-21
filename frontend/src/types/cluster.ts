@@ -11,6 +11,9 @@ export interface ClusterMemberDetail {
   role: string;
   status?: string;
   photo?: string | null;
+  /** Active 5x5 Cord membership when the person is on a cord. */
+  cord_id?: number | null;
+  cord_name?: string | null;
 }
 
 /** Privacy-safe family summary on cluster browse payloads. */
@@ -118,6 +121,9 @@ export interface ClusterCordPersonSummary {
   display_name?: string;
   status?: string;
   role?: string;
+  /** Present on invited_visitors rows. */
+  inviter_id?: number | null;
+  is_visitor?: boolean;
 }
 
 export interface ClusterCordCareSummary {
@@ -132,6 +138,8 @@ export interface ClusterCord {
   sub_coordinator: ClusterCordPersonSummary | null;
   sub_coordinator_id?: number | null;
   members_details: ClusterCordPersonSummary[];
+  /** Visitors invited by a cord member (display-only; not cord members). */
+  invited_visitors?: ClusterCordPersonSummary[];
   member_count: number;
   size_warning: string | null;
   warnings: string[];

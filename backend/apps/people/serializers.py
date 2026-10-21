@@ -704,6 +704,8 @@ class PersonSerializer(serializers.ModelSerializer):
     cluster_codes = serializers.SerializerMethodField()
     cluster_labels = serializers.SerializerMethodField()
     cluster_memberships = serializers.SerializerMethodField()
+    cord_id = serializers.SerializerMethodField()
+    cord_name = serializers.SerializerMethodField()
     branch_code = serializers.SerializerMethodField()
     family_names = serializers.SerializerMethodField()
     family_ids = serializers.PrimaryKeyRelatedField(
@@ -820,6 +822,8 @@ class PersonSerializer(serializers.ModelSerializer):
             "cluster_codes",
             "cluster_labels",
             "cluster_memberships",
+            "cord_id",
+            "cord_name",
             "family_names",
             "family_ids",
             "cluster_ids",
@@ -1725,6 +1729,21 @@ class PersonSerializer(serializers.ModelSerializer):
     def get_cluster_memberships(self, obj: Person):
         return cluster_membership_payloads(obj)
 
+    def _active_cord_membership(self, obj: Person):
+        from apps.clusters.cords import active_cord_membership_for_person
+
+        return active_cord_membership_for_person(obj.id)
+
+    def get_cord_id(self, obj: Person):
+        membership = self._active_cord_membership(obj)
+        return membership.cord_id if membership else None
+
+    def get_cord_name(self, obj: Person):
+        membership = self._active_cord_membership(obj)
+        if membership is None:
+            return None
+        return membership.cord.name or None
+
     def get_branch_code(self, obj: Person):
         branch = getattr(obj, "branch", None)
         if branch and branch.code:
@@ -1865,6 +1884,8 @@ class PersonListSerializer(serializers.ModelSerializer):
     branch_code = serializers.SerializerMethodField()
     family_names = serializers.SerializerMethodField()
     can_view_profile = serializers.SerializerMethodField()
+    cord_id = serializers.SerializerMethodField()
+    cord_name = serializers.SerializerMethodField()
     cluster_ids = serializers.PrimaryKeyRelatedField(
         source="clusters", many=True, read_only=True
     )
@@ -1905,7 +1926,17 @@ class PersonListSerializer(serializers.ModelSerializer):
             "cluster_ids",
             "family_names",
             "can_view_profile",
+            "cord_id",
+            "cord_name",
         ]
+
+    def _list_cord_membership(self, obj: Person):
+        cord_map = self.context.get("list_cord_by_person")
+        if cord_map is not None:
+            return cord_map.get(obj.id)
+        from apps.clusters.cords import active_cord_membership_for_person
+
+        return active_cord_membership_for_person(obj.id)
 
     def get_cluster_codes(self, obj: Person):
         return [c.code for c in obj.clusters.all() if c.code]
@@ -1921,6 +1952,16 @@ class PersonListSerializer(serializers.ModelSerializer):
 
     def get_family_names(self, obj: Person):
         return [f.name for f in obj.families.all()]
+
+    def get_cord_id(self, obj: Person):
+        membership = self._list_cord_membership(obj)
+        return membership.cord_id if membership else None
+
+    def get_cord_name(self, obj: Person):
+        membership = self._list_cord_membership(obj)
+        if membership is None:
+            return None
+        return membership.cord.name or None
 
     def get_can_view_profile(self, obj: Person):
         request = self.context.get("request")

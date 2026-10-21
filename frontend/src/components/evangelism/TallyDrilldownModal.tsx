@@ -7,6 +7,10 @@ import ErrorMessage from "@/src/components/ui/ErrorMessage";
 import { PaginatedResponse } from "@/src/lib/api";
 import { formatLocaleDate } from "@/src/lib/date";
 import { formatPersonName } from "@/src/lib/name";
+import {
+  formatPersonClusterLabel,
+  getPersonClusterChipClass,
+} from "@/src/lib/personStatus";
 import { EvangelismTallyDrilldownRow } from "@/src/types/evangelism";
 
 interface TallyDrilldownModalProps {
@@ -179,6 +183,18 @@ export default function TallyDrilldownModal({
                         {row.status && (
                           <span className="rounded-full bg-green-50 px-2 py-0.5 text-[11px] font-medium text-green-700">
                             {row.status}
+                          </span>
+                        )}
+                        <span
+                          className={getPersonClusterChipClass(
+                            (row.cluster_codes?.length ?? 0) > 0,
+                          )}
+                        >
+                          {formatPersonClusterLabel(row.cluster_codes)}
+                        </span>
+                        {row.cord_name && (
+                          <span className="inline-flex items-center rounded-full border border-slate-300 bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-800">
+                            {row.cord_name}
                           </span>
                         )}
                       </div>

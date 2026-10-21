@@ -63,6 +63,9 @@ function formatPersonLocation(meta: PersonSearchMeta): string | null {
   if (meta.clusterCodes.length > 0) {
     parts.push(meta.clusterCodes.join(", "));
   }
+  if (meta.cordName) {
+    parts.push(meta.cordName);
+  }
   if (meta.branchCode) {
     parts.push(meta.branchCode);
   }

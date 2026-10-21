@@ -56,7 +56,8 @@ type EntryTab = "manual" | "camera";
 type StationMode = AttendanceMode;
 type CheckInFlash = "success" | "already" | "error";
 
-const SCAN_COOLDOWN_MS = 2000;
+/** Prevents the same QR from firing twice while held in frame. */
+const SCAN_COOLDOWN_MS = 1000;
 const FLASH_DURATION_MS = 700;
 const CHECK_IN_TOAST = {
   duration: 4500,
@@ -215,6 +216,9 @@ export default function EventCheckInView({
   const suggestionsRef = useRef<HTMLDivElement>(null);
   const scanCooldownUntilRef = useRef(0);
   const flashTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pendingCheckInsRef = useRef(0);
+  const inFlightPersonIdsRef = useRef(new Set<string>());
+  const checkedInIdsRef = useRef(new Set<string>());
 
   const triggerFlash = useCallback((kind: CheckInFlash) => {
     if (flashTimeoutRef.current) {
@@ -338,6 +342,18 @@ export default function EventCheckInView({
     () => getCheckedInPersonIds(attendanceRecords),
     [attendanceRecords],
   );
+  checkedInIdsRef.current = checkedInIds;
+
+  const upsertAttendanceRecord = useCallback((record: EventAttendanceRecord) => {
+    setAttendanceRecords((prev) => {
+      const personId = String(record.person.id);
+      const withoutDup = prev.filter(
+        (existing) =>
+          existing.id !== record.id && String(existing.person.id) !== personId,
+      );
+      return [record, ...withoutDup];
+    });
+  }, []);
 
   const expectedIds = useMemo(
     () => new Set(expectedMembers.map((person) => String(person.id))),
@@ -469,9 +485,13 @@ export default function EventCheckInView({
   }, [showSuggestions]);
 
   const checkInPerson = async (person: Person) => {
-    if (!event || submitting) return;
+    if (!event) return;
 
-    if (checkedInIds.has(String(person.id))) {
+    const personId = String(person.id);
+    if (inFlightPersonIdsRef.current.has(personId)) {
+      return;
+    }
+    if (checkedInIdsRef.current.has(personId)) {
       setActionBanner({
         kind: "already",
         message: `${formatPersonName(person)} is already checked in.`,
@@ -499,11 +519,13 @@ export default function EventCheckInView({
       return;
     }
 
+    inFlightPersonIdsRef.current.add(personId);
+    pendingCheckInsRef.current += 1;
     setSubmitting(true);
     setActionBanner(null);
     try {
-      await eventsApi.addAttendance(eventId, {
-        person_id: String(person.id),
+      const response = await eventsApi.addAttendance(eventId, {
+        person_id: personId,
         occurrence_date: occurrenceDate,
         status: "PRESENT",
         attendance_mode: stationMode,
@@ -513,7 +535,8 @@ export default function EventCheckInView({
             ? onlineVenueCode
             : null,
       });
-      await fetchAttendance();
+      upsertAttendanceRecord(response.data.attendance_record);
+      checkedInIdsRef.current.add(personId);
       setEntryValue("");
       setShowSuggestions(false);
       setActionBanner({
@@ -527,12 +550,25 @@ export default function EventCheckInView({
         inputRef.current?.focus();
       }
     } catch (error: unknown) {
-      const statusCode = (
-        error as { response?: { status?: number; data?: { detail?: string } } }
-      )?.response?.status;
-      const detail = (error as { response?: { data?: { detail?: string } } })
-        ?.response?.data?.detail;
+      const axiosError = error as {
+        response?: {
+          status?: number;
+          data?: {
+            detail?: string;
+            attendance_record?: EventAttendanceRecord;
+          };
+        };
+      };
+      const statusCode = axiosError.response?.status;
+      const detail = axiosError.response?.data?.detail;
+      const conflictRecord = axiosError.response?.data?.attendance_record;
       if (statusCode === 409) {
+        if (conflictRecord) {
+          upsertAttendanceRecord(conflictRecord);
+        } else {
+          void fetchAttendance();
+        }
+        checkedInIdsRef.current.add(personId);
         setActionBanner({
           kind: "already",
           message:
@@ -546,7 +582,6 @@ export default function EventCheckInView({
             `${formatPersonName(person)} is already checked in. Mode and venue cannot be changed.`,
         );
         triggerFlash("already");
-        await fetchAttendance();
       } else {
         const message = formatApiErrorMessage(
           error,
@@ -560,12 +595,16 @@ export default function EventCheckInView({
         triggerFlash("error");
       }
     } finally {
-      setSubmitting(false);
+      inFlightPersonIdsRef.current.delete(personId);
+      pendingCheckInsRef.current = Math.max(0, pendingCheckInsRef.current - 1);
+      if (pendingCheckInsRef.current === 0) {
+        setSubmitting(false);
+      }
     }
   };
 
   const handleCheckIn = async () => {
-    if (!event || submitting) return;
+    if (!event || peopleLoading) return;
 
     const resolved = resolvePersonFromEntry(entryValue, checkInCandidates);
     if (!resolved.ok) {
@@ -580,7 +619,7 @@ export default function EventCheckInView({
 
   const handleQrScan = (text: string) => {
     const now = Date.now();
-    if (submitting || now < scanCooldownUntilRef.current) return;
+    if (peopleLoading || now < scanCooldownUntilRef.current) return;
 
     scanCooldownUntilRef.current = now + SCAN_COOLDOWN_MS;
 
@@ -636,7 +675,10 @@ export default function EventCheckInView({
     setRemoveConfirmation((prev) => ({ ...prev, loading: true }));
     try {
       await eventsApi.removeAttendance(eventId, record.id);
-      await fetchAttendance();
+      setAttendanceRecords((prev) =>
+        prev.filter((existing) => existing.id !== record.id),
+      );
+      checkedInIdsRef.current.delete(String(record.person.id));
       setActionBanner({
         kind: "success",
         message: `${formatPersonName(record.person)} removed from check-in.`,
@@ -659,7 +701,7 @@ export default function EventCheckInView({
     }
   };
 
-  if (eventLoading || peopleLoading) {
+  if (eventLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background">
         <LoadingSpinner />
@@ -987,7 +1029,13 @@ export default function EventCheckInView({
           )}
 
           {entryTab === "camera" ? (
-            <CheckInQrScanner onScan={handleQrScan} paused={submitting} />
+            peopleLoading ? (
+              <p className="mt-4 text-sm text-muted-foreground">
+                Loading members for QR lookup…
+              </p>
+            ) : (
+              <CheckInQrScanner onScan={handleQrScan} />
+            )
           ) : (
             <form onSubmit={handleSubmit} className="mt-4 space-y-4">
               <div className="relative" ref={suggestionsRef}>
@@ -1012,8 +1060,9 @@ export default function EventCheckInView({
                       setShowSuggestions(true);
                     }
                   }}
-                      placeholder="Name or LAMP ID..."
+                  placeholder="Name or LAMP ID..."
                   autoComplete="off"
+                  disabled={peopleLoading}
                   className="input-field text-base"
                 />
 
@@ -1033,7 +1082,7 @@ export default function EventCheckInView({
                             <li key={person.id}>
                               <button
                                 type="button"
-                                disabled={alreadyCheckedIn || submitting}
+                                disabled={alreadyCheckedIn || peopleLoading}
                                 onClick={() => handleSelectSuggestion(person)}
                                 className={`flex w-full items-center justify-between gap-3 px-3 py-3 text-left text-sm transition-colors ${
                                   alreadyCheckedIn
@@ -1072,7 +1121,7 @@ export default function EventCheckInView({
               </div>
               <Button
                 type="submit"
-                disabled={submitting || !entryValue.trim()}
+                disabled={peopleLoading || submitting || !entryValue.trim()}
                 className="w-full gap-2 bg-primary hover:bg-lighthouse-navy"
               >
                 <svg

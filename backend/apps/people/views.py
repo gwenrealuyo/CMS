@@ -435,6 +435,25 @@ class PersonViewSet(viewsets.ModelViewSet):
                 context["profile_visible_ids"] = profile_ids
         return context
 
+    def _serialize_people_page(self, people):
+        """Serialize a people page with batched active 5x5 Cord memberships."""
+        from apps.clusters.cords import active_cord_map_for_people
+
+        context = self.get_serializer_context()
+        context["list_cord_by_person"] = active_cord_map_for_people(
+            [person.id for person in people]
+        )
+        return self.get_serializer(people, many=True, context=context)
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.filter_queryset(self.get_queryset())
+        page = self.paginate_queryset(queryset)
+        people = page if page is not None else list(queryset)
+        serializer = self._serialize_people_page(people)
+        if page is not None:
+            return self.get_paginated_response(serializer.data)
+        return Response(serializer.data)
+
     def get_permissions(self):
         """
         Override to set permissions based on action.
@@ -535,10 +554,10 @@ class PersonViewSet(viewsets.ModelViewSet):
             .order_by("last_name", "first_name", "id")
         )
         page = self.paginate_queryset(queryset)
+        people = page if page is not None else list(queryset)
+        serializer = self._serialize_people_page(people)
         if page is not None:
-            serializer = self.get_serializer(page, many=True)
             return self.get_paginated_response(serializer.data)
-        serializer = self.get_serializer(queryset, many=True)
         return Response(serializer.data)
 
 
@@ -713,9 +732,13 @@ class FamilyViewSet(viewsets.ModelViewSet):
 
         paginator = PersonPagination()
         page = paginator.paginate_queryset(people_qs, request, view=self)
-        serializer = PersonListSerializer(
-            page, many=True, context=person_view.get_serializer_context()
+        from apps.clusters.cords import active_cord_map_for_people
+
+        context = person_view.get_serializer_context()
+        context["list_cord_by_person"] = active_cord_map_for_people(
+            [person.id for person in page] if page is not None else []
         )
+        serializer = PersonListSerializer(page, many=True, context=context)
         return paginator.get_paginated_response(serializer.data)
 
     @action(detail=False, methods=["get"], url_path="summary")

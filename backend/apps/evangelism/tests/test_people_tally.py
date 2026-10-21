@@ -3,7 +3,7 @@ from datetime import date, datetime
 from django.utils import timezone
 from rest_framework.test import APITestCase
 
-from apps.clusters.models import Cluster
+from apps.clusters.models import Cluster, ClusterCord, ClusterCordMembership
 from apps.people.models import Branch, Person
 from core.datetime_utils import church_today
 
@@ -247,3 +247,36 @@ class PeopleTallyAPITests(APITestCase):
         self.assertIn(current_year, response.data["years"])
         self.assertEqual(response.data["years"], sorted(response.data["years"], reverse=True))
         self.assertEqual(response.data["default_year"], current_year)
+
+    def test_detail_includes_cluster_codes_and_cord_name(self):
+        member = self._person("tallycord", role="MEMBER", first_name="Cordy")
+        member.water_baptism_date = date(self.year, 5, 10)
+        member.role = "MEMBER"
+        member.save(update_fields=["water_baptism_date", "role"])
+        self.east.members.add(member)
+
+        cord = ClusterCord.objects.create(
+            cluster=self.east,
+            name="Cord Alpha",
+            sub_coordinator=member,
+            is_active=True,
+        )
+        ClusterCordMembership.objects.create(cord=cord, person=member)
+
+        response = self.client.get(
+            DETAIL_URL,
+            {
+                "year": self.year,
+                "branch": self.branch.id,
+                "month": 5,
+                "metric": "baptized",
+                "cluster": self.east.id,
+            },
+        )
+        self.assertEqual(response.status_code, 200, response.data)
+        self.assertEqual(response.data["count"], 1)
+        row = response.data["results"][0]
+        self.assertEqual(row["first_name"], "Cordy")
+        self.assertIn("TALLY-EAST", row.get("cluster_codes") or [])
+        self.assertEqual(row.get("cord_name"), "Cord Alpha")
+        self.assertEqual(row.get("cord_id"), cord.id)

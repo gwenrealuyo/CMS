@@ -15,6 +15,8 @@ function detailToRosterPerson(
   detail: ClusterMemberDetail,
   existing?: PersonUI
 ): ClusterRosterPerson {
+  const cordId = detail.cord_id ?? existing?.cord_id ?? null;
+  const cordName = detail.cord_name ?? existing?.cord_name ?? null;
   if (existing) {
     return {
       ...existing,
@@ -22,6 +24,8 @@ function detailToRosterPerson(
       nickname: existing.nickname || detail.nickname,
       middle_name: existing.middle_name || detail.middle_name,
       suffix: existing.suffix || detail.suffix,
+      cord_id: cordId,
+      cord_name: cordName,
       canOpenProfile: existing.can_view_profile !== false,
     };
   }
@@ -37,6 +41,8 @@ function detailToRosterPerson(
     role: detail.role as Person["role"],
     status: (detail.status as Person["status"]) || "ACTIVE",
     photo: detail.photo ?? undefined,
+    cord_id: cordId,
+    cord_name: cordName,
     canOpenProfile: false,
   };
 }

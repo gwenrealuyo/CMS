@@ -7,6 +7,8 @@ from apps.people.models import MemberCareCase, Person
 from .cords import (
     default_cord_name,
     eligible_members_queryset,
+    invited_visitor_summary,
+    invited_visitors_queryset,
     person_summary,
     set_cord_members,
     size_warning_for_count,
@@ -36,6 +38,7 @@ class ClusterCordSerializer(serializers.ModelSerializer):
         required=False,
     )
     members_details = serializers.SerializerMethodField()
+    invited_visitors = serializers.SerializerMethodField()
     member_count = serializers.SerializerMethodField()
     size_warning = serializers.SerializerMethodField()
     warnings = serializers.SerializerMethodField()
@@ -52,6 +55,7 @@ class ClusterCordSerializer(serializers.ModelSerializer):
             "sub_coordinator_id",
             "members",
             "members_details",
+            "invited_visitors",
             "member_count",
             "size_warning",
             "warnings",
@@ -65,6 +69,7 @@ class ClusterCordSerializer(serializers.ModelSerializer):
             "cluster_id",
             "sub_coordinator",
             "members_details",
+            "invited_visitors",
             "member_count",
             "size_warning",
             "warnings",
@@ -72,7 +77,6 @@ class ClusterCordSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
         ]
-
     def get_sub_coordinator(self, obj):
         return person_summary(obj.sub_coordinator)
 
@@ -84,6 +88,17 @@ class ClusterCordSerializer(serializers.ModelSerializer):
 
     def get_members_details(self, obj):
         return [person_summary(p) for p in self._member_people(obj)]
+
+    def get_invited_visitors(self, obj):
+        """Visitors whose inviter is a member of this cord (display-only on card)."""
+        by_cord = self.context.get("invited_visitors_by_cord")
+        if by_cord is not None:
+            return by_cord.get(obj.id, [])
+        member_ids = [p.id for p in self._member_people(obj)]
+        return [
+            invited_visitor_summary(v)
+            for v in invited_visitors_queryset(member_ids)
+        ]
 
     def get_member_count(self, obj):
         if hasattr(obj, "annotated_member_count"):

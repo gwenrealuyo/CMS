@@ -193,6 +193,9 @@ export interface Person {
   groups?: string[]; // Group IDs
   user_permissions?: string[]; // Permission IDs
   cluster_codes?: string[];
+  /** Active 5x5 Cord (list/search payloads) */
+  cord_id?: number | null;
+  cord_name?: string | null;
   /** Formatted cluster membership for export: "(CODE) Name" */
   cluster_labels?: string[];
   /** Retrieve-only memberships for profile links; omitted from list payloads */

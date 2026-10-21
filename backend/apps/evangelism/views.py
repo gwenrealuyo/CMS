@@ -16,6 +16,7 @@ from apps.attendance.models import AttendanceRecord
 from apps.events.models import Event, EventType
 from apps.people.models import Branch, ModuleCoordinator, Person
 from apps.clusters.models import Cluster, ClusterWeeklyReport
+from apps.clusters.cords import active_cord_map_for_people
 from apps.lessons.models import LessonSessionReport
 from core.datetime_utils import church_calendar_date, church_today
 from apps.authentication.permissions import (
@@ -1045,6 +1046,7 @@ class EvangelismWeeklyReportViewSet(viewsets.ModelViewSet):
         metric: str,
         date_attr: Optional[str] = None,
         date_map: Optional[dict] = None,
+        cord_cluster_id: Optional[int] = None,
     ):
         def get_reached_date(person):
             if hasattr(person, "reached_date") and getattr(person, "reached_date", None):
@@ -1053,13 +1055,18 @@ class EvangelismWeeklyReportViewSet(viewsets.ModelViewSet):
                 return max(person.water_baptism_date, person.spirit_baptism_date)
             return None
 
+        people = list(people_qs.prefetch_related("clusters"))
+        cord_map = active_cord_map_for_people(
+            [p.id for p in people], cluster_id=cord_cluster_id
+        )
         rows = []
-        for person in people_qs:
+        for person in people:
             event_date = None
             if date_map is not None:
                 event_date = date_map.get(person.id)
             elif date_attr:
                 event_date = getattr(person, date_attr, None)
+            membership = cord_map.get(person.id)
             rows.append(
                 {
                     "entity_type": "person",
@@ -1076,6 +1083,11 @@ class EvangelismWeeklyReportViewSet(viewsets.ModelViewSet):
                     "status": person.status,
                     "pipeline_stage": None,
                     "person_id": person.id,
+                    "cluster_codes": [
+                        c.code for c in person.clusters.all() if c.code
+                    ],
+                    "cord_id": membership.cord_id if membership else None,
+                    "cord_name": membership.cord.name if membership else None,
                     "event_date": self._to_date(event_date),
                     "date_first_invited": person.date_first_invited,
                     "date_first_attended": person.date_first_attended,
@@ -1093,6 +1105,7 @@ class EvangelismWeeklyReportViewSet(viewsets.ModelViewSet):
         prospects_qs,
         metric: str,
         date_map_by_person_id: Optional[dict] = None,
+        cord_cluster_id: Optional[int] = None,
     ):
         def get_reached_date(person):
             if not person:
@@ -1100,6 +1113,16 @@ class EvangelismWeeklyReportViewSet(viewsets.ModelViewSet):
             if person.water_baptism_date and person.spirit_baptism_date:
                 return max(person.water_baptism_date, person.spirit_baptism_date)
             return None
+
+        prospects = list(
+            prospects_qs.select_related("person").prefetch_related("person__clusters")
+        )
+        person_ids = [
+            p.person_id for p in prospects if getattr(p, "person_id", None)
+        ]
+        cord_map = active_cord_map_for_people(
+            person_ids, cluster_id=cord_cluster_id
+        )
 
         return [
             {
@@ -1121,6 +1144,21 @@ class EvangelismWeeklyReportViewSet(viewsets.ModelViewSet):
                 "status": prospect.person.status if prospect.person else None,
                 "pipeline_stage": prospect.pipeline_stage,
                 "person_id": prospect.person.id if prospect.person else None,
+                "cluster_codes": (
+                    [c.code for c in prospect.person.clusters.all() if c.code]
+                    if prospect.person
+                    else []
+                ),
+                "cord_id": (
+                    cord_map[prospect.person_id].cord_id
+                    if prospect.person_id and prospect.person_id in cord_map
+                    else None
+                ),
+                "cord_name": (
+                    cord_map[prospect.person_id].cord.name
+                    if prospect.person_id and prospect.person_id in cord_map
+                    else None
+                ),
                 "event_date": self._to_date(
                     date_map_by_person_id.get(prospect.person_id)
                     if date_map_by_person_id and prospect.person_id
@@ -1146,7 +1184,7 @@ class EvangelismWeeklyReportViewSet(viewsets.ModelViewSet):
                 "reached_date": self._to_date(get_reached_date(prospect.person)),
                 "metric": metric,
             }
-            for prospect in prospects_qs
+            for prospect in prospects
         ]
 
     def _paginated_drilldown_response(self, rows):
@@ -1641,6 +1679,8 @@ class EvangelismWeeklyReportViewSet(viewsets.ModelViewSet):
                 base_people.filter(id__in=gp_ids) if gp_ids else base_people.none()
             )
 
+        cord_scope = cluster_id if isinstance(cluster_id, int) else None
+
         if metric == "invited":
             rows = self._serialize_people_rows(
                 base_people.filter(
@@ -1651,6 +1691,7 @@ class EvangelismWeeklyReportViewSet(viewsets.ModelViewSet):
                 ).order_by("first_name", "last_name", "username"),
                 metric,
                 date_attr="date_joined",
+                cord_cluster_id=cord_scope,
             )
         elif metric == "attended":
             rows = self._serialize_people_rows(
@@ -1661,6 +1702,7 @@ class EvangelismWeeklyReportViewSet(viewsets.ModelViewSet):
                 ).order_by("first_name", "last_name", "username"),
                 metric,
                 date_attr="date_first_attended",
+                cord_cluster_id=cord_scope,
             )
         elif metric == "students":
             lesson_base = LessonSessionReport.objects.filter(
@@ -1698,6 +1740,7 @@ class EvangelismWeeklyReportViewSet(viewsets.ModelViewSet):
                 ),
                 metric,
                 date_map=student_dates,
+                cord_cluster_id=cord_scope,
             )
         elif metric == "baptized":
             rows = self._serialize_people_rows(
@@ -1707,6 +1750,7 @@ class EvangelismWeeklyReportViewSet(viewsets.ModelViewSet):
                 ).order_by("first_name", "last_name", "username"),
                 metric,
                 date_attr="water_baptism_date",
+                cord_cluster_id=cord_scope,
             )
         elif metric == "received_hg":
             rows = self._serialize_people_rows(
@@ -1716,6 +1760,7 @@ class EvangelismWeeklyReportViewSet(viewsets.ModelViewSet):
                 ).order_by("first_name", "last_name", "username"),
                 metric,
                 date_attr="spirit_baptism_date",
+                cord_cluster_id=cord_scope,
             )
         elif metric == "reached":
             rows = self._serialize_people_rows(
@@ -1729,6 +1774,7 @@ class EvangelismWeeklyReportViewSet(viewsets.ModelViewSet):
                 .order_by("first_name", "last_name", "username"),
                 metric,
                 date_attr="reached_date",
+                cord_cluster_id=cord_scope,
             )
         else:
             id_sets = people_tally_id_sets(
@@ -1747,6 +1793,7 @@ class EvangelismWeeklyReportViewSet(viewsets.ModelViewSet):
                     "first_name", "last_name", "username"
                 ),
                 metric,
+                cord_cluster_id=cord_scope,
             )
             reached_by_id = {
                 person.id: person.reached_date
@@ -1847,7 +1894,18 @@ class EvangelismWeeklyReportViewSet(viewsets.ModelViewSet):
         people = Person.objects.exclude(role="ADMIN").filter(id__in=person_ids).order_by(
             "first_name", "last_name", "username"
         )
-        rows = self._serialize_people_rows(people, metric, date_map=person_dates)
+        try:
+            cord_scope = int(cluster_id)
+        except (TypeError, ValueError):
+            cord_scope = None
+        if str(cluster_id).lower() in {"null", "none", "unassigned"}:
+            cord_scope = None
+        rows = self._serialize_people_rows(
+            people,
+            metric,
+            date_map=person_dates,
+            cord_cluster_id=cord_scope,
+        )
         return self._paginated_drilldown_response(rows)
 
 

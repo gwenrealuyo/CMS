@@ -472,16 +472,30 @@ class ClusterSerializer(serializers.ModelSerializer):
 
     def get_members_details(self, obj):
         """Roster for cluster browse (no email/phone/address)."""
-        return [
-            {
-                "id": person.id,
-                **_person_roster_name_fields(person),
-                "role": person.role,
-                "status": person.status,
-                "photo": self._person_photo_url(person),
-            }
-            for person in obj.members.exclude(role="ADMIN")
-        ]
+        from apps.clusters.cords import active_cord_map_for_people
+
+        people = list(obj.members.exclude(role="ADMIN"))
+        cord_map = active_cord_map_for_people(
+            [person.id for person in people], cluster_id=obj.id
+        )
+
+        rows = []
+        for person in people:
+            membership = cord_map.get(person.id)
+            rows.append(
+                {
+                    "id": person.id,
+                    **_person_roster_name_fields(person),
+                    "role": person.role,
+                    "status": person.status,
+                    "photo": self._person_photo_url(person),
+                    "cord_id": membership.cord_id if membership else None,
+                    "cord_name": (
+                        membership.cord.name if membership else None
+                    ),
+                }
+            )
+        return rows
 
     def get_families_details(self, obj):
         """Privacy-safe family roster (name + count only; no address/member PII)."""

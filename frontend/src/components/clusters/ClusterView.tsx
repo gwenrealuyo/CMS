@@ -622,6 +622,11 @@ export default function ClusterView({
                 Reporter
               </span>
             )}
+            {member.cord_name?.trim() && (
+              <span className="inline-flex items-center px-1 py-0.5 rounded-full text-[9px] font-medium border border-slate-300 bg-slate-100 text-slate-800">
+                {member.cord_name.trim()}
+              </span>
+            )}
           </div>
         </div>
       </div>

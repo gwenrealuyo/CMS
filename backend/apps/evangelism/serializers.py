@@ -1343,6 +1343,15 @@ class EvangelismTallyDrilldownSerializer(serializers.Serializer):
     status = serializers.CharField(required=False, allow_blank=True, allow_null=True)
     pipeline_stage = serializers.CharField(required=False, allow_blank=True, allow_null=True)
     person_id = serializers.IntegerField(required=False, allow_null=True)
+    cluster_codes = serializers.ListField(
+        child=serializers.CharField(),
+        required=False,
+        allow_empty=True,
+    )
+    cord_id = serializers.IntegerField(required=False, allow_null=True)
+    cord_name = serializers.CharField(
+        required=False, allow_blank=True, allow_null=True
+    )
     event_date = serializers.DateField(required=False, allow_null=True)
     date_first_invited = serializers.DateField(required=False, allow_null=True)
     date_first_attended = serializers.DateField(required=False, allow_null=True)

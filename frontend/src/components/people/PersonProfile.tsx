@@ -889,6 +889,11 @@ export default function PersonProfile({
                           )
                         }
                       />
+                      <ProfileFieldRow
+                        label="5x5 Cord"
+                        value={person.cord_name?.trim() || null}
+                        fallback="None"
+                      />
                     </dl>
                   </section>
 

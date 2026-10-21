@@ -25,7 +25,7 @@ from .cord_serializers import (
     build_care_by_person_for_cluster,
     build_eligible_members_payload,
 )
-from .cords import deactivate_cord
+from .cords import build_invited_visitors_by_cord, deactivate_cord
 from .filters import ClusterFilter
 from .roster_counts import annotate_cluster_roster_counts
 from .report_membership import sync_report_visitors_to_cluster_members
@@ -585,13 +585,15 @@ class ClusterViewSet(viewsets.ModelViewSet):
             return Response(out.data, status=status.HTTP_201_CREATED)
 
         care_by_person = build_care_by_person_for_cluster(cluster)
+        cords = list(self._cord_queryset(cluster))
         serializer = ClusterCordSerializer(
-            self._cord_queryset(cluster),
+            cords,
             many=True,
             context={
                 "request": request,
                 "cluster": cluster,
                 "care_by_person": care_by_person,
+                "invited_visitors_by_cord": build_invited_visitors_by_cord(cords),
             },
         )
         return Response(serializer.data)
@@ -639,6 +641,7 @@ class ClusterCordViewSet(viewsets.ModelViewSet):
             "request": self.request,
             "cluster": cord.cluster,
             "care_by_person": build_care_by_person_for_cluster(cord.cluster),
+            "invited_visitors_by_cord": build_invited_visitors_by_cord([cord]),
         }
 
     def retrieve(self, request, *args, **kwargs):

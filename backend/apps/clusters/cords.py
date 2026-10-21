@@ -79,6 +79,67 @@ def person_summary(person: Optional[Person]) -> Optional[dict]:
     }
 
 
+def invited_visitor_summary(person: Person) -> dict:
+    """Visitor invited by a cord member (not a cord member themselves)."""
+    summary = person_summary(person)
+    assert summary is not None
+    summary["inviter_id"] = person.inviter_id
+    summary["is_visitor"] = True
+    return summary
+
+
+def invited_visitors_queryset(member_ids: Iterable[int]):
+    """VISITOR people invited by any of the given cord members."""
+    ids = list(member_ids)
+    if not ids:
+        return Person.objects.none()
+    return (
+        Person.objects.filter(role="VISITOR", inviter_id__in=ids)
+        .exclude(status="DECEASED")
+        .select_related("inviter")
+        .order_by("nickname", "first_name", "last_name", "id")
+    )
+
+
+def build_invited_visitors_by_cord(cords) -> dict[int, list[dict]]:
+    """Map cord_id → invited visitor summaries for that cord's members."""
+    cord_members: dict[int, set[int]] = {}
+    all_member_ids: set[int] = set()
+    for cord in cords:
+        memberships = getattr(cord, "_prefetched_objects_cache", {}).get(
+            "memberships"
+        )
+        if memberships is not None:
+            member_ids = {m.person_id for m in memberships}
+        else:
+            member_ids = set(cord.memberships.values_list("person_id", flat=True))
+        cord_members[cord.id] = member_ids
+        all_member_ids |= member_ids
+
+    by_inviter: dict[int, list[Person]] = {}
+    for visitor in invited_visitors_queryset(all_member_ids):
+        by_inviter.setdefault(visitor.inviter_id, []).append(visitor)
+
+    result: dict[int, list[dict]] = {cid: [] for cid in cord_members}
+    for cord_id, member_ids in cord_members.items():
+        seen: set[int] = set()
+        rows: list[dict] = []
+        for mid in member_ids:
+            for visitor in by_inviter.get(mid, []):
+                if visitor.id in seen:
+                    continue
+                seen.add(visitor.id)
+                rows.append(invited_visitor_summary(visitor))
+        rows.sort(
+            key=lambda r: (
+                (r.get("nickname") or r.get("first_name") or "").lower(),
+                r.get("id") or 0,
+            )
+        )
+        result[cord_id] = rows
+    return result
+
+
 def validate_cord_member_ids(
     cluster: Cluster,
     member_ids: Iterable[int],
@@ -208,6 +269,33 @@ def active_cord_membership_for_person(
     if cluster_id is not None:
         qs = qs.filter(cord__cluster_id=cluster_id)
     return qs.first()
+
+
+def active_cord_map_for_people(
+    person_ids: Iterable[int], *, cluster_id: Optional[int] = None
+) -> dict[int, ClusterCordMembership]:
+    """
+    Map person_id → first active cord membership (lowest cord_id).
+    Optionally scope to one cluster.
+    """
+    ids = list({int(pid) for pid in person_ids if pid is not None})
+    if not ids:
+        return {}
+    qs = (
+        ClusterCordMembership.objects.filter(
+            person_id__in=ids,
+            cord__is_active=True,
+        )
+        .select_related("cord", "cord__sub_coordinator")
+        .order_by("person_id", "cord_id")
+    )
+    if cluster_id is not None:
+        qs = qs.filter(cord__cluster_id=cluster_id)
+    result: dict[int, ClusterCordMembership] = {}
+    for membership in qs:
+        if membership.person_id not in result:
+            result[membership.person_id] = membership
+    return result
 
 
 def cord_payload_from_membership(

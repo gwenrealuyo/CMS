@@ -204,6 +204,39 @@ def set_cord_members(cord: ClusterCord, member_ids: list[int]) -> None:
             ClusterCordMembership.objects.create(cord=cord, person_id=pid)
 
 
+def assign_person_to_cord(person: Person, cord: ClusterCord) -> ClusterCordMembership:
+    """
+    Place person on an active cord within its cluster.
+    Removes other active-cord memberships in the same cluster first.
+    """
+    if not cord.is_active:
+        raise ValueError("Cannot assign person to an inactive cord.")
+    ClusterCordMembership.objects.filter(
+        person_id=person.id,
+        cord__cluster_id=cord.cluster_id,
+        cord__is_active=True,
+    ).exclude(cord_id=cord.id).delete()
+    membership, _ = ClusterCordMembership.objects.get_or_create(
+        cord=cord, person_id=person.id
+    )
+    return membership
+
+
+def apply_intended_cord_membership(person: Person) -> Optional[ClusterCordMembership]:
+    """
+    If person has intended_cord and is cord-eligible on that cord's cluster,
+    create the membership. Returns the membership or None.
+    """
+    cord = getattr(person, "intended_cord", None)
+    if cord is None:
+        return None
+    if not cord.is_active:
+        return None
+    if not is_person_cord_eligible(person, cord.cluster):
+        return None
+    return assign_person_to_cord(person, cord)
+
+
 def deactivate_cord(cord: ClusterCord) -> ClusterCord:
     """Soft-deactivate a cord and clear memberships so people become unassigned."""
     ClusterCordMembership.objects.filter(cord=cord).delete()

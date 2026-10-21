@@ -266,18 +266,19 @@ def backfill_bible_sharers_roster_from_assignments() -> int:
     if ministry is None:
         return 0
 
+    from apps.people.db_compat import defer_pending_person_fields
+
     hq_group_ids = EvangelismGroup.objects.filter(
         cluster__branch__is_headquarters=True,
     ).values_list("id", flat=True)
-    people = (
+    people = defer_pending_person_fields(
         Person.objects.filter(
             module_coordinator_assignments__module=ModuleCoordinator.ModuleType.EVANGELISM,
             module_coordinator_assignments__level=(
                 ModuleCoordinator.CoordinatorLevel.BIBLE_SHARER
             ),
             module_coordinator_assignments__resource_id__in=hq_group_ids,
-        )
-        .distinct()
+        ).distinct()
     )
     created = 0
     for person in people.iterator():

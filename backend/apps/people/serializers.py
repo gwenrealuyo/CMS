@@ -704,8 +704,10 @@ class PersonSerializer(serializers.ModelSerializer):
     cluster_codes = serializers.SerializerMethodField()
     cluster_labels = serializers.SerializerMethodField()
     cluster_memberships = serializers.SerializerMethodField()
-    cord_id = serializers.SerializerMethodField()
+    # Write: intended cord (ignored when cord_locked). Read set in to_representation.
+    cord_id = serializers.IntegerField(required=False, allow_null=True, write_only=True)
     cord_name = serializers.SerializerMethodField()
+    cord_locked = serializers.SerializerMethodField()
     branch_code = serializers.SerializerMethodField()
     family_names = serializers.SerializerMethodField()
     family_ids = serializers.PrimaryKeyRelatedField(
@@ -824,6 +826,7 @@ class PersonSerializer(serializers.ModelSerializer):
             "cluster_memberships",
             "cord_id",
             "cord_name",
+            "cord_locked",
             "family_names",
             "family_ids",
             "cluster_ids",
@@ -837,6 +840,7 @@ class PersonSerializer(serializers.ModelSerializer):
         extra_kwargs = {
             "username": {"required": False, "allow_blank": True},
         }
+        read_only_fields = ["cord_locked"]
 
     _BLANKABLE_DATE_FIELDS = (
         "date_of_birth",
@@ -1520,6 +1524,7 @@ class PersonSerializer(serializers.ModelSerializer):
 
         commitment_write = self._pop_commitment_write_fields(validated_data)
         verifier_write = self._pop_baptism_verifier_fields(validated_data)
+        cord_id_write = self._pop_cord_id_write(validated_data)
 
         note = validated_data.pop("note", "").strip() if "note" in validated_data else ""
         validated_data.pop("status_change_reason", None)
@@ -1550,6 +1555,7 @@ class PersonSerializer(serializers.ModelSerializer):
         stash_baptism_verifiers(person, **verifier_write)
         person.save()
         self._apply_memberships(person, families=families, clusters=clusters)
+        self._apply_cord_id_write(person, cord_id_write)
 
         if (
             request
@@ -1608,6 +1614,10 @@ class PersonSerializer(serializers.ModelSerializer):
         data["lesson_teacher_display_name"] = (
             enrollment.teacher_display_name() if enrollment else None
         )
+        cord, locked = self._effective_cord(instance)
+        data["cord_id"] = cord.id if cord else None
+        data["cord_name"] = (cord.name or None) if cord else None
+        data["cord_locked"] = locked
         return data
 
     def update(self, instance, validated_data):
@@ -1623,6 +1633,7 @@ class PersonSerializer(serializers.ModelSerializer):
 
         commitment_write = self._pop_commitment_write_fields(validated_data)
         verifier_write = self._pop_baptism_verifier_fields(validated_data)
+        cord_id_write = self._pop_cord_id_write(validated_data)
         stash_baptism_verifiers(instance, **verifier_write)
 
         families = (
@@ -1639,6 +1650,7 @@ class PersonSerializer(serializers.ModelSerializer):
         self._apply_memberships(
             updated_instance, families=families, clusters=clusters
         )
+        self._apply_cord_id_write(updated_instance, cord_id_write)
         self._trigger_legacy_lessons_backfill(
             person=updated_instance,
             previous_has_finished_lessons=previous_has_finished_lessons,
@@ -1734,15 +1746,71 @@ class PersonSerializer(serializers.ModelSerializer):
 
         return active_cord_membership_for_person(obj.id)
 
-    def get_cord_id(self, obj: Person):
+    def _effective_cord(self, obj: Person):
+        """Active membership cord, else intended_cord."""
         membership = self._active_cord_membership(obj)
-        return membership.cord_id if membership else None
+        if membership is not None:
+            return membership.cord, True
+        cord = getattr(obj, "intended_cord", None)
+        if cord is not None and cord.is_active:
+            return cord, False
+        return None, False
 
     def get_cord_name(self, obj: Person):
-        membership = self._active_cord_membership(obj)
-        if membership is None:
+        cord, _locked = self._effective_cord(obj)
+        return (cord.name or None) if cord else None
+
+    def get_cord_locked(self, obj: Person):
+        return self._active_cord_membership(obj) is not None
+
+    def _pop_cord_id_write(self, validated_data: dict):
+        if "cord_id" not in validated_data:
+            return serializers.empty
+        return validated_data.pop("cord_id")
+
+    def _resolve_cord_for_write(self, cord_id):
+        from apps.clusters.models import ClusterCord
+
+        if cord_id is None:
             return None
-        return membership.cord.name or None
+        try:
+            cord = ClusterCord.objects.select_related("cluster").get(pk=cord_id)
+        except ClusterCord.DoesNotExist:
+            raise serializers.ValidationError(
+                {"cord_id": "Unknown 5x5 Cord."}
+            )
+        if not cord.is_active:
+            raise serializers.ValidationError(
+                {"cord_id": "Cannot assign an inactive 5x5 Cord."}
+            )
+        return cord
+
+    def _apply_cord_id_write(self, person: Person, cord_id_write) -> None:
+        """
+        Persist intended_cord when unlocked. For cord-eligible people, also
+        create ClusterCordMembership.
+        """
+        from apps.clusters.cords import (
+            apply_intended_cord_membership,
+            active_cord_membership_for_person,
+        )
+
+        if cord_id_write is serializers.empty:
+            # Still try to apply existing intended cord (e.g. after baptism).
+            person.refresh_from_db()
+            apply_intended_cord_membership(person)
+            return
+
+        if active_cord_membership_for_person(person.id) is not None:
+            # Locked: ignore writes (approval flow later).
+            return
+
+        cord = self._resolve_cord_for_write(cord_id_write)
+        if cord is not None and not person.clusters.filter(id=cord.cluster_id).exists():
+            person.clusters.add(cord.cluster)
+        person.intended_cord = cord
+        person.save(update_fields=["intended_cord"])
+        apply_intended_cord_membership(person)
 
     def get_branch_code(self, obj: Person):
         branch = getattr(obj, "branch", None)
@@ -1938,6 +2006,15 @@ class PersonListSerializer(serializers.ModelSerializer):
 
         return active_cord_membership_for_person(obj.id)
 
+    def _list_effective_cord(self, obj: Person):
+        membership = self._list_cord_membership(obj)
+        if membership is not None:
+            return membership.cord
+        cord = getattr(obj, "intended_cord", None)
+        if cord is not None and cord.is_active:
+            return cord
+        return None
+
     def get_cluster_codes(self, obj: Person):
         return [c.code for c in obj.clusters.all() if c.code]
 
@@ -1954,14 +2031,12 @@ class PersonListSerializer(serializers.ModelSerializer):
         return [f.name for f in obj.families.all()]
 
     def get_cord_id(self, obj: Person):
-        membership = self._list_cord_membership(obj)
-        return membership.cord_id if membership else None
+        cord = self._list_effective_cord(obj)
+        return cord.id if cord else None
 
     def get_cord_name(self, obj: Person):
-        membership = self._list_cord_membership(obj)
-        if membership is None:
-            return None
-        return membership.cord.name or None
+        cord = self._list_effective_cord(obj)
+        return (cord.name or None) if cord else None
 
     def get_can_view_profile(self, obj: Person):
         request = self.context.get("request")

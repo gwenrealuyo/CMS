@@ -187,10 +187,14 @@ def sync_ncc_support_coordinator_access(
     """Grant/revoke Lessons Coordinator rows for an NCC ministry's support list."""
     if not is_ncc_ministry(ministry):
         return
-    for person in ministry.support_coordinators.all():
+    from apps.people.db_compat import defer_pending_person_fields
+
+    for person in defer_pending_person_fields(ministry.support_coordinators.all()):
         grant_lessons_coordinator_access(person)
     for person_id in set(removed_support_ids or []):
-        person = Person.objects.filter(pk=person_id).first()
+        person = defer_pending_person_fields(
+            Person.objects.filter(pk=person_id)
+        ).first()
         if person:
             revoke_lessons_coordinator_access(person)
 
@@ -362,8 +366,10 @@ def backfill_ncc_roster_from_lessons_teachers() -> int:
     """
     from apps.lessons.models import LessonStudentEnrollment
 
+    from apps.people.db_compat import defer_pending_person_fields
+
     created = 0
-    coordinator_people = (
+    coordinator_people = defer_pending_person_fields(
         Person.objects.filter(
             branch__isnull=False,
             module_coordinator_assignments__module=ModuleCoordinator.ModuleType.LESSONS,
@@ -379,6 +385,7 @@ def backfill_ncc_roster_from_lessons_teachers() -> int:
     enrollments = (
         LessonStudentEnrollment.objects.filter(teacher__isnull=False)
         .select_related("teacher", "student__branch")
+        .defer("teacher__intended_cord", "student__intended_cord")
         .iterator()
     )
     for enrollment in enrollments:

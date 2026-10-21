@@ -91,7 +91,11 @@ class PersonPagination(PageNumberPagination):
 
 class PersonViewSet(viewsets.ModelViewSet):
     queryset = Person.objects.all().select_related(
-        "branch", "first_activity_attended", "lesson_enrollment", "inviter"
+        "branch",
+        "first_activity_attended",
+        "lesson_enrollment",
+        "inviter",
+        "intended_cord",
     ).prefetch_related("clusters", "families")
     serializer_class = PersonSerializer
     pagination_class = PersonPagination

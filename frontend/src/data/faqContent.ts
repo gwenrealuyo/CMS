@@ -100,6 +100,18 @@ export const faqCategories: FaqCategory[] = [
         answer:
           "Use People → Families to create a household, assign a family leader, add members, and optionally link the family to a cluster. Creating and editing families is available to Admins, Pastors, and Cluster coordinators (senior or non-senior). Plain Members can view their own family but cannot create or edit, and do not see the unassigned-members list.",
       },
+      {
+        id: "person-form-5x5-cord",
+        question: "How do I set a person’s 5x5 Cord on the People form?",
+        answer:
+          "On create or edit, the Relationships section includes Cluster and 5x5 Cord. Choosing an inviter can prefill that person’s cluster and cord; you can still pick a different cluster or cord afterward. Visitors store the chosen cord as their intended cord until they become members (for example after water baptism)—then it becomes their real cord membership. If someone already has an active cord membership, the cord field is read-only for now (cord changes will use an approval flow later).",
+      },
+      {
+        id: "where-cord-name-shows",
+        question: "Where does a person’s 5x5 Cord name appear?",
+        answer:
+          "When a person has a cord (active membership, or an intended cord for a visitor), the cord name shows on their People profile Quick Facts, in global search under People results (with status, cluster code, and branch), and in Evangelism People Tally (E1R1) drilldown rows next to role and status. Cluster member cards also show a cord chip when they are on a cord.",
+      },
     ],
   },
   {
@@ -134,7 +146,7 @@ export const faqCategories: FaqCategory[] = [
         id: "what-is-5x5-cord",
         question: "What is a 5x5 Cord?",
         answer:
-          "A 5x5 Cord is a small care group of about five people inside a cluster. Cords do not replace cluster gatherings—they help members check on and follow up with each other so no one drifts alone. The idea comes from Ecclesiastes 4:12: “A cord… is not quickly broken”—we form small cords of five so each person is held by others. Only ACTIVE and SEMIACTIVE cluster members are included (not visitors or fully inactive people). Family members do not have to be in the same cord.",
+          "A 5x5 Cord is a small care group of about five people inside a cluster. Cords do not replace cluster gatherings—they help members check on and follow up with each other so no one drifts alone. The idea comes from Ecclesiastes 4:12: “A cord… is not quickly broken”—we form small cords of five so each person is held by others. Only ACTIVE and SEMIACTIVE cluster members are cord members (not visitors or fully inactive people). Family members do not have to be in the same cord. Cord cards list members by nickname (when set) and show visitors invited by those members with a Visitor badge—those visitors are display-only, not cord members.",
       },
       {
         id: "who-manages-5x5-cords",
@@ -153,6 +165,12 @@ export const faqCategories: FaqCategory[] = [
         question: "What does “Unassigned eligible” mean on a cluster?",
         answer:
           "It lists ACTIVE and SEMIACTIVE cluster members who are not yet in any 5x5 Cord. The section is collapsed by default—click the header to expand and see who still needs to be grouped. Soft target size is five members per cord; smaller or larger cords are allowed with a size warning.",
+      },
+      {
+        id: "5x5-visitor-intended-cord",
+        question: "Do visitors join a 5x5 Cord?",
+        answer:
+          "Visitors are not cord members. On a cord card you may see invited visitors (people whose inviter is on that cord) with a Visitor badge for awareness only. When you create or edit a visitor on the People form, you can set an intended 5x5 Cord (often prefilled from their inviter). That intended cord is kept until they become a member; then it becomes their real cord. Existing visitors are not backfilled automatically—only new or updated records going forward.",
       },
     ],
   },
@@ -236,7 +254,7 @@ export const faqCategories: FaqCategory[] = [
         id: "search-quick-actions",
         question: "How do search and the + menu work?",
         answer:
-          "The top search bar finds people, families, clusters, events, ministries, evangelism groups, Sunday School classes, and prospects. The + menu offers quick actions (Add Visitor, Submit Report, Create Event, and more) based on your role.",
+          "The top search bar finds people, families, clusters, events, ministries, evangelism groups, Sunday School classes, and prospects. People results show status plus cluster code, 5x5 Cord name (when set), and branch. The + menu offers quick actions (Add Visitor, Submit Report, Create Event, and more) based on your role.",
       },
       {
         id: "notifications",

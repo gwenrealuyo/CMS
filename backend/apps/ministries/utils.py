@@ -46,9 +46,19 @@ def sync_coordinators_to_members(ministry, *, removed_support_ids=None):
     For NCC ministries, also grants/revokes a non-senior Lessons Coordinator
     ModuleCoordinator row when support coordinators are added or removed.
     """
-    # Track current coordinators
-    current_primary = ministry.primary_coordinator
-    current_support = set(ministry.support_coordinators.all())
+    from apps.people.db_compat import defer_pending_person_fields
+    from apps.people.models import Person
+
+    # Track current coordinators (defer pending Person columns for mid-migrate seeds)
+    if ministry.primary_coordinator_id:
+        current_primary = defer_pending_person_fields(Person.objects.filter(
+            pk=ministry.primary_coordinator_id
+        )).first()
+    else:
+        current_primary = None
+    current_support = set(
+        defer_pending_person_fields(ministry.support_coordinators.all())
+    )
     demoted_member_ids = set()
 
     # Sync primary coordinator

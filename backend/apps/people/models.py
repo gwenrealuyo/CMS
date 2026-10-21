@@ -101,6 +101,15 @@ class Person(AbstractUser):
         on_delete=models.SET_NULL,
         related_name="invited_people",
     )
+    # Preferred 5x5 Cord before active membership exists (e.g. visitors).
+    # Applied as ClusterCordMembership when the person becomes cord-eligible.
+    intended_cord = models.ForeignKey(
+        "clusters.ClusterCord",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="intended_people",
+    )
     branch = models.ForeignKey(
         Branch,
         on_delete=models.SET_NULL,

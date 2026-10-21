@@ -422,3 +422,161 @@ class ClusterCordAPITests(APITestCase):
         self.assertEqual(response.status_code, 200, response.data)
         self.assertEqual(response.data.get("cord_id"), create.data["id"])
         self.assertEqual(response.data.get("cord_name"), "Profile Cord")
+        self.assertTrue(response.data.get("cord_locked"))
+
+    def test_visitor_create_stores_intended_cord_without_membership(self):
+        host = self._member("intendedhost")
+        create = self.client.post(
+            f"/api/clusters/clusters/{self.cluster.id}/cords/",
+            {
+                "name": "Intended Cord",
+                "members": [host.id],
+                "sub_coordinator_id": host.id,
+            },
+            format="json",
+        )
+        self.assertEqual(create.status_code, 201, create.data)
+        cord_id = create.data["id"]
+        response = self.client.post(
+            "/api/people/people/",
+            {
+                "first_name": "Vina",
+                "last_name": "Guest",
+                "role": "VISITOR",
+                "status": "ONGOING",
+                "branch": self.branch.id,
+                "cluster_ids": [self.cluster.id],
+                "cord_id": cord_id,
+                "inviter": host.id,
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, 201, response.data)
+        person = Person.objects.get(pk=response.data["id"])
+        self.assertEqual(person.intended_cord_id, cord_id)
+        self.assertFalse(
+            ClusterCordMembership.objects.filter(person=person).exists()
+        )
+        self.assertEqual(response.data.get("cord_id"), cord_id)
+        self.assertEqual(response.data.get("cord_name"), "Intended Cord")
+        self.assertFalse(response.data.get("cord_locked"))
+
+    def test_baptism_promotion_applies_intended_cord_membership(self):
+        host = self._member("promhost")
+        create = self.client.post(
+            f"/api/clusters/clusters/{self.cluster.id}/cords/",
+            {
+                "name": "Promote Cord",
+                "members": [host.id],
+                "sub_coordinator_id": host.id,
+            },
+            format="json",
+        )
+        self.assertEqual(create.status_code, 201, create.data)
+        cord_id = create.data["id"]
+        visitor = Person.objects.create_user(
+            username="promvisitor",
+            password="pass12345",
+            first_name="Prom",
+            last_name="Visitor",
+            role="VISITOR",
+            status="ONGOING",
+            branch=self.branch,
+            inviter=host,
+            intended_cord_id=cord_id,
+        )
+        self.cluster.members.add(visitor)
+        response = self.client.patch(
+            f"/api/people/people/{visitor.id}/",
+            {"water_baptism_date": date(2024, 6, 15).isoformat()},
+            format="json",
+        )
+        self.assertEqual(response.status_code, 200, response.data)
+        visitor.refresh_from_db()
+        self.assertEqual(visitor.role, "MEMBER")
+        self.assertTrue(
+            ClusterCordMembership.objects.filter(
+                person=visitor, cord_id=cord_id
+            ).exists()
+        )
+        self.assertEqual(response.data.get("cord_id"), cord_id)
+        self.assertTrue(response.data.get("cord_locked"))
+
+    def test_cord_locked_ignores_cord_id_write(self):
+        a = self._member("locka")
+        b = self._member("lockb")
+        first = self.client.post(
+            f"/api/clusters/clusters/{self.cluster.id}/cords/",
+            {
+                "name": "First Lock Cord",
+                "members": [a.id],
+                "sub_coordinator_id": a.id,
+            },
+            format="json",
+        )
+        self.assertEqual(first.status_code, 201, first.data)
+        second = self.client.post(
+            f"/api/clusters/clusters/{self.cluster.id}/cords/",
+            {
+                "name": "Second Lock Cord",
+                "members": [b.id],
+                "sub_coordinator_id": b.id,
+            },
+            format="json",
+        )
+        self.assertEqual(second.status_code, 201, second.data)
+        response = self.client.patch(
+            f"/api/people/people/{a.id}/",
+            {"cord_id": second.data["id"]},
+            format="json",
+        )
+        self.assertEqual(response.status_code, 200, response.data)
+        self.assertEqual(response.data.get("cord_id"), first.data["id"])
+        self.assertTrue(response.data.get("cord_locked"))
+        self.assertTrue(
+            ClusterCordMembership.objects.filter(
+                person=a, cord_id=first.data["id"]
+            ).exists()
+        )
+        self.assertFalse(
+            ClusterCordMembership.objects.filter(
+                person=a, cord_id=second.data["id"]
+            ).exists()
+        )
+
+    def test_member_create_with_cord_id_creates_membership(self):
+        host = self._member("memhost")
+        create = self.client.post(
+            f"/api/clusters/clusters/{self.cluster.id}/cords/",
+            {
+                "name": "Member Cord",
+                "members": [host.id],
+                "sub_coordinator_id": host.id,
+            },
+            format="json",
+        )
+        self.assertEqual(create.status_code, 201, create.data)
+        cord_id = create.data["id"]
+        response = self.client.post(
+            "/api/people/people/",
+            {
+                "first_name": "New",
+                "last_name": "Member",
+                "role": "MEMBER",
+                "status": "ACTIVE",
+                "water_baptism_date": date(2020, 1, 1).isoformat(),
+                "branch": self.branch.id,
+                "cluster_ids": [self.cluster.id],
+                "cord_id": cord_id,
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, 201, response.data)
+        person = Person.objects.get(pk=response.data["id"])
+        self.assertEqual(person.intended_cord_id, cord_id)
+        self.assertTrue(
+            ClusterCordMembership.objects.filter(
+                person=person, cord_id=cord_id
+            ).exists()
+        )
+        self.assertTrue(response.data.get("cord_locked"))

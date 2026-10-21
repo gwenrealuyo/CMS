@@ -339,7 +339,7 @@ Coordinators, reporters, admins, pastors, and cluster senior coordinators can ma
 - The cluster view shows the roster when a recent Sunday exists. Each row uses the member’s nickname, or first name when nickname is blank. The events attendance report counts those rows as **Added later** while they still count as Present. Removing a catch-up asks for confirmation first.
 - A senior coordinator of a module other than Cluster does not get this unless they are also admin, pastor, or assigned on that cluster.
 
-**Module coordinator assignments** (People admin): Coordinators on Cluster, Evangelism, or Sunday School must have a resource in the assignee's branch; module-wide rows are **Senior Coordinator** only. **Cluster Reporter** is CLUSTER-only, resource-specific, and grants report submission without cluster management. After deploy on databases with legacy data, run once:
+**Module coordinator assignments** (People admin): Coordinators on Cluster, Evangelism, or Sunday School must have a resource in the assignee's branch; module-wide rows are **Senior Coordinator** only. **Cluster Assistant Coordinator** is CLUSTER-only, resource-specific, and grants near-parity day-to-day ops (identity, members, families, reports, care, people create/export) without leadership assignment (named coordinator / assistants / reporters) or deactivate/delete. **Cluster Reporter** is CLUSTER-only, resource-specific, and grants report submission without cluster management. After deploy on databases with legacy data, run once:
 
 ```bash
 python manage.py normalize_module_wide_coordinators --dry-run
@@ -380,12 +380,13 @@ The page uses tabs similar to the Lessons page:
     - Edit/Delete actions
   - Primary **Add Cluster** vs **Submit Report** in the page header depends on module-wide access (see **Clusters homepage / CTAs** above); no secondary create button on this hub for non-module-wide users
 - **`ClusterForm`**: Form component for creating/editing clusters
+  - **Leadership fields**: Coordinator, Assistants (`assistant_ids`), and Reporters (`reporter_ids`) — editable only by the named coordinator (or admin/pastor/senior). Assistants editing the form see identity + members/families only.
   - **Real-Time Family-Member Sync**: When a family is added to the form, all family members immediately appear in the members field before submitting
   - **Family Removal**: When a family is removed from the form, all its members are automatically removed from the members list
   - **Manual Member Control**: Users can manually add or remove individual members regardless of family assignments
   - **Search Functionality**: Searchable inputs for families and members with dropdown suggestions
   - **Visual Feedback**: Selected families and members are displayed as chips/cards with remove buttons
-- **`ClusterView`**: Cluster detail includes members/visitors, a **Change status** action on each roster card (cluster managers only; same `status` + `status_change_reason` rules as the person form), a **Cluster Care** section (open caseload for that cluster), families, and a **Prospects** section (`ClusterProspectsSection`) listing **invited** (not yet attended) visitors for that cluster (inviter or endorsed). **Update** opens **Mark attended**. **View** (opens Evangelism Prospects in a new tab) appears for senior coordinators, pastors, and admins.
+- **`ClusterView`**: Cluster detail includes members/visitors, a **Change status** action on each roster card (operators only; same `status` + `status_change_reason` rules as the person form), assistant/reporter badges on the roster, a **Cluster Care** section (open caseload for that cluster), families, and a **Prospects** section (`ClusterProspectsSection`) listing **invited** (not yet attended) visitors for that cluster (inviter or endorsed). **Update** opens **Mark attended**. **View** (opens Evangelism Prospects in a new tab) appears for senior coordinators, pastors, and admins. Mark Inactive / hard delete stay named-coordinator+.
 - **Care Tab** (`ClusterCareRoster`): Cluster Care caseload of `MemberCareCase` rows (attendance status, name, details, recommended action, who, when, status, remarks). Stat cards for **Open caseload**, **Needs attention**, and **No action** filter the list. Desktop spreadsheet; mobile stacked cards. Click a row to edit in the right-side panel (same panel as cluster/person/family). Default hides recovered/completed. Setting recommended action to **No action for now** keeps the person on the list (`case_status=NO_ACTION`). Deep link: `/clusters?tab=care`.
 - **Reports Tab**:
   - Non-senior cluster coordinators see **managed clusters only** in filters, analytics, and the report form (API enforces the same scope).

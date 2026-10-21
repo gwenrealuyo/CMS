@@ -352,6 +352,7 @@ class HasModuleAccess(permissions.BasePermission):
                 if mod_assignments.filter(
                     level__in=(
                         ModuleCoordinator.CoordinatorLevel.COORDINATOR,
+                        ModuleCoordinator.CoordinatorLevel.ASSISTANT_COORDINATOR,
                         ModuleCoordinator.CoordinatorLevel.SENIOR_COORDINATOR,
                     )
                 ).exists():

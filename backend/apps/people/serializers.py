@@ -1814,16 +1814,11 @@ class PersonSerializer(serializers.ModelSerializer):
             if user.is_senior_coordinator(module):
                 return True
 
-        # 4. Cluster Coordinator - check if person is in their cluster(s)
-        if user.is_module_coordinator(
-            ModuleCoordinator.ModuleType.CLUSTER,
-            level=ModuleCoordinator.CoordinatorLevel.COORDINATOR,
-        ):
-            from apps.clusters.permissions import managed_cluster_ids_for_coordinator
+        # 4. Cluster Coordinator / Assistant - person in operated cluster(s)
+        from apps.clusters.permissions import managed_cluster_ids_for_operator
 
-            cluster_ids = managed_cluster_ids_for_coordinator(user)
-            if not cluster_ids:
-                return False
+        cluster_ids = managed_cluster_ids_for_operator(user)
+        if cluster_ids:
             return obj.clusters.filter(id__in=cluster_ids).exists()
 
         return False

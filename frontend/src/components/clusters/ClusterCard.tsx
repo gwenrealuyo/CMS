@@ -25,6 +25,8 @@ interface ClusterCardProps {
   onHardDelete?: () => void;
   /** When false, cluster actions menu is view-only. Default true. */
   canManageCluster?: boolean;
+  /** When false, Mark Inactive / hard delete are hidden (assistants). */
+  canDeactivateCluster?: boolean;
 }
 
 const ClusterCard = memo(
@@ -39,7 +41,12 @@ const ClusterCard = memo(
     onDelete,
     onHardDelete,
     canManageCluster = true,
+    canDeactivateCluster,
   }: ClusterCardProps) => {
+    const allowDeactivate =
+      canDeactivateCluster !== undefined
+        ? canDeactivateCluster
+        : canManageCluster;
     const { branches } = useBranches();
     
     // Find the branch for this cluster
@@ -259,6 +266,7 @@ const ClusterCard = memo(
               onDelete={onDelete}
               onHardDelete={onHardDelete}
               showEditDelete={canManageCluster}
+              showDelete={allowDeactivate}
               labels={{
                 view: "View Cluster",
                 edit: "Edit Cluster",

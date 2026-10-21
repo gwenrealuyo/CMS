@@ -30,8 +30,8 @@ VITAL_DATE_ATTRS = (
 
 def user_can_edit_vital_dates(actor: Person | None, person: Person | None) -> bool:
     """
-    ADMIN / PASTOR / CLUSTER senior / CLUSTER coordinator of a cluster
-    that includes the person.
+    ADMIN / PASTOR / CLUSTER senior / CLUSTER coordinator or assistant of a
+    cluster that includes the person.
     """
     if not actor or not getattr(actor, "is_authenticated", False):
         return False
@@ -41,9 +41,9 @@ def user_can_edit_vital_dates(actor: Person | None, person: Person | None) -> bo
         return True
     if person is None or not getattr(person, "pk", None):
         return False
-    from apps.clusters.permissions import managed_cluster_ids_for_coordinator
+    from apps.clusters.permissions import managed_cluster_ids_for_operator
 
-    managed_ids = managed_cluster_ids_for_coordinator(actor)
+    managed_ids = managed_cluster_ids_for_operator(actor)
     if not managed_ids:
         return False
     return person.clusters.filter(id__in=managed_ids).exists()

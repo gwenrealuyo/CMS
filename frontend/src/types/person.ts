@@ -260,6 +260,7 @@ export interface ModuleCoordinator {
   module_display?: string;
   level:
     | "COORDINATOR"
+    | "ASSISTANT_COORDINATOR"
     | "SENIOR_COORDINATOR"
     | "TEACHER"
     | "BIBLE_SHARER"

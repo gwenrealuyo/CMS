@@ -10,6 +10,7 @@ ROOM_MANAGE_LEVELS = (
 )
 REQUEST_BOOKING_LEVELS = (
     ModuleCoordinator.CoordinatorLevel.COORDINATOR,
+    ModuleCoordinator.CoordinatorLevel.ASSISTANT_COORDINATOR,
     ModuleCoordinator.CoordinatorLevel.SENIOR_COORDINATOR,
 )
 NON_EVENTS_MODULES = (

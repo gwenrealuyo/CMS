@@ -194,32 +194,22 @@ class PersonViewSet(viewsets.ModelViewSet):
         # Collect people from all module assignments
         people_querysets = []
 
-        # 1. Cluster Coordinator
+        # 1. Cluster Coordinator / Assistant
         from apps.clusters.models import Cluster
-        from apps.clusters.permissions import is_non_senior_cluster_coordinator
+        from apps.clusters.permissions import (
+            is_non_senior_cluster_assistant,
+            is_non_senior_cluster_coordinator,
+            managed_cluster_ids_for_operator,
+        )
 
-        coordinator_assignments = user.module_coordinator_assignments.filter(
-            module=ModuleCoordinator.ModuleType.CLUSTER,
-            level=ModuleCoordinator.CoordinatorLevel.COORDINATOR,
-        )
-        is_cluster_coord = (
-            coordinator_assignments.exists()
-            or Cluster.objects.filter(coordinator=user).exists()
-        )
-        if is_cluster_coord and is_non_senior_cluster_coordinator(user):
+        is_cluster_operator = is_non_senior_cluster_coordinator(
+            user
+        ) or is_non_senior_cluster_assistant(user)
+        if is_cluster_operator:
             if for_profile:
-                # Profile: only members (and family members) of managed clusters
-                cluster_ids = [
-                    assignment.resource_id
-                    for assignment in coordinator_assignments
-                    if assignment.resource_id
-                ]
-                coordinator_clusters = Cluster.objects.filter(coordinator=user)
-                if cluster_ids:
-                    assigned_clusters = Cluster.objects.filter(id__in=cluster_ids)
-                    all_clusters = (coordinator_clusters | assigned_clusters).distinct()
-                else:
-                    all_clusters = coordinator_clusters
+                # Profile: only members (and family members) of operated clusters
+                operated_ids = managed_cluster_ids_for_operator(user)
+                all_clusters = Cluster.objects.filter(id__in=operated_ids)
 
                 cluster_member_ids = all_clusters.values_list(
                     "members__id", flat=True
@@ -615,27 +605,14 @@ class FamilyViewSet(viewsets.ModelViewSet):
         elif user.is_senior_coordinator():
             scoped = filter_families_by_branch(queryset)
         else:
-            # Cluster Coordinator: Families in their assigned cluster(s) + families of cluster members
-            coordinator_assignments = user.module_coordinator_assignments.filter(
-                module=ModuleCoordinator.ModuleType.CLUSTER,
-                level=ModuleCoordinator.CoordinatorLevel.COORDINATOR,
-            )
-            if coordinator_assignments.exists():
-                from apps.clusters.models import Cluster
+            # Cluster Coordinator / Assistant: Families in operated cluster(s)
+            # + families of cluster members
+            from apps.clusters.models import Cluster
+            from apps.clusters.permissions import managed_cluster_ids_for_operator
 
-                # Get clusters from ModuleCoordinator assignments
-                cluster_ids = [
-                    assignment.resource_id
-                    for assignment in coordinator_assignments
-                    if assignment.resource_id
-                ]
-                # Also get clusters where user is the coordinator
-                coordinator_clusters = Cluster.objects.filter(coordinator=user)
-                if cluster_ids:
-                    assigned_clusters = Cluster.objects.filter(id__in=cluster_ids)
-                    all_clusters = (coordinator_clusters | assigned_clusters).distinct()
-                else:
-                    all_clusters = coordinator_clusters
+            operated_ids = managed_cluster_ids_for_operator(user)
+            if operated_ids:
+                all_clusters = Cluster.objects.filter(id__in=operated_ids)
 
                 # Get families directly connected to these clusters
                 directly_connected_families = queryset.filter(
@@ -651,7 +628,7 @@ class FamilyViewSet(viewsets.ModelViewSet):
                     members__id__in=cluster_member_ids
                 ).distinct()
 
-                # Return union of both (cluster coordinators see cluster-linked families
+                # Return union of both (operators see cluster-linked families
                 # even when member branches differ — parity with PersonViewSet)
                 combined_families = (
                     directly_connected_families | families_of_members
@@ -850,19 +827,15 @@ class JourneyViewSet(viewsets.ModelViewSet):
             if user.is_senior_coordinator(module):
                 return filter_journeys_by_branch(queryset)
 
-        # 3. Cluster Coordinator - can see journeys for members of their cluster(s) + their own
-        if user.is_module_coordinator(
-            ModuleCoordinator.ModuleType.CLUSTER,
-            level=ModuleCoordinator.CoordinatorLevel.COORDINATOR,
-        ):
-            from apps.clusters.models import Cluster
-            from apps.clusters.permissions import managed_cluster_ids_for_coordinator
+        # 3. Cluster Coordinator / Assistant - journeys for members of operated clusters + own
+        from apps.clusters.permissions import managed_cluster_ids_for_operator
 
-            cluster_ids = managed_cluster_ids_for_coordinator(user)
-            if not cluster_ids:
-                return queryset.filter(user=user)
+        operated_ids = managed_cluster_ids_for_operator(user)
+        if operated_ids:
+            from apps.clusters.models import Cluster
+
             cluster_member_ids = (
-                Cluster.objects.filter(id__in=cluster_ids)
+                Cluster.objects.filter(id__in=operated_ids)
                 .values_list("members__id", flat=True)
                 .distinct()
             )

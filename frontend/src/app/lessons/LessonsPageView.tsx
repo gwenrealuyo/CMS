@@ -500,7 +500,8 @@ export default function LessonsPageView({
   const shouldShowStats =
     canWriteLessonsAccess ||
     isSeniorCoordinator() ||
-    isModuleCoordinator("CLUSTER", "COORDINATOR");
+    isModuleCoordinator("CLUSTER", "COORDINATOR") ||
+    isModuleCoordinator("CLUSTER", "ASSISTANT_COORDINATOR");
 
   const lessonsBranchSelectInteractive =
     lessonsBranchCanChangeFilter && !lessonsBranchesLoading;

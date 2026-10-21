@@ -32,6 +32,10 @@ function isClusterCoordinatorAssignment(a: ModuleCoordinator): boolean {
   return a.module === "CLUSTER" && a.level === "COORDINATOR";
 }
 
+function isClusterAssistantAssignment(a: ModuleCoordinator): boolean {
+  return a.module === "CLUSTER" && a.level === "ASSISTANT_COORDINATOR";
+}
+
 function isClusterReporterAssignment(a: ModuleCoordinator): boolean {
   return a.module === "CLUSTER" && a.level === "REPORTER";
 }
@@ -97,6 +101,10 @@ function buildAccessTableRows(sorted: ModuleCoordinator[]): AccessTableRow[] {
   const merged = buildMergedClusterCoordinatorRow(
     sorted.filter(isClusterCoordinatorAssignment),
   );
+  const mergedAssistant = buildMergedLevelRow(
+    sorted.filter(isClusterAssistantAssignment),
+    "merged-cluster-assistant",
+  );
   const mergedReporter = buildMergedClusterReporterRow(
     sorted.filter(isClusterReporterAssignment),
   );
@@ -109,6 +117,9 @@ function buildAccessTableRows(sorted: ModuleCoordinator[]): AccessTableRow[] {
     "merged-evangelism-bible-sharer",
   );
   const firstClusterCoordIndex = sorted.findIndex(isClusterCoordinatorAssignment);
+  const firstClusterAssistantIndex = sorted.findIndex(
+    isClusterAssistantAssignment,
+  );
   const firstClusterReporterIndex = sorted.findIndex(isClusterReporterAssignment);
   const firstEvReporterIndex = sorted.findIndex(isEvangelismReporterAssignment);
   const firstSharerIndex = sorted.findIndex(isEvangelismBibleSharerAssignment);
@@ -119,6 +130,12 @@ function buildAccessTableRows(sorted: ModuleCoordinator[]): AccessTableRow[] {
     if (isClusterCoordinatorAssignment(a)) {
       if (merged && i === firstClusterCoordIndex) {
         rows.push(merged);
+      }
+      continue;
+    }
+    if (isClusterAssistantAssignment(a)) {
+      if (mergedAssistant && i === firstClusterAssistantIndex) {
+        rows.push(mergedAssistant);
       }
       continue;
     }

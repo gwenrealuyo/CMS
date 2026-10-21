@@ -64,6 +64,29 @@ def validate_module_coordinator_assignment(
     """
     errors = {}
 
+    if level == ModuleCoordinator.CoordinatorLevel.ASSISTANT_COORDINATOR:
+        if module != ModuleCoordinator.ModuleType.CLUSTER:
+            errors["level"] = (
+                "Assistant Coordinator assignments are only available for "
+                "the Cluster module."
+            )
+        elif resource_id is None:
+            errors["resource_id"] = (
+                "Assistant Coordinators must be assigned to a specific cluster."
+            )
+        elif not person.branch_id:
+            errors["person"] = (
+                "Assignee must have a branch before receiving a resource-specific assignment."
+            )
+        else:
+            resource_branch = resource_branch_id(module, int(resource_id))
+            if resource_branch is None:
+                errors["resource_id"] = "Selected resource was not found."
+            elif resource_branch != person.branch_id:
+                errors["resource_id"] = (
+                    "Resource must belong to the assignee's church branch."
+                )
+
     if level == ModuleCoordinator.CoordinatorLevel.REPORTER:
         if module not in (
             ModuleCoordinator.ModuleType.CLUSTER,
@@ -172,16 +195,21 @@ EVANGELISM_VISITOR_CREATE_LEVELS = (
 
 
 def user_can_add_person(user) -> bool:
-    """Admin, Pastor, Cluster Senior Coordinator, or Cluster Coordinator (assignment or FK)."""
+    """Admin, Pastor, Cluster Senior / Coordinator / Assistant (assignment or FK)."""
     if not getattr(user, "is_authenticated", False):
         return False
     if getattr(user, "role", None) in ("ADMIN", "PASTOR"):
         return True
     if user.is_senior_coordinator(ModuleCoordinator.ModuleType.CLUSTER):
         return True
-    from apps.clusters.permissions import is_non_senior_cluster_coordinator
+    from apps.clusters.permissions import (
+        is_non_senior_cluster_assistant,
+        is_non_senior_cluster_coordinator,
+    )
 
-    return is_non_senior_cluster_coordinator(user)
+    return is_non_senior_cluster_coordinator(user) or is_non_senior_cluster_assistant(
+        user
+    )
 
 
 def user_can_add_visitor(user) -> bool:

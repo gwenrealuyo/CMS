@@ -12,7 +12,7 @@ type FamilyManageAuth = {
 
 /**
  * Who may create/update families (mirrors FamilyViewSet + HasModuleAccess CLUSTER).
- * Admin, Pastor, Cluster senior coordinator, or Cluster non-senior coordinator.
+ * Admin, Pastor, Cluster senior / coordinator / assistant.
  * Excludes plain Members, Cluster Reporters, and other-module coordinators.
  */
 export function canManageFamilies(
@@ -23,5 +23,6 @@ export function canManageFamilies(
   if (user.role === "ADMIN" || user.role === "PASTOR") return true;
   if (auth.isSeniorCoordinator("CLUSTER")) return true;
   if (auth.isModuleCoordinator("CLUSTER", "COORDINATOR")) return true;
+  if (auth.isModuleCoordinator("CLUSTER", "ASSISTANT_COORDINATOR")) return true;
   return false;
 }

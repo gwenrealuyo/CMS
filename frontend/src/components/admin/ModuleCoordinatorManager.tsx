@@ -54,6 +54,7 @@ const ALL_LEVEL_OPTIONS: {
   label: string;
 }[] = [
   { value: "COORDINATOR", label: "Coordinator" },
+  { value: "ASSISTANT_COORDINATOR", label: "Assistant Coordinator" },
   { value: "SENIOR_COORDINATOR", label: "Senior Coordinator" },
   { value: "REPORTER", label: "Reporter" },
   { value: "TEACHER", label: "Teacher" },
@@ -79,6 +80,7 @@ const getAvailableLevels = (
       return ALL_LEVEL_OPTIONS.filter(
         (opt) =>
           opt.value === "COORDINATOR" ||
+          opt.value === "ASSISTANT_COORDINATOR" ||
           opt.value === "SENIOR_COORDINATOR" ||
           opt.value === "REPORTER",
       );
@@ -155,12 +157,13 @@ const resourceTypeForModule = (module: ModuleCoordinator["module"]): string => {
 const bulkModuleShowsScopeUi = (module: string | "") =>
   Boolean(module && !["FINANCE", "MINISTRIES"].includes(module));
 
-/** CLUSTER / EVANGELISM / SUNDAY_SCHOOL coordinators and reporters must pick a resource. */
+/** CLUSTER / EVANGELISM / SUNDAY_SCHOOL coordinators, assistants, and reporters must pick a resource. */
 const coordinatorRequiresSpecificResource = (
   module: ModuleCoordinator["module"] | "",
   level: ModuleCoordinator["level"] | "",
 ): boolean =>
   (level === "COORDINATOR" && moduleSupportsResourceMultiSelect(module)) ||
+  (level === "ASSISTANT_COORDINATOR" && module === "CLUSTER") ||
   (level === "REPORTER" &&
     (module === "CLUSTER" || module === "EVANGELISM"));
 
@@ -250,6 +253,7 @@ const getModuleBadgeColor = (module: ModuleCoordinator["module"]): string => {
 const getLevelBadgeColor = (level: ModuleCoordinator["level"]): string => {
   const colorMap: Record<ModuleCoordinator["level"], string> = {
     COORDINATOR: "bg-blue-100 text-blue-800 border-blue-200",
+    ASSISTANT_COORDINATOR: "bg-sky-100 text-sky-800 border-sky-200",
     SENIOR_COORDINATOR: "bg-violet-100 text-violet-800 border-violet-200",
     REPORTER: "bg-gray-100 text-gray-800 border-gray-200",
     TEACHER: "bg-amber-100 text-amber-800 border-amber-200",
@@ -760,7 +764,7 @@ export default function ModuleCoordinatorManager() {
         moduleSupportsResourceMultiSelect(prev.module)
       ) {
         assignmentType = "resource-specific";
-      } else if (level === "REPORTER") {
+      } else if (level === "REPORTER" || level === "ASSISTANT_COORDINATOR") {
         assignmentType = "resource-specific";
       }
       return { ...prev, level, assignmentType, selectedResourceIds };
@@ -808,7 +812,7 @@ export default function ModuleCoordinatorManager() {
         moduleSupportsResourceMultiSelect(updated[index].module)
       ) {
         updated[index].assignmentType = "resource-specific";
-      } else if (value === "REPORTER") {
+      } else if (value === "REPORTER" || value === "ASSISTANT_COORDINATOR") {
         updated[index].assignmentType = "resource-specific";
       }
     }
@@ -1508,7 +1512,10 @@ export default function ModuleCoordinatorManager() {
                     ...formData,
                     level: newLevel,
                   });
-                } else if (newLevel === "REPORTER") {
+                } else if (
+                  newLevel === "REPORTER" ||
+                  newLevel === "ASSISTANT_COORDINATOR"
+                ) {
                   setAssignmentType("resource-specific");
                   setFormData({
                     ...formData,
@@ -1543,15 +1550,17 @@ export default function ModuleCoordinatorManager() {
                   ? moduleSupportsResourceMultiSelect(formData.module)
                     ? "Coordinators must be assigned to a specific resource in the assignee's branch"
                     : "Coordinators can be assigned module-wide or to a specific resource"
-                  : formData.level === "REPORTER"
-                    ? formData.module === "EVANGELISM"
-                      ? "Reporters submit weekly reports for assigned evangelism groups only; they cannot manage group members"
-                      : "Reporters submit weekly reports for assigned clusters only; they cannot manage cluster members"
-                    : formData.level === "TEACHER"
-                      ? "Teachers must be assigned to a specific resource"
-                      : formData.level === "BIBLE_SHARER"
-                        ? "Module-wide is a roster grant (read-only Evangelism). Pick a group to allow weekly reports for that group."
-                        : ""}
+                  : formData.level === "ASSISTANT_COORDINATOR"
+                    ? "Assistant Coordinators help run a specific cluster day-to-day; they cannot change the named coordinator, assistants, or reporters"
+                    : formData.level === "REPORTER"
+                      ? formData.module === "EVANGELISM"
+                        ? "Reporters submit weekly reports for assigned evangelism groups only; they cannot manage group members"
+                        : "Reporters submit weekly reports for assigned clusters only; they cannot manage cluster members"
+                      : formData.level === "TEACHER"
+                        ? "Teachers must be assigned to a specific resource"
+                        : formData.level === "BIBLE_SHARER"
+                          ? "Module-wide is a roster grant (read-only Evangelism). Pick a group to allow weekly reports for that group."
+                          : ""}
             </p>
           </div>
 

@@ -9,6 +9,8 @@ interface ActionMenuProps {
   onHardDelete?: () => void;
   /** When false, only the View action is shown (e.g. read-only cluster browse). Default true. */
   showEditDelete?: boolean;
+  /** When false with showEditDelete, Edit is shown but Mark Inactive / hard delete are hidden. */
+  showDelete?: boolean;
   labels?: {
     view: string;
     edit: string;
@@ -24,6 +26,7 @@ export default function ActionMenu({
   onDelete,
   onHardDelete,
   showEditDelete = true,
+  showDelete = true,
   labels = {
     view: "View Family",
     edit: "Edit Family",
@@ -181,50 +184,54 @@ export default function ActionMenu({
                   <span>{labels.edit}</span>
                 </button>
 
-                <div className="border-t border-gray-100 my-1"></div>
+                {showDelete && (
+                  <>
+                    <div className="border-t border-gray-100 my-1"></div>
 
-                <button
-                  onClick={() => handleAction(onDelete)}
-                  className="w-full px-4 py-2 text-left text-gray-700 hover:bg-gray-100 flex items-center space-x-3"
-                  type="button"
-                >
-                  <svg
-                    className="w-4 h-4 text-gray-500"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z"
-                    />
-                  </svg>
-                  <span>{labels.delete}</span>
-                </button>
-
-                {onHardDelete && (
-                  <button
-                    onClick={() => handleAction(onHardDelete)}
-                    className="w-full px-4 py-2 text-left text-red-600 hover:bg-red-50 flex items-center space-x-3"
-                    type="button"
-                  >
-                    <svg
-                      className="w-4 h-4 text-red-600"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
+                    <button
+                      onClick={() => handleAction(onDelete)}
+                      className="w-full px-4 py-2 text-left text-gray-700 hover:bg-gray-100 flex items-center space-x-3"
+                      type="button"
                     >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                      />
-                    </svg>
-                    <span>{labels.hardDelete ?? "Delete Permanently"}</span>
-                  </button>
+                      <svg
+                        className="w-4 h-4 text-gray-500"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                        />
+                      </svg>
+                      <span>{labels.delete}</span>
+                    </button>
+
+                    {onHardDelete && (
+                      <button
+                        onClick={() => handleAction(onHardDelete)}
+                        className="w-full px-4 py-2 text-left text-red-600 hover:bg-red-50 flex items-center space-x-3"
+                        type="button"
+                      >
+                        <svg
+                          className="w-4 h-4 text-red-600"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                          />
+                        </svg>
+                        <span>{labels.hardDelete ?? "Delete Permanently"}</span>
+                      </button>
+                    )}
+                  </>
                 )}
               </>
             )}

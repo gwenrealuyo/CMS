@@ -263,8 +263,15 @@ const PersonForm = forwardRef<PersonFormHandle, PersonFormProps>(
       role: user?.role,
       isSeniorCoordinator,
       isModuleCoordinator,
+      moduleCoordinatorAssignments: user?.module_coordinator_assignments,
     }),
-    [user?.id, user?.role, isSeniorCoordinator, isModuleCoordinator],
+    [
+      user?.id,
+      user?.role,
+      user?.module_coordinator_assignments,
+      isSeniorCoordinator,
+      isModuleCoordinator,
+    ],
   );
   const [autoGeneratePassword, setAutoGeneratePassword] = useState(true);
   const [manualPassword, setManualPassword] = useState("");

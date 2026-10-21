@@ -13,17 +13,17 @@ function assignmentsOf(user: User | null | undefined): ModuleCoordinator[] {
   return user?.module_coordinator_assignments ?? [];
 }
 
-/** Admin, Pastor, Cluster Senior Coordinator, or Cluster Coordinator assignment. */
+/** Admin, Pastor, Cluster Senior / Coordinator / Assistant assignment. */
 export function userCanAddPerson(user: User | null | undefined): boolean {
   if (!user) return false;
   if (user.role === "ADMIN" || user.role === "PASTOR") return true;
-  // Same Cluster checks as clusterPermissions: isSeniorCoordinator("CLUSTER")
-  // or isModuleCoordinator("CLUSTER", "COORDINATOR"). Cluster.coordinator FK
-  // rows are synced to ModuleCoordinator assignments.
+  // Cluster.coordinator FK rows are synced to ModuleCoordinator assignments.
   return assignmentsOf(user).some(
     (a) =>
       a.module === "CLUSTER" &&
-      (a.level === "SENIOR_COORDINATOR" || a.level === "COORDINATOR"),
+      (a.level === "SENIOR_COORDINATOR" ||
+        a.level === "COORDINATOR" ||
+        a.level === "ASSISTANT_COORDINATOR"),
   );
 }
 

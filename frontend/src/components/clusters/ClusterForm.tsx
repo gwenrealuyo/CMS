@@ -43,6 +43,11 @@ interface ClusterFormProps {
   error?: string | null;
   submitting?: boolean;
   panelLayout?: boolean;
+  /**
+   * When false, hide/disable Coordinator, Assistants, and Reporters fields
+   * (assistant-only editors). Defaults to true.
+   */
+  canEditLeadership?: boolean;
   /** When provided by the parent (directory page), avoids mounting catalog hooks. */
   people?: Person[];
   families?: Family[];
@@ -56,6 +61,7 @@ export default function ClusterForm({
   error,
   submitting,
   panelLayout = false,
+  canEditLeadership = true,
   people: peopleProp,
   families: familiesProp,
   onNeedCatalogs,
@@ -74,6 +80,9 @@ export default function ClusterForm({
       familyIds: (initialData?.families || []).map((id) => id.toString()),
       memberIds: (initialData?.members || []).map((id) => id.toString()),
       reporterIds: (initialData?.reporter_ids || []).map((id) => id.toString()),
+      assistantIds: (initialData?.assistant_ids || []).map((id) =>
+        id.toString(),
+      ),
       location: initialData?.location || "",
       meetingDay: parsedSchedule.dayKey,
       meetingTime: parsedSchedule.timeHHmm,
@@ -101,6 +110,9 @@ export default function ClusterForm({
   const [reporterIds, setReporterIds] = useState<string[]>(
     getInitialFormData().reporterIds,
   );
+  const [assistantIds, setAssistantIds] = useState<string[]>(
+    getInitialFormData().assistantIds,
+  );
   const [location, setLocation] = useState(getInitialFormData().location);
   const [meetingDay, setMeetingDay] = useState<MeetingDayKey>(
     getInitialFormData().meetingDay,
@@ -118,6 +130,8 @@ export default function ClusterForm({
   const [showMemberDropdown, setShowMemberDropdown] = useState(false);
   const [reporterSearch, setReporterSearch] = useState("");
   const [showReporterDropdown, setShowReporterDropdown] = useState(false);
+  const [assistantSearch, setAssistantSearch] = useState("");
+  const [showAssistantDropdown, setShowAssistantDropdown] = useState(false);
   const [familySearch, setFamilySearch] = useState("");
   const [showFamilyDropdown, setShowFamilyDropdown] = useState(false);
   const initializedForClusterRef = useRef<number | null>(null);
@@ -129,7 +143,7 @@ export default function ClusterForm({
   }, [onNeedCatalogs]);
 
   const { people: hookedPeople, loading: peopleLoadingHook } = usePeople(
-    loadCatalogsFromHooks
+    loadCatalogsFromHooks,
   );
   const { families: hookedFamilies, loading: familiesLoadingHook } =
     useFamilies(familiesProp === undefined);
@@ -139,9 +153,12 @@ export default function ClusterForm({
     [catalogPeople],
   );
   const families = familiesProp ?? hookedFamilies;
-  const peopleLoading = peopleProp !== undefined ? peopleProp.length === 0 : peopleLoadingHook;
+  const peopleLoading =
+    peopleProp !== undefined ? peopleProp.length === 0 : peopleLoadingHook;
   const familiesLoading =
-    familiesProp !== undefined ? familiesProp.length === 0 : familiesLoadingHook;
+    familiesProp !== undefined
+      ? familiesProp.length === 0
+      : familiesLoadingHook;
   const { branches } = useBranches();
   const { user, isSeniorCoordinator } = useAuth();
   const canEditBranch =
@@ -171,6 +188,7 @@ export default function ClusterForm({
       setTransferMemberIds([]);
       setMembershipChoice({ isOpen: false, person: null });
       setReporterIds(next.reporterIds);
+      setAssistantIds(next.assistantIds);
       setLocation(next.location);
       setMeetingDay(next.meetingDay);
       setMeetingTime(next.meetingTime);
@@ -180,6 +198,8 @@ export default function ClusterForm({
       setShowMemberDropdown(false);
       setReporterSearch("");
       setShowReporterDropdown(false);
+      setAssistantSearch("");
+      setShowAssistantDropdown(false);
       setFamilySearch("");
       setShowFamilyDropdown(false);
       return;
@@ -199,6 +219,7 @@ export default function ClusterForm({
     setTransferMemberIds([]);
     setMembershipChoice({ isOpen: false, person: null });
     setReporterIds(next.reporterIds);
+    setAssistantIds(next.assistantIds);
     setLocation(next.location);
     setMeetingDay(next.meetingDay);
     setMeetingTime(next.meetingTime);
@@ -208,6 +229,8 @@ export default function ClusterForm({
     setShowMemberDropdown(false);
     setReporterSearch("");
     setShowReporterDropdown(false);
+    setAssistantSearch("");
+    setShowAssistantDropdown(false);
     setFamilySearch("");
     setShowFamilyDropdown(false);
   }, [initialData?.id, getInitialFormData]);
@@ -219,31 +242,42 @@ export default function ClusterForm({
     }
   }, [coordinatorId, memberIds]);
 
-  // Drop reporters who are no longer members or who became coordinator
+  // Drop reporters / assistants who are no longer members or who became coordinator
   useEffect(() => {
     setReporterIds((prev) =>
-      prev.filter(
-        (id) => memberIds.includes(id) && id !== coordinatorId,
-      ),
+      prev.filter((id) => memberIds.includes(id) && id !== coordinatorId),
+    );
+    setAssistantIds((prev) =>
+      prev.filter((id) => memberIds.includes(id) && id !== coordinatorId),
     );
   }, [memberIds, coordinatorId]);
 
   const buildSubmitPayload = useCallback(
-    (): Partial<Cluster> => ({
-      code: code || undefined,
-      name: name || undefined,
-      coordinator_id: coordinatorId ? Number(coordinatorId) : undefined,
-      families: familyIds.map(Number),
-      members: memberIds.map(Number),
-      transfer_member_ids: transferMemberIds.map(Number),
-      reporter_ids: reporterIds
-        .filter((id) => id !== coordinatorId)
-        .map(Number),
-      branch: branchId ? Number(branchId) : undefined,
-      location: location || undefined,
-      meeting_schedule: composeMeetingSchedule(meetingDay, meetingTime),
-      description: description || undefined,
-    }),
+    (): Partial<Cluster> => {
+      const payload: Partial<Cluster> = {
+        code: code || undefined,
+        name: name || undefined,
+        families: familyIds.map(Number),
+        members: memberIds.map(Number),
+        transfer_member_ids: transferMemberIds.map(Number),
+        branch: branchId ? Number(branchId) : undefined,
+        location: location || undefined,
+        meeting_schedule: composeMeetingSchedule(meetingDay, meetingTime),
+        description: description || undefined,
+      };
+      if (canEditLeadership) {
+        payload.coordinator_id = coordinatorId
+          ? Number(coordinatorId)
+          : undefined;
+        payload.reporter_ids = reporterIds
+          .filter((id) => id !== coordinatorId && !assistantIds.includes(id))
+          .map(Number);
+        payload.assistant_ids = assistantIds
+          .filter((id) => id !== coordinatorId && !reporterIds.includes(id))
+          .map(Number);
+      }
+      return payload;
+    },
     [
       code,
       name,
@@ -252,6 +286,8 @@ export default function ClusterForm({
       memberIds,
       transferMemberIds,
       reporterIds,
+      assistantIds,
+      canEditLeadership,
       branchId,
       location,
       meetingDay,
@@ -308,11 +344,14 @@ export default function ClusterForm({
       }
 
       if (candidateClusters.length > 0) {
-        const nameMatches = findPossibleClusterNameDuplicates(candidateClusters, {
-          name,
-          branch: branchId ? Number(branchId) : null,
-          excludeId: initialData?.id,
-        });
+        const nameMatches = findPossibleClusterNameDuplicates(
+          candidateClusters,
+          {
+            name,
+            branch: branchId ? Number(branchId) : null,
+            excludeId: initialData?.id,
+          },
+        );
         if (nameMatches.length > 0) {
           setDuplicateNameConfirm({ isOpen: true, matches: nameMatches });
           return;
@@ -332,29 +371,42 @@ export default function ClusterForm({
     return people.filter((p) => memberIdsSet.has(p.id.toString()));
   }, [people, memberIds]);
 
-  const reporterCandidateOptions = useMemo(() => {
+  const leadershipCandidateOptions = useMemo(() => {
     const memberIdsSet = new Set(memberIds);
     return people.filter(
       (p) =>
-        memberIdsSet.has(p.id.toString()) &&
-        p.id.toString() !== coordinatorId,
+        memberIdsSet.has(p.id.toString()) && p.id.toString() !== coordinatorId,
     );
   }, [people, memberIds, coordinatorId]);
 
   const filteredReporterCandidates = useMemo(() => {
-    if (!reporterSearch.trim()) return reporterCandidateOptions;
+    if (!reporterSearch.trim()) return leadershipCandidateOptions;
     const searchLower = reporterSearch.toLowerCase();
-    return reporterCandidateOptions.filter(
+    return leadershipCandidateOptions.filter(
       (person) =>
         formatPersonName(person).toLowerCase().includes(searchLower) ||
         person.role.toLowerCase().includes(searchLower),
     );
-  }, [reporterCandidateOptions, reporterSearch]);
+  }, [leadershipCandidateOptions, reporterSearch]);
+
+  const filteredAssistantCandidates = useMemo(() => {
+    if (!assistantSearch.trim()) return leadershipCandidateOptions;
+    const searchLower = assistantSearch.toLowerCase();
+    return leadershipCandidateOptions.filter(
+      (person) =>
+        formatPersonName(person).toLowerCase().includes(searchLower) ||
+        person.role.toLowerCase().includes(searchLower),
+    );
+  }, [leadershipCandidateOptions, assistantSearch]);
 
   const addReporter = (person: Person | PersonUI) => {
     const id = person.id.toString();
     if (id === coordinatorId) {
       toast.error("The cluster coordinator cannot also be a reporter.");
+      return;
+    }
+    if (assistantIds.includes(id)) {
+      toast.error("A person cannot be both an assistant and a reporter.");
       return;
     }
     if (!memberIds.includes(id)) {
@@ -378,10 +430,42 @@ export default function ClusterForm({
     );
   };
 
+  const addAssistant = (person: Person | PersonUI) => {
+    const id = person.id.toString();
+    if (id === coordinatorId) {
+      toast.error("The cluster coordinator cannot also be an assistant.");
+      return;
+    }
+    if (reporterIds.includes(id)) {
+      toast.error("A person cannot be both an assistant and a reporter.");
+      return;
+    }
+    if (!memberIds.includes(id)) {
+      toast.error("Assistants must be cluster members.");
+      return;
+    }
+    if (!assistantIds.includes(id)) {
+      setAssistantIds([...assistantIds, id]);
+    }
+    setAssistantSearch("");
+    setShowAssistantDropdown(false);
+  };
+
+  const removeAssistant = (personId: string) => {
+    setAssistantIds(assistantIds.filter((id) => id !== personId));
+  };
+
+  const getSelectedAssistants = () => {
+    return people.filter((person) =>
+      assistantIds.includes(person.id.toString()),
+    );
+  };
+
   const handleCoordinatorChange = (value: string) => {
     setCoordinatorId(value);
     if (value) {
       setReporterIds((prev) => prev.filter((id) => id !== value));
+      setAssistantIds((prev) => prev.filter((id) => id !== value));
     }
   };
 
@@ -515,7 +599,6 @@ export default function ClusterForm({
     }
   };
 
-
   const getSelectedMembers = () => {
     return memberIds
       .map((id) => people.find((member) => member.id.toString() === id))
@@ -524,180 +607,532 @@ export default function ClusterForm({
 
   return (
     <>
-    <form
-      onSubmit={handleSubmit}
-      className={panelLayout ? "p-4 sm:p-5 space-y-4" : "space-y-4"}
-    >
-      {error && <ErrorMessage message={error} />}
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
-          Branch
-        </label>
-        <select
-          value={branchId}
-          onChange={(e) => setBranchId(e.target.value)}
-          disabled={!canEditBranch}
-          className={`w-full px-3 py-2.5 md:py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent text-base md:text-sm min-h-[44px] md:min-h-0 ${
-            !canEditBranch ? "bg-gray-100 cursor-not-allowed" : ""
-          }`}
-        >
-          <option value="">No branch</option>
-          {branches
-            .filter((b) => b.is_active)
-            .map((branch) => (
-              <option key={branch.id} value={branch.id}>
-                {branch.name}
-                {branch.is_headquarters ? " (HQ)" : ""}
-              </option>
-            ))}
-        </select>
-        {!canEditBranch && (
-          <p className="text-xs text-gray-500 mt-1">
-            Only ADMIN, PASTOR, or CLUSTER Senior Coordinator can edit branch
-          </p>
-        )}
-      </div>
-      <div
-        className={
-          panelLayout ? "space-y-4" : "grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 gap-4"
-        }
+      <form
+        onSubmit={handleSubmit}
+        className={panelLayout ? "p-4 sm:p-5 space-y-4" : "space-y-4"}
       >
+        {error && <ErrorMessage message={error} />}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
-            Code *
+            Branch
           </label>
-          <input
-            type="text"
-            value={code}
-            onChange={(e) => setCode(e.target.value)}
-            className="w-full px-3 py-2.5 md:py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent text-base md:text-sm min-h-[44px] md:min-h-0"
-            placeholder="CLU-001"
-            required
-          />
+          <select
+            value={branchId}
+            onChange={(e) => setBranchId(e.target.value)}
+            disabled={!canEditBranch}
+            className={`w-full px-3 py-2.5 md:py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent text-base md:text-sm min-h-[44px] md:min-h-0 ${
+              !canEditBranch ? "bg-gray-100 cursor-not-allowed" : ""
+            }`}
+          >
+            <option value="">No branch</option>
+            {branches
+              .filter((b) => b.is_active)
+              .map((branch) => (
+                <option key={branch.id} value={branch.id}>
+                  {branch.name}
+                  {branch.is_headquarters ? " (HQ)" : ""}
+                </option>
+              ))}
+          </select>
         </div>
+        <div
+          className={
+            panelLayout
+              ? "space-y-4"
+              : "grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 gap-4"
+          }
+        >
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Code *
+            </label>
+            <input
+              type="text"
+              value={code}
+              onChange={(e) => setCode(e.target.value)}
+              className="w-full px-3 py-2.5 md:py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent text-base md:text-sm min-h-[44px] md:min-h-0"
+              placeholder="CLU-001"
+              required
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Name *
+            </label>
+            <input
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className="w-full px-3 py-2.5 md:py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent text-base md:text-sm min-h-[44px] md:min-h-0"
+              required
+            />
+          </div>
+        </div>
+        {canEditLeadership && (
+          <>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Coordinator
+                {memberIds.length === 0 && (
+                  <span className="ml-2 text-xs font-normal text-gray-500">
+                    (Add members first)
+                  </span>
+                )}
+              </label>
+              <SearchableSelect
+                options={coordinatorOptions as any}
+                value={coordinatorId}
+                onChange={handleCoordinatorChange}
+                placeholder={
+                  memberIds.length === 0
+                    ? "Add members first to select coordinator"
+                    : "Select coordinator from members"
+                }
+                disabled={memberIds.length === 0}
+                emptyMessage={
+                  memberIds.length === 0
+                    ? "No members added yet"
+                    : "No members found"
+                }
+              />
+              {memberIds.length === 0 && (
+                <p className="text-xs text-gray-500 mt-1.5 flex items-center gap-1">
+                  Coordinator must be selected from cluster members. Add members
+                  first.
+                </p>
+              )}
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Assistants ({assistantIds.length} selected)
+                {memberIds.length === 0 && (
+                  <span className="ml-2 text-xs font-normal text-gray-500">
+                    (Add members first)
+                  </span>
+                )}
+              </label>
+              <p className="text-xs text-gray-500 mb-2">
+                Optional helpers who can run the cluster day-to-day. Cannot be
+                the coordinator or a reporter.
+              </p>
+              <div className="relative">
+                <input
+                  type="text"
+                  value={assistantSearch}
+                  onChange={(e) => {
+                    setAssistantSearch(e.target.value);
+                    setShowAssistantDropdown(true);
+                  }}
+                  onFocus={() => setShowAssistantDropdown(true)}
+                  className="w-full px-3 py-2.5 md:py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent text-base md:text-sm min-h-[44px] md:min-h-0"
+                  placeholder={
+                    memberIds.length === 0
+                      ? "Add members first to select assistants"
+                      : "Search members to add as assistants..."
+                  }
+                  disabled={memberIds.length === 0 || peopleLoading}
+                />
+                {showAssistantDropdown &&
+                  assistantSearch &&
+                  !peopleLoading &&
+                  memberIds.length > 0 && (
+                    <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                      {filteredAssistantCandidates.length === 0 ? (
+                        <div className="px-3 py-2 text-gray-500 text-sm">
+                          No members found matching &ldquo;{assistantSearch}
+                          &rdquo;
+                        </div>
+                      ) : (
+                        filteredAssistantCandidates.map((person) => {
+                          const personIdStr = person.id.toString();
+                          const isSelected =
+                            assistantIds.includes(personIdStr) ||
+                            reporterIds.includes(personIdStr);
+                          return (
+                            <button
+                              key={person.id}
+                              type="button"
+                              onClick={() => addAssistant(person)}
+                              disabled={isSelected}
+                              className={`w-full px-3 py-2.5 md:py-2 text-left hover:bg-gray-50 flex items-center space-x-3 min-h-[44px] md:min-h-0 ${
+                                isSelected
+                                  ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                                  : "text-gray-900"
+                              }`}
+                            >
+                              <PersonAvatar person={person} size="sm" />
+                              <div className="flex-1 min-w-0">
+                                <p className="font-medium text-sm truncate">
+                                  {formatPersonName(person)}
+                                </p>
+                              </div>
+                              {isSelected && (
+                                <span className="text-xs text-gray-400">
+                                  {assistantIds.includes(personIdStr)
+                                    ? "Added"
+                                    : "Reporter"}
+                                </span>
+                              )}
+                            </button>
+                          );
+                        })
+                      )}
+                    </div>
+                  )}
+              </div>
+              {assistantIds.length > 0 && (
+                <div className="mt-3">
+                  <p className="text-sm font-medium text-gray-700 mb-2">
+                    Selected Assistants:
+                  </p>
+                  <div
+                    className={
+                      panelLayout
+                        ? "flex flex-col gap-2"
+                        : "flex flex-wrap gap-2"
+                    }
+                  >
+                    {getSelectedAssistants().map((person) => (
+                      <div
+                        key={person.id}
+                        className="flex items-center space-x-2 bg-sky-50 border border-sky-200 rounded-lg px-3 py-2"
+                      >
+                        <PersonAvatar person={person} size="xs" />
+                        <span className="text-sm font-medium text-gray-900">
+                          {formatPersonName(person)}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => removeAssistant(person.id.toString())}
+                          className="text-gray-400 hover:text-red-500 ml-1 min-w-[32px] min-h-[32px] flex items-center justify-center"
+                          aria-label="Remove assistant"
+                        >
+                          <svg
+                            className="w-4 h-4"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M6 18L18 6M6 6l12 12"
+                            />
+                          </svg>
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {showAssistantDropdown && (
+                <div
+                  className="fixed inset-0 z-0"
+                  onClick={() => setShowAssistantDropdown(false)}
+                />
+              )}
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Reporters ({reporterIds.length} selected)
+                {memberIds.length === 0 && (
+                  <span className="ml-2 text-xs font-normal text-gray-500">
+                    (Add members first)
+                  </span>
+                )}
+              </label>
+              <p className="text-xs text-gray-500 mb-2">
+                Optional helpers who can submit weekly reports. Cannot be the
+                coordinator or an assistant.
+              </p>
+              <div className="relative">
+                <input
+                  type="text"
+                  value={reporterSearch}
+                  onChange={(e) => {
+                    setReporterSearch(e.target.value);
+                    setShowReporterDropdown(true);
+                  }}
+                  onFocus={() => setShowReporterDropdown(true)}
+                  className="w-full px-3 py-2.5 md:py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent text-base md:text-sm min-h-[44px] md:min-h-0"
+                  placeholder={
+                    memberIds.length === 0
+                      ? "Add members first to select reporters"
+                      : "Search members to add as reporters..."
+                  }
+                  disabled={memberIds.length === 0 || peopleLoading}
+                />
+                {showReporterDropdown &&
+                  reporterSearch &&
+                  !peopleLoading &&
+                  memberIds.length > 0 && (
+                    <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                      {filteredReporterCandidates.length === 0 ? (
+                        <div className="px-3 py-2 text-gray-500 text-sm">
+                          No members found matching &ldquo;{reporterSearch}
+                          &rdquo;
+                        </div>
+                      ) : (
+                        filteredReporterCandidates.map((person) => {
+                          const personIdStr = person.id.toString();
+                          const isSelected =
+                            reporterIds.includes(personIdStr) ||
+                            assistantIds.includes(personIdStr);
+                          return (
+                            <button
+                              key={person.id}
+                              type="button"
+                              onClick={() => addReporter(person)}
+                              disabled={isSelected}
+                              className={`w-full px-3 py-2.5 md:py-2 text-left hover:bg-gray-50 flex items-center space-x-3 min-h-[44px] md:min-h-0 ${
+                                isSelected
+                                  ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                                  : "text-gray-900"
+                              }`}
+                            >
+                              <PersonAvatar person={person} size="sm" />
+                              <div className="flex-1 min-w-0">
+                                <p className="font-medium text-sm truncate">
+                                  {formatPersonName(person)}
+                                </p>
+                                <span
+                                  className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium ${getPersonRoleColor(
+                                    person.role,
+                                  )}`}
+                                >
+                                  {person.role.toLowerCase()}
+                                </span>
+                              </div>
+                              {isSelected && (
+                                <span className="text-xs text-gray-400">
+                                  {reporterIds.includes(personIdStr)
+                                    ? "Added"
+                                    : "Assistant"}
+                                </span>
+                              )}
+                            </button>
+                          );
+                        })
+                      )}
+                    </div>
+                  )}
+              </div>
+              {reporterIds.length > 0 && (
+                <div className="mt-3">
+                  <p className="text-sm font-medium text-gray-700 mb-2">
+                    Selected Reporters:
+                  </p>
+                  <div
+                    className={
+                      panelLayout
+                        ? "flex flex-col gap-2"
+                        : "flex flex-wrap gap-2"
+                    }
+                  >
+                    {getSelectedReporters().map((person) => (
+                      <div
+                        key={person.id}
+                        className="flex items-center space-x-2 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2"
+                      >
+                        <PersonAvatar person={person} size="xs" />
+                        <span className="text-sm font-medium text-gray-900">
+                          {formatPersonName(person)}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => removeReporter(person.id.toString())}
+                          className="text-gray-400 hover:text-red-500 ml-1 min-w-[32px] min-h-[32px] flex items-center justify-center"
+                          aria-label="Remove reporter"
+                        >
+                          <svg
+                            className="w-4 h-4"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M6 18L18 6M6 6l12 12"
+                            />
+                          </svg>
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {showReporterDropdown && (
+                <div
+                  className="fixed inset-0 z-0"
+                  onClick={() => setShowReporterDropdown(false)}
+                />
+              )}
+            </div>
+          </>
+        )}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
-            Name *
+            Add Families ({familyIds.length} selected)
           </label>
-          <input
-            type="text"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            className="w-full px-3 py-2.5 md:py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent text-base md:text-sm min-h-[44px] md:min-h-0"
-            required
-          />
-        </div>
-      </div>
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
-          Coordinator
-          {memberIds.length === 0 && (
-            <span className="ml-2 text-xs font-normal text-gray-500">
-              (Add members first)
-            </span>
+          {familyIds.length > 0 && (
+            <p className="text-xs text-gray-500 mb-2">
+              Saving adds all family members to this cluster. People already in
+              another cluster are left in that cluster.
+            </p>
           )}
-        </label>
-        <SearchableSelect
-          options={coordinatorOptions as any}
-          value={coordinatorId}
-          onChange={handleCoordinatorChange}
-          placeholder={
-            memberIds.length === 0
-              ? "Add members first to select coordinator"
-              : "Select coordinator from members"
-          }
-          disabled={memberIds.length === 0}
-          emptyMessage={
-            memberIds.length === 0 ? "No members added yet" : "No members found"
-          }
-        />
-        {memberIds.length === 0 && (
-          <p className="text-xs text-gray-500 mt-1.5 flex items-center gap-1">
-            <svg
-              className="w-4 h-4 flex-shrink-0"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-              />
-            </svg>
-            Coordinator must be selected from cluster members. Add members
-            first.
-          </p>
-        )}
-        {memberIds.length > 0 && coordinatorOptions.length === 0 && (
-          <p className="text-xs text-amber-600 mt-1.5 flex items-center gap-1">
-            <svg
-              className="w-4 h-4 flex-shrink-0"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
-              />
-            </svg>
-            Selected members not found in system. Please refresh or re-add
-            members.
-          </p>
-        )}
-      </div>
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
-          Reporters ({reporterIds.length} selected)
-          {memberIds.length === 0 && (
-            <span className="ml-2 text-xs font-normal text-gray-500">
-              (Add members first)
-            </span>
-          )}
-        </label>
-        <p className="text-xs text-gray-500 mb-2">
-          Optional helpers who can submit weekly reports. Cannot be the same
-          person as the coordinator.
-        </p>
-        <div className="relative">
-          <input
-            type="text"
-            value={reporterSearch}
-            onChange={(e) => {
-              setReporterSearch(e.target.value);
-              setShowReporterDropdown(true);
-            }}
-            onFocus={() => setShowReporterDropdown(true)}
-            className="w-full px-3 py-2.5 md:py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent text-base md:text-sm min-h-[44px] md:min-h-0"
-            placeholder={
-              memberIds.length === 0
-                ? "Add members first to select reporters"
-                : "Search members to add as reporters..."
-            }
-            disabled={memberIds.length === 0 || peopleLoading}
-          />
-          {showReporterDropdown &&
-            reporterSearch &&
-            !peopleLoading &&
-            memberIds.length > 0 && (
+
+          {/* Family Search Input */}
+          <div className="relative">
+            <input
+              type="text"
+              value={familySearch}
+              onChange={(e) => {
+                setFamilySearch(e.target.value);
+                setShowFamilyDropdown(true);
+              }}
+              onFocus={() => setShowFamilyDropdown(true)}
+              className="w-full px-3 py-2.5 md:py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent text-base md:text-sm min-h-[44px] md:min-h-0"
+              placeholder="Search families by name..."
+              disabled={familiesLoading}
+            />
+
+            {/* Dropdown with filtered families */}
+            {showFamilyDropdown && familySearch && !familiesLoading && (
               <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
-                {filteredReporterCandidates.length === 0 ? (
+                {filteredFamilies.length === 0 ? (
                   <div className="px-3 py-2 text-gray-500 text-sm">
-                    No members found matching &ldquo;{reporterSearch}&rdquo;
+                    No families found matching &ldquo;{familySearch}&rdquo;
                   </div>
                 ) : (
-                  filteredReporterCandidates.map((person) => {
-                    const personIdStr = person.id.toString();
-                    const isSelected = reporterIds.includes(personIdStr);
+                  filteredFamilies.map((family) => {
+                    const familyIdStr = family.id.toString();
+                    const isSelected = familyIds.includes(familyIdStr);
                     return (
                       <button
-                        key={person.id}
+                        key={family.id}
                         type="button"
-                        onClick={() => addReporter(person)}
+                        onClick={() => addFamily(family)}
+                        disabled={isSelected}
+                        className={`w-full px-3 py-2.5 md:py-2 text-left hover:bg-gray-50 flex items-center justify-between min-h-[44px] md:min-h-0 ${
+                          isSelected
+                            ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                            : "text-gray-900"
+                        }`}
+                      >
+                        <span className="font-medium text-sm">
+                          {family.name}
+                        </span>
+                        {isSelected && (
+                          <span className="text-xs text-gray-400">Added</span>
+                        )}
+                      </button>
+                    );
+                  })
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Selected Families Display */}
+          {familyIds.length > 0 && (
+            <div className="mt-3">
+              <p className="text-sm font-medium text-gray-700 mb-2">
+                Selected Families:
+              </p>
+              <div
+                className={
+                  panelLayout ? "flex flex-col gap-2" : "flex flex-wrap gap-2"
+                }
+              >
+                {getSelectedFamilies().map((family) => (
+                  <div
+                    key={family.id}
+                    className="flex items-center space-x-2 bg-green-50 border border-green-200 rounded-lg px-3 py-2"
+                  >
+                    <span className="text-sm font-medium text-gray-900">
+                      {family.name}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => removeFamily(family.id.toString())}
+                      className="text-gray-400 hover:text-red-500 ml-1 min-w-[32px] min-h-[32px] flex items-center justify-center"
+                      aria-label="Remove family"
+                    >
+                      <svg
+                        className="w-4 h-4"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M6 18L18 6M6 6l12 12"
+                        />
+                      </svg>
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Click outside to close dropdown */}
+          {showFamilyDropdown && (
+            <div
+              className="fixed inset-0 z-0"
+              onClick={() => setShowFamilyDropdown(false)}
+            />
+          )}
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Add Members ({memberIds.length} selected)
+          </label>
+          {branchId && (
+            <p className="text-xs text-gray-500 mb-2">
+              Members without a branch can be added; they will inherit this
+              cluster&apos;s branch on save.
+            </p>
+          )}
+
+          {/* Member Search Input */}
+          <div className="relative">
+            <input
+              type="text"
+              value={memberSearch}
+              onChange={(e) => {
+                setMemberSearch(e.target.value);
+                setShowMemberDropdown(true);
+              }}
+              onFocus={() => setShowMemberDropdown(true)}
+              className="w-full px-3 py-2.5 md:py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent text-base md:text-sm min-h-[44px] md:min-h-0"
+              placeholder="Search members by name, role, or status..."
+            />
+
+            {/* Dropdown with filtered members */}
+            {showMemberDropdown && memberSearch && (
+              <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                {filteredMembers.length === 0 ? (
+                  <div className="px-3 py-2 text-gray-500 text-sm">
+                    No members found matching &ldquo;{memberSearch}&rdquo;
+                  </div>
+                ) : (
+                  filteredMembers.map((member) => {
+                    const memberIdStr = member.id.toString();
+                    const isSelected = memberIds.includes(memberIdStr);
+                    const otherLabels = formatOtherClusterLabels(
+                      otherClusterLabelsForPerson(member, initialData?.id),
+                    );
+                    return (
+                      <button
+                        key={member.id}
+                        type="button"
+                        onClick={() => addMember(member)}
                         disabled={isSelected}
                         className={`w-full px-3 py-2.5 md:py-2 text-left hover:bg-gray-50 flex items-center space-x-3 min-h-[44px] md:min-h-0 ${
                           isSelected
@@ -705,18 +1140,32 @@ export default function ClusterForm({
                             : "text-gray-900"
                         }`}
                       >
-                        <PersonAvatar person={person} size="sm" />
-                        <div className="flex-1 min-w-0">
-                          <p className="font-medium text-sm truncate">
-                            {formatPersonName(person)}
+                        <PersonAvatar person={member} size="sm" />
+                        <div className="flex-1">
+                          <p className="font-medium text-sm">
+                            {formatPersonName(member)}
                           </p>
-                          <span
-                            className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium ${getPersonRoleColor(
-                              person.role,
-                            )}`}
-                          >
-                            {person.role.toLowerCase()}
-                          </span>
+                          {otherLabels ? (
+                            <p className="text-xs text-gray-500 mt-0.5">
+                              In {otherLabels}
+                            </p>
+                          ) : null}
+                          <div className="flex items-center space-x-1 mt-0.5">
+                            <span
+                              className={`px-1.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(
+                                member.status,
+                              )}`}
+                            >
+                              {member.status.toLowerCase()}
+                            </span>
+                            <span
+                              className={`px-1.5 py-0.5 rounded-full text-xs font-medium ${getPersonRoleColor(
+                                member.role,
+                              )}`}
+                            >
+                              {member.role.toLowerCase()}
+                            </span>
+                          </div>
                         </div>
                         {isSelected && (
                           <span className="text-xs text-gray-400">Added</span>
@@ -727,461 +1176,204 @@ export default function ClusterForm({
                 )}
               </div>
             )}
-        </div>
-        {reporterIds.length > 0 && (
-          <div className="mt-3">
-            <p className="text-sm font-medium text-gray-700 mb-2">
-              Selected Reporters:
-            </p>
-            <div
-              className={
-                panelLayout ? "flex flex-col gap-2" : "flex flex-wrap gap-2"
-              }
-            >
-              {getSelectedReporters().map((person) => (
-                <div
-                  key={person.id}
-                  className="flex items-center space-x-2 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2"
-                >
-                  <PersonAvatar person={person} size="xs" />
-                  <span className="text-sm font-medium text-gray-900">
-                    {formatPersonName(person)}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => removeReporter(person.id.toString())}
-                    className="text-gray-400 hover:text-red-500 ml-1 min-w-[32px] min-h-[32px] flex items-center justify-center"
-                    aria-label="Remove reporter"
-                  >
-                    <svg
-                      className="w-4 h-4"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M6 18L18 6M6 6l12 12"
-                      />
-                    </svg>
-                  </button>
-                </div>
-              ))}
-            </div>
           </div>
-        )}
-        {showReporterDropdown && (
-          <div
-            className="fixed inset-0 z-0"
-            onClick={() => setShowReporterDropdown(false)}
-          />
-        )}
-      </div>
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
-          Add Families ({familyIds.length} selected)
-        </label>
-        {familyIds.length > 0 && (
-          <p className="text-xs text-gray-500 mb-2">
-            Saving adds all family members to this cluster. People already in
-            another cluster are left in that cluster.
-          </p>
-        )}
 
-        {/* Family Search Input */}
-        <div className="relative">
-          <input
-            type="text"
-            value={familySearch}
-            onChange={(e) => {
-              setFamilySearch(e.target.value);
-              setShowFamilyDropdown(true);
-            }}
-            onFocus={() => setShowFamilyDropdown(true)}
-            className="w-full px-3 py-2.5 md:py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent text-base md:text-sm min-h-[44px] md:min-h-0"
-            placeholder="Search families by name..."
-            disabled={familiesLoading}
-          />
-
-          {/* Dropdown with filtered families */}
-          {showFamilyDropdown && familySearch && !familiesLoading && (
-            <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
-              {filteredFamilies.length === 0 ? (
-                <div className="px-3 py-2 text-gray-500 text-sm">
-                  No families found matching &ldquo;{familySearch}&rdquo;
-                </div>
-              ) : (
-                filteredFamilies.map((family) => {
-                  const familyIdStr = family.id.toString();
-                  const isSelected = familyIds.includes(familyIdStr);
-                  return (
+          {/* Selected Members Display */}
+          {memberIds.length > 0 && (
+            <div className="mt-3">
+              <p className="text-sm font-medium text-gray-700 mb-2">
+                Selected Members:
+              </p>
+              <div
+                className={
+                  panelLayout ? "flex flex-col gap-2" : "flex flex-wrap gap-2"
+                }
+              >
+                {getSelectedMembers().map((member) => (
+                  <div
+                    key={member.id}
+                    className="flex items-center space-x-2 bg-primary/10 border border-primary/20 rounded-lg px-3 py-2"
+                  >
+                    <PersonAvatar person={member} size="xs" />
+                    <span className="text-sm font-medium text-gray-900">
+                      {formatPersonName(member)}
+                    </span>
                     <button
-                      key={family.id}
                       type="button"
-                      onClick={() => addFamily(family)}
-                      disabled={isSelected}
-                      className={`w-full px-3 py-2.5 md:py-2 text-left hover:bg-gray-50 flex items-center justify-between min-h-[44px] md:min-h-0 ${
-                        isSelected
-                          ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-                          : "text-gray-900"
-                      }`}
+                      onClick={() => removeMember(member.id.toString())}
+                      className="text-gray-400 hover:text-red-500 ml-1 min-w-[32px] min-h-[32px] flex items-center justify-center"
+                      aria-label="Remove member"
                     >
-                      <span className="font-medium text-sm">{family.name}</span>
-                      {isSelected && (
-                        <span className="text-xs text-gray-400">Added</span>
-                      )}
+                      <svg
+                        className="w-4 h-4"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M6 18L18 6M6 6l12 12"
+                        />
+                      </svg>
                     </button>
-                  );
-                })
-              )}
+                  </div>
+                ))}
+              </div>
             </div>
           )}
-        </div>
 
-        {/* Selected Families Display */}
-        {familyIds.length > 0 && (
-          <div className="mt-3">
-            <p className="text-sm font-medium text-gray-700 mb-2">
-              Selected Families:
-            </p>
+          {/* Click outside to close dropdown */}
+          {showMemberDropdown && (
             <div
-              className={
-                panelLayout ? "flex flex-col gap-2" : "flex flex-wrap gap-2"
-              }
-            >
-              {getSelectedFamilies().map((family) => (
-                <div
-                  key={family.id}
-                  className="flex items-center space-x-2 bg-green-50 border border-green-200 rounded-lg px-3 py-2"
-                >
-                  <span className="text-sm font-medium text-gray-900">
-                    {family.name}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => removeFamily(family.id.toString())}
-                    className="text-gray-400 hover:text-red-500 ml-1 min-w-[32px] min-h-[32px] flex items-center justify-center"
-                    aria-label="Remove family"
-                  >
-                    <svg
-                      className="w-4 h-4"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M6 18L18 6M6 6l12 12"
-                      />
-                    </svg>
-                  </button>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Click outside to close dropdown */}
-        {showFamilyDropdown && (
-          <div
-            className="fixed inset-0 z-0"
-            onClick={() => setShowFamilyDropdown(false)}
-          />
-        )}
-      </div>
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
-          Add Members ({memberIds.length} selected)
-        </label>
-        {branchId && (
-          <p className="text-xs text-gray-500 mb-2">
-            Members without a branch can be added; they will inherit this
-            cluster&apos;s branch on save.
-          </p>
-        )}
-
-        {/* Member Search Input */}
-        <div className="relative">
-          <input
-            type="text"
-            value={memberSearch}
-            onChange={(e) => {
-              setMemberSearch(e.target.value);
-              setShowMemberDropdown(true);
-            }}
-            onFocus={() => setShowMemberDropdown(true)}
-            className="w-full px-3 py-2.5 md:py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent text-base md:text-sm min-h-[44px] md:min-h-0"
-            placeholder="Search members by name, role, or status..."
-          />
-
-          {/* Dropdown with filtered members */}
-          {showMemberDropdown && memberSearch && (
-            <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
-              {filteredMembers.length === 0 ? (
-                <div className="px-3 py-2 text-gray-500 text-sm">
-                  No members found matching &ldquo;{memberSearch}&rdquo;
-                </div>
-              ) : (
-                filteredMembers.map((member) => {
-                  const memberIdStr = member.id.toString();
-                  const isSelected = memberIds.includes(memberIdStr);
-                  const otherLabels = formatOtherClusterLabels(
-                    otherClusterLabelsForPerson(member, initialData?.id),
-                  );
-                  return (
-                    <button
-                      key={member.id}
-                      type="button"
-                      onClick={() => addMember(member)}
-                      disabled={isSelected}
-                      className={`w-full px-3 py-2.5 md:py-2 text-left hover:bg-gray-50 flex items-center space-x-3 min-h-[44px] md:min-h-0 ${
-                        isSelected
-                          ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-                          : "text-gray-900"
-                      }`}
-                    >
-                      <PersonAvatar person={member} size="sm" />
-                      <div className="flex-1">
-                        <p className="font-medium text-sm">
-                          {formatPersonName(member)}
-                        </p>
-                        {otherLabels ? (
-                          <p className="text-xs text-gray-500 mt-0.5">
-                            In {otherLabels}
-                          </p>
-                        ) : null}
-                        <div className="flex items-center space-x-1 mt-0.5">
-                          <span
-                            className={`px-1.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(
-                              member.status,
-                            )}`}
-                          >
-                            {member.status.toLowerCase()}
-                          </span>
-                          <span
-                            className={`px-1.5 py-0.5 rounded-full text-xs font-medium ${getPersonRoleColor(
-                              member.role,
-                            )}`}
-                          >
-                            {member.role.toLowerCase()}
-                          </span>
-                        </div>
-                      </div>
-                      {isSelected && (
-                        <span className="text-xs text-gray-400">Added</span>
-                      )}
-                    </button>
-                  );
-                })
-              )}
-            </div>
+              className="fixed inset-0 z-0"
+              onClick={() => setShowMemberDropdown(false)}
+            />
           )}
         </div>
-
-        {/* Selected Members Display */}
-        {memberIds.length > 0 && (
-          <div className="mt-3">
-            <p className="text-sm font-medium text-gray-700 mb-2">
-              Selected Members:
-            </p>
-            <div
-              className={
-                panelLayout ? "flex flex-col gap-2" : "flex flex-wrap gap-2"
-              }
-            >
-              {getSelectedMembers().map((member) => (
-                <div
-                  key={member.id}
-                  className="flex items-center space-x-2 bg-primary/10 border border-primary/20 rounded-lg px-3 py-2"
-                >
-                  <PersonAvatar person={member} size="xs" />
-                  <span className="text-sm font-medium text-gray-900">
-                    {formatPersonName(member)}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => removeMember(member.id.toString())}
-                    className="text-gray-400 hover:text-red-500 ml-1 min-w-[32px] min-h-[32px] flex items-center justify-center"
-                    aria-label="Remove member"
-                  >
-                    <svg
-                      className="w-4 h-4"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M6 18L18 6M6 6l12 12"
-                      />
-                    </svg>
-                  </button>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Click outside to close dropdown */}
-        {showMemberDropdown && (
-          <div
-            className="fixed inset-0 z-0"
-            onClick={() => setShowMemberDropdown(false)}
-          />
-        )}
-      </div>
-      <div className="space-y-4">
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Location
-          </label>
-          <input
-            type="text"
-            value={location}
-            onChange={(e) => setLocation(e.target.value)}
-            className="w-full px-3 py-2.5 md:py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent text-base md:text-sm min-h-[44px] md:min-h-0"
-          />
-        </div>
-        <div className="grid grid-cols-2 gap-4">
+        <div className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Meeting Day
-            </label>
-            <select
-              value={meetingDay}
-              onChange={(e) =>
-                setMeetingDay(e.target.value as MeetingDayKey)
-              }
-              className="w-full px-3 py-2.5 md:py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent text-base md:text-sm min-h-[44px] md:min-h-0"
-            >
-              {CLUSTER_MEETING_DAY_OPTIONS.map((option) => (
-                <option key={option.value || "none"} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Meeting Time
+              Location
             </label>
             <input
-              type="time"
-              value={meetingTime || ""}
-              onChange={(e) => setMeetingTime(e.target.value)}
+              type="text"
+              value={location}
+              onChange={(e) => setLocation(e.target.value)}
               className="w-full px-3 py-2.5 md:py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent text-base md:text-sm min-h-[44px] md:min-h-0"
             />
           </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Meeting Day
+              </label>
+              <select
+                value={meetingDay}
+                onChange={(e) => setMeetingDay(e.target.value as MeetingDayKey)}
+                className="w-full px-3 py-2.5 md:py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent text-base md:text-sm min-h-[44px] md:min-h-0"
+              >
+                {CLUSTER_MEETING_DAY_OPTIONS.map((option) => (
+                  <option key={option.value || "none"} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Meeting Time
+              </label>
+              <input
+                type="time"
+                value={meetingTime || ""}
+                onChange={(e) => setMeetingTime(e.target.value)}
+                className="w-full px-3 py-2.5 md:py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent text-base md:text-sm min-h-[44px] md:min-h-0"
+              />
+            </div>
+          </div>
         </div>
-      </div>
-      <p className="text-xs text-gray-500">
-        Leave meeting time empty if the cluster does not have a fixed time.
-      </p>
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
-          Description
-        </label>
-        <textarea
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-          className="w-full px-3 py-2.5 md:py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent text-base md:text-sm min-h-[100px] md:min-h-0"
-          rows={3}
-        />
-      </div>
-      <div className="flex flex-col-reverse sm:flex-row gap-3 pt-4">
-        <Button
-          variant="tertiary"
-          className="w-full sm:flex-1 min-h-[44px]"
-          onClick={onCancel}
-          disabled={submitting}
-        >
-          {panelLayout ? "Back" : "Cancel"}
-        </Button>
-        <Button
-          className="w-full sm:flex-1 min-h-[44px]"
-          disabled={submitting || duplicateCheckLoading}
-          type="submit"
-        >
-          {submitting || duplicateCheckLoading
-            ? submitting
-              ? "Saving..."
-              : "Checking..."
-            : initialData
-              ? "Update Cluster"
-              : "Create Cluster"}
-        </Button>
-      </div>
-    </form>
-
-    <ConfirmationModal
-      isOpen={duplicateNameConfirm.isOpen}
-      onClose={() => setDuplicateNameConfirm({ isOpen: false, matches: [] })}
-      onConfirm={() => {
-        setDuplicateNameConfirm({ isOpen: false, matches: [] });
-        performSubmit();
-      }}
-      title="Possible duplicate"
-      message={
-        <div className="space-y-2">
-          <p>
-            A cluster with the same name already exists. Continue anyway only if
-            this is a different cluster.
-          </p>
-          <ul className="list-disc pl-5 space-y-1 text-sm text-gray-700 max-h-40 overflow-y-auto">
-            {duplicateNameConfirm.matches.slice(0, 8).map((cluster) => (
-              <li key={cluster.id}>{describeDuplicateCluster(cluster)}</li>
-            ))}
-            {duplicateNameConfirm.matches.length > 8 && (
-              <li>…and {duplicateNameConfirm.matches.length - 8} more</li>
-            )}
-          </ul>
+        <p className="text-xs text-gray-500">
+          Leave meeting time empty if the cluster does not have a fixed time.
+        </p>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Description
+          </label>
+          <textarea
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            className="w-full px-3 py-2.5 md:py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent text-base md:text-sm min-h-[100px] md:min-h-0"
+            rows={3}
+          />
         </div>
-      }
-      confirmText={initialData ? "Update anyway" : "Create anyway"}
-      cancelText="Go back"
-      variant="warning"
-      zIndex={80}
-    />
+        <div className="flex flex-col-reverse sm:flex-row gap-3 pt-4">
+          <Button
+            variant="tertiary"
+            className="w-full sm:flex-1 min-h-[44px]"
+            onClick={onCancel}
+            disabled={submitting}
+          >
+            {panelLayout ? "Back" : "Cancel"}
+          </Button>
+          <Button
+            className="w-full sm:flex-1 min-h-[44px]"
+            disabled={submitting || duplicateCheckLoading}
+            type="submit"
+          >
+            {submitting || duplicateCheckLoading
+              ? submitting
+                ? "Saving..."
+                : "Checking..."
+              : initialData
+                ? "Update Cluster"
+                : "Create Cluster"}
+          </Button>
+        </div>
+      </form>
 
-    <ClusterMembershipChoiceModal
-      isOpen={membershipChoice.isOpen && !!membershipChoice.person}
-      personName={
-        membershipChoice.person
-          ? formatPersonName(membershipChoice.person)
-          : ""
-      }
-      otherClusterLabels={
-        membershipChoice.person
-          ? formatOtherClusterLabels(
-              otherClusterLabelsForPerson(
-                membershipChoice.person,
-                initialData?.id,
-              ),
-            ) || "another cluster"
-          : "another cluster"
-      }
-      allowTransfer={
-        membershipChoice.person
-          ? otherClusterIdsForPerson(
-              membershipChoice.person,
-              initialData?.id,
-            ).length === 1
-          : false
-      }
-      onClose={() => setMembershipChoice({ isOpen: false, person: null })}
-      onChoose={(choice) => {
-        if (membershipChoice.person) {
-          commitAddMember(membershipChoice.person, choice);
+      <ConfirmationModal
+        isOpen={duplicateNameConfirm.isOpen}
+        onClose={() => setDuplicateNameConfirm({ isOpen: false, matches: [] })}
+        onConfirm={() => {
+          setDuplicateNameConfirm({ isOpen: false, matches: [] });
+          performSubmit();
+        }}
+        title="Possible duplicate"
+        message={
+          <div className="space-y-2">
+            <p>
+              A cluster with the same name already exists. Continue anyway only
+              if this is a different cluster.
+            </p>
+            <ul className="list-disc pl-5 space-y-1 text-sm text-gray-700 max-h-40 overflow-y-auto">
+              {duplicateNameConfirm.matches.slice(0, 8).map((cluster) => (
+                <li key={cluster.id}>{describeDuplicateCluster(cluster)}</li>
+              ))}
+              {duplicateNameConfirm.matches.length > 8 && (
+                <li>…and {duplicateNameConfirm.matches.length - 8} more</li>
+              )}
+            </ul>
+          </div>
         }
-      }}
-      zIndex={80}
-    />
+        confirmText={initialData ? "Update anyway" : "Create anyway"}
+        cancelText="Go back"
+        variant="warning"
+        zIndex={80}
+      />
+
+      <ClusterMembershipChoiceModal
+        isOpen={membershipChoice.isOpen && !!membershipChoice.person}
+        personName={
+          membershipChoice.person
+            ? formatPersonName(membershipChoice.person)
+            : ""
+        }
+        otherClusterLabels={
+          membershipChoice.person
+            ? formatOtherClusterLabels(
+                otherClusterLabelsForPerson(
+                  membershipChoice.person,
+                  initialData?.id,
+                ),
+              ) || "another cluster"
+            : "another cluster"
+        }
+        allowTransfer={
+          membershipChoice.person
+            ? otherClusterIdsForPerson(membershipChoice.person, initialData?.id)
+                .length === 1
+            : false
+        }
+        onClose={() => setMembershipChoice({ isOpen: false, person: null })}
+        onChoose={(choice) => {
+          if (membershipChoice.person) {
+            commitAddMember(membershipChoice.person, choice);
+          }
+        }}
+        zIndex={80}
+      />
     </>
   );
 }

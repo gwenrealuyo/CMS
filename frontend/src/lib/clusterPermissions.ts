@@ -15,6 +15,7 @@ type ManageClusterAuth = {
 /** Levels that pass backend `allows_cluster_report_mutation_attempt` for CLUSTER module. */
 const CLUSTER_WEEKLY_REPORT_MUTATION_LEVELS: ModuleCoordinator["level"][] = [
   "COORDINATOR",
+  "ASSISTANT_COORDINATOR",
   "SENIOR_COORDINATOR",
   "REPORTER",
   "TEACHER",
@@ -39,7 +40,35 @@ export function reporterClusterIdsFromAssignments(
 }
 
 /**
- * True when user has CLUSTER Reporter and no coordinator/FK/senior cluster leadership.
+ * Assistant resource IDs from module_coordinator_assignments.
+ */
+export function assistantClusterIdsFromAssignments(
+  assignments: ModuleCoordinator[] | undefined,
+): number[] {
+  if (!assignments?.length) return [];
+  return assignments
+    .filter(
+      (a) =>
+        a.module === "CLUSTER" &&
+        a.level === "ASSISTANT_COORDINATOR" &&
+        a.resource_id != null,
+    )
+    .map((a) => Number(a.resource_id));
+}
+
+function isNamedOrAssignedCoordinator(
+  cluster: Cluster,
+  auth: ManageClusterAuth,
+): boolean {
+  const { userId, isModuleCoordinator } = auth;
+  if (!userId) return false;
+  const cid = cluster.coordinator?.id ?? cluster.coordinator_id ?? undefined;
+  if (cid != null && Number(cid) === Number(userId)) return true;
+  return isModuleCoordinator("CLUSTER", "COORDINATOR", Number(cluster.id));
+}
+
+/**
+ * True when user has CLUSTER Reporter and no coordinator/assistant/FK/senior leadership.
  */
 export function isClusterReporterOnly(
   auth: ManageClusterAuth & { moduleCoordinatorAssignments?: ModuleCoordinator[] },
@@ -49,12 +78,13 @@ export function isClusterReporterOnly(
   if (role === "ADMIN" || role === "PASTOR") return false;
   if (isSeniorCoordinator("CLUSTER")) return false;
   if (isModuleCoordinator("CLUSTER", "COORDINATOR")) return false;
+  if (isModuleCoordinator("CLUSTER", "ASSISTANT_COORDINATOR")) return false;
   const assignments = auth.moduleCoordinatorAssignments ?? [];
   const hasReporter = assignments.some(
     (a) => a.module === "CLUSTER" && a.level === "REPORTER",
   );
   if (!hasReporter) return false;
-  return !isModuleCoordinator("CLUSTER", "COORDINATOR");
+  return true;
 }
 
 /**
@@ -77,39 +107,53 @@ export function userCanAttemptClusterWeeklyReportMutation(
   });
 }
 
-/** Mirrors backend `user_manages_cluster` plus ADMIN/PASTOR/senior CLUSTER bypass. */
+/**
+ * Named coordinator (or admin/pastor/senior) — leadership fields + deactivate/delete.
+ * Mirrors backend `user_can_edit_cluster_leadership` with privileged bypass.
+ */
 export function userCanManageCluster(
   cluster: Cluster,
   auth: ManageClusterAuth,
 ): boolean {
-  const { userId, role, isSeniorCoordinator, isModuleCoordinator } = auth;
+  const { userId, role, isSeniorCoordinator } = auth;
   if (!userId) return false;
   if (role === "ADMIN" || role === "PASTOR") return true;
   if (isSeniorCoordinator("CLUSTER")) return true;
-  const cid =
-    cluster.coordinator?.id ?? cluster.coordinator_id ?? undefined;
-  if (cid != null && Number(cid) === Number(userId)) return true;
-  return isModuleCoordinator("CLUSTER", "COORDINATOR", cluster.id);
+  return isNamedOrAssignedCoordinator(cluster, auth);
+}
+
+/** Alias: leadership assignment (coordinator / assistants / reporters). */
+export function userCanManageClusterLeadership(
+  cluster: Cluster,
+  auth: ManageClusterAuth,
+): boolean {
+  return userCanManageCluster(cluster, auth);
+}
+
+/**
+ * Day-to-day ops: named coordinator or assistant (plus privileged bypass).
+ * Mirrors backend `user_can_operate_cluster` with privileged bypass.
+ */
+export function userCanOperateCluster(
+  cluster: Cluster,
+  auth: ManageClusterAuth & { moduleCoordinatorAssignments?: ModuleCoordinator[] },
+): boolean {
+  if (userCanManageCluster(cluster, auth)) return true;
+  const assistantIds = assistantClusterIdsFromAssignments(
+    auth.moduleCoordinatorAssignments,
+  );
+  return assistantIds.includes(Number(cluster.id));
 }
 
 /**
  * Sunday catch-up for one cluster. Mirrors backend `user_can_sunday_catchup`:
- * admin, pastor, cluster senior, or that cluster's coordinator or reporter.
- * A senior coordinator of another module is not included.
+ * admin, pastor, cluster senior, or that cluster's coordinator, assistant, or reporter.
  */
 export function userCanSundayCatchup(
   cluster: Cluster,
   auth: ManageClusterAuth & { moduleCoordinatorAssignments?: ModuleCoordinator[] },
 ): boolean {
-  const { userId, role, isSeniorCoordinator, isModuleCoordinator } = auth;
-  if (!userId) return false;
-  if (role === "ADMIN" || role === "PASTOR") return true;
-  if (isSeniorCoordinator("CLUSTER")) return true;
-  const cid = cluster.coordinator?.id ?? cluster.coordinator_id ?? undefined;
-  if (cid != null && Number(cid) === Number(userId)) return true;
-  if (isModuleCoordinator("CLUSTER", "COORDINATOR", Number(cluster.id))) {
-    return true;
-  }
+  if (userCanOperateCluster(cluster, auth)) return true;
   return reporterClusterIdsFromAssignments(
     auth.moduleCoordinatorAssignments,
   ).includes(Number(cluster.id));
@@ -120,7 +164,7 @@ export function userCanSubmitClusterReport(
   cluster: Cluster,
   auth: ManageClusterAuth & { moduleCoordinatorAssignments?: ModuleCoordinator[] },
 ): boolean {
-  if (userCanManageCluster(cluster, auth)) return true;
+  if (userCanOperateCluster(cluster, auth)) return true;
   const clusterId = Number(cluster.id);
   const reporterIds = reporterClusterIdsFromAssignments(
     auth.moduleCoordinatorAssignments,
@@ -128,7 +172,7 @@ export function userCanSubmitClusterReport(
   return reporterIds.includes(clusterId);
 }
 
-/** Clusters the user may submit reports for (coordinator manage + reporter assignments). */
+/** Clusters the user may submit reports for (operator + reporter assignments). */
 export function clustersForReportSubmission(
   allClusters: Cluster[],
   auth: ManageClusterAuth & { moduleCoordinatorAssignments?: ModuleCoordinator[] },
@@ -138,7 +182,7 @@ export function clustersForReportSubmission(
   );
   return allClusters.filter(
     (c) =>
-      userCanManageCluster(c, auth) || reporterIds.has(Number(c.id)),
+      userCanOperateCluster(c, auth) || reporterIds.has(Number(c.id)),
   );
 }
 
@@ -155,6 +199,7 @@ export function canAccessClusterReports(
   if (role === "ADMIN" || role === "PASTOR") return true;
   if (isSeniorCoordinator("CLUSTER")) return true;
   if (isModuleCoordinator("CLUSTER", "COORDINATOR")) return true;
+  if (isModuleCoordinator("CLUSTER", "ASSISTANT_COORDINATOR")) return true;
   const assignments = auth.moduleCoordinatorAssignments ?? [];
   if (
     assignments.some(
@@ -176,7 +221,7 @@ export function canAccessClusterReports(
 export function userCanEditVitalDates(
   personClusterIds: Array<string | number>,
   clusters: Cluster[],
-  auth: ManageClusterAuth
+  auth: ManageClusterAuth & { moduleCoordinatorAssignments?: ModuleCoordinator[] },
 ): boolean {
   const { userId, role, isSeniorCoordinator } = auth;
   if (!userId) return false;
@@ -184,20 +229,23 @@ export function userCanEditVitalDates(
   if (isSeniorCoordinator("CLUSTER")) return true;
   const idSet = new Set(personClusterIds.map((id) => Number(id)));
   return clusters.some(
-    (c) => idSet.has(Number(c.id)) && userCanManageCluster(c, auth)
+    (c) => idSet.has(Number(c.id)) && userCanOperateCluster(c, auth),
   );
 }
 
 /**
  * On create, person has no membership yet — allow ADMIN/PASTOR/CLUSTER senior
- * or any CLUSTER COORDINATOR assignment.
+ * or any CLUSTER COORDINATOR / ASSISTANT assignment.
  */
 export function userCanEditVitalDatesOnCreate(auth: ManageClusterAuth): boolean {
   const { userId, role, isSeniorCoordinator, isModuleCoordinator } = auth;
   if (!userId) return false;
   if (role === "ADMIN" || role === "PASTOR") return true;
   if (isSeniorCoordinator("CLUSTER")) return true;
-  return isModuleCoordinator("CLUSTER", "COORDINATOR");
+  return (
+    isModuleCoordinator("CLUSTER", "COORDINATOR") ||
+    isModuleCoordinator("CLUSTER", "ASSISTANT_COORDINATOR")
+  );
 }
 
 /**
@@ -216,8 +264,6 @@ export function userCanExportClusterData(auth: {
 /**
  * Who may open the people behind a status tally cell.
  * Mirrors backend `can_view_status_tally_people`.
- * Plain members and reporter-only users see counts only.
- * A member listed as `Cluster.coordinator` is allowed when that cluster is loaded.
  */
 export function userCanViewStatusTallyPeople(
   auth: ManageClusterAuth & { moduleCoordinatorAssignments?: ModuleCoordinator[] },
@@ -243,7 +289,7 @@ export function userCanViewStatusTallyPeople(
  * Mirrors backend `can_access_member_care`. Not reporters or plain members.
  */
 export function userCanAccessMemberCare(
-  auth: ManageClusterAuth,
+  auth: ManageClusterAuth & { moduleCoordinatorAssignments?: ModuleCoordinator[] },
   clusters: Cluster[] = [],
 ): boolean {
   const { userId, role, isSeniorCoordinator, isModuleCoordinator } = auth;
@@ -251,6 +297,7 @@ export function userCanAccessMemberCare(
   if (role === "ADMIN" || role === "PASTOR") return true;
   if (isSeniorCoordinator("CLUSTER")) return true;
   if (isModuleCoordinator("CLUSTER", "COORDINATOR")) return true;
+  if (isModuleCoordinator("CLUSTER", "ASSISTANT_COORDINATOR")) return true;
   return clusters.some((c) => {
     const cid = c.coordinator?.id ?? c.coordinator_id ?? undefined;
     return cid != null && Number(cid) === Number(userId);

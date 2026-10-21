@@ -50,6 +50,7 @@ import { FilterCondition } from "@/src/components/people/FilterBar";
 import { useAuth } from "@/src/contexts/AuthContext";
 import {
   userCanManageCluster,
+  userCanOperateCluster,
   clustersForReportSubmission,
   isClusterReporterOnly,
   userCanAccessMemberCare,
@@ -410,14 +411,15 @@ export default function ClustersPageView({
     branches.forEach((branch) => map.set(branch.id, branch));
     return map;
   }, [branches]);
-  /** CLUSTER-level coordinator assignment without senior — uses Submit Report primary like backend scope */
-  const isOnlyNonSeniorClusterCoordinator =
-    isModuleCoordinator("CLUSTER", "COORDINATOR") &&
+  /** CLUSTER-level coordinator/assistant without senior — uses Submit Report primary like backend scope */
+  const isOnlyNonSeniorClusterOperator =
+    (isModuleCoordinator("CLUSTER", "COORDINATOR") ||
+      isModuleCoordinator("CLUSTER", "ASSISTANT_COORDINATOR")) &&
     !isSeniorCoordinator("CLUSTER");
   const hasClusterModuleWideAccess =
     user?.role === "ADMIN" ||
     isSeniorCoordinator("CLUSTER") ||
-    (user?.role === "PASTOR" && !isOnlyNonSeniorClusterCoordinator);
+    (user?.role === "PASTOR" && !isOnlyNonSeniorClusterOperator);
 
   const clusterAuthCtx = useMemo(
     () => ({
@@ -440,9 +442,9 @@ export default function ClustersPageView({
 
   const showGlobalSubmitReport =
     hasClusterModuleWideAccess ||
-    isOnlyNonSeniorClusterCoordinator ||
+    isOnlyNonSeniorClusterOperator ||
     isClusterReporterOnlyUser ||
-    allClusters.some((c) => userCanManageCluster(c, clusterAuthCtx));
+    allClusters.some((c) => userCanOperateCluster(c, clusterAuthCtx));
 
   const reportFormClusters = useMemo(() => {
     let base: Cluster[];
@@ -592,9 +594,15 @@ export default function ClustersPageView({
           ? editCluster
           : null;
 
-    const manageCluster =
+    const operateCluster =
+      !!currentViewCluster &&
+      userCanOperateCluster(currentViewCluster as Cluster, clusterAuthCtx);
+    const manageLeadership =
       !!currentViewCluster &&
       userCanManageCluster(currentViewCluster as Cluster, clusterAuthCtx);
+    const editClusterLeadership =
+      !currentEditCluster ||
+      userCanManageCluster(currentEditCluster as Cluster, clusterAuthCtx);
 
     if (isViewMode && currentViewCluster) {
       return (
@@ -638,8 +646,9 @@ export default function ClustersPageView({
               : undefined
           }
           showTopHeader={!isPanel}
-          showSubmitReportButton={!hasClusterModuleWideAccess && manageCluster}
-          canManageCluster={manageCluster}
+          showSubmitReportButton={!hasClusterModuleWideAccess && operateCluster}
+          canManageCluster={operateCluster}
+          canDeactivateCluster={manageLeadership}
           onPersonStatusChanged={(person) =>
             onPersonStatusChanged?.(person, Number(currentViewCluster.id))
           }
@@ -651,6 +660,7 @@ export default function ClustersPageView({
       <ClusterForm
         initialData={currentEditCluster || undefined}
         panelLayout={isPanel}
+        canEditLeadership={editClusterLeadership}
         onNeedCatalogs={() => {
           onNeedPeopleCatalog?.();
           onNeedFamiliesCatalog?.();
@@ -1596,7 +1606,11 @@ export default function ClustersPageView({
                                           ? () => onHardDeleteCluster(c)
                                           : undefined
                                       }
-                                      showEditDelete={userCanManageCluster(
+                                      showEditDelete={userCanOperateCluster(
+                                        c as Cluster,
+                                        clusterAuthCtx,
+                                      )}
+                                      showDelete={userCanManageCluster(
                                         c as Cluster,
                                         clusterAuthCtx,
                                       )}
@@ -1633,7 +1647,11 @@ export default function ClustersPageView({
                           isSelectionMode={
                             hasClusterModuleWideAccess && isSelectionMode
                           }
-                          canManageCluster={userCanManageCluster(
+                          canManageCluster={userCanOperateCluster(
+                            c as Cluster,
+                            clusterAuthCtx,
+                          )}
+                          canDeactivateCluster={userCanManageCluster(
                             c as Cluster,
                             clusterAuthCtx,
                           )}
@@ -1735,7 +1753,7 @@ export default function ClustersPageView({
               className={activeTab !== "reports" ? "hidden" : undefined}
               aria-hidden={activeTab !== "reports"}
             >
-              {isOnlyNonSeniorClusterCoordinator &&
+              {isOnlyNonSeniorClusterOperator &&
                 !isClusterReporterOnlyUser && (
                   <p className="mb-4 text-sm text-gray-600">
                     You can browse all clusters in your branch on the Clusters
@@ -1929,12 +1947,16 @@ export default function ClustersPageView({
               onEditCareCase={onOpenCareCase}
               showSubmitReportButton={
                 !hasClusterModuleWideAccess &&
-                userCanManageCluster(
+                userCanOperateCluster(
                   clusterOverPerson as Cluster,
                   clusterAuthCtx,
                 )
               }
-              canManageCluster={userCanManageCluster(
+              canManageCluster={userCanOperateCluster(
+                clusterOverPerson as Cluster,
+                clusterAuthCtx,
+              )}
+              canDeactivateCluster={userCanManageCluster(
                 clusterOverPerson as Cluster,
                 clusterAuthCtx,
               )}
@@ -1956,6 +1978,10 @@ export default function ClustersPageView({
           >
             <ClusterForm
               initialData={editClusterOverlay}
+              canEditLeadership={userCanManageCluster(
+                editClusterOverlay as Cluster,
+                clusterAuthCtx,
+              )}
               onNeedCatalogs={() => {
                 onNeedPeopleCatalog?.();
                 onNeedFamiliesCatalog?.();

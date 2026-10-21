@@ -400,6 +400,10 @@ class ModuleCoordinator(models.Model):
 
     class CoordinatorLevel(models.TextChoices):
         COORDINATOR = "COORDINATOR", "Coordinator"  # Limited to assigned resources
+        ASSISTANT_COORDINATOR = (
+            "ASSISTANT_COORDINATOR",
+            "Assistant Coordinator",
+        )  # Cluster day-to-day ops; no leadership assignment
         SENIOR_COORDINATOR = (
             "SENIOR_COORDINATOR",
             "Senior Coordinator",

@@ -152,6 +152,7 @@ export default function GroupPeopleProgressSection({
                 : []),
             ]}
             data={displayed}
+            mobileCardView={false}
           />
           {hasMore && (
             <div className="text-center">

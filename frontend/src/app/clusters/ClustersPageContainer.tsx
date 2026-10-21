@@ -169,13 +169,14 @@ export default function ClustersPageContainer() {
   const { families } = useFamilies(needFamiliesCatalog);
   const { user, isSeniorCoordinator, isModuleCoordinator } = useAuth();
 
-  const isOnlyNonSeniorClusterCoordinator =
-    isModuleCoordinator("CLUSTER", "COORDINATOR") &&
+  const isOnlyNonSeniorClusterOperator =
+    (isModuleCoordinator("CLUSTER", "COORDINATOR") ||
+      isModuleCoordinator("CLUSTER", "ASSISTANT_COORDINATOR")) &&
     !isSeniorCoordinator("CLUSTER");
   const hasClusterModuleWideAccess =
     user?.role === "ADMIN" ||
     isSeniorCoordinator("CLUSTER") ||
-    (user?.role === "PASTOR" && !isOnlyNonSeniorClusterCoordinator);
+    (user?.role === "PASTOR" && !isOnlyNonSeniorClusterOperator);
 
   const clusterAuthCtx = useMemo(
     () => ({

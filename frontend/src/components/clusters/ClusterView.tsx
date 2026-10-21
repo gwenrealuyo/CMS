@@ -101,6 +101,25 @@ function CoordinatorIcon({ className = "w-3.5 h-3.5" }: { className?: string }) 
   );
 }
 
+function AssistantIcon({ className = "w-3.5 h-3.5" }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      fill="none"
+      stroke="currentColor"
+      viewBox="0 0 24 24"
+      aria-hidden
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={2}
+        d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"
+      />
+    </svg>
+  );
+}
+
 function ReporterIcon({ className = "w-3.5 h-3.5" }: { className?: string }) {
   return (
     <svg
@@ -162,8 +181,10 @@ interface ClusterViewProps {
   showTopHeader?: boolean;
   /** When false, hides the Members-section Submit Report action (e.g. module-wide users use Reports tab). Default true. */
   showSubmitReportButton?: boolean;
-  /** When false, hides Edit, Delete, and Assign Members actions. */
+  /** When false, hides Edit and Assign Members (day-to-day ops). */
   canManageCluster?: boolean;
+  /** When false, hides Mark Inactive / hard delete (named coordinator+ only). */
+  canDeactivateCluster?: boolean;
   onPersonStatusChanged?: (person: Person) => void;
 }
 
@@ -185,10 +206,15 @@ export default function ClusterView({
   showTopHeader = true,
   showSubmitReportButton = true,
   canManageCluster = true,
+  canDeactivateCluster,
   onPersonStatusChanged,
 }: ClusterViewProps) {
   const { branches } = useBranches();
   const { user, isSeniorCoordinator, isModuleCoordinator } = useAuth();
+  const allowDeactivate =
+    canDeactivateCluster !== undefined
+      ? canDeactivateCluster
+      : canManageCluster;
   const showMemberCare =
     canManageCluster &&
     userCanAccessMemberCare(
@@ -197,6 +223,7 @@ export default function ClusterView({
         role: user?.role,
         isSeniorCoordinator,
         isModuleCoordinator,
+        moduleCoordinatorAssignments: user?.module_coordinator_assignments,
       },
       [cluster],
     );
@@ -211,8 +238,15 @@ export default function ClusterView({
     null as ClusterRosterPerson | null,
   );
   const [careReloadToken, setCareReloadToken] = useState(0);
+  const [careExpanded, setCareExpanded] = useState(false);
   const sortButtonRef = useRef<HTMLButtonElement>(null);
   const sortDropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (selectedCareCaseId != null) {
+      setCareExpanded(true);
+    }
+  }, [selectedCareCaseId]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -455,11 +489,31 @@ export default function ClusterView({
     );
   };
 
+  const isClusterAssistant = (member: ClusterRosterPerson) => {
+    const memberId = String(member.id);
+    if (
+      (cluster.assistant_ids ?? []).some((id) => String(id) === memberId)
+    ) {
+      return true;
+    }
+    return Boolean(
+      (member.module_coordinator_assignments ?? []).some(
+        (assignment) =>
+          assignment.module === "CLUSTER" &&
+          assignment.level === "ASSISTANT_COORDINATOR" &&
+          assignment.resource_id != null &&
+          Number(assignment.resource_id) === Number(cluster.id),
+      ),
+    );
+  };
+
   const roleBadgeHighlightClass = (
     isCoordinator: boolean,
+    isAssistant: boolean,
     isReporter: boolean,
   ) => {
     if (isCoordinator) return " border-primary/30 bg-primary/5";
+    if (isAssistant) return " border-sky-300/60 bg-sky-50/50";
     if (isReporter) return " border-amber-300/60 bg-amber-50/50";
     return "";
   };
@@ -467,7 +521,9 @@ export default function ClusterView({
   const renderPersonCard = (member: ClusterRosterPerson) => {
     const canOpen = Boolean(member.canOpenProfile && onViewPerson);
     const isCoordinator = isClusterCoordinator(member);
-    const isReporter = isClusterReporter(member);
+    const isAssistant = !isCoordinator && isClusterAssistant(member);
+    const isReporter =
+      !isCoordinator && !isAssistant && isClusterReporter(member);
     const cardClass = canOpen
       ? "cursor-pointer hover:bg-gray-50"
       : "cursor-default";
@@ -478,6 +534,7 @@ export default function ClusterView({
         key={member.id}
         className={`flex items-start gap-3 p-3 bg-white border border-gray-200 rounded-md ${cardClass}${roleBadgeHighlightClass(
           isCoordinator,
+          isAssistant,
           isReporter,
         )}`}
         onClick={() => canOpen && onViewPerson?.(member)}
@@ -497,6 +554,15 @@ export default function ClusterView({
                 aria-label="Cluster coordinator"
               >
                 <CoordinatorIcon />
+              </span>
+            )}
+            {isAssistant && (
+              <span
+                className="inline-flex items-center text-sky-700 flex-shrink-0 mt-0.5"
+                title="Cluster assistant coordinator"
+                aria-label="Cluster assistant coordinator"
+              >
+                <AssistantIcon />
               </span>
             )}
             {isReporter && (
@@ -531,7 +597,7 @@ export default function ClusterView({
                 Change status
               </button>
             )}
-            {!isCoordinator && (
+            {!isCoordinator && !isAssistant && (
               <span
                 className={`inline-flex items-center px-1 py-0.5 rounded-full text-[9px] font-medium ${roleBadgeClass(member.role)}`}
               >
@@ -542,6 +608,12 @@ export default function ClusterView({
               <span className="inline-flex items-center gap-0.5 px-1 py-0.5 rounded-full text-[9px] font-medium chip-primary">
                 <CoordinatorIcon className="w-2.5 h-2.5" />
                 Coordinator
+              </span>
+            )}
+            {isAssistant && (
+              <span className="inline-flex items-center gap-0.5 px-1 py-0.5 rounded-full text-[9px] font-medium bg-sky-100 text-sky-800">
+                <AssistantIcon className="w-2.5 h-2.5" />
+                Assistant
               </span>
             )}
             {isReporter && (
@@ -1041,28 +1113,58 @@ export default function ClusterView({
           />
 
           {showMemberCare && (
-            <div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-3">
-                Cluster Care
-              </h3>
-              <p className="mb-3 text-sm text-gray-600">
-                Care cases are grouped by 5x5 Cord. Assign follow-up to the cord
-                sub-coordinator when helpful.
-              </p>
-              <ClusterCareRoster
-                clusterId={cluster.id}
-                clusters={[cluster]}
-                assigneePeople={[
-                  ...clusterMembers,
-                  ...(displayCoordinator ? [displayCoordinator] : []),
-                ]}
-                canEdit={canManageCluster}
-                compact
-                reloadToken={careReloadToken}
-                onViewPerson={onViewPerson}
-                onOpenCase={onEditCareCase}
-                selectedCaseId={selectedCareCaseId}
-              />
+            <div className="rounded-lg border border-gray-200 bg-white">
+              <button
+                type="button"
+                className="flex w-full min-h-[44px] items-center gap-3 px-3 py-3 text-left hover:bg-gray-50"
+                aria-expanded={careExpanded}
+                onClick={() => setCareExpanded((open) => !open)}
+              >
+                <svg
+                  className={`h-5 w-5 shrink-0 text-gray-500 transition-transform ${
+                    careExpanded ? "rotate-90" : ""
+                  }`}
+                  viewBox="0 0 20 20"
+                  fill="currentColor"
+                  aria-hidden
+                >
+                  <path
+                    fillRule="evenodd"
+                    d="M7.21 14.77a.75.75 0 01.02-1.06L11.168 10 7.23 6.29a.75.75 0 111.04-1.08l4.5 4.25a.75.75 0 010 1.08l-4.5 4.25a.75.75 0 01-1.06-.02z"
+                    clipRule="evenodd"
+                  />
+                </svg>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-lg font-semibold text-gray-900">
+                    Cluster Care
+                  </span>
+                  <span className="block text-sm text-gray-600">
+                    Care cases are grouped by 5x5 Cord. Assign follow-up to the
+                    cord sub-coordinator when helpful.
+                  </span>
+                </span>
+                <span className="shrink-0 text-sm font-medium text-primary">
+                  {careExpanded ? "Hide" : "Show cases"}
+                </span>
+              </button>
+              {careExpanded ? (
+                <div className="border-t border-gray-100 px-3 pb-3 pt-2">
+                  <ClusterCareRoster
+                    clusterId={cluster.id}
+                    clusters={[cluster]}
+                    assigneePeople={[
+                      ...clusterMembers,
+                      ...(displayCoordinator ? [displayCoordinator] : []),
+                    ]}
+                    canEdit={canManageCluster}
+                    compact
+                    reloadToken={careReloadToken}
+                    onViewPerson={onViewPerson}
+                    onOpenCase={onEditCareCase}
+                    selectedCaseId={selectedCareCaseId}
+                  />
+                </div>
+              ) : null}
             </div>
           )}
 
@@ -1183,6 +1285,7 @@ export default function ClusterView({
       >
         {canManageCluster ? (
           <>
+            {allowDeactivate && (
             <div className="flex flex-nowrap items-center gap-2 shrink-0">
               <Button
                 onClick={onDelete}
@@ -1212,6 +1315,7 @@ export default function ClusterView({
                 />
               )}
             </div>
+            )}
             <div className="flex flex-nowrap items-center gap-2 shrink-0 ml-auto">
               <Button
                 onClick={onEdit}

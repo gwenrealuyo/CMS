@@ -90,6 +90,8 @@ export interface Cluster {
   family_count?: number;
   /** Person IDs with CLUSTER REPORTER assignment for this cluster */
   reporter_ids?: number[];
+  /** Person IDs with CLUSTER ASSISTANT_COORDINATOR assignment for this cluster */
+  assistant_ids?: number[];
   /** Slim 5x5 Cord counts on cluster detail. */
   cords_summary?: ClusterCordsSummary;
   branch?: number | null;
@@ -163,6 +165,8 @@ export interface ClusterInput {
   transfer_member_ids?: number[];
   /** Person IDs to assign as CLUSTER REPORTER for this cluster */
   reporter_ids?: number[];
+  /** Person IDs to assign as CLUSTER ASSISTANT_COORDINATOR for this cluster */
+  assistant_ids?: number[];
   branch?: number | null;
   location?: string;
   meeting_schedule?: string;

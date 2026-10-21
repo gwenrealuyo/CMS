@@ -90,7 +90,7 @@ export default function GroupMembersSection({
               {displayedMembers.map((row) => (
                 <div
                   key={row.id}
-                  className="flex flex-col gap-2 px-3 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:px-4 md:px-6"
+                  className="flex flex-row items-center justify-between gap-2 px-3 py-3 sm:gap-4 sm:px-4 md:px-6"
                 >
                   <div className="flex min-w-0 flex-1 flex-col gap-1.5 sm:flex-row sm:items-center sm:gap-2">
                     <span className="min-w-0 break-words text-sm font-medium text-gray-900">
@@ -121,11 +121,11 @@ export default function GroupMembersSection({
                     </div>
                   </div>
                   {canManage && (
-                    <div className="flex shrink-0 sm:justify-end">
+                    <div className="flex shrink-0 justify-end">
                       <Button
                         variant="secondary"
                         onClick={() => onRemoveMember(row)}
-                        className="w-full min-h-[44px] border border-red-200 bg-white px-2 py-1 text-xs !text-red-600 hover:border-red-300 hover:bg-red-50 sm:w-auto md:min-h-0"
+                        className="!min-h-0 border border-red-200 bg-white px-2 py-0.5 text-[11px] leading-tight !text-red-600 hover:border-red-300 hover:bg-red-50 sm:px-2.5 sm:py-1 sm:text-xs"
                       >
                         Remove
                       </Button>

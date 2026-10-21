@@ -92,7 +92,7 @@ from apps.clusters.permissions import (
     apply_report_branch_scope,
     clusters_for_overdue,
     ensure_user_can_submit_cluster_report_or_privileged,
-    ensure_user_manages_cluster_or_privileged,
+    ensure_user_can_operate_cluster_or_privileged,
     filter_clusters_for_read,
     filter_weekly_reports_for_user,
 )
@@ -178,7 +178,7 @@ class ClusterViewSet(viewsets.ModelViewSet):
         )
 
     @staticmethod
-    def _cluster_reporter_ids_map(cluster_ids):
+    def _cluster_role_ids_map(cluster_ids, level):
         from collections import defaultdict
         from apps.people.models import ModuleCoordinator
 
@@ -187,7 +187,7 @@ class ClusterViewSet(viewsets.ModelViewSet):
             return mapping
         rows = ModuleCoordinator.objects.filter(
             module=ModuleCoordinator.ModuleType.CLUSTER,
-            level=ModuleCoordinator.CoordinatorLevel.REPORTER,
+            level=level,
             resource_id__in=cluster_ids,
         ).values_list("resource_id", "person_id")
         for resource_id, person_id in rows:
@@ -195,11 +195,27 @@ class ClusterViewSet(viewsets.ModelViewSet):
                 mapping[resource_id].append(person_id)
         return mapping
 
+    @classmethod
+    def _cluster_reporter_ids_map(cls, cluster_ids):
+        from apps.people.models import ModuleCoordinator
+
+        return cls._cluster_role_ids_map(
+            cluster_ids, ModuleCoordinator.CoordinatorLevel.REPORTER
+        )
+
+    @classmethod
+    def _cluster_assistant_ids_map(cls, cluster_ids):
+        from apps.people.models import ModuleCoordinator
+
+        return cls._cluster_role_ids_map(
+            cluster_ids, ModuleCoordinator.CoordinatorLevel.ASSISTANT_COORDINATOR
+        )
+
     def get_serializer(self, *args, **kwargs):
         kwargs.setdefault("context", self.get_serializer_context())
         instance = args[0] if args else kwargs.get("instance")
-        # Bulk-load reporter IDs for reads only. Write serializers must query after
-        # save so to_representation reflects synced assignments.
+        # Bulk-load reporter/assistant IDs for reads only. Write serializers must
+        # query after save so to_representation reflects synced assignments.
         if (
             instance is not None
             and kwargs.get("data") is None
@@ -212,6 +228,9 @@ class ClusterViewSet(viewsets.ModelViewSet):
                 cluster_ids = [instance.id]
             kwargs["context"]["cluster_reporter_ids_map"] = (
                 self._cluster_reporter_ids_map(cluster_ids)
+            )
+            kwargs["context"]["cluster_assistant_ids_map"] = (
+                self._cluster_assistant_ids_map(cluster_ids)
             )
         return super().get_serializer(*args, **kwargs)
 
@@ -544,7 +563,7 @@ class ClusterViewSet(viewsets.ModelViewSet):
     def cords(self, request, pk=None):
         cluster = self.get_object()
         if request.method.lower() == "post":
-            ensure_user_manages_cluster_or_privileged(request.user, cluster)
+            ensure_user_can_operate_cluster_or_privileged(request.user, cluster)
             serializer = ClusterCordSerializer(
                 data=request.data,
                 context={
@@ -628,7 +647,7 @@ class ClusterCordViewSet(viewsets.ModelViewSet):
 
     def partial_update(self, request, *args, **kwargs):
         cord = self.get_object()
-        ensure_user_manages_cluster_or_privileged(request.user, cord.cluster)
+        ensure_user_can_operate_cluster_or_privileged(request.user, cord.cluster)
         serializer = ClusterCordSerializer(
             cord,
             data=request.data,
@@ -646,7 +665,7 @@ class ClusterCordViewSet(viewsets.ModelViewSet):
 
     def destroy(self, request, *args, **kwargs):
         cord = self.get_object()
-        ensure_user_manages_cluster_or_privileged(request.user, cord.cluster)
+        ensure_user_can_operate_cluster_or_privileged(request.user, cord.cluster)
         deactivate_cord(cord)
         return Response(status=status.HTTP_204_NO_CONTENT)
 

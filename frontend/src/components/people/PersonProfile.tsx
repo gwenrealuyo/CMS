@@ -63,6 +63,19 @@ function clusterStubFromMembership(membership: ClusterMembership): Cluster {
   };
 }
 
+function formatAuditDateTime(value?: string | null): string | null {
+  if (!value) return null;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
 function clusterQuickFactLabel(c: Pick<Cluster, "name" | "code">) {
   const name = (c.name || "").trim() || "Unnamed cluster";
   const code = (c.code || "").trim();
@@ -137,6 +150,13 @@ export default function PersonProfile({
   const { getLabel: getEventTypeLabel } = useEventTypeOptions();
   const [resetPasswordOpen, setResetPasswordOpen] = useState(false);
   const canResetPassword = user?.role === "ADMIN" && person.role !== "VISITOR";
+  const isAdmin = user?.role === "ADMIN";
+  const lastUpdatedByLabel = [
+    person.updated_by_name?.trim(),
+    formatAuditDateTime(person.updated_at),
+  ]
+    .filter(Boolean)
+    .join(" · ");
   const [activeTab, setActiveTab] = useState<"overview" | "timeline">(() =>
     initialTab === "timeline" && person.can_view_journey_timeline !== false
       ? "timeline"
@@ -894,6 +914,12 @@ export default function PersonProfile({
                         value={person.cord_name?.trim() || null}
                         fallback="None"
                       />
+                      {isAdmin ? (
+                        <ProfileFieldRow
+                          label="Last updated by"
+                          value={lastUpdatedByLabel || "Not recorded"}
+                        />
+                      ) : null}
                     </dl>
                   </section>
 

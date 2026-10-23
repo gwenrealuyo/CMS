@@ -212,6 +212,10 @@ export interface Person {
   can_view_profile?: boolean;
   /** One-time value returned when an admin creates a user with auto-generated password */
   temporary_password?: string;
+  /** Admin retrieve only: people API create/update stamp */
+  updated_at?: string | null;
+  updated_by?: number | string | null;
+  updated_by_name?: string | null;
   /** Write-only: admin create flow */
   initial_password?: string;
   generate_temporary_password?: boolean;

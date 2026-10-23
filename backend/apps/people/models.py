@@ -126,6 +126,15 @@ class Person(AbstractUser):
     )
     must_change_password = models.BooleanField(default=False)
     first_login = models.BooleanField(default=True)
+    # Stamped on people API create/update only (not logins or background jobs).
+    updated_at = models.DateTimeField(null=True, blank=True)
+    updated_by = models.ForeignKey(
+        "self",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="people_records_updated",
+    )
 
     groups = models.ManyToManyField(
         Group,

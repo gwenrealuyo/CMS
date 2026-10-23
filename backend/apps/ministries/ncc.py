@@ -385,7 +385,14 @@ def backfill_ncc_roster_from_lessons_teachers() -> int:
     enrollments = (
         LessonStudentEnrollment.objects.filter(teacher__isnull=False)
         .select_related("teacher", "student__branch")
-        .defer("teacher__intended_cord", "student__intended_cord")
+        .defer(
+            "teacher__intended_cord",
+            "student__intended_cord",
+            "teacher__updated_at",
+            "teacher__updated_by",
+            "student__updated_at",
+            "student__updated_by",
+        )
         .iterator()
     )
     for enrollment in enrollments:

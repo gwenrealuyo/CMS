@@ -57,8 +57,10 @@ class PersonAdmin(UserAdmin):
                 )
             },
         ),
-        ("Important dates", {"fields": ("last_login", "date_joined")}),
+        ("Important dates", {"fields": ("last_login", "date_joined", "updated_at", "updated_by")}),
     )
+
+    readonly_fields = ("last_login", "date_joined", "updated_at", "updated_by")
 
     # Also customize the add form to hide the password field
     add_fieldsets = (

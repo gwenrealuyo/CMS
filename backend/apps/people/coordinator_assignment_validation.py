@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from rest_framework import serializers
+from rest_framework.validators import UniqueTogetherValidator
 
 from apps.people.models import ModuleCoordinator, Person
 
@@ -48,6 +49,117 @@ def resource_branch_id(module: str, resource_id: int) -> int | None:
             .first()
         )
     return None
+
+
+def _choice_label(choices, value) -> str:
+    return str(dict(choices).get(value, value or ""))
+
+
+def resource_display_name(module: str, resource_id: int) -> str | None:
+    """Short label for a scoped assignment resource (cluster code, group, class)."""
+    if module == ModuleCoordinator.ModuleType.CLUSTER:
+        from apps.clusters.models import Cluster
+
+        row = (
+            Cluster.objects.filter(pk=resource_id).values_list("code", "name").first()
+        )
+        if not row:
+            return None
+        code = (row[0] or "").strip()
+        name = (row[1] or "").strip()
+        return code or name or None
+    if module == ModuleCoordinator.ModuleType.EVANGELISM:
+        from apps.evangelism.models import EvangelismGroup
+
+        name = (
+            EvangelismGroup.objects.filter(pk=resource_id)
+            .values_list("name", flat=True)
+            .first()
+        )
+        return (name or "").strip() or None
+    if module == ModuleCoordinator.ModuleType.SUNDAY_SCHOOL:
+        from apps.sunday_school.models import SundaySchoolClass
+
+        name = (
+            SundaySchoolClass.objects.filter(pk=resource_id)
+            .values_list("name", flat=True)
+            .first()
+        )
+        return (name or "").strip() or None
+    return None
+
+
+def assignment_scope_label(module: str, resource_id) -> str:
+    """Human scope, e.g. 'cluster EAST-1' or 'the Cluster module'."""
+    module_label = _choice_label(ModuleCoordinator.ModuleType.choices, module)
+    if not resource_id:
+        return f"the {module_label} module"
+    name = resource_display_name(module, int(resource_id))
+    if module == ModuleCoordinator.ModuleType.CLUSTER and name:
+        return f"cluster {name}"
+    if module == ModuleCoordinator.ModuleType.EVANGELISM and name:
+        return f"evangelism group {name}"
+    if module == ModuleCoordinator.ModuleType.SUNDAY_SCHOOL and name:
+        return f"Sunday School class {name}"
+    if name:
+        return name
+    return f"this {module_label} resource"
+
+
+def duplicate_module_coordinator_message(
+    existing: ModuleCoordinator,
+    requested_level: str | None = None,
+) -> str:
+    """
+    Explain a (person, module, resource_id) clash.
+
+    Level is not part of the unique key, so a second role on the same resource
+    must say what is already saved and that the level has to be edited in place.
+    """
+    person = existing.person
+    name = person.get_full_name() or person.username
+    existing_level = existing.get_level_display()
+    scope = assignment_scope_label(existing.module, existing.resource_id)
+    message = f"{name} is already assigned as {existing_level} for {scope}."
+    if requested_level and requested_level != existing.level:
+        requested_label = _choice_label(
+            ModuleCoordinator.CoordinatorLevel.choices, requested_level
+        )
+        module_label = existing.get_module_display()
+        message += (
+            f" Each person can have only one {module_label} assignment for that"
+            f" resource, so they cannot also be assigned as {requested_label}."
+            " Edit the existing assignment to change the level."
+        )
+    return message
+
+
+class ModuleCoordinatorUniqueTogetherValidator(UniqueTogetherValidator):
+    """Same uniqueness rule as the model, with a message that names the clash."""
+
+    def __call__(self, attrs, serializer):
+        try:
+            super().__call__(attrs, serializer)
+        except serializers.ValidationError as exc:
+            if exc.get_codes() != ["unique"]:
+                raise
+            queryset = self.exclude_current_instance(
+                attrs,
+                self.filter_queryset(attrs, self.queryset, serializer),
+                serializer.instance,
+            )
+            existing = queryset.select_related("person").first()
+            if existing is None:
+                raise
+            requested_level = attrs.get("level")
+            if requested_level is None and serializer.instance is not None:
+                requested_level = serializer.instance.level
+            raise serializers.ValidationError(
+                duplicate_module_coordinator_message(
+                    existing, requested_level=requested_level
+                ),
+                code="unique",
+            ) from exc
 
 
 def validate_module_coordinator_assignment(

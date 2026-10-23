@@ -23,6 +23,9 @@ from apps.clusters.models import Cluster
 from apps.authentication.password_validators import PasswordStrengthValidator
 from apps.events.models import EventType
 from apps.people.coordinator_assignment_validation import (
+    ModuleCoordinatorUniqueTogetherValidator,
+    assignment_scope_label,
+    duplicate_module_coordinator_message,
     user_can_add_person,
     user_can_add_visitor,
     user_has_people_write_coordinator_assignment,
@@ -122,6 +125,12 @@ class ModuleCoordinatorSerializer(serializers.ModelSerializer):
             "created_at",
         ]
         read_only_fields = ["created_at"]
+        validators = [
+            ModuleCoordinatorUniqueTogetherValidator(
+                queryset=ModuleCoordinator.objects.all(),
+                fields=("person", "module", "resource_id"),
+            )
+        ]
 
     def get_person_name(self, obj):
         return obj.person.get_full_name() or obj.person.username
@@ -312,18 +321,23 @@ class ModuleCoordinatorBulkCreateSerializer(serializers.Serializer):
             # Check for duplicates within the request
             combination_key = (person_id, module, resource_id)
             if combination_key in seen_combinations:
+                scope = assignment_scope_label(module, resource_id)
+                name = person.get_full_name() or person.username
                 raise serializers.ValidationError(
-                    f"Assignment {idx + 1}: Duplicate assignment (person={person_id}, module={module}, resource_id={resource_id})."
+                    f"Assignment {idx + 1}: {name} is listed more than once for {scope}."
                 )
             seen_combinations.add(combination_key)
 
-            # Check for existing assignments (respect unique_together constraint)
-            existing = ModuleCoordinator.objects.filter(
-                person_id=person_id, module=module, resource_id=resource_id
+            # One row per person, module, and resource (level is not part of the key).
+            existing = (
+                ModuleCoordinator.objects.select_related("person")
+                .filter(person_id=person_id, module=module, resource_id=resource_id)
+                .first()
             )
-            if existing.exists():
+            if existing:
                 raise serializers.ValidationError(
-                    f"Assignment {idx + 1}: Assignment already exists for person {person_id}, module {module}, resource_id {resource_id}."
+                    "Assignment "
+                    f"{idx + 1}: {duplicate_module_coordinator_message(existing, level)}"
                 )
 
             normalized = validate_module_coordinator_assignment(
@@ -766,6 +780,9 @@ class PersonSerializer(serializers.ModelSerializer):
     hg_witnessed_by_display_name = serializers.SerializerMethodField()
     hg_witnessed_by_first_name = JourneyHistoricalNameField(SPIRIT_JOURNEY_TYPE, 0)
     hg_witnessed_by_last_name = JourneyHistoricalNameField(SPIRIT_JOURNEY_TYPE, 1)
+    updated_by_name = serializers.SerializerMethodField()
+
+    _ADMIN_AUDIT_FIELDS = ("updated_at", "updated_by", "updated_by_name")
 
     class Meta:
         model = Person
@@ -836,11 +853,19 @@ class PersonSerializer(serializers.ModelSerializer):
             "initial_password",
             "generate_temporary_password",
             "temporary_password",
+            "updated_at",
+            "updated_by",
+            "updated_by_name",
         ]
         extra_kwargs = {
             "username": {"required": False, "allow_blank": True},
         }
-        read_only_fields = ["cord_locked"]
+        read_only_fields = [
+            "cord_locked",
+            "updated_at",
+            "updated_by",
+            "updated_by_name",
+        ]
 
     _BLANKABLE_DATE_FIELDS = (
         "date_of_birth",
@@ -856,6 +881,32 @@ class PersonSerializer(serializers.ModelSerializer):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._temporary_password = None
+        if not self._request_user_is_admin():
+            for field_name in self._ADMIN_AUDIT_FIELDS:
+                self.fields.pop(field_name, None)
+
+    def _request_user_is_admin(self):
+        request = self.context.get("request")
+        user = getattr(request, "user", None) if request else None
+        return bool(
+            user
+            and getattr(user, "is_authenticated", False)
+            and getattr(user, "role", None) == "ADMIN"
+        )
+
+    def _stamp_last_editor(self, validated_data):
+        request = self.context.get("request")
+        user = getattr(request, "user", None) if request else None
+        if user is not None and getattr(user, "is_authenticated", False):
+            validated_data["updated_by"] = user
+            validated_data["updated_at"] = timezone.now()
+        return validated_data
+
+    def get_updated_by_name(self, obj):
+        editor = getattr(obj, "updated_by", None)
+        if not editor:
+            return None
+        return editor.get_full_name() or editor.username
 
     def to_internal_value(self, data):
         # JSON payloads may send "" for cleared dates. DRF DateField accepts
@@ -1551,6 +1602,7 @@ class PersonSerializer(serializers.ModelSerializer):
         validated_data["username"] = generate_unique_username(
             first_name, last_name
         )
+        self._stamp_last_editor(validated_data)
         person = Person(**validated_data)
         stash_baptism_verifiers(person, **verifier_write)
         person.save()
@@ -1644,6 +1696,7 @@ class PersonSerializer(serializers.ModelSerializer):
         )
 
         delete_person_photo_if_cleared(instance, validated_data)
+        self._stamp_last_editor(validated_data)
 
         # Perform the update
         updated_instance = super().update(instance, validated_data)

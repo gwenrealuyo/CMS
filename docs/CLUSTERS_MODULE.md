@@ -197,7 +197,7 @@ All ForeignKey and ManyToMany relationships use string references to avoid circu
 
 ## Compliance Monitoring
 
-The clusters module includes comprehensive compliance monitoring features accessible to ADMIN, PASTOR, and Senior Coordinators:
+The clusters module includes comprehensive compliance monitoring features accessible to ADMIN, PASTOR, Cluster Senior Coordinators, and Cluster Committee Primary and Support Coordinators:
 
 ### Compliance Features
 
@@ -354,7 +354,8 @@ The Clusters hub lives at `frontend/src/app/clusters/page.tsx` and provides a co
 
 Implemented in `frontend/src/app/clusters/ClustersPageView.tsx` (derived from `useAuth()`). Login and `GET /auth/me/` include **`module_coordinator_assignments`** so coordinator vs senior detection works in the browser.
 
-- **Module-wide CLUSTER access** (primary action **Add Cluster** on the **Clusters** tab header): **ADMIN**; or **CLUSTER Senior Coordinator** (`isSeniorCoordinator("CLUSTER")`); or **PASTOR** who does **not** have a CLUSTER assignment **only** at **COORDINATOR** level (non-senior). Pastors who are assigned solely as a non-senior CLUSTER coordinator see **Submit Report** primary like other coordinators.
+- **Module-wide CLUSTER access** (primary action **Add Cluster** on the **Clusters** tab header): **ADMIN**; **CLUSTER Senior Coordinator**; **Cluster Committee Primary Coordinator** or **Support Coordinator**; or **PASTOR** who does **not** have a CLUSTER assignment **only** at **COORDINATOR** level (non-senior). Pastors who are assigned solely as a non-senior CLUSTER coordinator see **Submit Report** primary like other coordinators.
+- **Branch picker**: Admin, Pastor, a Cluster Senior Coordinator whose own branch is headquarters, or the Primary Coordinator of the headquarters Cluster Committee. Other Primary Coordinators and every Support Coordinator stay on their branch. Senior Coordinator is the headquarters all-branch name only.
 - **Everyone else** on `/clusters` (including members with a CLUSTER coordinator assignment, and **PASTOR** + non-senior CLUSTER coordinator assignment): primary action **Submit Report** only (no secondary **Add Cluster** on this screen).
 - **Empty cluster list** (no active search/filters): matches the header (**Create Cluster** vs **Submit Report**); helper copy for non-module-wide users points toward submitting weekly reports and contacting leadership for net-new clusters.
 

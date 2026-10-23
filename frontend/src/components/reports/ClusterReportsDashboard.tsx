@@ -424,11 +424,13 @@ export default function ClusterReportsDashboard({
         role: user?.role,
         isSeniorCoordinator,
         isModuleCoordinator,
+        clusterCommitteeRole: user?.cluster_committee_role,
       }),
     [
       clustersForFilters,
       user?.id,
       user?.role,
+      user?.cluster_committee_role,
       isSeniorCoordinator,
       isModuleCoordinator,
     ],
@@ -437,6 +439,7 @@ export default function ClusterReportsDashboard({
   const canExportReports = userCanExportClusterData({
     role: user?.role,
     isSeniorCoordinator,
+    clusterCommitteeRole: user?.cluster_committee_role,
   });
 
   // Handle sorting

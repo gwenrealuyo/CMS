@@ -270,11 +270,13 @@ const PersonForm = forwardRef<PersonFormHandle, PersonFormProps>(
       isSeniorCoordinator,
       isModuleCoordinator,
       moduleCoordinatorAssignments: user?.module_coordinator_assignments,
+      clusterCommitteeRole: user?.cluster_committee_role,
     }),
     [
       user?.id,
       user?.role,
       user?.module_coordinator_assignments,
+      user?.cluster_committee_role,
       isSeniorCoordinator,
       isModuleCoordinator,
     ],

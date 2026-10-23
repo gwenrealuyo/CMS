@@ -200,12 +200,14 @@ def user_can_add_person(user) -> bool:
         return False
     if getattr(user, "role", None) in ("ADMIN", "PASTOR"):
         return True
-    if user.is_senior_coordinator(ModuleCoordinator.ModuleType.CLUSTER):
-        return True
     from apps.clusters.permissions import (
+        has_cluster_oversight_access,
         is_non_senior_cluster_assistant,
         is_non_senior_cluster_coordinator,
     )
+
+    if has_cluster_oversight_access(user):
+        return True
 
     return is_non_senior_cluster_coordinator(user) or is_non_senior_cluster_assistant(
         user

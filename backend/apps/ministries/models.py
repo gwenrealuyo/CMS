@@ -10,6 +10,8 @@ NCC_MINISTRY_CODE = "NCC"
 NCC_MINISTRY_NAME = "NCC / Lessons"
 BIBLE_SHARERS_MINISTRY_CODE = "BIBLE_SHARERS"
 BIBLE_SHARERS_MINISTRY_NAME = "Bible Sharers"
+CLUSTER_COMMITTEE_MINISTRY_CODE = "CLUSTER_COMMITTEE"
+CLUSTER_COMMITTEE_MINISTRY_NAME = "Cluster Committee"
 
 
 def today():
@@ -47,7 +49,8 @@ class Ministry(models.Model):
         blank=True,
         help_text="Short shortcut name for the ministry (e.g. WORSHIP). "
         "NCC is reserved for the per-branch Lessons teacher roster. "
-        "BIBLE_SHARERS is reserved for the headquarters Bible Sharers roster.",
+        "BIBLE_SHARERS is reserved for the headquarters Bible Sharers roster. "
+        "CLUSTER_COMMITTEE is reserved for the per-branch Cluster Committee roster.",
     )
     description = models.TextField(blank=True)
     category = models.CharField(
@@ -92,8 +95,8 @@ class Ministry(models.Model):
     is_system = models.BooleanField(
         default=False,
         help_text=(
-            "System ministries (e.g. NCC and Bible Sharers rosters) are "
-            "protected from normal delete/code edits."
+            "System ministries (e.g. NCC, Bible Sharers, and Cluster Committee "
+            "rosters) are protected from normal delete/code edits."
         ),
     )
     created_at = models.DateTimeField(auto_now_add=True)
@@ -134,6 +137,10 @@ class Ministry(models.Model):
     @property
     def is_bible_sharers_roster(self) -> bool:
         return (self.code or "").upper() == BIBLE_SHARERS_MINISTRY_CODE
+
+    @property
+    def is_cluster_committee_roster(self) -> bool:
+        return (self.code or "").upper() == CLUSTER_COMMITTEE_MINISTRY_CODE
 
 
 class MinistryRole(models.TextChoices):

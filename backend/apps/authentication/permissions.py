@@ -384,6 +384,16 @@ class HasModuleAccess(permissions.BasePermission):
             if has_lessons_write_access(user):
                 return True
 
+        # Cluster Committee primary/support have Cluster write without a senior row.
+        if (
+            module_type_str == ModuleCoordinator.ModuleType.CLUSTER
+            and effective_action in ["write", "create"]
+        ):
+            from apps.clusters.permissions import has_cluster_oversight_access
+
+            if has_cluster_oversight_access(user):
+                return True
+
         # MEMBER has read-only access to all modules
         if user.role == "MEMBER" and effective_action == "read":
             return True

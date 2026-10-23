@@ -66,6 +66,16 @@ def clusters_oversight_queryset_for_user(user):
         if branch and not user.can_see_all_branches():
             return qs.filter(branch=branch)
         return qs
-    if user.is_senior_coordinator(ModuleCoordinator.ModuleType.CLUSTER):
-        return qs
+    from apps.clusters.permissions import (
+        can_pick_cluster_branch,
+        has_cluster_oversight_access,
+    )
+
+    if has_cluster_oversight_access(user):
+        if can_pick_cluster_branch(user):
+            return qs
+        branch_id = getattr(user, "branch_id", None)
+        if branch_id:
+            return qs.filter(branch_id=branch_id)
+        return qs.none()
     return qs.none()

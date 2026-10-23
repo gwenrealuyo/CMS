@@ -17,6 +17,12 @@ function assignmentsOf(user: User | null | undefined): ModuleCoordinator[] {
 export function userCanAddPerson(user: User | null | undefined): boolean {
   if (!user) return false;
   if (user.role === "ADMIN" || user.role === "PASTOR") return true;
+  if (
+    user.cluster_committee_role === "PRIMARY" ||
+    user.cluster_committee_role === "SUPPORT"
+  ) {
+    return true;
+  }
   // Cluster.coordinator FK rows are synced to ModuleCoordinator assignments.
   return assignmentsOf(user).some(
     (a) =>

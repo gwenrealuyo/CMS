@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from apps.people.models import ModuleCoordinator, Person
+from apps.people.models import Person
 
 VITAL_DATE_ATTRS = (
     "date_first_invited",
@@ -37,8 +37,23 @@ def user_can_edit_vital_dates(actor: Person | None, person: Person | None) -> bo
         return False
     if getattr(actor, "role", None) in ("ADMIN", "PASTOR"):
         return True
-    if actor.is_senior_coordinator(ModuleCoordinator.ModuleType.CLUSTER):
-        return True
+    from apps.clusters.permissions import (
+        can_pick_cluster_branch,
+        has_cluster_oversight_access,
+    )
+
+    if has_cluster_oversight_access(actor):
+        if can_pick_cluster_branch(actor) and getattr(actor, "role", None) not in (
+            "ADMIN",
+            "PASTOR",
+        ):
+            return True
+        if (
+            person is not None
+            and actor.branch_id
+            and person.branch_id == actor.branch_id
+        ):
+            return True
     if person is None or not getattr(person, "pk", None):
         return False
     from apps.clusters.permissions import managed_cluster_ids_for_operator

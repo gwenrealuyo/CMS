@@ -311,6 +311,21 @@ class ClusterSerializer(serializers.ModelSerializer):
     def validate(self, attrs):
         attrs = super().validate(attrs)
 
+        request = self.context.get("request")
+        user = getattr(request, "user", None) if request else None
+        if user and getattr(user, "is_authenticated", False):
+            from apps.clusters.permissions import can_pick_cluster_branch
+
+            if not can_pick_cluster_branch(user):
+                branch = attrs.get("branch", getattr(self.instance, "branch", None))
+                branch_id = getattr(branch, "pk", branch)
+                if branch_id and user.branch_id and int(branch_id) != int(user.branch_id):
+                    raise serializers.ValidationError(
+                        {"branch": "You can only manage clusters in your branch."}
+                    )
+                if self.instance is None and not branch_id and user.branch_id:
+                    attrs["branch"] = user.branch
+
         transfer_raw = attrs.pop("transfer_member_ids", None)
         if transfer_raw is None:
             transfer_raw = []

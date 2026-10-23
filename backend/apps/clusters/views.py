@@ -1060,7 +1060,9 @@ class ClusterWeeklyReportViewSet(viewsets.ModelViewSet):
         """Check if user has access to compliance features"""
         if user.role in ["ADMIN", "PASTOR"]:
             return True
-        if user.is_senior_coordinator(ModuleCoordinator.ModuleType.CLUSTER):
+        from apps.clusters.permissions import has_cluster_oversight_access
+
+        if has_cluster_oversight_access(user):
             return True
         return False
 

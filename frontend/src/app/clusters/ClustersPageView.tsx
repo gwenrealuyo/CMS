@@ -392,6 +392,7 @@ export default function ClustersPageView({
           isSeniorCoordinator,
           isModuleCoordinator,
           moduleCoordinatorAssignments: user?.module_coordinator_assignments,
+          clusterCommitteeRole: user?.cluster_committee_role,
         },
         allClusters,
       ),
@@ -399,6 +400,7 @@ export default function ClustersPageView({
       user?.id,
       user?.role,
       user?.module_coordinator_assignments,
+      user?.cluster_committee_role,
       isSeniorCoordinator,
       isModuleCoordinator,
       allClusters,
@@ -416,9 +418,13 @@ export default function ClustersPageView({
     (isModuleCoordinator("CLUSTER", "COORDINATOR") ||
       isModuleCoordinator("CLUSTER", "ASSISTANT_COORDINATOR")) &&
     !isSeniorCoordinator("CLUSTER");
+  const hasClusterCommitteeOversight =
+    user?.cluster_committee_role === "PRIMARY" ||
+    user?.cluster_committee_role === "SUPPORT";
   const hasClusterModuleWideAccess =
     user?.role === "ADMIN" ||
     isSeniorCoordinator("CLUSTER") ||
+    hasClusterCommitteeOversight ||
     (user?.role === "PASTOR" && !isOnlyNonSeniorClusterOperator);
 
   const clusterAuthCtx = useMemo(
@@ -428,11 +434,13 @@ export default function ClustersPageView({
       isSeniorCoordinator,
       isModuleCoordinator,
       moduleCoordinatorAssignments: user?.module_coordinator_assignments,
+      clusterCommitteeRole: user?.cluster_committee_role,
     }),
     [
       user?.id,
       user?.role,
       user?.module_coordinator_assignments,
+      user?.cluster_committee_role,
       isSeniorCoordinator,
       isModuleCoordinator,
     ],
@@ -475,7 +483,8 @@ export default function ClustersPageView({
   const canAccessCompliance =
     user?.role === "ADMIN" ||
     user?.role === "PASTOR" ||
-    isSeniorCoordinator("CLUSTER");
+    isSeniorCoordinator("CLUSTER") ||
+    hasClusterCommitteeOversight;
 
   useEffect(() => {
     if (!canAccessCompliance && activeTab === "compliance") {

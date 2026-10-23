@@ -106,6 +106,8 @@ class UserSerializer(serializers.ModelSerializer):
     )
     ncc_lessons_role = serializers.SerializerMethodField()
     ncc_primary_at_headquarters = serializers.SerializerMethodField()
+    cluster_committee_role = serializers.SerializerMethodField()
+    cluster_committee_primary_at_headquarters = serializers.SerializerMethodField()
     on_bible_sharers_roster = serializers.SerializerMethodField()
 
     class Meta:
@@ -130,6 +132,8 @@ class UserSerializer(serializers.ModelSerializer):
             "module_coordinator_assignments",
             "ncc_lessons_role",
             "ncc_primary_at_headquarters",
+            "cluster_committee_role",
+            "cluster_committee_primary_at_headquarters",
             "on_bible_sharers_roster",
         )
         read_only_fields = (
@@ -147,6 +151,8 @@ class UserSerializer(serializers.ModelSerializer):
             "module_coordinator_assignments",
             "ncc_lessons_role",
             "ncc_primary_at_headquarters",
+            "cluster_committee_role",
+            "cluster_committee_primary_at_headquarters",
             "on_bible_sharers_roster",
         )
 
@@ -180,6 +186,18 @@ class UserSerializer(serializers.ModelSerializer):
         from apps.lessons.coordinator_access import is_ncc_primary_at_headquarters
 
         return is_ncc_primary_at_headquarters(obj)
+
+    def get_cluster_committee_role(self, obj):
+        from apps.ministries.cluster_committee import cluster_committee_role
+
+        return cluster_committee_role(obj)
+
+    def get_cluster_committee_primary_at_headquarters(self, obj):
+        from apps.ministries.cluster_committee import (
+            is_cluster_committee_primary_at_headquarters,
+        )
+
+        return is_cluster_committee_primary_at_headquarters(obj)
 
     def get_on_bible_sharers_roster(self, obj):
         from apps.ministries.bible_sharers import person_on_bible_sharers_roster

@@ -10,7 +10,28 @@ type ManageClusterAuth = {
     level?: ModuleCoordinator["level"],
     resourceId?: number,
   ) => boolean;
+  clusterCommitteeRole?: "PRIMARY" | "SUPPORT" | null;
 };
+
+function hasClusterOversight(auth: ManageClusterAuth): boolean {
+  if (auth.isSeniorCoordinator("CLUSTER")) return true;
+  return (
+    auth.clusterCommitteeRole === "PRIMARY" ||
+    auth.clusterCommitteeRole === "SUPPORT"
+  );
+}
+
+/** HQ all-branch Cluster picker: Admin, Pastor, HQ Senior, or HQ Committee Primary. */
+export function userCanPickClusterBranch(user: {
+  role?: string;
+  branch_is_headquarters?: boolean;
+  cluster_committee_primary_at_headquarters?: boolean;
+} | null | undefined, isSeniorCoordinator: (module?: ModuleCoordinator["module"]) => boolean): boolean {
+  if (!user) return false;
+  if (user.role === "ADMIN" || user.role === "PASTOR") return true;
+  if (isSeniorCoordinator("CLUSTER") && user.branch_is_headquarters) return true;
+  return Boolean(user.cluster_committee_primary_at_headquarters);
+}
 
 /** Levels that pass backend `allows_cluster_report_mutation_attempt` for CLUSTER module. */
 const CLUSTER_WEEKLY_REPORT_MUTATION_LEVELS: ModuleCoordinator["level"][] = [
@@ -73,10 +94,10 @@ function isNamedOrAssignedCoordinator(
 export function isClusterReporterOnly(
   auth: ManageClusterAuth & { moduleCoordinatorAssignments?: ModuleCoordinator[] },
 ): boolean {
-  const { role, isSeniorCoordinator, isModuleCoordinator, userId } = auth;
+  const { role, isModuleCoordinator, userId } = auth;
   if (!userId) return false;
   if (role === "ADMIN" || role === "PASTOR") return false;
-  if (isSeniorCoordinator("CLUSTER")) return false;
+  if (hasClusterOversight(auth)) return false;
   if (isModuleCoordinator("CLUSTER", "COORDINATOR")) return false;
   if (isModuleCoordinator("CLUSTER", "ASSISTANT_COORDINATOR")) return false;
   const assignments = auth.moduleCoordinatorAssignments ?? [];
@@ -94,10 +115,10 @@ export function userCanAttemptClusterWeeklyReportMutation(
   clusters: Cluster[],
   auth: ManageClusterAuth,
 ): boolean {
-  const { userId, role, isSeniorCoordinator, isModuleCoordinator } = auth;
+  const { userId, role, isModuleCoordinator } = auth;
   if (!userId) return false;
   if (role === "ADMIN" || role === "PASTOR") return true;
-  if (isSeniorCoordinator("CLUSTER")) return true;
+  if (hasClusterOversight(auth)) return true;
   for (const level of CLUSTER_WEEKLY_REPORT_MUTATION_LEVELS) {
     if (isModuleCoordinator("CLUSTER", level)) return true;
   }
@@ -115,10 +136,10 @@ export function userCanManageCluster(
   cluster: Cluster,
   auth: ManageClusterAuth,
 ): boolean {
-  const { userId, role, isSeniorCoordinator } = auth;
+  const { userId, role } = auth;
   if (!userId) return false;
   if (role === "ADMIN" || role === "PASTOR") return true;
-  if (isSeniorCoordinator("CLUSTER")) return true;
+  if (hasClusterOversight(auth)) return true;
   return isNamedOrAssignedCoordinator(cluster, auth);
 }
 
@@ -194,10 +215,10 @@ export function canAccessClusterReports(
   auth: ManageClusterAuth & { moduleCoordinatorAssignments?: ModuleCoordinator[] },
   allClusters: Cluster[] = [],
 ): boolean {
-  const { userId, role, isSeniorCoordinator, isModuleCoordinator } = auth;
+  const { userId, role, isModuleCoordinator } = auth;
   if (!userId) return false;
   if (role === "ADMIN" || role === "PASTOR") return true;
-  if (isSeniorCoordinator("CLUSTER")) return true;
+  if (hasClusterOversight(auth)) return true;
   if (isModuleCoordinator("CLUSTER", "COORDINATOR")) return true;
   if (isModuleCoordinator("CLUSTER", "ASSISTANT_COORDINATOR")) return true;
   const assignments = auth.moduleCoordinatorAssignments ?? [];
@@ -223,10 +244,10 @@ export function userCanEditVitalDates(
   clusters: Cluster[],
   auth: ManageClusterAuth & { moduleCoordinatorAssignments?: ModuleCoordinator[] },
 ): boolean {
-  const { userId, role, isSeniorCoordinator } = auth;
+  const { userId, role } = auth;
   if (!userId) return false;
   if (role === "ADMIN" || role === "PASTOR") return true;
-  if (isSeniorCoordinator("CLUSTER")) return true;
+  if (hasClusterOversight(auth)) return true;
   const idSet = new Set(personClusterIds.map((id) => Number(id)));
   return clusters.some(
     (c) => idSet.has(Number(c.id)) && userCanOperateCluster(c, auth),
@@ -238,10 +259,10 @@ export function userCanEditVitalDates(
  * or any CLUSTER COORDINATOR / ASSISTANT assignment.
  */
 export function userCanEditVitalDatesOnCreate(auth: ManageClusterAuth): boolean {
-  const { userId, role, isSeniorCoordinator, isModuleCoordinator } = auth;
+  const { userId, role, isModuleCoordinator } = auth;
   if (!userId) return false;
   if (role === "ADMIN" || role === "PASTOR") return true;
-  if (isSeniorCoordinator("CLUSTER")) return true;
+  if (hasClusterOversight(auth)) return true;
   return (
     isModuleCoordinator("CLUSTER", "COORDINATOR") ||
     isModuleCoordinator("CLUSTER", "ASSISTANT_COORDINATOR")
@@ -255,10 +276,12 @@ export function userCanEditVitalDatesOnCreate(auth: ManageClusterAuth): boolean 
 export function userCanExportClusterData(auth: {
   role: string | undefined;
   isSeniorCoordinator: (module?: ModuleCoordinator["module"]) => boolean;
+  clusterCommitteeRole?: "PRIMARY" | "SUPPORT" | null;
 }): boolean {
-  const { role, isSeniorCoordinator } = auth;
+  const { role, isSeniorCoordinator, clusterCommitteeRole } = auth;
   if (role === "ADMIN" || role === "PASTOR") return true;
-  return isSeniorCoordinator("CLUSTER");
+  if (isSeniorCoordinator("CLUSTER")) return true;
+  return clusterCommitteeRole === "PRIMARY" || clusterCommitteeRole === "SUPPORT";
 }
 
 /**
@@ -292,10 +315,10 @@ export function userCanAccessMemberCare(
   auth: ManageClusterAuth & { moduleCoordinatorAssignments?: ModuleCoordinator[] },
   clusters: Cluster[] = [],
 ): boolean {
-  const { userId, role, isSeniorCoordinator, isModuleCoordinator } = auth;
+  const { userId, role, isModuleCoordinator } = auth;
   if (!userId) return false;
   if (role === "ADMIN" || role === "PASTOR") return true;
-  if (isSeniorCoordinator("CLUSTER")) return true;
+  if (hasClusterOversight(auth)) return true;
   if (isModuleCoordinator("CLUSTER", "COORDINATOR")) return true;
   if (isModuleCoordinator("CLUSTER", "ASSISTANT_COORDINATOR")) return true;
   return clusters.some((c) => {

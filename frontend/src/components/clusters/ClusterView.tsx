@@ -227,6 +227,7 @@ export default function ClusterView({
         role: user?.role,
         isSeniorCoordinator,
         isModuleCoordinator,
+        clusterCommitteeRole: user?.cluster_committee_role,
         moduleCoordinatorAssignments: user?.module_coordinator_assignments,
       },
       [cluster],

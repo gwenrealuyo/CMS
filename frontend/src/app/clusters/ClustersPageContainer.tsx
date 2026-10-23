@@ -32,6 +32,7 @@ import {
   canAccessClusterReports,
   userCanAccessMemberCare,
   userCanExportClusterData,
+  userCanPickClusterBranch,
 } from "@/src/lib/clusterPermissions";
 import { countClusterMembersFromDetails } from "@/src/lib/clusterRoster";
 import { formatPersonName } from "@/src/lib/name";
@@ -173,9 +174,13 @@ export default function ClustersPageContainer() {
     (isModuleCoordinator("CLUSTER", "COORDINATOR") ||
       isModuleCoordinator("CLUSTER", "ASSISTANT_COORDINATOR")) &&
     !isSeniorCoordinator("CLUSTER");
+  const hasClusterCommitteeOversight =
+    user?.cluster_committee_role === "PRIMARY" ||
+    user?.cluster_committee_role === "SUPPORT";
   const hasClusterModuleWideAccess =
     user?.role === "ADMIN" ||
     isSeniorCoordinator("CLUSTER") ||
+    hasClusterCommitteeOversight ||
     (user?.role === "PASTOR" && !isOnlyNonSeniorClusterOperator);
 
   const clusterAuthCtx = useMemo(
@@ -185,11 +190,13 @@ export default function ClustersPageContainer() {
       isSeniorCoordinator,
       isModuleCoordinator,
       moduleCoordinatorAssignments: user?.module_coordinator_assignments,
+      clusterCommitteeRole: user?.cluster_committee_role,
     }),
     [
       user?.id,
       user?.role,
       user?.module_coordinator_assignments,
+      user?.cluster_committee_role,
       isSeniorCoordinator,
       isModuleCoordinator,
     ],
@@ -215,11 +222,10 @@ export default function ClustersPageContainer() {
     refetch: refetchReports,
   } = useClusterReports({ enabled: canAccessClusterReportsUser });
 
-  const canChangeClusterBranchFilter = useMemo(() => {
-    if (!user) return false;
-    if (user.role === "ADMIN" || user.role === "PASTOR") return true;
-    return isSeniorCoordinator("CLUSTER");
-  }, [user, isSeniorCoordinator]);
+  const canChangeClusterBranchFilter = useMemo(
+    () => userCanPickClusterBranch(user, isSeniorCoordinator),
+    [user, isSeniorCoordinator],
+  );
 
   const [selectedBranchId, setSelectedBranchId] = useState<string>("");
   const [branchPickerOptions, setBranchPickerOptions] = useState<
@@ -685,6 +691,7 @@ export default function ClustersPageContainer() {
   const canExportClusterData = userCanExportClusterData({
     role: user?.role,
     isSeniorCoordinator,
+    clusterCommitteeRole: user?.cluster_committee_role,
   });
 
   // Bulk export handlers

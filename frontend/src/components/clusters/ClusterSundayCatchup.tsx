@@ -39,6 +39,7 @@ export default function ClusterSundayCatchup({
     role: user?.role,
     isSeniorCoordinator,
     isModuleCoordinator,
+    clusterCommitteeRole: user?.cluster_committee_role,
     moduleCoordinatorAssignments: user?.module_coordinator_assignments as
       | ModuleCoordinator[]
       | undefined,

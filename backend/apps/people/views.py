@@ -191,6 +191,17 @@ class PersonViewSet(viewsets.ModelViewSet):
         if user.role == "PASTOR":
             return apply_branch_filter(queryset)
 
+        # Cluster oversight (senior, Committee primary, Committee support)
+        from apps.clusters.permissions import (
+            can_pick_cluster_branch,
+            has_cluster_oversight_access,
+        )
+
+        if has_cluster_oversight_access(user):
+            if can_pick_cluster_branch(user) and user.role not in ("ADMIN", "PASTOR"):
+                return queryset
+            return apply_branch_filter(queryset)
+
         # Senior Coordinator: Filter by branch unless from headquarters
         if user.is_senior_coordinator():
             return apply_branch_filter(queryset)
@@ -472,9 +483,16 @@ class PersonViewSet(viewsets.ModelViewSet):
             return [IsAuthenticatedAndNotVisitor(), CanCreatePerson()]
         elif self.action in ["update", "partial_update"]:
             # Update: privileged writers, or the person updating themselves
+            from apps.clusters.permissions import ClusterOversightWritePermission
+
             return [
                 IsAuthenticatedAndNotVisitor(),
-                (IsAdminOrPastor | HasAnyModuleCoordinatorAssignment | IsSelf)(),
+                (
+                    IsAdminOrPastor
+                    | HasAnyModuleCoordinatorAssignment
+                    | ClusterOversightWritePermission
+                    | IsSelf
+                )(),
             ]
         elif self.action == "destroy":
             # Delete: Only ADMIN
@@ -628,40 +646,48 @@ class FamilyViewSet(viewsets.ModelViewSet):
         elif user.is_senior_coordinator():
             scoped = filter_families_by_branch(queryset)
         else:
-            # Cluster Coordinator / Assistant: Families in operated cluster(s)
-            # + families of cluster members
-            from apps.clusters.models import Cluster
-            from apps.clusters.permissions import managed_cluster_ids_for_operator
+            from apps.clusters.permissions import (
+                can_pick_cluster_branch,
+                has_cluster_oversight_access,
+            )
 
-            operated_ids = managed_cluster_ids_for_operator(user)
-            if operated_ids:
-                all_clusters = Cluster.objects.filter(id__in=operated_ids)
-
-                # Get families directly connected to these clusters
-                directly_connected_families = queryset.filter(
-                    cluster__in=all_clusters
-                ).distinct()
-
-                # Get all people in these clusters
-                cluster_member_ids = all_clusters.values_list(
-                    "members__id", flat=True
-                ).distinct()
-                # Get families where these people are members
-                families_of_members = queryset.filter(
-                    members__id__in=cluster_member_ids
-                ).distinct()
-
-                # Return union of both (operators see cluster-linked families
-                # even when member branches differ — parity with PersonViewSet)
-                combined_families = (
-                    directly_connected_families | families_of_members
-                ).distinct()
-                scoped = filter_families_by_branch(combined_families)
-            # MEMBER: Families they belong to (any branch on the family record)
-            elif user.role == "MEMBER":
-                scoped = queryset.filter(members=user).distinct()
+            if has_cluster_oversight_access(user):
+                if can_pick_cluster_branch(user) and user.role not in (
+                    "ADMIN",
+                    "PASTOR",
+                ):
+                    scoped = queryset
+                else:
+                    scoped = filter_families_by_branch(queryset)
             else:
-                scoped = queryset.none()
+                # Cluster Coordinator / Assistant: Families in operated cluster(s)
+                # + families of cluster members
+                from apps.clusters.models import Cluster
+                from apps.clusters.permissions import managed_cluster_ids_for_operator
+
+                operated_ids = managed_cluster_ids_for_operator(user)
+                if operated_ids:
+                    all_clusters = Cluster.objects.filter(id__in=operated_ids)
+
+                    directly_connected_families = queryset.filter(
+                        cluster__in=all_clusters
+                    ).distinct()
+
+                    cluster_member_ids = all_clusters.values_list(
+                        "members__id", flat=True
+                    ).distinct()
+                    families_of_members = queryset.filter(
+                        members__id__in=cluster_member_ids
+                    ).distinct()
+
+                    combined_families = (
+                        directly_connected_families | families_of_members
+                    ).distinct()
+                    scoped = filter_families_by_branch(combined_families)
+                elif user.role == "MEMBER":
+                    scoped = queryset.filter(members=user).distinct()
+                else:
+                    scoped = queryset.none()
 
         # Subquery counts so permission/branch JOINs on members cannot collapse
         # household size (Member users otherwise always see member_count=1).
@@ -853,6 +879,16 @@ class JourneyViewSet(viewsets.ModelViewSet):
         for module in allowed_modules:
             if user.is_senior_coordinator(module):
                 return filter_journeys_by_branch(queryset)
+
+        from apps.clusters.permissions import (
+            can_pick_cluster_branch,
+            has_cluster_oversight_access,
+        )
+
+        if has_cluster_oversight_access(user):
+            if can_pick_cluster_branch(user) and user.role not in ("ADMIN", "PASTOR"):
+                return queryset
+            return filter_journeys_by_branch(queryset)
 
         # 3. Cluster Coordinator / Assistant - journeys for members of operated clusters + own
         from apps.clusters.permissions import managed_cluster_ids_for_operator

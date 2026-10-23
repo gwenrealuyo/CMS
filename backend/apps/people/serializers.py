@@ -1901,6 +1901,17 @@ class PersonSerializer(serializers.ModelSerializer):
             if user.is_senior_coordinator(module):
                 return True
 
+        from apps.clusters.permissions import (
+            can_pick_cluster_branch,
+            has_cluster_oversight_access,
+        )
+
+        if has_cluster_oversight_access(user):
+            if can_pick_cluster_branch(user) and user.role not in ("ADMIN", "PASTOR"):
+                return True
+            if user.branch_id and getattr(obj, "branch_id", None) == user.branch_id:
+                return True
+
         # 4. Cluster Coordinator / Assistant - person in operated cluster(s)
         from apps.clusters.permissions import managed_cluster_ids_for_operator
 

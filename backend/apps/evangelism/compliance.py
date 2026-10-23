@@ -28,7 +28,9 @@ def user_can_view_evangelism_compliance(user) -> bool:
         return True
     if user.is_senior_coordinator(ModuleCoordinator.ModuleType.EVANGELISM):
         return True
-    if user.is_senior_coordinator(ModuleCoordinator.ModuleType.CLUSTER):
+    from apps.clusters.permissions import has_cluster_oversight_access
+
+    if has_cluster_oversight_access(user):
         return True
     return False
 

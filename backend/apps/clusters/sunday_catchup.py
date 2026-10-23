@@ -9,7 +9,6 @@ from rest_framework.exceptions import ValidationError as DRFValidationError
 
 from apps.attendance.models import AttendanceRecord
 from apps.clusters.permissions import managed_cluster_ids_for_reports
-from apps.people.models import ModuleCoordinator
 from apps.events.models import AttendanceVenue, Event
 from apps.events.services.registration import require_registration_for_checkin
 from apps.events.services.self_checkin import occurrence_on_date
@@ -33,7 +32,9 @@ def user_can_sunday_catchup(user, cluster) -> bool:
         return False
     if getattr(user, "role", None) in ("ADMIN", "PASTOR"):
         return True
-    if user.is_senior_coordinator(ModuleCoordinator.ModuleType.CLUSTER):
+    from apps.clusters.permissions import cluster_oversight_covers
+
+    if cluster_oversight_covers(user, cluster):
         return True
     cluster_id = getattr(cluster, "id", None)
     if cluster_id is None:

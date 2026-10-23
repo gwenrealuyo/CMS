@@ -47,8 +47,10 @@ def ensure_system_ministries_for_branch(sender, instance, created, **kwargs):
         return
     if created and instance.is_active:
         from .ncc import ensure_ncc_ministry
+        from .cluster_committee import ensure_cluster_committee_ministry
 
         ensure_ncc_ministry(instance)
+        ensure_cluster_committee_ministry(instance)
     if instance.is_active and instance.is_headquarters:
         from .bible_sharers import ensure_bible_sharers_ministry
 

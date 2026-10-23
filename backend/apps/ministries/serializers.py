@@ -12,6 +12,7 @@ from apps.people.models import Branch
 
 from .models import (
     BIBLE_SHARERS_MINISTRY_CODE,
+    CLUSTER_COMMITTEE_MINISTRY_CODE,
     Ministry,
     MinistryMember,
     MinistryRole,
@@ -449,6 +450,18 @@ class MinistrySerializer(serializers.ModelSerializer):
                     "code": (
                         "BIBLE_SHARERS is reserved for the headquarters "
                         "Bible Sharers roster."
+                    )
+                }
+            )
+        if (
+            code == CLUSTER_COMMITTEE_MINISTRY_CODE
+            and (instance is None or not instance.is_system)
+        ):
+            raise ValidationError(
+                {
+                    "code": (
+                        "CLUSTER_COMMITTEE is reserved for the per-branch "
+                        "Cluster Committee roster."
                     )
                 }
             )

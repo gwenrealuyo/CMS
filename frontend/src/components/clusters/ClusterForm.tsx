@@ -7,6 +7,7 @@ import { useFamilies } from "@/src/hooks/useFamilies";
 import { useBranches } from "@/src/hooks/useBranches";
 import { clustersApi } from "@/src/lib/api";
 import { useAuth } from "@/src/contexts/AuthContext";
+import { userCanPickClusterBranch } from "@/src/lib/clusterPermissions";
 import Button from "@/src/components/ui/Button";
 import ErrorMessage from "@/src/components/ui/ErrorMessage";
 import SearchableSelect from "@/src/components/ui/SearchableSelect";
@@ -161,10 +162,7 @@ export default function ClusterForm({
       : familiesLoadingHook;
   const { branches } = useBranches();
   const { user, isSeniorCoordinator } = useAuth();
-  const canEditBranch =
-    user?.role === "ADMIN" ||
-    user?.role === "PASTOR" ||
-    isSeniorCoordinator("CLUSTER");
+  const canEditBranch = userCanPickClusterBranch(user, isSeniorCoordinator);
   const [duplicateNameConfirm, setDuplicateNameConfirm] = useState<{
     isOpen: boolean;
     matches: Cluster[];

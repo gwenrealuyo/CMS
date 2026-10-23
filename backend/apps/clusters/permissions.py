@@ -16,6 +16,70 @@ _TEACHER = ModuleCoordinator.CoordinatorLevel.TEACHER
 _BIBLE_SHARER = ModuleCoordinator.CoordinatorLevel.BIBLE_SHARER
 
 
+def _user_branch_is_headquarters(user) -> bool:
+    branch = getattr(user, "branch", None)
+    return bool(branch and getattr(branch, "is_headquarters", False))
+
+
+def has_cluster_oversight_access(user) -> bool:
+    """In-branch Cluster oversight: HQ/module senior, Committee Primary, or Support.
+
+    This is not a user-facing Senior Coordinator label.
+    """
+    if not getattr(user, "is_authenticated", False):
+        return False
+    if user.is_senior_coordinator(_CLUSTER):
+        return True
+    from apps.ministries.cluster_committee import (
+        is_cluster_committee_primary,
+        is_cluster_committee_support,
+    )
+
+    return is_cluster_committee_primary(user) or is_cluster_committee_support(user)
+
+
+def can_pick_cluster_branch(user) -> bool:
+    """All-branch Cluster picker: Admin, Pastor, HQ Senior, or HQ Committee Primary."""
+    if not getattr(user, "is_authenticated", False):
+        return False
+    if getattr(user, "role", None) in ("ADMIN", "PASTOR"):
+        return True
+    if user.is_senior_coordinator(_CLUSTER) and _user_branch_is_headquarters(user):
+        return True
+    from apps.ministries.cluster_committee import (
+        is_cluster_committee_primary_at_headquarters,
+    )
+
+    return is_cluster_committee_primary_at_headquarters(user)
+
+
+def cluster_oversight_covers(user, cluster) -> bool:
+    """Oversight applies to this cluster (any branch only when the picker is open)."""
+    if cluster is None or not has_cluster_oversight_access(user):
+        return False
+    if can_pick_cluster_branch(user):
+        return True
+    branch_id = getattr(cluster, "branch_id", None)
+    if branch_id is None and hasattr(cluster, "cluster"):
+        branch_id = getattr(getattr(cluster, "cluster", None), "branch_id", None)
+    return bool(getattr(user, "branch_id", None) and branch_id == user.branch_id)
+
+
+def can_manage_cluster_committee_leadership(user, ministry) -> bool:
+    """Admin, Pastor, HQ Senior Coordinator, or that ministry's Primary Coordinator."""
+    if not getattr(user, "is_authenticated", False):
+        return False
+    if getattr(user, "role", None) in ("ADMIN", "PASTOR"):
+        return True
+    if user.is_senior_coordinator(_CLUSTER) and _user_branch_is_headquarters(user):
+        return True
+    from apps.ministries.cluster_committee import is_cluster_committee_ministry
+
+    if not is_cluster_committee_ministry(ministry):
+        return False
+    return getattr(ministry, "primary_coordinator_id", None) == getattr(user, "id", None)
+
+
 def managed_cluster_ids_for_coordinator(user) -> list[int]:
     """
     Cluster PKs the user manages as CLUSTER module coordinator: FK `Cluster.coordinator`
@@ -95,7 +159,7 @@ def is_cluster_reporter_only(user) -> bool:
         return False
     if getattr(user, "role", None) in ("ADMIN", "PASTOR"):
         return False
-    if user.is_senior_coordinator(_CLUSTER):
+    if has_cluster_oversight_access(user):
         return False
     if is_non_senior_cluster_coordinator(user):
         return False
@@ -105,14 +169,6 @@ def is_cluster_reporter_only(user) -> bool:
         module=_CLUSTER,
         level=_REPORTER,
     ).exists()
-
-
-def can_pick_cluster_branch(user) -> bool:
-    if not getattr(user, "is_authenticated", False):
-        return False
-    if getattr(user, "role", None) in ("ADMIN", "PASTOR"):
-        return True
-    return user.is_senior_coordinator(_CLUSTER)
 
 
 def is_non_senior_cluster_coordinator(user) -> bool:
@@ -147,7 +203,7 @@ def can_access_cluster_reports(user) -> bool:
         return False
     if getattr(user, "role", None) in ("ADMIN", "PASTOR"):
         return True
-    if user.is_senior_coordinator(_CLUSTER):
+    if has_cluster_oversight_access(user):
         return True
     if is_non_senior_cluster_coordinator(user):
         return True
@@ -166,7 +222,7 @@ def _cluster_read_allowed(user) -> bool:
         return False
     if getattr(user, "role", None) in ("ADMIN", "PASTOR"):
         return True
-    if user.is_senior_coordinator(_CLUSTER):
+    if has_cluster_oversight_access(user):
         return True
     if is_non_senior_cluster_coordinator(user):
         return True
@@ -228,7 +284,7 @@ def filter_weekly_reports_for_user(user, queryset):
     """Narrow weekly reports before branch scoping."""
     if getattr(user, "role", None) in ("ADMIN", "PASTOR"):
         return queryset
-    if user.is_senior_coordinator(_CLUSTER):
+    if has_cluster_oversight_access(user):
         return queryset
     if (
         is_non_senior_cluster_coordinator(user)
@@ -251,6 +307,8 @@ def clusters_for_overdue(user):
     qs = filter_clusters_for_read(user, Cluster.objects.all())
     branch_param = None
     qs = apply_cluster_branch_scope(qs, user, branch_param)
+    if has_cluster_oversight_access(user):
+        return qs
     if (
         is_non_senior_cluster_coordinator(user)
         or is_non_senior_cluster_assistant(user)
@@ -297,7 +355,7 @@ def user_can_edit_cluster_leadership(user, cluster) -> bool:
         return False
     if getattr(user, "role", None) in ("ADMIN", "PASTOR"):
         return True
-    if user.is_senior_coordinator(_CLUSTER):
+    if cluster_oversight_covers(user, cluster):
         return True
     return user_manages_cluster(user, cluster)
 
@@ -307,7 +365,7 @@ def user_can_submit_cluster_report(user, cluster) -> bool:
         return False
     if getattr(user, "role", None) in ("ADMIN", "PASTOR"):
         return True
-    if user.is_senior_coordinator(_CLUSTER):
+    if cluster_oversight_covers(user, cluster):
         return True
     if user_can_operate_cluster(user, cluster):
         return True
@@ -329,7 +387,7 @@ def allows_cluster_mutation_attempt(user) -> bool:
         return True
     if not is_module_enabled(_CLUSTER):
         return False
-    if user.is_senior_coordinator(_CLUSTER):
+    if has_cluster_oversight_access(user):
         return True
     if user.is_module_coordinator(_CLUSTER):
         qs = user.module_coordinator_assignments.filter(module=_CLUSTER)
@@ -358,7 +416,7 @@ def allows_cluster_report_mutation_attempt(user) -> bool:
         return True
     if not is_module_enabled(_CLUSTER):
         return False
-    if user.is_senior_coordinator(_CLUSTER):
+    if has_cluster_oversight_access(user):
         return True
     if user.is_module_coordinator(_CLUSTER):
         qs = user.module_coordinator_assignments.filter(module=_CLUSTER)
@@ -383,7 +441,7 @@ def ensure_user_manages_cluster_or_privileged(user, cluster) -> None:
         return
     if getattr(user, "role", None) == "PASTOR":
         return
-    if user.is_senior_coordinator(_CLUSTER):
+    if cluster_oversight_covers(user, cluster):
         return
     if cluster is not None and user_manages_cluster(user, cluster):
         return
@@ -397,7 +455,7 @@ def ensure_user_can_operate_cluster_or_privileged(user, cluster) -> None:
         return
     if getattr(user, "role", None) == "PASTOR":
         return
-    if user.is_senior_coordinator(_CLUSTER):
+    if cluster_oversight_covers(user, cluster):
         return
     if cluster is not None and user_can_operate_cluster(user, cluster):
         return
@@ -411,7 +469,7 @@ def ensure_user_can_submit_cluster_report_or_privileged(user, cluster) -> None:
         return
     if getattr(user, "role", None) == "PASTOR":
         return
-    if user.is_senior_coordinator(_CLUSTER):
+    if cluster_oversight_covers(user, cluster):
         return
     if cluster is not None and user_can_submit_cluster_report(user, cluster):
         return
@@ -455,7 +513,7 @@ class ClusterCoordinatorScopedPermission(permissions.BasePermission):
             return True
         if getattr(user, "role", None) == "PASTOR":
             return True
-        if user.is_senior_coordinator(_CLUSTER):
+        if cluster_oversight_covers(user, obj):
             return True
         return user_can_operate_cluster(user, obj)
 
@@ -474,7 +532,7 @@ class ClusterWeeklyReportScopedPermission(permissions.BasePermission):
             return True
         if getattr(user, "role", None) == "PASTOR":
             return True
-        if user.is_senior_coordinator(_CLUSTER):
+        if cluster_oversight_covers(user, obj):
             return True
         cluster = getattr(obj, "cluster", None)
         if cluster is None:
@@ -491,6 +549,8 @@ def can_view_status_tally_people(user) -> bool:
     if not getattr(user, "is_authenticated", False):
         return False
     if getattr(user, "role", None) in ("ADMIN", "PASTOR"):
+        return True
+    if has_cluster_oversight_access(user):
         return True
     if getattr(user, "role", None) != "MEMBER":
         return False
@@ -509,7 +569,7 @@ def can_access_member_care(user) -> bool:
         return False
     if getattr(user, "role", None) in ("ADMIN", "PASTOR"):
         return True
-    if user.is_senior_coordinator(_CLUSTER):
+    if has_cluster_oversight_access(user):
         return True
     return is_non_senior_cluster_coordinator(user) or is_non_senior_cluster_assistant(
         user
@@ -526,13 +586,24 @@ def filter_care_cases_for_user(user, queryset):
     if getattr(user, "role", None) == "ADMIN":
         return queryset
 
+    if (
+        has_cluster_oversight_access(user)
+        and can_pick_cluster_branch(user)
+        and getattr(user, "role", None) not in ("ADMIN", "PASTOR")
+    ):
+        return queryset
+
     if user.can_see_all_branches() and (
         getattr(user, "role", None) == "PASTOR"
         or user.is_senior_coordinator(_CLUSTER)
     ):
         return queryset
 
-    if getattr(user, "role", None) == "PASTOR" or user.is_senior_coordinator(_CLUSTER):
+    if (
+        getattr(user, "role", None) == "PASTOR"
+        or user.is_senior_coordinator(_CLUSTER)
+        or has_cluster_oversight_access(user)
+    ):
         if not user.branch_id:
             return queryset.none()
         return queryset.filter(
@@ -547,7 +618,14 @@ def filter_care_cases_for_user(user, queryset):
 
 
 class CanAccessMemberCare(permissions.BasePermission):
-    """ADMIN, PASTOR, cluster senior, coordinator, assistant. Not reporters or members."""
+    """ADMIN, PASTOR, cluster oversight, coordinator, assistant. Not reporters or members."""
 
     def has_permission(self, request, view):
         return can_access_member_care(request.user)
+
+
+class ClusterOversightWritePermission(permissions.BasePermission):
+    """Cluster Committee primary/support and Cluster senior coordinators."""
+
+    def has_permission(self, request, view):
+        return has_cluster_oversight_access(request.user)

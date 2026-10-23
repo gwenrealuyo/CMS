@@ -27,6 +27,7 @@ import PersonAvatar from "@/src/components/people/PersonAvatar";
 import ConfirmationModal from "@/src/components/ui/ConfirmationModal";
 import {
   isBibleSharersRoster,
+  isClusterCommitteeRoster,
   isNccRoster,
   isSystemMinistry,
 } from "@/src/lib/ministries/systemMinistries";
@@ -374,6 +375,9 @@ export default function MinistryForm({
   const isSystemRoster = isSystemMinistry(initialData);
   const isNcc = isNccRoster(initialData);
   const isBibleSharers = isBibleSharersRoster(initialData);
+  const isClusterCommittee = isClusterCommitteeRoster(initialData);
+  const hideCommitteeLeadership =
+    isClusterCommittee && user?.cluster_committee_role === "SUPPORT";
 
   const addMember = (person: Person) => {
     const memberId = String(person.id);
@@ -705,6 +709,8 @@ export default function MinistryForm({
               ? "NCC / Lessons roster code is system-managed and cannot be changed."
               : isBibleSharers
                 ? "Bible Sharers roster code is system-managed and cannot be changed."
+                : isClusterCommittee
+                  ? "Cluster Committee code is system-managed and cannot be changed."
                 : isSystemRoster
                   ? "System ministry codes cannot be changed."
                   : "Shortcut name shown in tables and pickers."}
@@ -817,6 +823,8 @@ export default function MinistryForm({
           </div>
         )}
 
+        {!hideCommitteeLeadership && (
+        <>
         <div className="tablet:col-span-2">
           <label className="block text-sm font-medium text-gray-700 mb-1">
             Primary Coordinator
@@ -825,6 +833,13 @@ export default function MinistryForm({
             <p className="mb-1 text-xs text-gray-500">
               Grants Lessons senior coordinator access for this branch. HQ
               primary coordinators can also view other branches in Lessons.
+            </p>
+          )}
+          {isClusterCommittee && (
+            <p className="mb-1 text-xs text-gray-500">
+              In-branch Cluster oversight for this branch. The headquarters
+              Primary Coordinator can also select other branches. Senior
+              Coordinator remains the headquarters all-branch role.
             </p>
           )}
           <ScalableSelect
@@ -844,8 +859,14 @@ export default function MinistryForm({
 
         <div className="tablet:col-span-2">
           <label className="block text-sm font-medium text-gray-700 mb-1">
-            Supporting Coordinators
+            {isClusterCommittee ? "Support Coordinators" : "Supporting Coordinators"}
           </label>
+          {isClusterCommittee && (
+            <p className="mb-1 text-xs text-gray-500">
+              Same in-branch Cluster oversight as the Primary Coordinator.
+              Support Coordinators cannot change Primary or Support Coordinators.
+            </p>
+          )}
           {isNcc && (
             <p className="mb-1 text-xs text-gray-500">
               Grants the same Lessons access as a Lessons coordinator for this
@@ -903,6 +924,8 @@ export default function MinistryForm({
             </p>
           )}
         </div>
+        </>
+        )}
 
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">

@@ -1,6 +1,6 @@
 from django.db.models import Count, Prefetch, Q
 from django_filters.rest_framework import DjangoFilterBackend
-from rest_framework import filters, viewsets
+from rest_framework import filters, permissions, viewsets
 from rest_framework.exceptions import PermissionDenied, ValidationError
 
 from apps.authentication.permissions import (
@@ -73,6 +73,56 @@ def _system_roster_extra_ministries(user, queryset):
         else:
             extra = extra | apply_ministry_branch_visibility(bs_qs, user)
     return extra
+
+
+_COMMITTEE_LEADERSHIP_FIELDS = (
+    "primary_coordinator_id",
+    "support_coordinator_ids",
+    "primary_coordinator",
+    "support_coordinators",
+)
+
+
+class MinistryWritePermission(permissions.BasePermission):
+    """Ministries write, plus Cluster Committee leadership for primary and HQ senior."""
+
+    def has_permission(self, request, view):
+        user = request.user
+        if not user or not user.is_authenticated or getattr(user, "role", None) == "VISITOR":
+            return False
+        if user.role in ("ADMIN", "PASTOR"):
+            return True
+        if HasModuleAccess(
+            ModuleCoordinator.ModuleType.MINISTRIES, "write"
+        ).has_permission(request, view):
+            return True
+        from apps.clusters.permissions import _user_branch_is_headquarters
+        from apps.ministries.cluster_committee import is_cluster_committee_primary
+
+        if is_cluster_committee_primary(user):
+            return True
+        return bool(
+            user.is_senior_coordinator(ModuleCoordinator.ModuleType.CLUSTER)
+            and _user_branch_is_headquarters(user)
+        )
+
+    def has_object_permission(self, request, view, obj):
+        from apps.clusters.permissions import can_manage_cluster_committee_leadership
+        from apps.ministries.cluster_committee import is_cluster_committee_ministry
+
+        user = request.user
+        ministries_write = user.role in ("ADMIN", "PASTOR") or HasModuleAccess(
+            ModuleCoordinator.ModuleType.MINISTRIES, "write"
+        ).has_permission(request, view)
+        if not is_cluster_committee_ministry(obj):
+            return ministries_write
+        data = request.data if isinstance(getattr(request, "data", None), dict) else {}
+        changing_leadership = any(key in data for key in _COMMITTEE_LEADERSHIP_FIELDS)
+        if changing_leadership:
+            return can_manage_cluster_committee_leadership(user, obj)
+        if can_manage_cluster_committee_leadership(user, obj):
+            return True
+        return ministries_write
 
 
 class MinistryViewSet(viewsets.ModelViewSet):
@@ -174,6 +224,8 @@ class MinistryViewSet(viewsets.ModelViewSet):
             return [IsAuthenticatedAndNotVisitor(), IsMemberOrAbove()]
         if self.action == "destroy":
             return [IsAuthenticatedAndNotVisitor(), IsAdmin()]
+        if self.action in ("update", "partial_update"):
+            return [IsAuthenticatedAndNotVisitor(), MinistryWritePermission()]
         return [
             IsAuthenticatedAndNotVisitor(),
             HasModuleAccess(ModuleCoordinator.ModuleType.MINISTRIES, "write"),

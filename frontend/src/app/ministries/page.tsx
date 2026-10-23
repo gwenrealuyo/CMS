@@ -25,7 +25,12 @@ import { useAuth } from "@/src/contexts/AuthContext";
 import { useModuleSettings } from "@/src/hooks/useModuleSettings";
 import { canHardDelete } from "@/src/lib/canHardDelete";
 import { canWriteMinistries } from "@/src/lib/ministries/ministryPermissions";
-import { isNccRoster, isBibleSharersRoster, isSystemMinistry } from "@/src/lib/ministries/systemMinistries";
+import {
+  isNccRoster,
+  isBibleSharersRoster,
+  isClusterCommitteeRoster,
+  isSystemMinistry,
+} from "@/src/lib/ministries/systemMinistries";
 import { TABLE_ENTITY_LINK_CLASS } from "@/src/lib/tableEntityLink";
 import {
   CLUSTER_BRANCH_CHIP_CLASSNAME,
@@ -52,8 +57,11 @@ export default function MinistriesPage() {
     removeMember,
   } = useMinistries();
   const [needPeopleCatalog, setNeedPeopleCatalog] = useState(false);
-  const { people, loading: peopleLoading, error: peopleError } =
-    usePeople(needPeopleCatalog);
+  const {
+    people,
+    loading: peopleLoading,
+    error: peopleError,
+  } = usePeople(needPeopleCatalog);
   const { branches } = useBranches();
   const branchById = useMemo(
     () => new Map(branches.map((branch) => [Number(branch.id), branch])),
@@ -72,6 +80,27 @@ export default function MinistriesPage() {
     () => canWriteMinistries({ user, moduleEnabled }),
     [user, moduleEnabled],
   );
+  const userCanEditMinistry = (ministry: Ministry) => {
+    if (!isClusterCommitteeRoster(ministry)) return canWriteMinistriesAccess;
+    if (user?.role === "ADMIN" || user?.role === "PASTOR") return true;
+    if (
+      user?.cluster_committee_role === "PRIMARY" &&
+      ministry.primary_coordinator?.id != null &&
+      Number(ministry.primary_coordinator.id) === Number(user.id)
+    ) {
+      return true;
+    }
+    const hqSenior = Boolean(
+      user?.branch_is_headquarters &&
+      user.module_coordinator_assignments?.some(
+        (assignment) =>
+          assignment.module === "CLUSTER" &&
+          assignment.level === "SENIOR_COORDINATOR",
+      ),
+    );
+    if (hqSenior) return true;
+    return canWriteMinistriesAccess;
+  };
   const defaultBranchFilter = useMemo((): number | "all" => {
     if (!user) return "all";
     if (user.can_see_all_branches) return "all";
@@ -546,7 +575,8 @@ export default function MinistriesPage() {
                   No matching ministries
                 </h3>
                 <p className="text-sm text-gray-500 mt-2">
-                  Try a different search, or reset filters to see all ministries.
+                  Try a different search, or reset filters to see all
+                  ministries.
                 </p>
               </div>
             ) : (
@@ -571,10 +601,10 @@ export default function MinistriesPage() {
                             onClick={() => handleView(row as Ministry)}
                             className={TABLE_ENTITY_LINK_CLASS}
                           >
-                            {code || name}
+                            {name}
                           </button>
                           <div className="mt-1 text-xs text-gray-500">
-                            {name}
+                            {code}
                           </div>
                         </div>
                       );
@@ -687,7 +717,7 @@ export default function MinistriesPage() {
                             />
                           </svg>
                         </button>
-                        {canWriteMinistriesAccess && (
+                        {userCanEditMinistry(row as Ministry) && (
                           <button
                             type="button"
                             onClick={() => handleEdit(row as Ministry)}
@@ -735,28 +765,28 @@ export default function MinistriesPage() {
                         )}
                         {userCanHardDelete &&
                           !isSystemMinistry(row as Ministry) && (
-                          <button
-                            type="button"
-                            onClick={() => handleHardDelete(row as Ministry)}
-                            className="flex items-center justify-center p-2 min-h-[44px] min-w-[44px] text-red-600 hover:bg-red-50 rounded-md transition-colors"
-                            title="Delete Ministry"
-                            aria-label="Delete Ministry"
-                          >
-                            <svg
-                              className="w-4 h-4"
-                              fill="none"
-                              stroke="currentColor"
-                              viewBox="0 0 24 24"
+                            <button
+                              type="button"
+                              onClick={() => handleHardDelete(row as Ministry)}
+                              className="flex items-center justify-center p-2 min-h-[44px] min-w-[44px] text-red-600 hover:bg-red-50 rounded-md transition-colors"
+                              title="Delete Ministry"
+                              aria-label="Delete Ministry"
                             >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={2}
-                                d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                              />
-                            </svg>
-                          </button>
-                        )}
+                              <svg
+                                className="w-4 h-4"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                                />
+                              </svg>
+                            </button>
+                          )}
                       </div>
                     ),
                   },
@@ -784,7 +814,7 @@ export default function MinistriesPage() {
           <MinistryView
             ministry={viewMinistry}
             onEdit={
-              canWriteMinistriesAccess
+              viewMinistry && userCanEditMinistry(viewMinistry)
                 ? () => {
                     setNeedPeopleCatalog(true);
                     setIsViewOpen(false);
@@ -1067,16 +1097,23 @@ export default function MinistriesPage() {
                   ),
                 );
 
+                const lockCommitteeLeadership =
+                  isClusterCommitteeRoster(editMinistry) &&
+                  user?.cluster_committee_role === "SUPPORT";
                 const payload = {
                   name: values.name.trim(),
                   code: values.code.trim().toUpperCase(),
                   description: values.description,
                   category: values.category,
                   activity_cadence: values.activity_cadence,
-                  primary_coordinator_id: values.primary_coordinator_id
-                    ? Number(values.primary_coordinator_id)
-                    : null,
-                  support_coordinator_ids: supportIds,
+                  ...(lockCommitteeLeadership
+                    ? {}
+                    : {
+                        primary_coordinator_id: values.primary_coordinator_id
+                          ? Number(values.primary_coordinator_id)
+                          : null,
+                        support_coordinator_ids: supportIds,
+                      }),
                   scope: values.scope,
                   branch:
                     values.scope === "NATIONAL"
@@ -1154,7 +1191,8 @@ export default function MinistriesPage() {
                             Boolean(
                               existingMembership.has_lessons_teacher_access,
                             ) !==
-                              (member.grant_lessons_teacher_access !== false)) ||
+                              (member.grant_lessons_teacher_access !==
+                                false)) ||
                           (isBibleSharersRoster(updated) &&
                             Boolean(
                               existingMembership.has_evangelism_bible_sharer_access,

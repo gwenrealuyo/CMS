@@ -1,9 +1,10 @@
 import { useMemo } from "react";
 import { LockedControlTooltip } from "@/src/components/ui/LockedControlTooltip";
 import { LESSONS_BRANCH_LOCKED_HINT } from "@/src/lib/lessonsBranchFilter";
+import BranchFilterFrame from "@/src/components/ui/BranchFilterFrame";
 import {
-  TOOLBAR_BRANCH_SELECT_CLASS,
-  TOOLBAR_BRANCH_SELECT_LOCKED_CLASS,
+  TOOLBAR_BRANCH_HEADER_SELECT_CLASS,
+  TOOLBAR_BRANCH_HEADER_SELECT_LOCKED_CLASS,
 } from "@/src/lib/toolbarStyles";
 import DashboardLayout from "@/src/components/layout/DashboardLayout";
 import LessonList from "@/src/components/lessons/LessonList";
@@ -538,23 +539,25 @@ export default function LessonsPageView({
       );
 
     const selectEl = (
-      <select
-        aria-label="Branch"
-        aria-disabled={!lessonsBranchSelectInteractive}
-        tabIndex={lessonsBranchSelectInteractive ? 0 : -1}
-        value={lessonsBranchSelectedId}
-        onChange={(event) => {
-          if (!lessonsBranchSelectInteractive) return;
-          onLessonsBranchChange(event.target.value);
-        }}
-        className={
-          lessonsBranchSelectInteractive
-            ? TOOLBAR_BRANCH_SELECT_CLASS
-            : TOOLBAR_BRANCH_SELECT_LOCKED_CLASS
-        }
-      >
-        {options}
-      </select>
+      <BranchFilterFrame>
+        <select
+          aria-label="Branch"
+          aria-disabled={!lessonsBranchSelectInteractive}
+          tabIndex={lessonsBranchSelectInteractive ? 0 : -1}
+          value={lessonsBranchSelectedId}
+          onChange={(event) => {
+            if (!lessonsBranchSelectInteractive) return;
+            onLessonsBranchChange(event.target.value);
+          }}
+          className={
+            lessonsBranchSelectInteractive
+              ? TOOLBAR_BRANCH_HEADER_SELECT_CLASS
+              : TOOLBAR_BRANCH_HEADER_SELECT_LOCKED_CLASS
+          }
+        >
+          {options}
+        </select>
+      </BranchFilterFrame>
     );
 
     return lessonsBranchSelectInteractive ? (

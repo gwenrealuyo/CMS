@@ -5,6 +5,7 @@ import toast from "react-hot-toast";
 import Button from "@/src/components/ui/Button";
 import ScalableSelect from "@/src/components/ui/ScalableSelect";
 import { peopleApi } from "@/src/lib/api";
+import { clusterLabelDisplayName } from "@/src/lib/clusterMembership";
 import type { ClusterRosterPerson } from "@/src/lib/clusterRoster";
 import {
   MEMBER_CARE_ACTION_OPTIONS,
@@ -414,8 +415,15 @@ export default function CareCaseForm({
     }
   };
 
-  const clusterLabel =
-    (caseRow.person?.cluster_labels || []).join(", ") || "No cluster";
+  const clusterNames = (caseRow.person?.cluster_labels || [])
+    .map(clusterLabelDisplayName)
+    .filter(Boolean);
+  const clusterLabel = [
+    clusterNames.join(", ") || "No cluster",
+    caseRow.cord?.name,
+  ]
+    .filter(Boolean)
+    .join(" · ");
 
   return (
     <div className={panelLayout ? "p-4 sm:p-5 space-y-4" : "space-y-4"}>

@@ -10,10 +10,11 @@ import {
 } from "@/src/hooks/useFamiliesDirectory";
 import { useUnassignedPeople } from "@/src/hooks/useUnassignedPeople";
 import type { FamiliesListParams } from "@/src/lib/api";
+import BranchFilterFrame from "@/src/components/ui/BranchFilterFrame";
 import {
   TOOLBAR_ACTION_BUTTON_CLASS,
-  TOOLBAR_BRANCH_SELECT_CLASS,
-  TOOLBAR_BRANCH_SELECT_LOCKED_CLASS,
+  TOOLBAR_BRANCH_HEADER_SELECT_CLASS,
+  TOOLBAR_BRANCH_HEADER_SELECT_LOCKED_CLASS,
   TOOLBAR_CARD_CLASS,
   TOOLBAR_DESKTOP_ACTION_BUTTON_CLASS,
   TOOLBAR_STACKED_ACTION_BUTTON_CLASS,
@@ -296,24 +297,26 @@ export default function FamilyManagementDashboard({
       );
 
     const selectEl = (
-      <select
-        aria-label="Branch"
-        aria-disabled={!familyBranchSelectInteractive}
-        tabIndex={familyBranchSelectInteractive ? 0 : -1}
-        value={branchFilterId}
-        onChange={(e) => {
-          if (!familyBranchSelectInteractive) return;
-          setBranchFilterId(e.target.value);
-          setFamilyPage(1);
-        }}
-        className={
-          familyBranchSelectInteractive
-            ? TOOLBAR_BRANCH_SELECT_CLASS
-            : TOOLBAR_BRANCH_SELECT_LOCKED_CLASS
-        }
-      >
-        {options}
-      </select>
+      <BranchFilterFrame>
+        <select
+          aria-label="Branch"
+          aria-disabled={!familyBranchSelectInteractive}
+          tabIndex={familyBranchSelectInteractive ? 0 : -1}
+          value={branchFilterId}
+          onChange={(e) => {
+            if (!familyBranchSelectInteractive) return;
+            setBranchFilterId(e.target.value);
+            setFamilyPage(1);
+          }}
+          className={
+            familyBranchSelectInteractive
+              ? TOOLBAR_BRANCH_HEADER_SELECT_CLASS
+              : TOOLBAR_BRANCH_HEADER_SELECT_LOCKED_CLASS
+          }
+        >
+          {options}
+        </select>
+      </BranchFilterFrame>
     );
 
     return familyBranchSelectInteractive ? (

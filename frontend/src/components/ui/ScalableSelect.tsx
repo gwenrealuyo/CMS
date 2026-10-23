@@ -180,6 +180,12 @@ export default function ScalableSelect({
     ? selectedValues.length > 0
     : Boolean(value);
 
+  const showClear = multiple
+    ? selectedValues.some(
+        (selected) => String(selected) !== String(pinnedOption?.value ?? ""),
+      )
+    : Boolean(value);
+
   // Handle click outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -582,7 +588,7 @@ export default function ScalableSelect({
             {selectedOption?.hasBibleSharers ? <BibleSharersChip /> : null}
           </span>
           <div className="flex shrink-0 items-center space-x-1">
-            {hasSelection && !disabled && !interactionBlocked && (
+            {showClear && !disabled && !interactionBlocked && (
               <button
                 type="button"
                 onClick={handleClear}

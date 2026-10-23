@@ -28,9 +28,10 @@ import Pagination from "@/src/components/ui/Pagination";
 import Button from "@/src/components/ui/Button";
 import ToolbarSearch from "@/src/components/ui/ToolbarSearch";
 import ViewModeToggle from "@/src/components/ui/ViewModeToggle";
+import BranchFilterFrame from "@/src/components/ui/BranchFilterFrame";
 import {
-  TOOLBAR_BRANCH_SELECT_CLASS,
-  TOOLBAR_BRANCH_SELECT_LOCKED_CLASS,
+  TOOLBAR_BRANCH_HEADER_SELECT_CLASS,
+  TOOLBAR_BRANCH_HEADER_SELECT_LOCKED_CLASS,
   TOOLBAR_CARD_CLASS,
   TOOLBAR_DESKTOP_ACTION_BUTTON_CLASS,
   TOOLBAR_STACKED_ACTION_BUTTON_CLASS,
@@ -552,23 +553,25 @@ export default function ClustersPageView({
       );
 
     const selectEl = (
-      <select
-        aria-label="Branch"
-        aria-disabled={!clusterBranchSelectInteractive}
-        tabIndex={clusterBranchSelectInteractive ? 0 : -1}
-        value={clusterBranchSelectedId}
-        onChange={(e) => {
-          if (!clusterBranchSelectInteractive) return;
-          onClusterBranchChange(e.target.value);
-        }}
-        className={
-          clusterBranchSelectInteractive
-            ? TOOLBAR_BRANCH_SELECT_CLASS
-            : TOOLBAR_BRANCH_SELECT_LOCKED_CLASS
-        }
-      >
-        {options}
-      </select>
+      <BranchFilterFrame>
+        <select
+          aria-label="Branch"
+          aria-disabled={!clusterBranchSelectInteractive}
+          tabIndex={clusterBranchSelectInteractive ? 0 : -1}
+          value={clusterBranchSelectedId}
+          onChange={(e) => {
+            if (!clusterBranchSelectInteractive) return;
+            onClusterBranchChange(e.target.value);
+          }}
+          className={
+            clusterBranchSelectInteractive
+              ? TOOLBAR_BRANCH_HEADER_SELECT_CLASS
+              : TOOLBAR_BRANCH_HEADER_SELECT_LOCKED_CLASS
+          }
+        >
+          {options}
+        </select>
+      </BranchFilterFrame>
     );
 
     return clusterBranchSelectInteractive ? (

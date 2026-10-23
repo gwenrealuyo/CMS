@@ -74,6 +74,8 @@ import { FilterCondition } from "@/src/components/people/FilterBar";
 import ToolbarSearch from "@/src/components/ui/ToolbarSearch";
 import ViewModeToggle from "@/src/components/ui/ViewModeToggle";
 import {
+  TOOLBAR_BRANCH_HEADER_SELECT_CLASS,
+  TOOLBAR_BRANCH_HEADER_SELECT_LOCKED_CLASS,
   TOOLBAR_CARD_CLASS,
   TOOLBAR_DESKTOP_ACTION_BUTTON_CLASS,
   TOOLBAR_STACKED_ACTION_BUTTON_CLASS,
@@ -85,10 +87,7 @@ import {
   useIsTabletUp,
 } from "@/src/lib/listViewMode";
 import { DESKTOP_MIN } from "@/src/lib/breakpoints";
-import {
-  EVANGELISM_BRANCH_SELECT_CLASS,
-  EVANGELISM_BRANCH_SELECT_LOCKED_CLASS,
-} from "@/src/components/evangelism/EvangelismToolbarSearch";
+import BranchFilterFrame from "@/src/components/ui/BranchFilterFrame";
 import {
   evangelismGroupOrdering,
   filtersToEvangelismGroupsListParams,
@@ -1303,59 +1302,61 @@ export default function EvangelismPage() {
   const renderEvangelismGroupsBranchSelect = () => {
     const evangelismBranchSelectInteractive = canChangeEvangelismBranch;
     const branchSelectEl = (
-      <select
-        aria-label="Branch"
-        aria-disabled={!evangelismBranchSelectInteractive}
-        tabIndex={evangelismBranchSelectInteractive ? 0 : -1}
-        value={
-          groupListBranch === undefined ? "" : String(groupListBranch)
-        }
-        onChange={(e) => {
-          if (!evangelismBranchSelectInteractive) return;
-          const next = e.target.value || "all";
-          setGroupListBranch(next);
-          if (next === "all" || next === "") {
-            setTallyBranch("");
-          } else {
-            const parsed = Number(next);
-            setTallyBranch(Number.isNaN(parsed) ? "" : parsed);
+      <BranchFilterFrame>
+        <select
+          aria-label="Branch"
+          aria-disabled={!evangelismBranchSelectInteractive}
+          tabIndex={evangelismBranchSelectInteractive ? 0 : -1}
+          value={
+            groupListBranch === undefined ? "" : String(groupListBranch)
           }
-          setTallyScope("");
-        }}
-        className={
-          evangelismBranchSelectInteractive
-            ? EVANGELISM_BRANCH_SELECT_CLASS
-            : EVANGELISM_BRANCH_SELECT_LOCKED_CLASS
-        }
-      >
-        {canChangeEvangelismBranch ? (
-          <>
-            <option value="all">All branches</option>
-            {branches.map((branch) => (
-              <option key={branch.id} value={String(branch.id)}>
-                {branch.name}
-              </option>
-            ))}
-          </>
-        ) : user?.branch != null ? (
-          <>
-            {branches
-              .filter((b) => Number(b.id) === Number(user.branch))
-              .map((branch) => (
+          onChange={(e) => {
+            if (!evangelismBranchSelectInteractive) return;
+            const next = e.target.value || "all";
+            setGroupListBranch(next);
+            if (next === "all" || next === "") {
+              setTallyBranch("");
+            } else {
+              const parsed = Number(next);
+              setTallyBranch(Number.isNaN(parsed) ? "" : parsed);
+            }
+            setTallyScope("");
+          }}
+          className={
+            evangelismBranchSelectInteractive
+              ? TOOLBAR_BRANCH_HEADER_SELECT_CLASS
+              : TOOLBAR_BRANCH_HEADER_SELECT_LOCKED_CLASS
+          }
+        >
+          {canChangeEvangelismBranch ? (
+            <>
+              <option value="all">All branches</option>
+              {branches.map((branch) => (
                 <option key={branch.id} value={String(branch.id)}>
                   {branch.name}
                 </option>
               ))}
-            {!branches.some((b) => Number(b.id) === Number(user.branch)) && (
-              <option value={String(user.branch)}>
-                {user.branch_name?.trim() || `Branch #${user.branch}`}
-              </option>
-            )}
-          </>
-        ) : (
-          <option value="all">No branch assigned</option>
-        )}
-      </select>
+            </>
+          ) : user?.branch != null ? (
+            <>
+              {branches
+                .filter((b) => Number(b.id) === Number(user.branch))
+                .map((branch) => (
+                  <option key={branch.id} value={String(branch.id)}>
+                    {branch.name}
+                  </option>
+                ))}
+              {!branches.some((b) => Number(b.id) === Number(user.branch)) && (
+                <option value={String(user.branch)}>
+                  {user.branch_name?.trim() || `Branch #${user.branch}`}
+                </option>
+              )}
+            </>
+          ) : (
+            <option value="all">No branch assigned</option>
+          )}
+        </select>
+      </BranchFilterFrame>
     );
 
     return evangelismBranchSelectInteractive ? (

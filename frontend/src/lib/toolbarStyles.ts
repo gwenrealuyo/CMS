@@ -7,6 +7,12 @@ export const TOOLBAR_BRANCH_SELECT_FULL_WIDTH_CLASS = `${TOOLBAR_BRANCH_SELECT_B
 
 export const TOOLBAR_BRANCH_SELECT_LOCKED_CLASS = `${TOOLBAR_BRANCH_SELECT_BASE_CLASS} w-full min-w-0 pointer-events-none cursor-default`;
 
+/** Page-header branch menu. Width sits on BranchFilterFrame so the building icon lines up with the field. */
+export const TOOLBAR_BRANCH_HEADER_SELECT_CLASS =
+  "w-full min-w-0 rounded-lg border border-gray-300 bg-white py-2 pl-9 pr-8 text-sm text-gray-900 focus:ring-2 focus:ring-ring focus:border-transparent";
+
+export const TOOLBAR_BRANCH_HEADER_SELECT_LOCKED_CLASS = `${TOOLBAR_BRANCH_HEADER_SELECT_CLASS} pointer-events-none cursor-default`;
+
 export const TOOLBAR_CARD_CLASS =
   "rounded-xl border border-gray-200 bg-white p-4 md:p-6 shadow-sm";
 

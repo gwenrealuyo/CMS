@@ -1,3 +1,27 @@
+/**
+ * Care and export labels are `(CODE) Name` (see format_cluster_export_label).
+ * Split them so the code can be shown before the name.
+ */
+export function splitClusterExportLabel(label: string): {
+  code: string | null;
+  name: string;
+} {
+  const trimmed = label.trim();
+  const match = trimmed.match(/^\(([^)]+)\)\s*(.*)$/);
+  if (!match) return { code: null, name: trimmed };
+  const code = match[1].trim();
+  const name = match[2].trim();
+  if (!name) return { code: null, name: code || trimmed };
+  return { code: code || null, name };
+}
+
+/** Cluster identity with the code first, then the name. */
+export function clusterLabelDisplayName(label: string): string {
+  const { code, name } = splitClusterExportLabel(label);
+  if (code && name) return `${code} ${name}`;
+  return name || code || label.trim();
+}
+
 /** Person-like shape for cluster branch checks. */
 type PersonBranchLike = {
   branch?: number | null;

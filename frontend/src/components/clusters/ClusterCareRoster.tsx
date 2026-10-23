@@ -1,9 +1,17 @@
 "use client";
 
-import { Fragment, useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import {
+  Fragment,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from "react";
 import toast from "react-hot-toast";
 import LoadingSpinner from "@/src/components/ui/LoadingSpinner";
 import ErrorMessage from "@/src/components/ui/ErrorMessage";
+import ScalableSelect from "@/src/components/ui/ScalableSelect";
 import { fetchAllCareCases, peopleApi } from "@/src/lib/api";
 import {
   MEMBER_CARE_ACTION_OPTIONS,
@@ -16,6 +24,10 @@ import {
 } from "@/src/lib/personStatus";
 import type { Cluster } from "@/src/types/cluster";
 import type { MemberCareCase, Person } from "@/src/types/person";
+import {
+  clusterLabelDisplayName,
+  splitClusterExportLabel,
+} from "@/src/lib/clusterMembership";
 import type { ClusterRosterPerson } from "@/src/lib/clusterRoster";
 import {
   CareCaseEditor,
@@ -27,8 +39,13 @@ import {
 
 const NO_CLUSTER_KEY = "none";
 const NO_CORD_KEY = "unassigned";
+const ALL_CLUSTERS = "all";
 
-type CareGroup = { label: string; rows: MemberCareCase[] };
+type CareGroup = {
+  label: string;
+  code?: string | null;
+  rows: MemberCareCase[];
+};
 
 type CareFilters = {
   person_status: string;
@@ -47,7 +64,9 @@ const EMPTY_FILTERS: CareFilters = {
 };
 
 function whoLabel(row: MemberCareCase): string {
-  const names = (row.assigned_to_details || []).map((a) => a.full_name).filter(Boolean);
+  const names = (row.assigned_to_details || [])
+    .map((a) => a.full_name)
+    .filter(Boolean);
   const extra = (row.assigned_to_label || "").trim();
   const parts = [...names];
   if (extra) parts.push(extra);
@@ -60,10 +79,31 @@ function clusterGroupKey(row: MemberCareCase): string {
   return String(ids[0]);
 }
 
-function clusterGroupLabel(row: MemberCareCase): string {
-  const labels = row.person?.cluster_labels || [];
-  if (labels.length) return labels.join(", ");
-  return "No cluster";
+function clusterIdentity(row: MemberCareCase): {
+  code: string | null;
+  name: string;
+} {
+  const label = row.person?.cluster_labels?.[0]?.trim();
+  if (!label) return { code: null, name: "No cluster" };
+  const parts = splitClusterExportLabel(label);
+  return { code: parts.code, name: parts.name || "No cluster" };
+}
+
+function clusterOptionLabel(cluster: {
+  code?: string | null;
+  name?: string | null;
+}): string {
+  const code = (cluster.code || "").trim();
+  const name = (cluster.name || "").trim();
+  if (code && name) return `${code} ${name}`;
+  return name || code || "Untitled cluster";
+}
+
+function extraClusterNames(row: MemberCareCase): string[] {
+  return (row.person?.cluster_labels || [])
+    .slice(1)
+    .map(clusterLabelDisplayName)
+    .filter(Boolean);
 }
 
 function cordGroupKey(row: MemberCareCase): string {
@@ -81,12 +121,9 @@ function cordGroupLabel(row: MemberCareCase): string {
   return "Not in a 5x5 Cord";
 }
 
-
-const selectClass =
-  "w-full rounded-md border border-gray-300 bg-white px-2 py-1.5 text-sm text-gray-800 min-h-[44px] md:min-h-0";
-const inputClass =
-  "w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm text-gray-800 min-h-[44px] md:min-h-0";
-
+const fieldClass =
+  "w-full min-h-[44px] rounded-md border border-gray-300 bg-white px-2 py-2 text-sm text-gray-800 focus:border-transparent focus:ring-2 focus:ring-ring";
+const fieldLabelClass = "mb-1 block text-sm font-medium text-gray-700";
 
 function rowToneClass(
   row: MemberCareCase,
@@ -103,6 +140,36 @@ function rowToneClass(
           ? "bg-amber-50/80"
           : "bg-white"
   } ${canEdit ? "cursor-pointer hover:bg-gray-50" : ""}`;
+}
+
+function CareGroupHeading({
+  label,
+  code,
+  count,
+}: {
+  label: string;
+  code?: string | null;
+  count: number;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-3">
+      <span className="flex min-w-0 items-baseline gap-2 text-sm">
+        {code ? (
+          <span className="shrink-0 font-semibold text-gray-900">{code}</span>
+        ) : null}
+        <span
+          className={`min-w-0 truncate ${
+            code ? "font-medium text-gray-700" : "font-semibold text-gray-900"
+          }`}
+        >
+          {label}
+        </span>
+      </span>
+      <span className="shrink-0 rounded-full bg-white px-2 py-0.5 text-[11px] font-medium tabular-nums text-gray-500 ring-1 ring-inset ring-gray-200">
+        {count} {count === 1 ? "case" : "cases"}
+      </span>
+    </div>
+  );
 }
 
 function CareStatCard({
@@ -172,6 +239,9 @@ export default function ClusterCareRoster({
   reloadToken?: number;
 }) {
   const [filters, setFilters] = useState<CareFilters>(EMPTY_FILTERS);
+  const [selectedClusters, setSelectedClusters] = useState<string[]>([
+    ALL_CLUSTERS,
+  ]);
   const [attentionOnly, setAttentionOnly] = useState(false);
   const [cases, setCases] = useState([] as MemberCareCase[]);
   const [statsCases, setStatsCases] = useState([] as MemberCareCase[]);
@@ -194,7 +264,9 @@ export default function ClusterCareRoster({
       });
       setCases(data);
     } catch (err: unknown) {
-      const ax = err as { response?: { data?: { message?: string; error?: string } } };
+      const ax = err as {
+        response?: { data?: { message?: string; error?: string } };
+      };
       setError(
         ax.response?.data?.message ||
           ax.response?.data?.error ||
@@ -230,9 +302,16 @@ export default function ClusterCareRoster({
     loadStats();
   }, [loadStats]);
 
+  const clusterFilterActive =
+    clusterId == null &&
+    selectedClusters.length > 0 &&
+    !selectedClusters.includes(ALL_CLUSTERS);
+
   const visibleCases = useMemo(() => {
     const q = filters.search.trim().toLowerCase();
+    const selected = clusterFilterActive ? new Set(selectedClusters) : null;
     return cases.filter((row) => {
+      if (selected && !selected.has(clusterGroupKey(row))) return false;
       if (attentionOnly && !row.needs_attention) return false;
       if (!q) return true;
       const haystack = [
@@ -252,35 +331,102 @@ export default function ClusterCareRoster({
         .toLowerCase();
       return haystack.includes(q);
     });
-  }, [cases, filters.search, attentionOnly]);
+  }, [
+    cases,
+    filters.search,
+    attentionOnly,
+    clusterFilterActive,
+    selectedClusters,
+  ]);
 
   const grouped = useMemo(() => {
     const map: Map<string, CareGroup> = new Map();
     for (const row of visibleCases) {
       // Within a cluster detail, group by 5x5 Cord so care reflects the cord layer.
-      const key =
-        clusterId != null ? cordGroupKey(row) : clusterGroupKey(row);
+      const key = clusterId != null ? cordGroupKey(row) : clusterGroupKey(row);
+      const identity = clusterId != null ? null : clusterIdentity(row);
       const label =
         clusterId != null
           ? cordGroupLabel(row)
           : key === NO_CLUSTER_KEY
             ? "No cluster"
-            : clusterGroupLabel(row);
+            : identity?.name || "No cluster";
       const existing = map.get(key);
       if (existing) {
         existing.rows.push(row);
       } else {
-        map.set(key, { label, rows: [row] });
+        map.set(key, {
+          label,
+          code: identity?.code,
+          rows: [row],
+        });
       }
     }
     const entries = Array.from(map.entries());
     entries.sort(([aKey, aVal], [bKey, bVal]) => {
       if (aKey === NO_CLUSTER_KEY || aKey === NO_CORD_KEY) return 1;
       if (bKey === NO_CLUSTER_KEY || bKey === NO_CORD_KEY) return -1;
-      return aVal.label.localeCompare(bVal.label);
+      const aSort = aVal.code ? `${aVal.code} ${aVal.label}` : aVal.label;
+      const bSort = bVal.code ? `${bVal.code} ${bVal.label}` : bVal.label;
+      return aSort.localeCompare(bSort, undefined, { numeric: true });
     });
     return entries;
   }, [visibleCases, clusterId]);
+
+  const clusterFilterOptions = useMemo(() => {
+    const byId = new Map<string, string>();
+    for (const cluster of clusters) {
+      if (cluster?.id == null) continue;
+      byId.set(String(cluster.id), clusterOptionLabel(cluster));
+    }
+    let hasUnclustered = false;
+    for (const row of cases) {
+      const ids = row.person?.cluster_ids || [];
+      if (!ids.length) {
+        hasUnclustered = true;
+        continue;
+      }
+      const id = String(ids[0]);
+      if (byId.has(id)) continue;
+      const raw = row.person?.cluster_labels?.[0];
+      byId.set(id, raw ? clusterLabelDisplayName(raw) : `Cluster ${id}`);
+    }
+    const options = Array.from(byId.entries()).map(([value, label]) => ({
+      value,
+      label,
+    }));
+    if (hasUnclustered) {
+      options.push({ value: NO_CLUSTER_KEY, label: "No cluster" });
+    }
+    options.sort((a, b) => {
+      if (a.value === NO_CLUSTER_KEY) return 1;
+      if (b.value === NO_CLUSTER_KEY) return -1;
+      return a.label.localeCompare(b.label, undefined, { numeric: true });
+    });
+    return options;
+  }, [clusters, cases]);
+
+  useEffect(() => {
+    if (clusterId != null || selectedClusters.includes(ALL_CLUSTERS)) return;
+    const valid = new Set(clusterFilterOptions.map((option) => option.value));
+    const next = selectedClusters.filter((id) => valid.has(id));
+    if (next.length === selectedClusters.length) return;
+    setSelectedClusters(next.length > 0 ? next : [ALL_CLUSTERS]);
+  }, [clusterFilterOptions, clusterId, selectedClusters]);
+
+  const handleClustersChange = (values: string[]) => {
+    const hadAll = selectedClusters.includes(ALL_CLUSTERS);
+    const hasAll = values.includes(ALL_CLUSTERS);
+    if (hasAll && !hadAll) {
+      setSelectedClusters([ALL_CLUSTERS]);
+      return;
+    }
+    if (hadAll && hasAll) {
+      setSelectedClusters(values.filter((value) => value !== ALL_CLUSTERS));
+      return;
+    }
+    setSelectedClusters(values.length > 0 ? values : [ALL_CLUSTERS]);
+  };
 
   const assigneeOptions = useMemo(
     () => buildCareAssigneeOptions(assigneePeople, clusters, cases),
@@ -312,11 +458,12 @@ export default function ClusterCareRoster({
         recommended_action: action,
         recommended_action_other:
           action === "OTHER" ? draft.recommended_action_other.trim() : "",
-        assigned_to: draft.assigned_to.map(Number).filter((id) => !Number.isNaN(id)),
+        assigned_to: draft.assigned_to
+          .map(Number)
+          .filter((id) => !Number.isNaN(id)),
         assigned_to_label: draft.assigned_to_label,
         due_date: draft.due_date ? draft.due_date : null,
-        case_status:
-          action === "NO_ACTION" ? "NO_ACTION" : draft.case_status,
+        case_status: action === "NO_ACTION" ? "NO_ACTION" : draft.case_status,
         remarks: draft.remarks,
       };
       const { data } = await peopleApi.patchCareCase(row.id, payload);
@@ -355,8 +502,12 @@ export default function ClusterCareRoster({
 
   const attentionCount = visibleCases.filter((c) => c.needs_attention).length;
   const openCaseloadCount = statsCases.length;
-  const needsAttentionCount = statsCases.filter((c) => c.needs_attention).length;
-  const noActionCount = statsCases.filter((c) => c.case_status === "NO_ACTION").length;
+  const needsAttentionCount = statsCases.filter(
+    (c) => c.needs_attention,
+  ).length;
+  const noActionCount = statsCases.filter(
+    (c) => c.case_status === "NO_ACTION",
+  ).length;
   const openActive =
     !attentionOnly &&
     !filters.person_status &&
@@ -479,91 +630,141 @@ export default function ClusterCareRoster({
         </div>
       )}
 
-      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4 lg:items-end">
-        <label className="flex min-w-0 flex-col gap-1 text-xs font-medium text-gray-600 sm:col-span-2 lg:col-span-1">
-          Search
-          <input
-            type="search"
-            value={filters.search}
-            onChange={(e) =>
-              setFilters((prev) => ({ ...prev, search: e.target.value }))
-            }
-            placeholder="Name or details"
-            className={inputClass}
-          />
-        </label>
-        <label className="flex min-w-0 flex-col gap-1 text-xs font-medium text-gray-600">
-          Attendance
-          <select
-            value={filters.person_status}
-            onChange={(e) => {
-              setAttentionOnly(false);
-              setFilters((prev) => ({ ...prev, person_status: e.target.value }));
-            }}
-            className={selectClass}
-          >
-            <option value="">All statuses</option>
-            <option value="SEMIACTIVE">Semi-active</option>
-            <option value="INACTIVE">Inactive</option>
-            <option value="DORMANT">Dormant</option>
-            <option value="FALLAWAY">Fall Away</option>
-            <option value="ACTIVE">Active</option>
-          </select>
-        </label>
-        <label className="flex min-w-0 flex-col gap-1 text-xs font-medium text-gray-600">
-          Action
-          <select
-            value={filters.recommended_action}
-            onChange={(e) => {
-              setAttentionOnly(false);
-              setFilters((prev) => ({
-                ...prev,
-                recommended_action: e.target.value,
-              }));
-            }}
-            className={selectClass}
-          >
-            <option value="">All actions</option>
-            {MEMBER_CARE_ACTION_OPTIONS.filter((o) => o.value).map((opt) => (
-              <option key={opt.value} value={opt.value}>
-                {opt.label}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="flex min-w-0 flex-col gap-1 text-xs font-medium text-gray-600">
-          Case status
-          <select
-            value={filters.case_status}
-            onChange={(e) => {
-              setAttentionOnly(false);
-              setFilters((prev) => ({ ...prev, case_status: e.target.value }));
-            }}
-            className={selectClass}
-          >
-            <option value="">Open caseload</option>
-            {MEMBER_CARE_STATUS_OPTIONS.map((opt) => (
-              <option key={opt.value} value={opt.value}>
-                {opt.label}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="flex items-center gap-2 pb-1 text-sm text-gray-700 sm:col-span-2 lg:col-span-4 min-h-[44px] md:min-h-0">
-          <input
-            type="checkbox"
-            checked={filters.include_closed}
-            onChange={(e) => {
-              setAttentionOnly(false);
-              setFilters((prev) => ({
-                ...prev,
-                include_closed: e.target.checked,
-              }));
-            }}
-            className="h-4 w-4"
-          />
-          Show recovered / completed
-        </label>
+      <div
+        className={
+          compact
+            ? undefined
+            : "rounded-lg border border-gray-200 bg-white p-4 shadow-sm"
+        }
+      >
+        <div
+          className={
+            compact
+              ? "grid grid-cols-1 items-end gap-3 sm:grid-cols-2 lg:grid-cols-4"
+              : "grid grid-cols-1 gap-3 sm:grid-cols-2 lg:flex lg:flex-nowrap lg:items-end"
+          }
+        >
+          <div className={compact ? undefined : "lg:w-44 lg:shrink-0"}>
+            <label className={fieldLabelClass} htmlFor="care-search">
+              Search
+            </label>
+            <input
+              id="care-search"
+              type="search"
+              value={filters.search}
+              onChange={(e) =>
+                setFilters((prev) => ({ ...prev, search: e.target.value }))
+              }
+              placeholder="Name or details"
+              className={fieldClass}
+            />
+          </div>
+          {clusterId == null && (
+            <div className={compact ? undefined : "min-w-0 lg:flex-1"}>
+              <span className={fieldLabelClass}>Cluster</span>
+              <ScalableSelect
+                multiple
+                options={clusterFilterOptions}
+                values={selectedClusters}
+                onValuesChange={handleClustersChange}
+                pinnedOption={{ value: ALL_CLUSTERS, label: "All clusters" }}
+                placeholder="Clusters"
+                searchPlaceholder="Search clusters..."
+                className="w-full"
+                showSearch
+                maxHeight={280}
+                emptyMessage="No clusters found"
+              />
+            </div>
+          )}
+          <div className={compact ? undefined : "lg:w-40 lg:shrink-0"}>
+            <label className={fieldLabelClass} htmlFor="care-attendance">
+              Attendance
+            </label>
+            <select
+              id="care-attendance"
+              value={filters.person_status}
+              onChange={(e) => {
+                setAttentionOnly(false);
+                setFilters((prev) => ({
+                  ...prev,
+                  person_status: e.target.value,
+                }));
+              }}
+              className={fieldClass}
+            >
+              <option value="">All statuses</option>
+              <option value="SEMIACTIVE">Semi-active</option>
+              <option value="INACTIVE">Inactive</option>
+              <option value="DORMANT">Dormant</option>
+              <option value="FALLAWAY">Fall Away</option>
+              <option value="ACTIVE">Active</option>
+            </select>
+          </div>
+          <div className={compact ? undefined : "lg:w-44 lg:shrink-0"}>
+            <label className={fieldLabelClass} htmlFor="care-action">
+              Action
+            </label>
+            <select
+              id="care-action"
+              value={filters.recommended_action}
+              onChange={(e) => {
+                setAttentionOnly(false);
+                setFilters((prev) => ({
+                  ...prev,
+                  recommended_action: e.target.value,
+                }));
+              }}
+              className={fieldClass}
+            >
+              <option value="">All actions</option>
+              {MEMBER_CARE_ACTION_OPTIONS.filter((o) => o.value).map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className={compact ? undefined : "lg:w-40 lg:shrink-0"}>
+            <label className={fieldLabelClass} htmlFor="care-case-status">
+              Case status
+            </label>
+            <select
+              id="care-case-status"
+              value={filters.case_status}
+              onChange={(e) => {
+                setAttentionOnly(false);
+                setFilters((prev) => ({
+                  ...prev,
+                  case_status: e.target.value,
+                }));
+              }}
+              className={fieldClass}
+            >
+              <option value="">Open caseload</option>
+              {MEMBER_CARE_STATUS_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+          </div>
+          <label className="flex h-11 items-center gap-2 text-sm text-gray-700 lg:shrink-0">
+            <input
+              type="checkbox"
+              checked={filters.include_closed}
+              onChange={(e) => {
+                setAttentionOnly(false);
+                setFilters((prev) => ({
+                  ...prev,
+                  include_closed: e.target.checked,
+                }));
+              }}
+              className="h-4 w-4"
+            />
+            Show recovered
+          </label>
+        </div>
       </div>
 
       {compact && attentionCount > 0 && (
@@ -573,291 +774,348 @@ export default function ClusterCareRoster({
         </p>
       )}
 
-      {loading ? (
-        <LoadingSpinner />
-      ) : error ? (
-        <ErrorMessage message={error} />
-      ) : visibleCases.length === 0 ? (
-        <p className="rounded-lg border border-gray-200 bg-white p-4 text-sm text-gray-600">
-          {attentionOnly
-            ? "No cases need attention."
-            : filters.include_closed || filters.case_status
-              ? "No care cases match these filters."
-              : "No open care cases."}
-        </p>
-      ) : (
-        <>
-        <div className="space-y-3 md:hidden">
-          {grouped.map(([key, group]) => (
-            <section key={key} className="space-y-2">
-              {(clusterId == null || grouped.length > 1) && (
-                <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-600">
-                  {group.label} ({group.rows.length})
-                </h3>
-              )}
-              {group.rows.map((row) => {
-                const isOpen = !usePanel && expandedId === row.id;
-                const selected = selectedCaseId === row.id;
-                return (
-                  <article
-                    key={row.id}
-                    className={`rounded-lg border border-gray-200 p-3 ${rowToneClass(row, canEdit, selected)}`}
-                    onClick={() =>
-                      canEdit
-                        ? isOpen
-                          ? closeEditor()
-                          : openEditor(row)
-                        : undefined
-                    }
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0">
-                        {onViewPerson ? (
-                          <button
-                            type="button"
-                            className="text-left font-medium text-primary hover:underline break-words"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleNameClick(row);
-                            }}
-                          >
-                            {row.person.full_name}
-                          </button>
-                        ) : (
-                          <p className="font-medium text-gray-900 break-words">
-                            {row.person.full_name}
-                          </p>
-                        )}
-                        {clusterId == null && (
-                          <p className="mt-0.5 text-xs text-gray-500">
-                            {clusterGroupLabel(row)}
-                            {row.cord?.name ? ` · ${row.cord.name}` : ""}
-                          </p>
-                        )}
-                        {clusterId != null && row.cord?.name && grouped.length === 1 && (
-                          <p className="mt-0.5 text-xs text-gray-500">
-                            {row.cord.name}
-                          </p>
-                        )}
-                      </div>
-                      <div className="flex shrink-0 flex-col items-end gap-1">
-                        <span
-                          className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${getPersonStatusColor(row.person.status)}`}
-                        >
-                          {formatPersonStatusLabel(row.person.status)}
-                        </span>
-                        <span
-                          className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${careCaseStatusClass(row.case_status)}`}
-                        >
-                          {row.case_status_display || row.case_status}
-                        </span>
-                      </div>
-                    </div>
-                    <dl className="mt-3 grid grid-cols-1 gap-2 text-sm">
-                      <div>
-                        <dt className="text-[10px] font-semibold uppercase tracking-wide text-gray-500">
-                          Details
-                        </dt>
-                        <dd className="break-words text-gray-800">
-                          {row.details || "—"}
-                        </dd>
-                      </div>
-                      <div>
-                        <dt className="text-[10px] font-semibold uppercase tracking-wide text-gray-500">
-                          Recommended action
-                        </dt>
-                        <dd className="text-gray-800">
-                          {memberCareActionLabel(
-                            row.recommended_action,
-                            row.recommended_action_other,
-                          )}
-                        </dd>
-                      </div>
-                      <div className="grid grid-cols-2 gap-2">
-                        <div>
-                          <dt className="text-[10px] font-semibold uppercase tracking-wide text-gray-500">
-                            Who
-                          </dt>
-                          <dd className="break-words text-gray-800">
-                            {whoLabel(row)}
-                          </dd>
-                        </div>
-                        <div>
-                          <dt className="text-[10px] font-semibold uppercase tracking-wide text-gray-500">
-                            When
-                          </dt>
-                          <dd className="text-gray-800">
-                            {row.due_date || "—"}
-                          </dd>
-                        </div>
-                      </div>
-                      {row.remarks ? (
-                        <div>
-                          <dt className="text-[10px] font-semibold uppercase tracking-wide text-gray-500">
-                            Remarks
-                          </dt>
-                          <dd className="break-words text-gray-800">
-                            {row.remarks}
-                          </dd>
-                        </div>
-                      ) : null}
-                    </dl>
-                    {isOpen && draft ? (
-                      <div
-                        className="mt-3 border-t border-gray-200 pt-3"
-                        onClick={(e) => e.stopPropagation()}
+      <div
+        className={
+          compact
+            ? undefined
+            : "overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm"
+        }
+      >
+        {loading ? (
+          <div className="py-8">
+            <LoadingSpinner />
+          </div>
+        ) : error ? (
+          <div className="p-4">
+            <ErrorMessage message={error} />
+          </div>
+        ) : visibleCases.length === 0 ? (
+          <div className="py-8 text-center">
+            <svg
+              className="mx-auto h-12 w-12 text-gray-400"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              aria-hidden="true"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+              />
+            </svg>
+            <h3 className="mt-2 text-sm font-medium text-gray-900">
+              No care cases found
+            </h3>
+            <p className="mt-1 text-sm text-gray-500">
+              {attentionOnly
+                ? "No cases need attention."
+                : filters.include_closed ||
+                    filters.case_status ||
+                    filters.search ||
+                    filters.person_status ||
+                    filters.recommended_action ||
+                    clusterFilterActive
+                  ? "No care cases match these filters."
+                  : "No open care cases."}
+            </p>
+          </div>
+        ) : (
+          <>
+            <div
+              className={
+                compact ? "space-y-3 md:hidden" : "space-y-3 p-4 md:hidden"
+              }
+            >
+              {grouped.map(([key, group]) => (
+                <section key={key} className="space-y-2">
+                  {(clusterId == null || grouped.length > 1) && (
+                    <h3 className="rounded-md bg-gray-50 px-4 py-3">
+                      <CareGroupHeading
+                        label={group.label}
+                        code={group.code}
+                        count={group.rows.length}
+                      />
+                    </h3>
+                  )}
+                  {group.rows.map((row) => {
+                    const isOpen = !usePanel && expandedId === row.id;
+                    const selected = selectedCaseId === row.id;
+                    const alsoIn = extraClusterNames(row);
+                    return (
+                      <article
+                        key={row.id}
+                        className={`rounded-lg border border-gray-200 p-3 ${rowToneClass(row, canEdit, selected)}`}
+                        onClick={() =>
+                          canEdit
+                            ? isOpen
+                              ? closeEditor()
+                              : openEditor(row)
+                            : undefined
+                        }
                       >
-                        <CareCaseEditor
-                          draft={draft}
-                          setDraft={setDraft}
-                          assigneeOptions={assigneeOptions}
-                          saving={savingId === row.id}
-                          onSave={() => saveRow(row)}
-                          onCancel={closeEditor}
-                        />
-                      </div>
-                    ) : canEdit && !usePanel ? (
-                      <p className="mt-2 text-xs text-primary">Tap to edit</p>
-                    ) : null}
-                  </article>
-                );
-              })}
-            </section>
-          ))}
-        </div>
-
-        <div className="hidden overflow-x-auto rounded-lg border border-gray-200 bg-white md:block">
-          <table className="min-w-full divide-y divide-gray-200 text-sm">
-            <thead className="bg-gray-50 text-left text-xs font-semibold uppercase tracking-wide text-gray-600">
-              <tr>
-                {clusterId == null && <th className="px-3 py-2">Cluster</th>}
-                {clusterId != null && <th className="px-3 py-2">5x5 Cord</th>}
-                <th className="px-3 py-2">Attendance status</th>
-                <th className="px-3 py-2">Name</th>
-                <th className="px-3 py-2">Details</th>
-                <th className="px-3 py-2">Recommended action</th>
-                <th className="px-3 py-2">Who</th>
-                <th className="px-3 py-2">When</th>
-                <th className="px-3 py-2">Status</th>
-                <th className="px-3 py-2">Remarks</th>
-              </tr>
-            </thead>
-            {grouped.map(([key, group]) => (
-              <tbody key={key} className="divide-y divide-gray-100">
-                {grouped.length > 1 && (
-                  <tr className="bg-gray-50">
-                    <td
-                      colSpan={9}
-                      className="px-3 py-2 text-xs font-semibold text-gray-700"
-                    >
-                      {group.label} ({group.rows.length})
-                    </td>
-                  </tr>
-                )}
-                {group.rows.map((row) => {
-                  const isOpen = !usePanel && expandedId === row.id;
-                  const selected = selectedCaseId === row.id;
-                  return (
-                    <Fragment key={row.id}>
-                    <tr
-                      className={rowToneClass(row, canEdit, selected)}
-                      onClick={() => (isOpen ? closeEditor() : openEditor(row))}
-                    >
-                      {clusterId == null && (
-                        <td className="whitespace-nowrap px-3 py-2 text-gray-700">
-                          {clusterGroupLabel(row)}
-                          {row.cord?.name ? (
-                            <span className="block text-xs text-gray-500">
-                              {row.cord.name}
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            {onViewPerson ? (
+                              <button
+                                type="button"
+                                className="text-left font-medium text-primary hover:underline break-words"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleNameClick(row);
+                                }}
+                              >
+                                {row.person.full_name}
+                              </button>
+                            ) : (
+                              <p className="font-medium text-gray-900 break-words">
+                                {row.person.full_name}
+                              </p>
+                            )}
+                            {clusterId == null &&
+                              (row.cord?.name || alsoIn.length > 0) && (
+                                <p className="mt-0.5 text-xs text-gray-500">
+                                  {[
+                                    row.cord?.name,
+                                    alsoIn.length
+                                      ? `Also in ${alsoIn.join(", ")}`
+                                      : null,
+                                  ]
+                                    .filter(Boolean)
+                                    .join(" · ")}
+                                </p>
+                              )}
+                            {clusterId != null &&
+                              row.cord?.name &&
+                              grouped.length === 1 && (
+                                <p className="mt-0.5 text-xs text-gray-500">
+                                  {row.cord.name}
+                                </p>
+                              )}
+                          </div>
+                          <div className="flex shrink-0 flex-col items-end gap-1">
+                            <span
+                              className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${getPersonStatusColor(row.person.status)}`}
+                            >
+                              {formatPersonStatusLabel(row.person.status)}
                             </span>
+                            <span
+                              className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${careCaseStatusClass(row.case_status)}`}
+                            >
+                              {row.case_status_display || row.case_status}
+                            </span>
+                          </div>
+                        </div>
+                        <dl className="mt-3 grid grid-cols-1 gap-2 text-sm">
+                          <div>
+                            <dt className="text-[10px] font-semibold uppercase tracking-wide text-gray-500">
+                              Details
+                            </dt>
+                            <dd className="break-words text-gray-800">
+                              {row.details || "—"}
+                            </dd>
+                          </div>
+                          <div>
+                            <dt className="text-[10px] font-semibold uppercase tracking-wide text-gray-500">
+                              Recommended action
+                            </dt>
+                            <dd className="text-gray-800">
+                              {memberCareActionLabel(
+                                row.recommended_action,
+                                row.recommended_action_other,
+                              )}
+                            </dd>
+                          </div>
+                          <div className="grid grid-cols-2 gap-2">
+                            <div>
+                              <dt className="text-[10px] font-semibold uppercase tracking-wide text-gray-500">
+                                Who
+                              </dt>
+                              <dd className="break-words text-gray-800">
+                                {whoLabel(row)}
+                              </dd>
+                            </div>
+                            <div>
+                              <dt className="text-[10px] font-semibold uppercase tracking-wide text-gray-500">
+                                When
+                              </dt>
+                              <dd className="text-gray-800">
+                                {row.due_date || "—"}
+                              </dd>
+                            </div>
+                          </div>
+                          {row.remarks ? (
+                            <div>
+                              <dt className="text-[10px] font-semibold uppercase tracking-wide text-gray-500">
+                                Remarks
+                              </dt>
+                              <dd className="break-words text-gray-800">
+                                {row.remarks}
+                              </dd>
+                            </div>
                           ) : null}
-                        </td>
-                      )}
-                      {clusterId != null && (
-                        <td className="whitespace-nowrap px-3 py-2 text-gray-700">
-                          {row.cord?.name || "—"}
-                        </td>
-                      )}
-                      <td className="whitespace-nowrap px-3 py-2">
-                        <span
-                          className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${getPersonStatusColor(row.person.status)}`}
-                        >
-                          {formatPersonStatusLabel(row.person.status)}
-                        </span>
-                      </td>
-                      <td className="whitespace-nowrap px-3 py-2 font-medium text-gray-900">
-                        {onViewPerson ? (
-                          <button
-                            type="button"
-                            className="text-left text-primary hover:underline"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleNameClick(row);
-                            }}
+                        </dl>
+                        {isOpen && draft ? (
+                          <div
+                            className="mt-3 border-t border-gray-200 pt-3"
+                            onClick={(e) => e.stopPropagation()}
                           >
-                            {row.person.full_name}
-                          </button>
-                        ) : (
-                          row.person.full_name
-                        )}
-                      </td>
-                      <td className="max-w-xs px-3 py-2 text-gray-700">
-                        <span className="line-clamp-2">
-                          {row.details || "—"}
-                        </span>
-                      </td>
-                      <td className="px-3 py-2 text-gray-700">
-                        {memberCareActionLabel(
-                          row.recommended_action,
-                          row.recommended_action_other,
-                        )}
-                      </td>
-                      <td className="max-w-[10rem] px-3 py-2 text-gray-700">
-                        <span className="line-clamp-2">{whoLabel(row)}</span>
-                      </td>
-                      <td className="whitespace-nowrap px-3 py-2 text-gray-700">
-                        {row.due_date || "—"}
-                      </td>
-                      <td className="whitespace-nowrap px-3 py-2">
-                        <span
-                          className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${careCaseStatusClass(row.case_status)}`}
-                        >
-                          {row.case_status_display || row.case_status}
-                        </span>
-                      </td>
-                      <td className="max-w-[10rem] px-3 py-2 text-gray-700">
-                        <span className="line-clamp-2">
-                          {row.remarks || "—"}
-                        </span>
-                      </td>
-                    </tr>
-                    {isOpen && draft ? (
-                      <tr className="bg-slate-50">
+                            <CareCaseEditor
+                              draft={draft}
+                              setDraft={setDraft}
+                              assigneeOptions={assigneeOptions}
+                              saving={savingId === row.id}
+                              onSave={() => saveRow(row)}
+                              onCancel={closeEditor}
+                            />
+                          </div>
+                        ) : canEdit && !usePanel ? (
+                          <p className="mt-2 text-xs text-primary">
+                            Tap to edit
+                          </p>
+                        ) : null}
+                      </article>
+                    );
+                  })}
+                </section>
+              ))}
+            </div>
+
+            <div className="hidden overflow-x-auto md:block">
+              <table className="min-w-full divide-y divide-gray-200 text-sm">
+                <thead className="bg-gray-50 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                  <tr>
+                    <th className="px-4 py-3">5x5 Cord</th>
+                    <th className="px-4 py-3">Attendance status</th>
+                    <th className="px-4 py-3">Name</th>
+                    <th className="px-4 py-3">Details</th>
+                    <th className="px-4 py-3">Recommended action</th>
+                    <th className="px-4 py-3">Who</th>
+                    <th className="px-4 py-3">When</th>
+                    <th className="px-4 py-3">Status</th>
+                    <th className="px-4 py-3">Remarks</th>
+                  </tr>
+                </thead>
+                {grouped.map(([key, group]) => (
+                  <tbody key={key} className="divide-y divide-gray-100">
+                    {(clusterId == null || grouped.length > 1) && (
+                      <tr className="bg-gray-50">
                         <td
                           colSpan={9}
-                          className="px-3 py-3"
-                          onClick={(e) => e.stopPropagation()}
+                          className="border-y border-gray-200 px-4 py-3"
                         >
-                          <CareCaseEditor
-                            draft={draft}
-                            setDraft={setDraft}
-                            assigneeOptions={assigneeOptions}
-                            saving={savingId === row.id}
-                            onSave={() => saveRow(row)}
-                            onCancel={closeEditor}
+                          <CareGroupHeading
+                            label={group.label}
+                            code={group.code}
+                            count={group.rows.length}
                           />
                         </td>
                       </tr>
-                    ) : null}
-                    </Fragment>
-                  );
-                })}
-              </tbody>
-            ))}
-          </table>
-        </div>
-        </>
-      )}
+                    )}
+                    {group.rows.map((row) => {
+                      const isOpen = !usePanel && expandedId === row.id;
+                      const selected = selectedCaseId === row.id;
+                      const alsoIn = extraClusterNames(row);
+                      return (
+                        <Fragment key={row.id}>
+                          <tr
+                            className={rowToneClass(row, canEdit, selected)}
+                            onClick={() =>
+                              isOpen ? closeEditor() : openEditor(row)
+                            }
+                          >
+                            <td className="whitespace-nowrap px-4 py-3 text-gray-700">
+                              {row.cord?.name || "—"}
+                              {clusterId == null && alsoIn.length > 0 ? (
+                                <span className="block text-xs text-gray-500">
+                                  Also in {alsoIn.join(", ")}
+                                </span>
+                              ) : null}
+                            </td>
+                            <td className="whitespace-nowrap px-4 py-3">
+                              <span
+                                className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${getPersonStatusColor(row.person.status)}`}
+                              >
+                                {formatPersonStatusLabel(row.person.status)}
+                              </span>
+                            </td>
+                            <td className="whitespace-nowrap px-4 py-3 font-medium text-gray-900">
+                              {onViewPerson ? (
+                                <button
+                                  type="button"
+                                  className="text-left text-primary hover:underline"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleNameClick(row);
+                                  }}
+                                >
+                                  {row.person.full_name}
+                                </button>
+                              ) : (
+                                row.person.full_name
+                              )}
+                            </td>
+                            <td className="max-w-xs px-4 py-3 text-gray-700">
+                              <span className="line-clamp-2">
+                                {row.details || "—"}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3 text-gray-700">
+                              {memberCareActionLabel(
+                                row.recommended_action,
+                                row.recommended_action_other,
+                              )}
+                            </td>
+                            <td className="max-w-[10rem] px-4 py-3 text-gray-700">
+                              <span className="line-clamp-2">
+                                {whoLabel(row)}
+                              </span>
+                            </td>
+                            <td className="whitespace-nowrap px-4 py-3 text-gray-700">
+                              {row.due_date || "—"}
+                            </td>
+                            <td className="whitespace-nowrap px-4 py-3">
+                              <span
+                                className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${careCaseStatusClass(row.case_status)}`}
+                              >
+                                {row.case_status_display || row.case_status}
+                              </span>
+                            </td>
+                            <td className="max-w-[10rem] px-4 py-3 text-gray-700">
+                              <span className="line-clamp-2">
+                                {row.remarks || "—"}
+                              </span>
+                            </td>
+                          </tr>
+                          {isOpen && draft ? (
+                            <tr className="bg-slate-50">
+                              <td
+                                colSpan={9}
+                                className="px-3 py-3"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <CareCaseEditor
+                                  draft={draft}
+                                  setDraft={setDraft}
+                                  assigneeOptions={assigneeOptions}
+                                  saving={savingId === row.id}
+                                  onSave={() => saveRow(row)}
+                                  onCancel={closeEditor}
+                                />
+                              </td>
+                            </tr>
+                          ) : null}
+                        </Fragment>
+                      );
+                    })}
+                  </tbody>
+                ))}
+              </table>
+            </div>
+          </>
+        )}
+      </div>
     </div>
   );
 }

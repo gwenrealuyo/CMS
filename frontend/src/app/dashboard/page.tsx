@@ -1173,7 +1173,7 @@ export default function Dashboard() {
                   trend={clusterAttendanceTrend}
                 />
               )}
-              {allowExtendedDashboardMetrics && (
+              {/* {allowExtendedDashboardMetrics && (
                 <MetricCard
                   title="Sunday School Attendance"
                   value={
@@ -1185,7 +1185,7 @@ export default function Dashboard() {
                   loading={extendedMetricsLoading}
                   trend={sundaySchoolTrend}
                 />
-              )}
+              )} */}
               {allowExtendedDashboardMetrics && (
                 <MetricCard
                   title="Sunday Service Attendees"

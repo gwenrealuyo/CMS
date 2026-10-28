@@ -1,9 +1,9 @@
 import type { ComponentType, SVGProps } from "react";
 import {
-  AcademicCapIcon,
+  BookmarkSquareIcon,
   CalendarIcon,
+  ChatBubbleLeftRightIcon,
   ClipboardDocumentCheckIcon,
-  MegaphoneIcon,
   UserPlusIcon,
   BookOpenIcon,
 } from "@heroicons/react/24/outline";
@@ -66,14 +66,14 @@ const QUICK_ACTIONS: QuickActionDefinition[] = [
     key: "evangelism-report",
     label: "Submit Evangelism Report",
     href: "/evangelism?action=submit-report",
-    icon: MegaphoneIcon,
+    icon: BookmarkSquareIcon,
     blurb: "Submit the evangelism group report.",
   },
   {
     key: "sunday-bible-study",
     label: "Submit Sunday BS",
     href: "/evangelism?tab=bible_sharers&action=submit-bible-study",
-    icon: AcademicCapIcon,
+    icon: ChatBubbleLeftRightIcon,
     blurb: "Submit a Sunday Bible study report.",
   },
   {

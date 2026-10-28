@@ -4,6 +4,9 @@ from .models import (
     EvangelismGroup,
     EvangelismSession,
     EvangelismWeeklyReport,
+    SundayBibleStudyFacilitator,
+    SundayBibleStudyReport,
+    SundayBibleStudyVisitor,
     Prospect,
     FollowUpTask,
     DropOff,
@@ -57,6 +60,42 @@ class EvangelismSessionAdmin(admin.ModelAdmin):
     )
     date_hierarchy = "session_date"
     raw_id_fields = ("evangelism_group", "event")
+
+
+class SundayBibleStudyFacilitatorInline(admin.TabularInline):
+    model = SundayBibleStudyFacilitator
+    extra = 0
+    raw_id_fields = ("person",)
+
+
+class SundayBibleStudyVisitorInline(admin.TabularInline):
+    model = SundayBibleStudyVisitor
+    extra = 0
+    raw_id_fields = ("person", "journey")
+
+
+@admin.register(SundayBibleStudyReport)
+class SundayBibleStudyReportAdmin(admin.ModelAdmin):
+    list_display = (
+        "branch",
+        "session_date",
+        "session_type",
+        "gathering_type",
+        "cancelled",
+        "submitted_by",
+        "submitted_at",
+    )
+    list_filter = ("branch", "session_type", "gathering_type", "cancelled", "year")
+    search_fields = (
+        "branch__name",
+        "topic",
+        "scripture_reference",
+        "study_summary",
+    )
+    raw_id_fields = ("branch", "submitted_by")
+    filter_horizontal = ("members_attended",)
+    inlines = (SundayBibleStudyFacilitatorInline, SundayBibleStudyVisitorInline)
+    date_hierarchy = "session_date"
 
 
 @admin.register(EvangelismWeeklyReport)

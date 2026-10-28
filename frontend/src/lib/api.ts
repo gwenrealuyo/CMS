@@ -99,6 +99,11 @@ import {
   EvangelismComplianceData,
 } from "@/src/types/evangelism";
 import {
+  SundayBibleStudyReport,
+  SundayBibleStudyReportWrite,
+  SundayBibleStudySummary,
+} from "@/src/types/sundayBibleStudy";
+import {
   Donation,
   DonationPurpose,
   Offering,
@@ -2001,6 +2006,7 @@ export type EvangelismProspectsListParams = {
   source?: string;
   for_cluster_report?: number | string;
   for_group_report?: number | string;
+  for_branch_report?: number | string;
   search?: string;
   person_isnull?: boolean;
   page?: number;
@@ -2201,6 +2207,62 @@ export const evangelismApi = {
     api.put<EvangelismWeeklyReport>(`/evangelism/weekly-reports/${id}/`, data),
   deleteWeeklyReport: (id: number | string) =>
     api.delete(`/evangelism/weekly-reports/${id}/`),
+
+  listSundayBibleStudies: (params?: {
+    session_date?: string;
+    session_date_from?: string;
+    session_date_to?: string;
+    year?: number;
+    week_number?: string;
+    session_type?: string;
+    branch?: number | string;
+    facilitator?: number | string;
+    cancelled?: "true" | "false";
+    page?: number;
+    page_size?: number;
+  }) =>
+    api.get<PaginatedResponse<SundayBibleStudyReport>>(
+      "/evangelism/sunday-bible-studies/",
+      { params },
+    ),
+  getSundayBibleStudy: (id: number | string) =>
+    api.get<SundayBibleStudyReport>(`/evangelism/sunday-bible-studies/${id}/`),
+  createSundayBibleStudy: (data: SundayBibleStudyReportWrite) =>
+    api.post<SundayBibleStudyReport>("/evangelism/sunday-bible-studies/", data),
+  updateSundayBibleStudy: (
+    id: number | string,
+    data: Partial<SundayBibleStudyReportWrite>,
+  ) =>
+    api.patch<SundayBibleStudyReport>(
+      `/evangelism/sunday-bible-studies/${id}/`,
+      data,
+    ),
+  deleteSundayBibleStudy: (id: number | string) =>
+    api.delete(`/evangelism/sunday-bible-studies/${id}/`),
+  sundayBibleStudyFacilitators: () =>
+    api.get<
+      {
+        id: number;
+        name: string;
+        status?: string | null;
+        branch?: number | null;
+        cluster_codes?: string[] | null;
+      }[]
+    >("/evangelism/sunday-bible-studies/facilitators/"),
+  sundayBibleStudySummary: (params?: {
+    session_date?: string;
+    session_date_from?: string;
+    session_date_to?: string;
+    year?: number;
+    week_number?: string;
+    session_type?: string;
+    branch?: number | string;
+    facilitator?: number | string;
+  }) =>
+    api.get<SundayBibleStudySummary>(
+      "/evangelism/sunday-bible-studies/summary/",
+      { params },
+    ),
   getTally: (params?: {
     cluster?: number | string;
     year?: number;

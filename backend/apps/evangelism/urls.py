@@ -1,6 +1,7 @@
 from django.urls import include, path
 from rest_framework.routers import DefaultRouter
 
+from .sunday_bible_study import SundayBibleStudyReportViewSet
 from .views import (
     EvangelismGroupViewSet,
     EvangelismSessionViewSet,
@@ -19,6 +20,11 @@ router = DefaultRouter()
 router.register(r"groups", EvangelismGroupViewSet, basename="evangelism-group")
 router.register(r"sessions", EvangelismSessionViewSet, basename="evangelism-session")
 router.register(r"weekly-reports", EvangelismWeeklyReportViewSet, basename="evangelism-weekly-report")
+router.register(
+    r"sunday-bible-studies",
+    SundayBibleStudyReportViewSet,
+    basename="sunday-bible-study",
+)
 router.register(r"prospects", ProspectViewSet, basename="prospect")
 router.register(r"follow-up-tasks", FollowUpTaskViewSet, basename="follow-up-task")
 router.register(r"drop-offs", DropOffViewSet, basename="drop-off")

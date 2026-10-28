@@ -188,6 +188,28 @@ export function canBrowseProspects({
   );
 }
 
+/** Who may designate or remove Bible Sharers on the headquarters roster. */
+export function canManageBibleSharersRoster({
+  user,
+  isSeniorCoordinator,
+}: {
+  user: User | null;
+  isSeniorCoordinator: (module?: ModuleCoordinator["module"]) => boolean;
+}): boolean {
+  if (!user) return false;
+  if (user.role === "ADMIN") return true;
+  if (user.role === "PASTOR" && (user.can_see_all_branches || user.branch_is_headquarters)) {
+    return true;
+  }
+  if (isSeniorCoordinator("EVANGELISM")) return true;
+  return (
+    user.module_coordinator_assignments?.some(
+      (assignment) =>
+        assignment.module === "EVANGELISM" && assignment.level === "COORDINATOR",
+    ) ?? false
+  );
+}
+
 /** Bible Sharers tab: privileged users, or people on the HQ Bible Sharers roster. */
 export function canBrowseBibleSharers({
   user,

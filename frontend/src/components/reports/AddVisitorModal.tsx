@@ -97,15 +97,26 @@ export default function AddVisitorModal({
     fetchEventTypes();
   }, []);
 
-  // Fetch people for inviter selection
+  // Inviter list only when the modal is open — mounting under a report form
+  // must not hit people/?for_report while the visitor dialog is closed.
   useEffect(() => {
+    if (!isOpen) {
+      setPeople([]);
+      return;
+    }
+    let cancelled = false;
     const fetchPeople = async () => {
       try {
         const response = await peopleApi.getAll(
           forReport ? { for_report: true } : undefined
         );
+        if (cancelled) return;
         const peopleUI: PersonUI[] = response.data
-          .filter(isSelectablePerson)
+          .filter(
+            (person) =>
+              isSelectablePerson(person) &&
+              (person.role || "").toUpperCase() !== "VISITOR",
+          )
           .map((p) => ({
             ...p,
             name: formatPersonName(p),
@@ -113,11 +124,16 @@ export default function AddVisitorModal({
           }));
         setPeople(peopleUI);
       } catch (error) {
-        console.error("Error fetching people:", error);
+        if (!cancelled) {
+          console.error("Error fetching people:", error);
+        }
       }
     };
-    fetchPeople();
-  }, [forReport]);
+    void fetchPeople();
+    return () => {
+      cancelled = true;
+    };
+  }, [isOpen, forReport]);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -203,15 +219,14 @@ export default function AddVisitorModal({
     >
       <form onSubmit={handleSubmit} className="space-y-4">
         {error && (
-          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
+          <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
             {error}
           </div>
         )}
 
-        {/* Name Fields - 4 columns including Suffix */}
-        <div className="grid grid-cols-4 gap-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="mb-1 block text-sm font-medium text-gray-700">
               First Name *
             </label>
             <input
@@ -220,13 +235,13 @@ export default function AddVisitorModal({
               onChange={(e) =>
                 setFormData({ ...formData, first_name: e.target.value })
               }
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent"
+              className="min-h-[44px] w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-transparent focus:ring-2 focus:ring-ring"
               required
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="mb-1 block text-sm font-medium text-gray-700">
               Middle Name
             </label>
             <input
@@ -235,12 +250,12 @@ export default function AddVisitorModal({
               onChange={(e) =>
                 setFormData({ ...formData, middle_name: e.target.value })
               }
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent"
+              className="min-h-[44px] w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-transparent focus:ring-2 focus:ring-ring"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="mb-1 block text-sm font-medium text-gray-700">
               Last Name *
             </label>
             <input
@@ -249,13 +264,13 @@ export default function AddVisitorModal({
               onChange={(e) =>
                 setFormData({ ...formData, last_name: e.target.value })
               }
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent"
+              className="min-h-[44px] w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-transparent focus:ring-2 focus:ring-ring"
               required
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="mb-1 block text-sm font-medium text-gray-700">
               Suffix
             </label>
             <input
@@ -265,15 +280,14 @@ export default function AddVisitorModal({
                 setFormData({ ...formData, suffix: e.target.value })
               }
               placeholder="Jr., Sr., III, etc."
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent"
+              className="min-h-[44px] w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-transparent focus:ring-2 focus:ring-ring"
             />
           </div>
         </div>
 
-        {/* Facebook Name and Gender - 2 columns */}
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="mb-1 block text-sm font-medium text-gray-700">
               Facebook Name
             </label>
             <input
@@ -282,12 +296,12 @@ export default function AddVisitorModal({
               onChange={(e) =>
                 setFormData({ ...formData, facebook_name: e.target.value })
               }
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent"
+              className="min-h-[44px] w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-transparent focus:ring-2 focus:ring-ring"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="mb-1 block text-sm font-medium text-gray-700">
               Gender
             </label>
             <select
@@ -298,7 +312,7 @@ export default function AddVisitorModal({
                   gender: e.target.value as "MALE" | "FEMALE" | "",
                 })
               }
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent"
+              className="min-h-[44px] w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-transparent focus:ring-2 focus:ring-ring"
             >
               <option value="">Select...</option>
               <option value="MALE">Male</option>
@@ -308,7 +322,7 @@ export default function AddVisitorModal({
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
+          <label className="mb-1 block text-sm font-medium text-gray-700">
             Notes
           </label>
           <textarea
@@ -317,15 +331,14 @@ export default function AddVisitorModal({
               setFormData({ ...formData, note: e.target.value })
             }
             rows={3}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent"
+            className="min-h-[88px] w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-transparent focus:ring-2 focus:ring-ring"
             placeholder="Add notes about this visitor..."
           />
         </div>
 
-        {/* Date First Attended and First Activity Attended - 2 columns */}
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="mb-1 block text-sm font-medium text-gray-700">
               Date First Attended *
             </label>
             <input
@@ -338,13 +351,13 @@ export default function AddVisitorModal({
                 })
               }
               max={todayDateMax}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent"
+              className="min-h-[44px] w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-transparent focus:ring-2 focus:ring-ring"
               required
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="mb-1 block text-sm font-medium text-gray-700">
               First Activity Attended
             </label>
             <select
@@ -355,7 +368,7 @@ export default function AddVisitorModal({
                   first_activity_attended: e.target.value,
                 })
               }
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent"
+              className="min-h-[44px] w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-transparent focus:ring-2 focus:ring-ring"
             >
               <option value="">Select...</option>
               {activityTypes.map((type) => (
@@ -368,7 +381,7 @@ export default function AddVisitorModal({
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
+          <label className="mb-1 block text-sm font-medium text-gray-700">
             Inviter
           </label>
           <SearchableSelect
@@ -383,21 +396,24 @@ export default function AddVisitorModal({
             }))}
             placeholder="Search for inviter..."
             emptyMessage="No inviter found"
-            showEmptyOption={true}
+            showEmptyOption
             emptyOptionLabel="No inviter"
+            showRole={false}
+            showStatus={false}
+            controlClassName="!min-h-[44px] box-border flex items-center !py-0 !text-sm"
           />
         </div>
 
-        <div className="flex gap-4 pt-4">
+        <div className="flex flex-col-reverse gap-3 pt-4 sm:flex-row sm:gap-4">
           <Button
             variant="tertiary"
-            className="flex-1"
+            className="w-full flex-1"
             onClick={handleClose}
             disabled={loading}
           >
             Cancel
           </Button>
-          <Button className="flex-1" disabled={loading} type="submit">
+          <Button className="w-full flex-1" disabled={loading} type="submit">
             {loading ? "Adding..." : "Add Visitor"}
           </Button>
         </div>

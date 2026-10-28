@@ -4,6 +4,7 @@ from django.db.models import Q
 from .models import Conversion, EvangelismGroup, Prospect
 from .services import (
     _prospect_branch_q,
+    prospects_for_branch_report,
     prospects_for_cluster_report,
     prospects_for_group_report,
 )
@@ -26,6 +27,7 @@ class ProspectFilter(django_filters.FilterSet):
     source = django_filters.CharFilter(method="filter_source")
     for_cluster_report = django_filters.NumberFilter(method="filter_for_cluster_report")
     for_group_report = django_filters.NumberFilter(method="filter_for_group_report")
+    for_branch_report = django_filters.NumberFilter(method="filter_for_branch_report")
 
     class Meta:
         model = Prospect
@@ -53,6 +55,10 @@ class ProspectFilter(django_filters.FilterSet):
         if group is None:
             return queryset.none()
         allowed = prospects_for_group_report(group).values("pk")
+        return queryset.filter(pk__in=allowed)
+
+    def filter_for_branch_report(self, queryset, name, value):
+        allowed = prospects_for_branch_report(value).values("pk")
         return queryset.filter(pk__in=allowed)
 
     def filter_source(self, queryset, name, value):

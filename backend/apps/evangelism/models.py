@@ -232,6 +232,167 @@ class EvangelismWeeklyReport(models.Model):
         return f"{self.evangelism_group.name} - {self.year} Week {self.week_number}"
 
 
+class SundayBibleStudyReport(models.Model):
+    """One submitted Sunday Bible study for a branch Bible Sharers circle."""
+
+    class SessionType(models.TextChoices):
+        BEFORE_SERVICE = "BEFORE_SERVICE", "Before Service"
+        AFTER_SERVICE = "AFTER_SERVICE", "After Service"
+
+    class GatheringType(models.TextChoices):
+        PHYSICAL = "PHYSICAL", "Physical"
+        ONLINE = "ONLINE", "Online"
+        HYBRID = "HYBRID", "Hybrid"
+
+    branch = models.ForeignKey(
+        "people.Branch",
+        on_delete=models.PROTECT,
+        related_name="sunday_bible_study_reports",
+    )
+    session_date = models.DateField()
+    year = models.IntegerField()
+    week_number = models.IntegerField()
+    session_type = models.CharField(max_length=20, choices=SessionType.choices)
+    gathering_type = models.CharField(
+        max_length=20,
+        blank=True,
+        null=True,
+        choices=GatheringType.choices,
+    )
+    cancelled = models.BooleanField(default=False)
+    cancellation_reason = models.TextField(blank=True)
+    topic = models.CharField(max_length=200, blank=True)
+    scripture_reference = models.CharField(max_length=200, blank=True)
+    study_summary = models.TextField(blank=True)
+    observation = models.TextField(blank=True)
+    testimonies = models.TextField(blank=True)
+    prayer_requests = models.TextField(blank=True)
+    notes = models.TextField(blank=True)
+    members_attended = models.ManyToManyField(
+        settings.AUTH_USER_MODEL,
+        blank=True,
+        related_name="sunday_bible_study_reports_as_member",
+        limit_choices_to={"role__in": ["MEMBER", "PASTOR"]},
+    )
+    submitted_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="submitted_sunday_bible_study_reports",
+    )
+    submitted_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ("-session_date", "-id")
+        verbose_name = "Sunday Bible Study Report"
+        verbose_name_plural = "Sunday Bible Study Reports"
+        indexes = [
+            models.Index(
+                fields=["session_date", "session_type"],
+                name="sunday_bs_date_type_idx",
+            ),
+        ]
+
+    def __str__(self):
+        branch_name = self.branch.name if self.branch_id else "No branch"
+        return (
+            f"{branch_name} - {self.session_date} "
+            f"{self.get_session_type_display()}"
+        )
+
+
+class SundayBibleStudyFacilitator(models.Model):
+    report = models.ForeignKey(
+        SundayBibleStudyReport,
+        on_delete=models.CASCADE,
+        related_name="facilitators",
+    )
+    person = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="sunday_bible_study_facilitations",
+    )
+    is_lead = models.BooleanField(default=False)
+    groups_at_assignment = models.ManyToManyField(
+        EvangelismGroup,
+        blank=True,
+        related_name="sunday_bible_study_facilitator_snapshots",
+    )
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["report", "person"],
+                name="sunday_bs_facilitator_uniq",
+            ),
+            models.UniqueConstraint(
+                fields=["report"],
+                condition=models.Q(is_lead=True),
+                name="sunday_bs_one_lead",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.person} @ {self.report_id}"
+
+
+class SundayBibleStudyVisitor(models.Model):
+    class AttendanceKind(models.TextChoices):
+        FIRST_TIME = "FIRST_TIME", "First time"
+        RETURNING = "RETURNING", "Returning"
+
+    class Progress(models.TextChoices):
+        FOR_FOLLOW_UP = "FOR_FOLLOW_UP", "For follow-up"
+        ENDORSED_BIBLE_STUDY = (
+            "ENDORSED_BIBLE_STUDY",
+            "Endorsed to existing Bible Study",
+        )
+        ENDORSED_NCC = "ENDORSED_NCC", "Interested in NCC"
+        ATTENDS_CLUSTERING = "ATTENDS_CLUSTERING", "Attends clustering"
+        NO_FURTHER_ACTION = "NO_FURTHER_ACTION", "No further action"
+
+    report = models.ForeignKey(
+        SundayBibleStudyReport,
+        on_delete=models.CASCADE,
+        related_name="visitors",
+    )
+    person = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="sunday_bible_study_visits",
+    )
+    attendance_kind = models.CharField(
+        max_length=20,
+        choices=AttendanceKind.choices,
+    )
+    progress = models.CharField(
+        max_length=32,
+        blank=True,
+        choices=Progress.choices,
+    )
+    note = models.TextField(blank=True)
+    journey = models.ForeignKey(
+        "people.Journey",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="sunday_bible_study_visits",
+    )
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["report", "person"],
+                name="sunday_bs_visitor_uniq",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.person} @ {self.report_id}"
+
+
 class Prospect(models.Model):
     class PipelineStage(models.TextChoices):
         INVITED = "INVITED", "Invited"

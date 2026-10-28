@@ -1,5 +1,6 @@
 import type { ComponentType, SVGProps } from "react";
 import {
+  AcademicCapIcon,
   CalendarIcon,
   ClipboardDocumentCheckIcon,
   MegaphoneIcon,
@@ -9,8 +10,17 @@ import {
 import type { User } from "@/src/lib/api";
 import type { ModuleCoordinator } from "@/src/types/person";
 import type { ModuleType } from "@/src/types/moduleSettings";
+import { canCreateEvent } from "@/src/lib/events/eventPermissions";
+import {
+  canBrowseBibleSharers,
+  canManageBibleSharersRoster,
+  canSubmitEvangelismReport,
+} from "@/src/lib/evangelism/evangelismPermissions";
 import { canWriteLessons } from "@/src/lib/lessons/lessonsPermissions";
-import { userCanAddPerson, userCanAddVisitor } from "@/src/lib/peopleCreateAccess";
+import {
+  userCanAddPerson,
+  userCanAddVisitor,
+} from "@/src/lib/peopleCreateAccess";
 
 type CoordinatorLevel = ModuleCoordinator["level"];
 
@@ -19,6 +29,7 @@ export type QuickActionKey =
   | "events"
   | "cluster-report"
   | "evangelism-report"
+  | "sunday-bible-study"
   | "lesson-session";
 
 export interface QuickActionDefinition {
@@ -59,6 +70,13 @@ const QUICK_ACTIONS: QuickActionDefinition[] = [
     blurb: "Submit the evangelism group report.",
   },
   {
+    key: "sunday-bible-study",
+    label: "Submit Sunday BS",
+    href: "/evangelism?tab=bible_sharers&action=submit-bible-study",
+    icon: AcademicCapIcon,
+    blurb: "Submit a Sunday Bible study report.",
+  },
+  {
     key: "lesson-session",
     label: "Log Lesson Session",
     href: "/lessons?action=log-session",
@@ -93,15 +111,11 @@ function canCreatePeople(ctx: QuickActionsContext): boolean {
   return userCanAddVisitor(ctx.user);
 }
 
-function canViewEvents(ctx: QuickActionsContext): boolean {
-  const { user, isModuleCoordinator, isSeniorCoordinator } = ctx;
-  if (!user) return false;
-  if (!isModuleEnabledForQuickAction("EVENTS", ctx)) return false;
-  return (
-    ["MEMBER", "PASTOR", "ADMIN"].includes(user.role) ||
-    isModuleCoordinator("EVENTS") ||
-    isSeniorCoordinator()
-  );
+function canShowCreateEvent(ctx: QuickActionsContext): boolean {
+  return canCreateEvent({
+    user: ctx.user,
+    moduleEnabled: ctx.moduleEnabled,
+  });
 }
 
 function canLogLessonSession(ctx: QuickActionsContext): boolean {
@@ -123,7 +137,7 @@ function canSubmitClusterReport(ctx: QuickActionsContext): boolean {
   );
 }
 
-function canSubmitEvangelismReport(ctx: QuickActionsContext): boolean {
+function canSubmitEvangelismReportAction(ctx: QuickActionsContext): boolean {
   const { user, isModuleCoordinator, isSeniorCoordinator } = ctx;
   if (!user) return false;
   if (!isModuleEnabledForQuickAction("EVANGELISM", ctx)) return false;
@@ -135,18 +149,37 @@ function canSubmitEvangelismReport(ctx: QuickActionsContext): boolean {
   );
 }
 
-function isVisible(action: QuickActionDefinition, ctx: QuickActionsContext): boolean {
+function canSubmitSundayBibleStudy(ctx: QuickActionsContext): boolean {
+  const { user, isSeniorCoordinator } = ctx;
+  if (!user) return false;
+  if (!isModuleEnabledForQuickAction("EVANGELISM", ctx)) return false;
+  if (!canBrowseBibleSharers({ user, isSeniorCoordinator })) return false;
+  return (
+    canManageBibleSharersRoster({ user, isSeniorCoordinator }) ||
+    canSubmitEvangelismReport({
+      user,
+      moduleEnabled: ctx.moduleEnabled,
+    })
+  );
+}
+
+function isVisible(
+  action: QuickActionDefinition,
+  ctx: QuickActionsContext,
+): boolean {
   switch (action.key) {
     case "people":
       return canCreatePeople(ctx);
     case "events":
-      return canViewEvents(ctx);
+      return canShowCreateEvent(ctx);
     case "lesson-session":
       return canLogLessonSession(ctx);
     case "cluster-report":
       return canSubmitClusterReport(ctx);
     case "evangelism-report":
-      return canSubmitEvangelismReport(ctx);
+      return canSubmitEvangelismReportAction(ctx);
+    case "sunday-bible-study":
+      return canSubmitSundayBibleStudy(ctx);
     default:
       return false;
   }

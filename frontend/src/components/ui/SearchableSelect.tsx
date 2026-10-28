@@ -33,6 +33,7 @@ interface SearchableSelectProps {
   showEmptyOption?: boolean;
   emptyOptionLabel?: string;
   disabled?: boolean;
+  showRole?: boolean;
   showStatus?: boolean;
   showClusterCodes?: boolean;
 }
@@ -49,6 +50,7 @@ export default function SearchableSelect({
   showEmptyOption = true,
   emptyOptionLabel = "All",
   disabled = false,
+  showRole = true,
   showStatus = true,
   showClusterCodes = true,
 }: SearchableSelectProps) {
@@ -58,6 +60,7 @@ export default function SearchableSelect({
     top: 0,
     left: 0,
     width: 0,
+    maxHeight: 240,
   });
   const containerRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLDivElement>(null);
@@ -65,14 +68,25 @@ export default function SearchableSelect({
   const inputRef = useRef<HTMLInputElement>(null);
 
   const updateDropdownPosition = () => {
-    if (triggerRef.current) {
-      const rect = triggerRef.current.getBoundingClientRect();
-      setDropdownPosition({
-        top: rect.bottom + 4,
-        left: rect.left,
-        width: rect.width,
-      });
-    }
+    if (!triggerRef.current) return;
+    const rect = triggerRef.current.getBoundingClientRect();
+    const gap = 4;
+    const padding = 8;
+    const preferredMax = 240;
+    const spaceBelow = window.innerHeight - rect.bottom - gap - padding;
+    const spaceAbove = rect.top - gap - padding;
+    const openUpward =
+      spaceBelow < Math.min(preferredMax, 160) && spaceAbove > spaceBelow;
+    const available = Math.max(120, openUpward ? spaceAbove : spaceBelow);
+    const maxHeight = Math.min(preferredMax, available);
+    setDropdownPosition({
+      top: openUpward
+        ? Math.max(padding, rect.top - gap - maxHeight)
+        : rect.bottom + gap,
+      left: rect.left,
+      width: rect.width,
+      maxHeight,
+    });
   };
 
   const selectedOption = useMemo(() => {
@@ -234,11 +248,12 @@ export default function SearchableSelect({
           createPortal(
             <div
               ref={dropdownRef}
-              className="fixed z-[80] bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-y-auto"
+              className="fixed z-[80] overflow-y-auto rounded-md border border-gray-300 bg-white shadow-lg"
               style={{
                 top: `${dropdownPosition.top}px`,
                 left: `${dropdownPosition.left}px`,
                 width: `${dropdownPosition.width}px`,
+                maxHeight: `${dropdownPosition.maxHeight}px`,
               }}
             >
               {showEmptyOption && (
@@ -262,7 +277,9 @@ export default function SearchableSelect({
                   if (optionId === undefined) return null;
                   const isSelected = String(optionId) === value;
                   const role =
-                    typeof option.role === "string" ? option.role : "";
+                    showRole && typeof option.role === "string"
+                      ? option.role
+                      : "";
                   const status =
                     showStatus && typeof option.status === "string"
                       ? option.status

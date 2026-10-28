@@ -245,6 +245,7 @@ class MinistryMemberViewSet(viewsets.ModelViewSet):
     queryset = (
         MinistryMember.objects.select_related("ministry", "ministry__branch", "member")
         .prefetch_related(
+            "member__evangelism_groups",
             "ministry__support_coordinators",
             Prefetch(
                 "member__module_coordinator_assignments",

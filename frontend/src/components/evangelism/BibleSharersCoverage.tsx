@@ -138,7 +138,7 @@ export default function BibleSharersCoverageComponent() {
   const [viewMode, setViewMode] = useState<"table" | "cards">(() =>
     getInitialListViewMode("table"),
   );
-  const [peopleOpen, setPeopleOpen] = useState(false);
+  const [peopleOpen, setPeopleOpen] = useState(true);
   const isTabletUp = useIsTabletUp();
   const isMdUp = useIsMdUp();
   const effectiveViewMode = effectiveListViewMode(viewMode, isTabletUp);

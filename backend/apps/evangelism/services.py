@@ -473,6 +473,17 @@ def prospects_for_group_report(group: EvangelismGroup):
     )
 
 
+def prospects_for_branch_report(branch_id):
+    """Invited, unlinked prospects for a branch Sunday Bible study picker."""
+    if not branch_id:
+        return Prospect.objects.none()
+    return (
+        _invited_unlinked_prospects()
+        .filter(_prospect_branch_q(branch_id))
+        .distinct()
+    )
+
+
 def cluster_report_prospect_block_reason(prospect: Prospect, cluster: Cluster) -> Optional[str]:
     """None when this prospect may be invited or attended on the cluster report."""
     if not prospect or not cluster:

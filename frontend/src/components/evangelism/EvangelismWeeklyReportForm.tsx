@@ -525,11 +525,22 @@ export default function EvangelismWeeklyReportForm({
     };
   }, [selectedGroupId, formData.year, formData.week_number, initialData?.id]);
 
+  // People list is only needed after a group is chosen (visitor/member
+  // pickers). Fetching on open leaked the branch directory in the network
+  // panel before any group selection.
   useEffect(() => {
+    if (!selectedGroupId) {
+      setPeople([]);
+      setLoadingPeople(false);
+      return;
+    }
+
+    let cancelled = false;
     const fetchPeople = async () => {
       try {
         setLoadingPeople(true);
         const response = await peopleApi.getAll({ for_report: true });
+        if (cancelled) return;
         const peopleUI: PersonUI[] = response.data
           .filter(isSelectablePerson)
           .map((p) => ({
@@ -540,13 +551,19 @@ export default function EvangelismWeeklyReportForm({
           }));
         setPeople(peopleUI);
       } catch (err) {
-        console.error("Error loading people:", err);
+        if (!cancelled) {
+          console.error("Error loading people:", err);
+          setPeople([]);
+        }
       } finally {
-        setLoadingPeople(false);
+        if (!cancelled) setLoadingPeople(false);
       }
     };
-    fetchPeople();
-  }, []);
+    void fetchPeople();
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedGroupId]);
 
   const allowedMemberIds = useMemo(() => {
     const inlineIds = (rosterGroup?.members || [])

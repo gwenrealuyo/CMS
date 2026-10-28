@@ -58,7 +58,7 @@ import EvangelismSummary from "@/src/components/evangelism/EvangelismSummary";
 import Each1Reach1Dashboard from "@/src/components/evangelism/Each1Reach1Dashboard";
 import PeopleTallyReport from "@/src/components/evangelism/PeopleTallyReport";
 import TallyReport from "@/src/components/evangelism/TallyReport";
-import BibleSharersCoverage from "@/src/components/evangelism/BibleSharersCoverage";
+import BibleSharersSection from "@/src/components/evangelism/BibleSharersSection";
 import EvangelismComplianceTab from "@/src/components/evangelism/EvangelismComplianceTab";
 import EvangelismReportsDashboard from "@/src/components/evangelism/EvangelismReportsDashboard";
 import EvangelismGroupCard from "@/src/components/evangelism/EvangelismGroupCard";
@@ -103,7 +103,7 @@ import { requestNotificationsRefetch } from "@/src/lib/notificationsEvents";
 import { useAuth } from "@/src/contexts/AuthContext";
 import { useModuleSettings } from "@/src/hooks/useModuleSettings";
 import { canHardDelete } from "@/src/lib/canHardDelete";
-import { canBrowseProspects, canBrowseBibleSharers, canAccessEvangelismCompliance, canWriteEvangelism, canSubmitEvangelismReport, assignedEvangelismGroupIds, canApproveEvangelismGroup, canManageEvangelismGroup, canSubmitEvangelismReportForGroup, isEvangelismGroupApproved } from "@/src/lib/evangelism/evangelismPermissions";
+import { canBrowseProspects, canBrowseBibleSharers, canAccessEvangelismCompliance, canWriteEvangelism, canSubmitEvangelismReport, assignedEvangelismGroupIds, canApproveEvangelismGroup, canManageEvangelismGroup, canSubmitEvangelismReportForGroup, isEvangelismGroupApproved, canManageBibleSharersRoster } from "@/src/lib/evangelism/evangelismPermissions";
 import ProspectsBrowse from "@/src/components/evangelism/ProspectsBrowse";
 import {
   canChangeEvangelismBranchFilter,
@@ -160,6 +160,16 @@ export default function EvangelismPage() {
   const canBrowseBibleSharersTab = useMemo(
     () => canBrowseBibleSharers({ user, isSeniorCoordinator }),
     [user, isSeniorCoordinator],
+  );
+  const canManageBibleSharersRosterAccess = useMemo(
+    () => canManageBibleSharersRoster({ user, isSeniorCoordinator }),
+    [user, isSeniorCoordinator],
+  );
+  const canWriteSundayBibleStudy = useMemo(
+    () =>
+      canManageBibleSharersRosterAccess ||
+      canSubmitEvangelismReport({ user }),
+    [canManageBibleSharersRosterAccess, user],
   );
   const canAccessEvangelismComplianceTab = useMemo(
     () => canAccessEvangelismCompliance({ user, isSeniorCoordinator }),
@@ -397,6 +407,8 @@ export default function EvangelismPage() {
     useState<EvangelismWeeklyReport | null>(null);
   const [activeTab, setActiveTab] = useState<EvangelismPageTab>("groups");
   const [reportsSubmitNonce, setReportsSubmitNonce] = useState(0);
+  const [bibleStudyFormRequest, setBibleStudyFormRequest] = useState(0);
+  const [bibleStudyFormRequestSeen, setBibleStudyFormRequestSeen] = useState(0);
   const [reportsListRefresh, setReportsListRefresh] = useState(0);
   const [reportsPresetGroupId, setReportsPresetGroupId] = useState<
     string | null
@@ -523,6 +535,27 @@ export default function EvangelismPage() {
     setReportsSubmitNonce((n) => n + 1);
     router.replace(pathname);
   }, [action, pathname, router]);
+
+  useEffect(() => {
+    if (action !== "submit-bible-study") {
+      return;
+    }
+    if (!user) {
+      return;
+    }
+    if (canBrowseBibleSharersTab && canWriteSundayBibleStudy) {
+      setActiveTab("bible_sharers");
+      setBibleStudyFormRequest((n) => n + 1);
+    }
+    router.replace(pathname);
+  }, [
+    action,
+    user,
+    canBrowseBibleSharersTab,
+    canWriteSundayBibleStudy,
+    pathname,
+    router,
+  ]);
 
   useEffect(() => {
     const groupId = searchParams.get("group");
@@ -2352,9 +2385,14 @@ export default function EvangelismPage() {
 
         {/* Bible Sharers Tab */}
         {activeTab === "bible_sharers" && canBrowseBibleSharersTab && (
-          <div className="space-y-6">
-            <BibleSharersCoverage />
-          </div>
+          <BibleSharersSection
+            canWriteReports={canWriteSundayBibleStudy}
+            canDeleteReports={user?.role === "ADMIN"}
+            openFormRequest={bibleStudyFormRequest > bibleStudyFormRequestSeen}
+            onReportRequestHandled={() =>
+              setBibleStudyFormRequestSeen(bibleStudyFormRequest)
+            }
+          />
         )}
 
         {/* Create Group Modal */}

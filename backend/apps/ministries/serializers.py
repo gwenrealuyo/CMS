@@ -74,6 +74,7 @@ class MinistryMemberSerializer(serializers.ModelSerializer):
         default=True,
     )
     has_evangelism_bible_sharer_access = serializers.SerializerMethodField()
+    evangelism_group_names = serializers.SerializerMethodField()
 
     class Meta:
         model = MinistryMember
@@ -92,6 +93,7 @@ class MinistryMemberSerializer(serializers.ModelSerializer):
             "has_lessons_teacher_access",
             "grant_evangelism_bible_sharer_access",
             "has_evangelism_bible_sharer_access",
+            "evangelism_group_names",
         )
         read_only_fields = ("join_date",)
         # UniqueTogetherValidator requires ministry+member on every write;
@@ -107,6 +109,15 @@ class MinistryMemberSerializer(serializers.ModelSerializer):
         if not is_bible_sharers_ministry(obj.ministry):
             return False
         return person_has_evangelism_bible_sharer_access(obj.member)
+
+    def get_evangelism_group_names(self, obj: MinistryMember) -> list[str]:
+        if not is_bible_sharers_ministry(obj.ministry):
+            return []
+        cache = getattr(obj.member, "_prefetched_objects_cache", None) or {}
+        groups = cache.get("evangelism_groups")
+        if groups is None:
+            groups = obj.member.evangelism_groups.all()
+        return sorted(group.name for group in groups)
 
     def validate(self, attrs):
         attrs = super().validate(attrs)

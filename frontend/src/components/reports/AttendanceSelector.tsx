@@ -85,6 +85,12 @@ interface AttendanceSelectorProps {
    * roster. They stay out of the checklist and bulk actions.
    */
   sitInSearch?: boolean;
+  /**
+   * Sunday Bible Study only. When true, MEMBER list uses availablePeople
+   * without requiring a cluster (branch-wide attendance). Do not set on
+   * cluster or evangelism weekly report forms.
+   */
+  openRoster?: boolean;
   /** Short note under the label. */
   hint?: string;
 }
@@ -105,6 +111,7 @@ export default function AttendanceSelector({
   groupByVisitorKind = false,
   noMatchHint = "No match. If they came, use Add New Visitor. If they were invited and did not come, use Prospects Invited.",
   sitInSearch = false,
+  openRoster = false,
   hint,
 }: AttendanceSelectorProps) {
   const [searchTerm, setSearchTerm] = useState("");
@@ -128,7 +135,13 @@ export default function AttendanceSelector({
     Boolean(selectedCluster) ||
     allowedIds.length > 0 ||
     isLoadingRoster ||
-    sitInSearch;
+    sitInSearch ||
+    openRoster;
+
+  const isBranchEligibleMember = (person: PersonUI) => {
+    const role = (person.role || "").toUpperCase();
+    return role !== "VISITOR" && role !== "ADMIN";
+  };
 
   const isSitInPerson = (person: PersonUI) =>
     sitInSearch &&
@@ -153,8 +166,15 @@ export default function AttendanceSelector({
   };
 
   const peopleByRole = availablePeople.filter((person) => {
+    // Sunday Bible Study only: branch roster without a cluster (openRoster).
+    if (filterRole === "MEMBER" && openRoster) {
+      return isBranchEligibleMember(person);
+    }
     if (filterRole === "MEMBER" && allowedIds.length > 0) {
-      return person.role !== "VISITOR" && allowedIdSet.has(normalizePersonId(person.id));
+      return (
+        person.role !== "VISITOR" &&
+        allowedIdSet.has(normalizePersonId(person.id))
+      );
     }
     if (filterRole === "MEMBER") {
       // For members: must be in selected cluster's members list, exclude VISITOR role
@@ -422,8 +442,13 @@ export default function AttendanceSelector({
     }
   };
 
-  // Auto-select active members/visitors when cluster/group is selected
+  // Auto-select active members/visitors when cluster/group is selected.
+  // Sunday Bible Study (openRoster) stays empty — branch rosters are too large.
   useEffect(() => {
+    if (openRoster) {
+      return;
+    }
+
     const hasAutoSelectScope =
       (autoSelectScopeId != null && String(autoSelectScopeId) !== "") ||
       selectedCluster?.id != null;
@@ -520,6 +545,7 @@ export default function AttendanceSelector({
       hasAutoSelectedRef.current = null;
     }
   }, [
+    openRoster,
     autoSelectScopeId,
     selectedCluster?.id,
     filterRole,
@@ -891,7 +917,9 @@ export default function AttendanceSelector({
                 </div>
               ) : filterRole === "MEMBER" && !hasMemberSource ? (
                 <div className="px-3 py-2 text-gray-500 text-sm">
-                  Please select a cluster first to view members
+                  {openRoster
+                    ? "No people available for this branch."
+                    : "Please select a cluster first to view members"}
                 </div>
               ) : filteredPeople.length > 0 || sitInMatches.length > 0 ? (
                 <>
@@ -980,12 +1008,24 @@ export default function AttendanceSelector({
       {/* List View with Checkboxes */}
       {viewMode === "list" && (
         <div className="border border-gray-300 rounded-lg max-h-96 overflow-y-auto">
-          {/* Empty state for MEMBER role when no cluster selected */}
+          {/* Empty state for MEMBER role when no cluster / roster source */}
           {filterRole === "MEMBER" && !hasMemberSource && !isLoadingRoster && (
             <div className="px-3 py-8 text-center text-gray-500 text-sm">
-              Please select a cluster first to view members
+              {openRoster
+                ? "No people available for this branch."
+                : "Please select a cluster first to view members"}
             </div>
           )}
+
+          {filterRole === "MEMBER" &&
+            openRoster &&
+            hasMemberSource &&
+            !isLoadingRoster &&
+            peopleByRole.length === 0 && (
+              <div className="px-3 py-8 text-center text-gray-500 text-sm">
+                No people available for this branch.
+              </div>
+            )}
 
           {filterRole === "MEMBER" && isLoadingRoster && (
             <div className="px-3 py-8 text-center text-gray-500 text-sm">

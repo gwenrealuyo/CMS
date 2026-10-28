@@ -16,8 +16,6 @@ from apps.people.name_formatting import format_person_display_name
 from core.datetime_utils import church_calendar_date, church_today, get_church_timezone
 
 
-SUNDAY_SERVICE_TYPE = "SUNDAY_SERVICE"
-
 AGE_GROUP_LABELS = {
     "ADULT": "Adult (18+)",
     "YOUTH": "Youth (13–17)",
@@ -97,13 +95,13 @@ def occurrence_on_date(event: Event, today: date) -> Optional[Occurrence]:
 def find_todays_self_checkin_events(
     today: Optional[date] = None,
 ) -> List[Tuple[Event, Occurrence]]:
-    """Approved activity events with self-check-in enabled that occur today."""
+    """Approved events with self-check-in enabled that occur today (not room holds)."""
     today = today or church_today()
     events = (
         Event.objects.filter(
             self_checkin_enabled=True,
             booking_status=Event.BookingStatus.APPROVED,
-            event_type__counts_as_activity=True,
+            is_room_hold=False,
         )
         .exclude(attendance_format=Event.AttendanceFormat.ONSITE_ONLY)
         .select_related("event_type", "branch", "room")
@@ -126,13 +124,8 @@ def event_requires_online_venue(event: Event) -> bool:
 
 
 def _event_allows_staff_onsite_guest(event: Event) -> bool:
-    """Staff guest encode from check-in: any approved activity event."""
-    if event.booking_status != Event.BookingStatus.APPROVED:
-        return False
-    event_type = getattr(event, "event_type", None)
-    if event_type is not None and not getattr(event_type, "counts_as_activity", True):
-        return False
-    return True
+    """Staff guest encode from check-in: any approved event (including room holds)."""
+    return event.booking_status == Event.BookingStatus.APPROVED
 
 
 def _is_visible_to_user(event: Event, user) -> bool:
@@ -890,14 +883,10 @@ def create_visitor_guest_person(
     first_activity_attended=None,
 ) -> Person:
     """Create a VISITOR person + age-group Journey note (no attendance)."""
-    from apps.events.models import EventType
     from apps.people.models import Journey, Person
     from apps.people.usernames import generate_unique_username
 
     attended = date_first_attended or church_today()
-    event_type = first_activity_attended
-    if event_type is None:
-        event_type = EventType.objects.filter(code=SUNDAY_SERVICE_TYPE).first()
     person = Person(
         username=generate_unique_username(first_name, last_name),
         first_name=first_name,
@@ -909,7 +898,7 @@ def create_visitor_guest_person(
         status="ONGOING",
         date_first_attended=attended,
         date_first_invited=date_first_invited,
-        first_activity_attended=event_type,
+        first_activity_attended=first_activity_attended,
         branch=branch,
         inviter=inviter,
     )

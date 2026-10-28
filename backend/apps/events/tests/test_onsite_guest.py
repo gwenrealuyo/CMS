@@ -87,6 +87,7 @@ class OnsiteGuestAPITests(APITestCase):
                 "excluded_dates": [],
             },
             self_checkin_enabled=True,
+            counts_toward_first_activity=True,
             created_by=self.coordinator,
         )
         self.church_today_patch = patch(
@@ -341,6 +342,7 @@ class OnsiteGuestAPITests(APITestCase):
             branch=self.hq,
             is_recurring=False,
             self_checkin_enabled=False,
+            counts_toward_first_activity=True,
             created_by=self.coordinator,
         )
         self.client.force_authenticate(self.coordinator)
@@ -372,6 +374,23 @@ class OnsiteGuestAPITests(APITestCase):
         )
         self.assertEqual(record.attendance_mode, "ONSITE")
 
+    def test_onsite_guest_skips_first_activity_when_flag_off(self):
+        self.event.counts_toward_first_activity = False
+        self.event.save(update_fields=["counts_toward_first_activity"])
+        self.client.force_authenticate(self.coordinator)
+        response = self.client.post(
+            "/api/events/onsite-guest/visitors/",
+            {
+                "first_name": "no",
+                "last_name": "credit",
+                "gender": "FEMALE",
+                "age_group": "ADULT",
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, 201, response.data)
+        visitor = Person.objects.get(first_name="No", last_name="Credit")
+        self.assertIsNone(visitor.first_activity_attended_id)
 
     def test_online_only_guest_writes_online_without_venue(self):
         self.event.attendance_format = "online_only"

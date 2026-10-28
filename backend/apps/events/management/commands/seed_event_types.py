@@ -27,6 +27,8 @@ class Command(BaseCommand):
             if event_type.counts_as_activity != counts_as_activity:
                 event_type.counts_as_activity = counts_as_activity
                 extra_fields.append("counts_as_activity")
+            # update_or_create already persisted label/sort_order; re-save
+            # only when other flags changed.
             if extra_fields:
                 event_type.save(update_fields=extra_fields)
             action = "created" if was_created else "updated"

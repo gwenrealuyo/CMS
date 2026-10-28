@@ -787,14 +787,12 @@ export default function EventCheckInView({
               </p>
             </div>
             <div className="flex w-full shrink-0 flex-col gap-2 sm:w-auto sm:flex-row">
-              {event.type !== "MEETING" ? (
-                <Link
-                  href={`/events/guest?event=${eventId}&occurrence=${encodeURIComponent(occurrenceDate)}`}
-                  className="inline-flex min-h-[44px] items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-blue-700"
-                >
-                  New guest
-                </Link>
-              ) : null}
+              <Link
+                href={`/events/guest?event=${eventId}&occurrence=${encodeURIComponent(occurrenceDate)}`}
+                className="inline-flex min-h-[44px] items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-blue-700"
+              >
+                New guest
+              </Link>
               {canGenerateReport ? (
                 <Button
                   variant="tertiary"

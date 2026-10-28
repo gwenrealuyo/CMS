@@ -22,6 +22,11 @@ interface EventCalendarProps {
 
 const MAX_VISIBLE_DOTS = 4;
 
+type DayIndexEntry = {
+  types: string[];
+  viewerPresent: boolean;
+};
+
 function isSameLocalDay(a: Date, b: Date): boolean {
   return (
     a.getFullYear() === b.getFullYear() &&
@@ -30,29 +35,11 @@ function isSameLocalDay(a: Date, b: Date): boolean {
   );
 }
 
-function dayHasViewerPresent(
-  events: CalendarEventItem[],
-  date: Date,
-): boolean {
-  return events.some(
-    (event) =>
-      event.viewerPresent &&
-      occurrenceTouchesLocalDay(event.start_date, event.end_date, date),
-  );
-}
-
-function getUniqueTypesForDate(
-  events: CalendarEventItem[],
-  date: Date,
-  sortTypes: (codes: string[]) => string[]
-): string[] {
-  const types = events
-    .filter((event) =>
-      occurrenceTouchesLocalDay(event.start_date, event.end_date, date)
-    )
-    .map((event) => event.type);
-
-  return sortTypes(types);
+function localDayKey(date: Date): string {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
 }
 
 export default function EventCalendar({
@@ -101,13 +88,15 @@ export default function EventCalendar({
 
   const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
-  const typesInMonth = useMemo(() => {
+  const dayIndex = useMemo(() => {
+    const index = new Map<string, DayIndexEntry>();
     const labels = new Map<string, string>();
     const monthStart = new Date(year, month, 1);
     const monthEnd = new Date(year, month + 1, 1);
 
     for (const event of events) {
       const start = new Date(event.start_date);
+      if (Number.isNaN(start.getTime())) continue;
       const end =
         event.end_date != null && event.end_date !== ""
           ? new Date(event.end_date)
@@ -116,18 +105,47 @@ export default function EventCalendar({
         Number.isNaN(end.getTime()) || end.getTime() < start.getTime()
           ? start
           : end;
-      if (Number.isNaN(start.getTime())) continue;
       if (!(start < monthEnd && resolvedEnd > monthStart)) continue;
       if (!labels.has(event.type)) {
         labels.set(event.type, event.type_display || event.type);
       }
     }
 
-    return sortTypes(Array.from(labels.keys())).map((type) => ({
-      type,
-      label: labels.get(type) || type,
-    }));
-  }, [events, month, sortTypes, year]);
+    for (let day = 1; day <= daysInMonth; day += 1) {
+      const date = new Date(year, month, day);
+      const typesForDay: string[] = [];
+      let viewerPresent = false;
+
+      for (const event of events) {
+        if (
+          !occurrenceTouchesLocalDay(event.start_date, event.end_date, date)
+        ) {
+          continue;
+        }
+        typesForDay.push(event.type);
+        if (event.viewerPresent) {
+          viewerPresent = true;
+        }
+      }
+
+      if (typesForDay.length === 0 && !viewerPresent) continue;
+
+      index.set(localDayKey(date), {
+        types: sortTypes(typesForDay),
+        viewerPresent,
+      });
+    }
+
+    return {
+      index,
+      typesInMonth: sortTypes(Array.from(labels.keys())).map((type) => ({
+        type,
+        label: labels.get(type) || type,
+      })),
+    };
+  }, [daysInMonth, events, month, sortTypes, year]);
+
+  const typesInMonth = dayIndex.typesInMonth;
 
   const isToday = (date: Date | null): boolean => {
     if (!date) return false;
@@ -241,16 +259,15 @@ export default function EventCalendar({
         ))}
 
         {days.map((date, index) => {
-          const uniqueTypes = date
-            ? getUniqueTypesForDate(events, date, sortTypes)
-            : [];
+          const dayEntry = date
+            ? dayIndex.index.get(localDayKey(date))
+            : undefined;
+          const uniqueTypes = dayEntry?.types ?? [];
           const visibleTypes = uniqueTypes.slice(0, MAX_VISIBLE_DOTS);
           const overflow = uniqueTypes.length - visibleTypes.length;
           const isCurrentDate = isToday(date);
           const isSelectedDate = isSelected(date);
-          const viewerPresent = date
-            ? dayHasViewerPresent(events, date)
-            : false;
+          const viewerPresent = dayEntry?.viewerPresent ?? false;
 
           const ariaLabel = date
             ? [

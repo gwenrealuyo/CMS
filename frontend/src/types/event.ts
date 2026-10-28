@@ -128,6 +128,8 @@ export interface Event {
   onsite_capacity?: number | null;
   online_capacity?: number | null;
   tardy_grace_minutes?: number;
+  is_room_hold?: boolean;
+  counts_toward_first_activity?: boolean;
   self_checkin_enabled?: boolean;
   attendance_format?: "hybrid" | "online_only" | "onsite_only";
   recurrence_pattern?: RecurrencePattern | null;

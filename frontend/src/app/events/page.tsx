@@ -674,12 +674,11 @@ export default function EventsPage() {
 
       setCalendarMonthDate(date);
       setSelectedDate(null);
-      setFilterYear(date.getFullYear().toString());
-      if (filterMonth !== "all") {
-        setFilterMonth(date.getMonth().toString());
-      }
+      setFilterYear(nextYear.toString());
+      // Keep agenda in sync with the visible calendar month while planning ahead.
+      setFilterMonth(nextMonth.toString());
     },
-    [calendarMonthDate, filterMonth]
+    [calendarMonthDate]
   );
 
   const handleMonthFilterChange = (monthValue: string) => {
@@ -783,32 +782,33 @@ export default function EventsPage() {
       }
     });
 
+    // Only list years that already have events (plus current as fallback).
+    // Empty future years stay out of the filter; calendar arrows can still
+    // land there, and we keep the active year selectable so the control
+    // does not orphan mid-navigation.
     if (years.size === 0) {
-      return [Number(currentYear)];
+      years.add(Number(currentYear));
     }
+
+    const selectedYear = Number(filterYear);
+    if (!Number.isNaN(selectedYear)) {
+      years.add(selectedYear);
+    }
+    years.add(calendarMonthDate.getFullYear());
 
     return Array.from(years).sort((a, b) => b - a);
-  }, [eventCardItems, currentYear]);
+  }, [eventCardItems, currentYear, filterYear, calendarMonthDate]);
 
   useEffect(() => {
-    if (!yearFilterInitialized) {
-      if (availableYears.includes(Number(currentYear))) {
-        setFilterYear(currentYear);
-        setYearFilterInitialized(true);
-      } else if (availableYears.length > 0) {
-        setFilterYear(availableYears[0].toString());
-        setYearFilterInitialized(true);
-      }
-    } else if (
-      !availableYears.includes(Number(filterYear)) &&
-      availableYears.length > 0
-    ) {
-      const nextYear = availableYears.includes(Number(currentYear))
-        ? Number(currentYear)
-        : availableYears[0];
-      setFilterYear(nextYear.toString());
+    if (yearFilterInitialized) return;
+    if (availableYears.includes(Number(currentYear))) {
+      setFilterYear(currentYear);
+      setYearFilterInitialized(true);
+    } else if (availableYears.length > 0) {
+      setFilterYear(availableYears[0].toString());
+      setYearFilterInitialized(true);
     }
-  }, [availableYears, currentYear, filterYear, yearFilterInitialized]);
+  }, [availableYears, currentYear, yearFilterInitialized]);
 
   useEffect(() => {
     const year = Number(filterYear);

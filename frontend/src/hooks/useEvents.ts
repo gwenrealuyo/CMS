@@ -91,7 +91,7 @@ export const useEvents = () => {
       try {
         setLoading(true);
         const [eventsResponse, types] = await Promise.all([
-          eventsApi.getAll({ ...params, include_attendance: true }),
+          eventsApi.getAll({ include_attendance: false, ...params }),
           fetchEventTypes(),
         ]);
         applyEvents(eventsResponse.data);

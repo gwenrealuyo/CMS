@@ -245,6 +245,8 @@ class EventSerializer(serializers.ModelSerializer):
             "track_expected_attendees",
             "allow_cross_branch_attendance",
             "tardy_grace_minutes",
+            "is_room_hold",
+            "counts_toward_first_activity",
             "self_checkin_enabled",
             "attendance_format",
             "registration_enabled",
@@ -428,17 +430,44 @@ class EventSerializer(serializers.ModelSerializer):
                 )
             attrs["allow_cross_branch_attendance"] = False
 
-        if event_type is not None and not getattr(
-            event_type, "counts_as_activity", True
+        is_room_hold = attrs.get(
+            "is_room_hold",
+            getattr(instance, "is_room_hold", False),
+        )
+        # Unaffiliated MEETING type always implies a room hold.
+        if event_type is not None and getattr(event_type, "pk", None) == "MEETING":
+            is_room_hold = True
+            attrs["is_room_hold"] = True
+
+        counts_toward_first_activity = attrs.get(
+            "counts_toward_first_activity",
+            getattr(instance, "counts_toward_first_activity", False),
+        )
+        if is_room_hold:
+            counts_toward_first_activity = False
+            attrs["counts_toward_first_activity"] = False
+        elif (
+            counts_toward_first_activity
+            and event_type is not None
+            and not getattr(event_type, "counts_as_activity", True)
         ):
-            if room is None:
-                raise ValidationError(
-                    {
-                        "room": (
-                            "Meeting events must use a room in the church building."
-                        )
-                    }
-                )
+            raise ValidationError(
+                {
+                    "counts_toward_first_activity": (
+                        "Only activity event types can count toward first "
+                        "activity attended."
+                    )
+                }
+            )
+
+        if is_room_hold and room is None:
+            raise ValidationError(
+                {
+                    "room": (
+                        "Room holds must use a room in the church building."
+                    )
+                }
+            )
 
         self_checkin_enabled = attrs.get(
             "self_checkin_enabled",
@@ -448,16 +477,19 @@ class EventSerializer(serializers.ModelSerializer):
             "attendance_format",
             getattr(instance, "attendance_format", Event.AttendanceFormat.HYBRID),
         )
-        if self_checkin_enabled and event_type is not None and not getattr(
-            event_type, "counts_as_activity", True
-        ):
-            raise ValidationError(
-                {
-                    "self_checkin_enabled": (
-                        "Self-check-in is not available for Meeting room holds."
-                    )
-                }
-            )
+        if is_room_hold:
+            if self_checkin_enabled and "self_checkin_enabled" in getattr(
+                self, "initial_data", {}
+            ):
+                raise ValidationError(
+                    {
+                        "self_checkin_enabled": (
+                            "Self-check-in is not available for room holds."
+                        )
+                    }
+                )
+            attrs["self_checkin_enabled"] = False
+            self_checkin_enabled = False
         elif (
             instance is None
             and "self_checkin_enabled"

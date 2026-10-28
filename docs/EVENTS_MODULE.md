@@ -56,15 +56,17 @@ The recurrence service expands this pattern on demand in `apps.events.services.r
 - Calendar dots, agenda chips, cards, and the event detail view use each type's `color` from the API (not hardcoded frontend maps).
 - Seeded system types (`is_system=true`) cannot be deleted; types referenced by events are protected.
 
-### Meeting (room hold)
+### Room hold
 
-**Meeting** (`MEETING`) is a room reservation in the church building (any branch), not a ministry activity:
+Room booking / meeting-only mode is driven by **`Event.is_room_hold`** (not solely by event type):
 
-- `counts_as_activity=false` — it never appears as First Activity Attended (People, Add Visitor, Mark attended). `PersonSerializer` and other write endpoints reject that code.
-- Requires a real `EventRoom` on the selected branch. Other / off-site is not allowed.
-- Follows the same publish-vs-pending booking rules and room overlap checks as other events. Sunday Service uniqueness does **not** apply, so a Meeting can run at the same time as Sunday Service in a different room.
+- **`event_type`** still shows what the booking is about (affiliation). Admins can tag a room meeting as Mini Worship, Camping, etc.
+- **`MEETING`** (label **Room hold**, `counts_as_activity=false`) is the unaffiliated hold type. Selecting it forces `is_room_hold=true`. It never appears as First Activity Attended on person forms; `PersonSerializer` rejects that code.
+- Room holds require a real `EventRoom` on the selected branch. Other / off-site is not allowed.
+- **Door attendance / check-in is allowed** (building in/out). Self-check-in cannot be enabled. Registration and expected-attendee mode stay off.
+- **`counts_toward_first_activity`** (default off) controls whether guest check-in may set `first_activity_attended` to the event type. Forced off for room holds. Practices and planning leave it off even when the type is a ministry activity.
+- Follows the same publish-vs-pending booking rules and room overlap checks as other events. Sunday Service uniqueness does **not** apply, so a room hold can run at the same time as Sunday Service in a different room.
 - Shown on the Events agenda/calendar (and **Manage Pending** when pending) so the room looks booked.
-- Event detail hides Open Check-In, add-attendee, and the attendance report. Self-check-in already ignores non-Sunday Service types.
 
 ## Frontend Behavior
 
@@ -98,7 +100,7 @@ The recurrence service expands this pattern on demand in `apps.events.services.r
 
 ### Expected Attendees
 
-Activity events can run in two attendance-tracking modes (Meeting room holds do not show these controls):
+Activity events can run in two attendance-tracking modes (room holds do not show these controls):
 
 - **Who can edit on the form:** Admin, Pastor, and Events Coordinator / Senior Coordinator only (`canWriteEvents`). The Expected Attendees / Track expected attendees block is hidden on booking-request forms (other-module coordinators); those submits still use form defaults or existing values unchanged.
 - **`track_expected_attendees`** (model default `false` for new API creates; existing events were backfilled to `true`)
@@ -192,8 +194,8 @@ The member QR payload stays the LAMP ID (`member_id`), for example `LAMP12345`. 
 
 **Per-event eligibility** (all required):
 
-1. `Event.self_checkin_enabled` is on (organizer opt-in on the Event form for any activity type; Meeting room holds cannot enable it)
-2. Event type has `counts_as_activity` (not Meeting)
+1. `Event.self_checkin_enabled` is on (organizer opt-in on the Event form; room holds cannot enable it)
+2. Event is not a room hold (`is_room_hold=false`)
 3. `attendance_format` is not `onsite_only`
 4. `booking_status` is **approved**
 5. Church-local today has an occurrence of that event
@@ -270,7 +272,7 @@ Existing rows migrated as `approved`. Duplicate historical Sunday Services are n
 
 ## Testing
 
-Recurring frequencies, skip/end/split, and series `DELETE` are covered by `apps.events.tests.test_recurrence` and `apps.events.tests.test_recurrence_delete`. Self check-in is covered by `apps.events.tests.test_self_checkin`. Attendance mode/venues are covered by `apps.events.tests.test_attendance_mode_venues`. Sunday Service uniqueness is covered by `apps.events.tests.test_sunday_service_uniqueness`. Room booking, requester permissions, and approve/reject are covered by `apps.events.tests.test_room_booking`. Meeting room holds and First Activity exclusion are covered by `apps.events.tests.test_meeting_type`. AWTA church-wide / HQ national permissions are covered by `apps.events.tests.test_national_awta`. Paid registration (tiers, payments, check-in gate) is covered by `apps.events.tests.test_registration`.
+Recurring frequencies, skip/end/split, and series `DELETE` are covered by `apps.events.tests.test_recurrence` and `apps.events.tests.test_recurrence_delete`. Self check-in is covered by `apps.events.tests.test_self_checkin`. Attendance mode/venues are covered by `apps.events.tests.test_attendance_mode_venues`. Sunday Service uniqueness is covered by `apps.events.tests.test_sunday_service_uniqueness`. Room booking, requester permissions, and approve/reject are covered by `apps.events.tests.test_room_booking`. Room holds, attendance on holds, and First Activity exclusion are covered by `apps.events.tests.test_meeting_type`. AWTA church-wide / HQ national permissions are covered by `apps.events.tests.test_national_awta`. Paid registration (tiers, payments, check-in gate) is covered by `apps.events.tests.test_registration`.
 
 Run them (uses SQLite to avoid Postgres permissions):
 

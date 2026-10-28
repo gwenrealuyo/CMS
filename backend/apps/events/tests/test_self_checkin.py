@@ -156,6 +156,7 @@ class SelfCheckInAPITests(APITestCase):
                 "excluded_dates": [],
             },
             self_checkin_enabled=True,
+            counts_toward_first_activity=True,
             created_by=self.coordinator,
         )
         self.other_event = Event.objects.create(
@@ -1306,6 +1307,7 @@ class SelfCheckInAPITests(APITestCase):
             branch=self.hq,
             is_recurring=False,
             self_checkin_enabled=True,
+            counts_toward_first_activity=True,
             created_by=self.coordinator,
         )
         self.client.force_authenticate(self.coordinator)
@@ -1324,6 +1326,27 @@ class SelfCheckInAPITests(APITestCase):
         self.assertEqual(response.status_code, 201, response.data)
         visitor = Person.objects.get(first_name="Guesty", last_name="Crusade")
         self.assertEqual(visitor.first_activity_attended_id, "CONCERT_CRUSADE")
+
+    def test_guest_skips_first_activity_when_flag_off(self):
+        self.event.counts_toward_first_activity = False
+        self.event.save(update_fields=["counts_toward_first_activity"])
+        self.other_event.self_checkin_enabled = False
+        self.other_event.save(update_fields=["self_checkin_enabled"])
+        self.client.force_authenticate(self.coordinator)
+        response = self.client.post(
+            "/api/events/self-check-in/visitors/",
+            {
+                "first_name": "no",
+                "last_name": "firstact",
+                "gender": "MALE",
+                "age_group": "ADULT",
+                "attendance_venue": "HOME_ALTAR",
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, 201, response.data)
+        visitor = Person.objects.get(first_name="No", last_name="Firstact")
+        self.assertIsNone(visitor.first_activity_attended_id)
 
 
     def test_online_only_self_checkin_without_venue(self):

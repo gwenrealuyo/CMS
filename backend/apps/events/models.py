@@ -174,12 +174,29 @@ class Event(models.Model):
             "onsite check-in after start is tardy."
         ),
     )
+    is_room_hold = models.BooleanField(
+        default=False,
+        db_index=True,
+        help_text=(
+            "Room booking / meeting-only mode: requires a room, allows "
+            "door attendance, disables self-check-in, and never counts "
+            "toward first activity attended."
+        ),
+    )
+    counts_toward_first_activity = models.BooleanField(
+        default=False,
+        help_text=(
+            "When enabled on a non-room-hold activity event, guest check-in "
+            "may set the person's first activity attended to this event type. "
+            "Ignored (forced off) for room holds and non-activity types."
+        ),
+    )
     self_checkin_enabled = models.BooleanField(
         default=False,
         help_text=(
             "When enabled, this approved activity event opens for online "
             "member self-check-in (public LAMP ID and logged-in household) "
-            "on occurrence days. Meeting room holds cannot enable this."
+            "on occurrence days. Room holds cannot enable this."
         ),
     )
     attendance_format = models.CharField(

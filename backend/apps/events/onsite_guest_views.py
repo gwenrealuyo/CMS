@@ -14,6 +14,7 @@ from apps.evangelism.models import Prospect
 from apps.evangelism.services import mark_prospect_attended
 from apps.events.permissions import has_events_write
 from apps.events.models import Event
+from apps.events.services.event_activity import first_activity_type_for_event
 from apps.events.services.self_checkin import (
     checked_in_person_ids,
     create_visitor_guest_person,
@@ -259,12 +260,13 @@ class OnsiteGuestVisitorsView(APIView):
                 {"detail": "Invited visitor not found for this service."},
                 status=status.HTTP_404_NOT_FOUND,
             )
-        event_type = resolved.event.event_type
         try:
             prospect = mark_prospect_attended(
                 prospect,
                 activity_date=resolved.occurrence_date,
-                first_activity_attended=event_type,
+                first_activity_attended=first_activity_type_for_event(
+                    resolved.event
+                ),
             )
         except ValueError as exc:
             return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
@@ -411,7 +413,7 @@ class OnsiteGuestVisitorsView(APIView):
                 )
                 else None
             ),
-            first_activity_attended=resolved.event.event_type,
+            first_activity_attended=first_activity_type_for_event(resolved.event),
         )
 
         record, _created, _already = _upsert_onsite_present(

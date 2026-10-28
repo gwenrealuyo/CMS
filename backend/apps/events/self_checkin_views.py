@@ -20,6 +20,7 @@ from apps.events.models import AttendanceVenue, Event, EventSetting
 from apps.evangelism.models import Prospect
 from apps.evangelism.services import mark_prospect_attended
 from apps.events.serializers import AttendanceVenueSerializer, EventSettingSerializer
+from apps.events.services.event_activity import first_activity_type_for_event
 from apps.events.services.self_checkin import (
     REASON_RESTRICTED,
     assert_registration_for_self_checkin,
@@ -521,12 +522,13 @@ class SelfCheckInVisitorsView(APIView):
                 {"detail": "Invited visitor not found for this service."},
                 status=status.HTTP_404_NOT_FOUND,
             )
-        event_type = resolved.event.event_type
         try:
             prospect = mark_prospect_attended(
                 prospect,
                 activity_date=resolved.occurrence_date,
-                first_activity_attended=event_type,
+                first_activity_attended=first_activity_type_for_event(
+                    resolved.event
+                ),
             )
         except ValueError as exc:
             return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
@@ -659,7 +661,7 @@ class SelfCheckInVisitorsView(APIView):
                 )
                 else None
             ),
-            first_activity_attended=resolved.event.event_type,
+            first_activity_attended=first_activity_type_for_event(resolved.event),
         )
 
         record, _created, _already = _upsert_present(

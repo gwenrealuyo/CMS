@@ -203,14 +203,20 @@ class EventViewSet(viewsets.ModelViewSet):
             Event.objects.all()
             .order_by("start_date")
             .select_related("event_type", "branch", "room", "created_by", "updated_by")
-            .prefetch_related(
+        )
+
+        include_attendance = False
+        if self.request:
+            flag = (self.request.query_params.get("include_attendance") or "").lower()
+            include_attendance = flag in {"1", "true", "yes", "on"}
+        if include_attendance:
+            queryset = queryset.prefetch_related(
                 "attendance_records__person__clusters",
                 "attendance_records__person__families",
                 "attendance_records__person__clusters__members",
                 "attendance_records__person",
                 "attendance_records__journey",
             )
-        )
 
         user = self.request.user
 
@@ -469,13 +475,6 @@ class EventViewSet(viewsets.ModelViewSet):
     @attendance.mapping.post
     def add_attendance(self, request, pk=None):
         event = self.get_object()
-        if event.event_type_id and not event.event_type.counts_as_activity:
-            return Response(
-                {
-                    "detail": "Attendance is not recorded for this event type."
-                },
-                status=status.HTTP_400_BAD_REQUEST,
-            )
         payload = request.data.copy()
         payload["event_id"] = str(event.pk)
 

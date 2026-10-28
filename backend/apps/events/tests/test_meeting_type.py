@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 
 from django.utils.timezone import make_aware
 from rest_framework.test import APITestCase
@@ -26,11 +26,21 @@ class MeetingTypeAPITests(APITestCase):
         self.meeting, _ = EventType.objects.update_or_create(
             code="MEETING",
             defaults={
-                "label": "Meeting",
+                "label": "Room hold",
                 "sort_order": 160,
                 "color": "#64748b",
                 "is_system": True,
                 "counts_as_activity": False,
+            },
+        )
+        self.clustering, _ = EventType.objects.update_or_create(
+            code="CLUSTERING",
+            defaults={
+                "label": "Clustering",
+                "sort_order": 50,
+                "color": "#0d9488",
+                "is_system": True,
+                "counts_as_activity": True,
             },
         )
         self.hq = Branch.objects.create(
@@ -69,6 +79,7 @@ class MeetingTypeAPITests(APITestCase):
             role="ADMIN",
             status="ACTIVE",
             branch=self.hq,
+            water_baptism_date=date(2020, 1, 1),
         )
         self.member = self._user("membermeet", "Plain", "Member")
         self.client.force_authenticate(self.events_coord)
@@ -82,6 +93,7 @@ class MeetingTypeAPITests(APITestCase):
             role="MEMBER",
             status="ACTIVE",
             branch=self.hq,
+            water_baptism_date=date(2020, 1, 1),
         )
 
     def _payload(self, start, **overrides):
@@ -219,3 +231,55 @@ class MeetingTypeAPITests(APITestCase):
         )
         self.assertEqual(response.status_code, 201, response.data)
         self.assertEqual(response.data["booking_status"], "approved")
+        self.assertTrue(response.data["is_room_hold"])
+        self.assertFalse(response.data["counts_toward_first_activity"])
+
+    def test_meeting_type_forces_room_hold_flag(self):
+        start = make_aware_local(2026, 10, 8, 14)
+        response = self.client.post(
+            "/api/events/",
+            self._payload(start, is_room_hold=False),
+            format="json",
+        )
+        self.assertEqual(response.status_code, 201, response.data)
+        self.assertTrue(response.data["is_room_hold"])
+
+    def test_affiliated_room_hold_keeps_activity_type(self):
+        start = make_aware_local(2026, 10, 9, 14)
+        response = self.client.post(
+            "/api/events/",
+            self._payload(
+                start,
+                type="CLUSTERING",
+                title="Clustering planning",
+                is_room_hold=True,
+                counts_toward_first_activity=True,
+            ),
+            format="json",
+        )
+        self.assertEqual(response.status_code, 201, response.data)
+        self.assertEqual(response.data["type"], "CLUSTERING")
+        self.assertTrue(response.data["is_room_hold"])
+        self.assertFalse(response.data["counts_toward_first_activity"])
+
+    def test_room_hold_allows_attendance(self):
+        start = make_aware_local(2026, 10, 10, 14)
+        created = self.client.post(
+            "/api/events/",
+            self._payload(start),
+            format="json",
+        )
+        self.assertEqual(created.status_code, 201, created.data)
+        event_id = created.data["id"]
+        occurrence = start.date().isoformat()
+        response = self.client.post(
+            f"/api/events/{event_id}/attendance/",
+            {
+                "person_id": self.member.id,
+                "occurrence_date": occurrence,
+                "status": "PRESENT",
+                "attendance_mode": "ONSITE",
+            },
+            format="json",
+        )
+        self.assertIn(response.status_code, (200, 201), response.data)

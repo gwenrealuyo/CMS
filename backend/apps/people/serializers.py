@@ -145,14 +145,22 @@ class ModuleCoordinatorSerializer(serializers.ModelSerializer):
         ):
             base = f"All {obj.get_module_display()} (oversight)"
             if person.branch_id and not person.can_see_all_branches():
-                try:
-                    branch_name = Branch.objects.only("name").get(
-                        pk=person.branch_id
-                    ).name
+                branch = getattr(person, "branch", None)
+                if branch is not None:
+                    branch_name = (branch.name or "").strip()
                     if branch_name:
-                        return f"{base} — {branch_name.strip()}"
-                except Branch.DoesNotExist:
-                    pass
+                        return f"{base} — {branch_name}"
+                else:
+                    try:
+                        branch_name = (
+                            Branch.objects.only("name")
+                            .get(pk=person.branch_id)
+                            .name
+                        )
+                        if branch_name:
+                            return f"{base} — {branch_name.strip()}"
+                    except Branch.DoesNotExist:
+                        pass
             return base
 
         if (
@@ -165,6 +173,9 @@ class ModuleCoordinatorSerializer(serializers.ModelSerializer):
         if obj.resource_id is None:
             return None
         if obj.module == ModuleCoordinator.ModuleType.CLUSTER:
+            cached = self.context.get("cluster_scope_labels")
+            if cached is not None:
+                return cached.get(int(obj.resource_id))
             try:
                 from apps.clusters.models import Cluster
 
@@ -177,6 +188,9 @@ class ModuleCoordinatorSerializer(serializers.ModelSerializer):
             except Cluster.DoesNotExist:
                 return None
         if obj.module == ModuleCoordinator.ModuleType.EVANGELISM:
+            cached = self.context.get("evangelism_scope_labels")
+            if cached is not None:
+                return cached.get(int(obj.resource_id))
             try:
                 from apps.evangelism.models import EvangelismGroup
 

@@ -265,6 +265,9 @@ const getLevelBadgeColor = (level: ModuleCoordinator["level"]): string => {
 export default function ModuleCoordinatorManager() {
   const [assignments, setAssignments] = useState<ModuleCoordinator[]>([]);
   const [people, setPeople] = useState<Person[]>([]);
+  const [peopleLoadState, setPeopleLoadState] = useState<
+    "idle" | "loading" | "ready"
+  >("idle");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -366,8 +369,10 @@ export default function ModuleCoordinatorManager() {
   }, [bulkAssigneeBranchId, bulkSimple.person, people]);
 
   useEffect(() => {
-    fetchData();
-  }, [filters]);
+    fetchAssignments();
+    // Search is client-side; only module/level hit the API.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filters.module, filters.level]);
 
   // Fetch resources based on module selection
   useEffect(() => {
@@ -445,26 +450,39 @@ export default function ModuleCoordinatorManager() {
     ],
   );
 
-  const fetchData = async () => {
+  const fetchAssignments = async () => {
     setLoading(true);
     setError("");
     try {
-      const [assignmentsRes, peopleRes] = await Promise.all([
-        moduleCoordinatorsApi.getAll({
-          module: filters.module || undefined,
-          level: filters.level || undefined,
-          search: filters.search || undefined,
-        }),
-        peopleApi.getAll(),
-      ]);
+      const assignmentsRes = await moduleCoordinatorsApi.getAll({
+        module: filters.module || undefined,
+        level: filters.level || undefined,
+      });
       setAssignments(assignmentsRes.data);
-      setPeople(peopleRes.data);
     } catch (err: any) {
       setError(
         err.response?.data?.message || err.message || "Failed to load data.",
       );
     } finally {
       setLoading(false);
+    }
+  };
+
+  /** People are only needed for create/edit/bulk pickers — not the table. */
+  const ensurePeopleLoaded = async () => {
+    if (peopleLoadState === "ready" || peopleLoadState === "loading") return;
+    setPeopleLoadState("loading");
+    try {
+      const peopleRes = await peopleApi.getAll({ role_ne: "ADMIN" });
+      setPeople(peopleRes.data);
+      setPeopleLoadState("ready");
+    } catch (err: any) {
+      setPeopleLoadState("idle");
+      setError(
+        err.response?.data?.message ||
+          err.message ||
+          "Failed to load people for the picker.",
+      );
     }
   };
 
@@ -496,6 +514,7 @@ export default function ModuleCoordinatorManager() {
     setAssignmentType("module-wide");
     setFormResourceSelectedIds([]);
     setIsModalOpen(true);
+    void ensurePeopleLoaded();
   };
 
   const handleEdit = (group: ModuleCoordinator[]) => {
@@ -517,6 +536,7 @@ export default function ModuleCoordinatorManager() {
     });
     setFormResourceSelectedIds(resourceIds);
     setIsModalOpen(true);
+    void ensurePeopleLoaded();
   };
 
   const handleDelete = (group: ModuleCoordinator[]) => {
@@ -542,7 +562,7 @@ export default function ModuleCoordinatorManager() {
         assignments: [],
         loading: false,
       });
-      await fetchData();
+      await fetchAssignments();
     } catch (err: any) {
       alert(
         err.response?.data?.message ||
@@ -586,7 +606,7 @@ export default function ModuleCoordinatorManager() {
         setIsModalOpen(false);
         setEditingAssignment(null);
         setEditingGroupAssignments([]);
-        await fetchData();
+        await fetchAssignments();
         return;
       }
 
@@ -635,7 +655,7 @@ export default function ModuleCoordinatorManager() {
         setIsModalOpen(false);
         setEditingAssignment(null);
         setEditingGroupAssignments([]);
-        await fetchData();
+        await fetchAssignments();
         return;
       }
 
@@ -697,7 +717,7 @@ export default function ModuleCoordinatorManager() {
       setIsModalOpen(false);
       setEditingAssignment(null);
       setEditingGroupAssignments([]);
-      await fetchData();
+      await fetchAssignments();
     } catch (err: unknown) {
       setError(formatApiErrorMessage(err, "Failed to save assignment."));
     } finally {
@@ -710,11 +730,28 @@ export default function ModuleCoordinatorManager() {
     return formatLocaleDate(dateString) || dateString;
   };
 
-  const getPersonName = (personId: number) => {
-    const person = people.find((p) => Number(p.id) === personId);
-    if (!person) return `User #${personId}`;
-    return formatPersonName(person);
-  };
+  const personNameById = useMemo(() => {
+    const map = new Map<number, string>();
+    for (const a of assignments) {
+      const name = a.person_name?.trim();
+      if (name) map.set(Number(a.person), name);
+    }
+    for (const person of people) {
+      const name = formatPersonName(person);
+      if (name && name !== "Unknown person") {
+        map.set(Number(person.id), name);
+      } else if (person.email || person.username) {
+        map.set(
+          Number(person.id),
+          person.email || person.username || `User #${person.id}`,
+        );
+      }
+    }
+    return map;
+  }, [assignments, people]);
+
+  const getPersonName = (personId: number) =>
+    personNameById.get(Number(personId)) || `User #${personId}`;
 
   const resetBulkModal = () => {
     setBulkSimple(emptyBulkSimple());
@@ -992,7 +1029,7 @@ export default function ModuleCoordinatorManager() {
       const savedPersonId = Number(bulkSimple.person);
       setIsBulkModalOpen(false);
       resetBulkModal();
-      await fetchData();
+      await fetchAssignments();
 
       alert(
         `Successfully created ${response.data.created.length} assignment(s) for ${getPersonName(savedPersonId)}.`,
@@ -1013,12 +1050,10 @@ export default function ModuleCoordinatorManager() {
     }
   };
 
-  // Format person options for ScalableSelect, excluding ADMIN users
+  // Format person options for ScalableSelect (API already excludes ADMIN via role_ne)
   const personOptions = useMemo(() => {
     return people
-      .filter(
-        (person) => person.role !== "ADMIN" && person.username !== "admin",
-      )
+      .filter((person) => person.username !== "admin")
       .map((person) => {
         const name = formatPersonName(person);
         const label =
@@ -1035,20 +1070,22 @@ export default function ModuleCoordinatorManager() {
       .sort((a, b) => a.label.localeCompare(b.label));
   }, [people]);
 
-  const filteredAssignments = assignments.filter((assignment) => {
-    if (filters.search) {
-      const personName = getPersonName(assignment.person).toLowerCase();
-      return personName.includes(filters.search.toLowerCase());
-    }
-    return true;
-  });
+  const filteredAssignments = useMemo(() => {
+    const q = filters.search.trim().toLowerCase();
+    if (!q) return assignments;
+    return assignments.filter((assignment) => {
+      const fromApi = assignment.person_name?.toLowerCase() || "";
+      const fromMap = getPersonName(assignment.person).toLowerCase();
+      return fromApi.includes(q) || fromMap.includes(q);
+    });
+  }, [assignments, filters.search, personNameById]);
 
   const groupedRows = useMemo(
     () =>
       groupModuleCoordinatorAssignments(filteredAssignments, {
         resolvePersonLabel: (personId) => getPersonName(personId),
       }),
-    [filteredAssignments, people],
+    [filteredAssignments, personNameById],
   );
 
   const bulkSubmitLabelCount = useMemo(() => {
@@ -1120,6 +1157,7 @@ export default function ModuleCoordinatorManager() {
             onClick={() => {
               resetBulkModal();
               setIsBulkModalOpen(true);
+              void ensurePeopleLoaded();
             }}
             variant="secondary"
             className="w-full sm:w-auto min-h-[44px]"
@@ -1422,16 +1460,27 @@ export default function ModuleCoordinatorManager() {
             </label>
             <ScalableSelect
               options={[
-                { label: "Select a person...", value: "" },
+                {
+                  label:
+                    peopleLoadState === "loading"
+                      ? "Loading people…"
+                      : "Select a person...",
+                  value: "",
+                },
                 ...personOptions,
               ]}
               value={formData.person ? String(formData.person) : ""}
               onChange={(value) =>
                 setFormData({ ...formData, person: value ? Number(value) : "" })
               }
-              placeholder="Select a person..."
+              placeholder={
+                peopleLoadState === "loading"
+                  ? "Loading people…"
+                  : "Select a person..."
+              }
               className="w-full"
               showSearch
+              disabled={peopleLoadState === "loading"}
             />
           </div>
 
@@ -1885,7 +1934,13 @@ export default function ModuleCoordinatorManager() {
             </label>
             <ScalableSelect
               options={[
-                { label: "Select a person...", value: "" },
+                {
+                  label:
+                    peopleLoadState === "loading"
+                      ? "Loading people…"
+                      : "Select a person...",
+                  value: "",
+                },
                 ...personOptions,
               ]}
               value={bulkSimple.person ? String(bulkSimple.person) : ""}
@@ -1895,9 +1950,14 @@ export default function ModuleCoordinatorManager() {
                   person: value ? Number(value) : "",
                 }))
               }
-              placeholder="Select a person..."
+              placeholder={
+                peopleLoadState === "loading"
+                  ? "Loading people…"
+                  : "Select a person..."
+              }
               className="w-full"
               showSearch
+              disabled={peopleLoadState === "loading"}
             />
           </div>
 

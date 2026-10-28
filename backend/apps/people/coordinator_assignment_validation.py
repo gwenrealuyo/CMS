@@ -89,6 +89,65 @@ def resource_display_name(module: str, resource_id: int) -> str | None:
     return None
 
 
+def batch_cluster_scope_labels(resource_ids: set[int]) -> dict[int, str]:
+    """Map cluster id → list-cell label (code, else name, else Cluster N)."""
+    if not resource_ids:
+        return {}
+    from apps.clusters.models import Cluster
+
+    labels: dict[int, str] = {}
+    for cluster in Cluster.objects.filter(pk__in=resource_ids).only(
+        "id", "code", "name"
+    ):
+        code = (cluster.code or "").strip()
+        name = (cluster.name or "").strip()
+        if code:
+            labels[cluster.id] = code
+        elif name:
+            labels[cluster.id] = name
+        else:
+            labels[cluster.id] = f"Cluster {cluster.id}"
+    return labels
+
+
+def batch_evangelism_group_scope_labels(resource_ids: set[int]) -> dict[int, str]:
+    """Map evangelism group id → list-cell label."""
+    if not resource_ids:
+        return {}
+    from apps.evangelism.models import EvangelismGroup
+
+    labels: dict[int, str] = {}
+    for group in EvangelismGroup.objects.filter(pk__in=resource_ids).only(
+        "id", "name"
+    ):
+        labels[group.id] = (group.name or "").strip() or f"Group {group.id}"
+    return labels
+
+
+def module_coordinator_list_label_context(assignments) -> dict:
+    """
+    Prefetch maps for ModuleCoordinatorSerializer.resource_scope_label.
+
+    Call once per list/bulk response so list serialization is O(1) queries
+    for clusters/groups instead of one query per assignment.
+    """
+    cluster_ids: set[int] = set()
+    evangelism_ids: set[int] = set()
+    for obj in assignments:
+        if obj.resource_id is None:
+            continue
+        if obj.module == ModuleCoordinator.ModuleType.CLUSTER:
+            cluster_ids.add(int(obj.resource_id))
+        elif obj.module == ModuleCoordinator.ModuleType.EVANGELISM:
+            evangelism_ids.add(int(obj.resource_id))
+    return {
+        "cluster_scope_labels": batch_cluster_scope_labels(cluster_ids),
+        "evangelism_scope_labels": batch_evangelism_group_scope_labels(
+            evangelism_ids
+        ),
+    }
+
+
 def assignment_scope_label(module: str, resource_id) -> str:
     """Human scope, e.g. 'cluster EAST-1' or 'the Cluster module'."""
     module_label = _choice_label(ModuleCoordinator.ModuleType.choices, module)

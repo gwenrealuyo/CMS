@@ -35,6 +35,9 @@ from .serializers import (
     ModuleCoordinatorBulkCreateSerializer,
     MemberCareCaseSerializer,
 )
+from .coordinator_assignment_validation import (
+    module_coordinator_list_label_context,
+)
 from apps.authentication.permissions import (
     IsMemberOrAbove,
     IsAdminOrPastor,
@@ -932,7 +935,9 @@ class ModuleCoordinatorViewSet(viewsets.ModelViewSet):
     Only accessible by ADMIN users.
     """
 
-    queryset = ModuleCoordinator.objects.select_related("person").all()
+    queryset = ModuleCoordinator.objects.select_related(
+        "person", "person__branch"
+    ).all()
     serializer_class = ModuleCoordinatorSerializer
     permission_classes = [IsAuthenticatedAndNotVisitor, IsAdmin]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter]
@@ -946,6 +951,15 @@ class ModuleCoordinatorViewSet(viewsets.ModelViewSet):
     ]
     ordering = ["-created_at"]
 
+    def get_serializer(self, *args, **kwargs):
+        if kwargs.get("many") and args:
+            context = kwargs.get("context") or self.get_serializer_context()
+            kwargs["context"] = {
+                **context,
+                **module_coordinator_list_label_context(args[0]),
+            }
+        return super().get_serializer(*args, **kwargs)
+
     @action(detail=False, methods=["post"], url_path="bulk-create")
     def bulk_create(self, request):
         """
@@ -955,7 +969,7 @@ class ModuleCoordinatorViewSet(viewsets.ModelViewSet):
         serializer = ModuleCoordinatorBulkCreateSerializer(data=request.data)
         if serializer.is_valid():
             result = serializer.save()
-            response_serializer = ModuleCoordinatorSerializer(
+            response_serializer = self.get_serializer(
                 result["created"], many=True
             )
             return Response(

@@ -60,6 +60,8 @@ export interface MinistryFormValues {
   meeting_schedule_notes: string;
   communication_channel: string;
   is_active: boolean;
+  /** Maps to API visibility DIRECTORY vs INTERNAL. */
+  show_in_directory: boolean;
   members: PendingMember[];
   removed_member_ids: number[];
 }
@@ -79,6 +81,10 @@ interface MinistryFormProps {
   error?: string | null;
   submitLabel?: string;
   initialData?: Ministry;
+  /** Primary/support coordinator without Ministries write — lock meta fields. */
+  coordinatorOnlyEdit?: boolean;
+  /** Ministries write may toggle directory vs internal. */
+  canChangeVisibility?: boolean;
 }
 
 const DEFAULT_VALUES: MinistryFormValues = {
@@ -98,6 +104,7 @@ const DEFAULT_VALUES: MinistryFormValues = {
   meeting_schedule_notes: "",
   communication_channel: "",
   is_active: true,
+  show_in_directory: true,
   members: [],
   removed_member_ids: [],
 };
@@ -135,6 +142,8 @@ export default function MinistryForm({
   error,
   submitLabel = "Create Ministry",
   initialData,
+  coordinatorOnlyEdit = false,
+  canChangeVisibility = true,
 }: MinistryFormProps) {
   // Initialize form values from initialData if provided
   const getInitialValues = (): MinistryFormValues => {
@@ -192,6 +201,7 @@ export default function MinistryForm({
       meeting_schedule_notes: scheduleNotes,
       communication_channel: initialData.communication_channel ?? "",
       is_active: initialData.is_active ?? true,
+      show_in_directory: (initialData.visibility ?? "DIRECTORY") !== "INTERNAL",
       members: existingMembers,
       removed_member_ids: [],
     };
@@ -273,6 +283,8 @@ export default function MinistryForm({
         meeting_schedule_notes: scheduleNotes,
         communication_channel: initialData.communication_channel ?? "",
         is_active: initialData.is_active ?? true,
+        show_in_directory:
+          (initialData.visibility ?? "DIRECTORY") !== "INTERNAL",
         members: existingMembers,
         removed_member_ids: [],
       });
@@ -378,6 +390,10 @@ export default function MinistryForm({
   const isClusterCommittee = isClusterCommitteeRoster(initialData);
   const hideCommitteeLeadership =
     isClusterCommittee && user?.cluster_committee_role === "SUPPORT";
+  const lockMetaFields = coordinatorOnlyEdit;
+  const lockLeadershipFields =
+    hideCommitteeLeadership || (coordinatorOnlyEdit && !isClusterCommittee);
+  const visibilityDisabled = !canChangeVisibility || lockMetaFields;
 
   const addMember = (person: Person) => {
     const memberId = String(person.id);
@@ -694,7 +710,7 @@ export default function MinistryForm({
             type="text"
             required
             value={values.code}
-            disabled={isSystemRoster}
+            disabled={isSystemRoster || lockMetaFields}
             onChange={(event) =>
               setValues((prev) => ({
                 ...prev,
@@ -784,7 +800,7 @@ export default function MinistryForm({
                       (user?.branch != null ? String(user.branch) : ""),
               }));
             }}
-            disabled={!canChooseNational || isSystemRoster}
+            disabled={!canChooseNational || isSystemRoster || lockMetaFields}
             className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-ring disabled:bg-gray-100"
           >
             <option value="BRANCH">Branch</option>
@@ -809,7 +825,7 @@ export default function MinistryForm({
               required
               value={values.branch_id}
               onChange={handleChange("branch_id")}
-              disabled={!canPickAnyBranch || isSystemRoster}
+              disabled={!canPickAnyBranch || isSystemRoster || lockMetaFields}
               className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-ring disabled:bg-gray-100"
             >
               <option value="">Select branch</option>
@@ -823,7 +839,33 @@ export default function MinistryForm({
           </div>
         )}
 
-        {!hideCommitteeLeadership && (
+        <div className="tablet:col-span-2">
+          <label className="flex items-start gap-3 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={values.show_in_directory}
+              disabled={visibilityDisabled}
+              onChange={(event) =>
+                setValues((prev) => ({
+                  ...prev,
+                  show_in_directory: event.target.checked,
+                }))
+              }
+              className="mt-1 h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary disabled:opacity-60"
+            />
+            <span>
+              <span className="block text-sm font-medium text-gray-700">
+                Show in the ministries directory
+              </span>
+              <span className="block text-xs text-gray-500 mt-0.5">
+                Turn off to keep this ministry internal (not listed in the
+                directory or search by default).
+              </span>
+            </span>
+          </label>
+        </div>
+
+        {!lockLeadershipFields && (
         <>
         <div className="tablet:col-span-2">
           <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -1025,8 +1067,9 @@ export default function MinistryForm({
               id="is_active"
               type="checkbox"
               checked={values.is_active}
+              disabled={lockMetaFields}
               onChange={handleChange("is_active")}
-              className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-ring"
+              className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-ring disabled:opacity-60"
             />
             <label
               htmlFor="is_active"

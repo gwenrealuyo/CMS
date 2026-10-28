@@ -240,10 +240,13 @@ export default function MinistryView({
                     />
                   </svg>
                   <span className="text-sm font-normal">
-                    {activeMembersCount} active
+                    {ministry.viewer_can_view_roster === false
+                      ? `${ministry.member_count ?? "—"} members`
+                      : `${activeMembersCount} active`}
                   </span>
                 </div>
-                {inactiveMembersCount > 0 && (
+                {ministry.viewer_can_view_roster !== false &&
+                  inactiveMembersCount > 0 && (
                   <div className="flex items-center gap-1">
                     <span className="text-sm font-normal text-gray-500">
                       {inactiveMembersCount} inactive
@@ -483,7 +486,19 @@ export default function MinistryView({
           )}
 
           {/* Members */}
-          {sortedMembers.length > 0 && (
+          {ministry.viewer_can_view_roster === false && (
+            <div className="bg-white rounded-lg border border-gray-200 p-4 shadow-sm">
+              <h3 className="text-sm font-semibold text-gray-900 mb-2">
+                Members
+              </h3>
+              <p className="text-sm text-gray-500 italic">
+                Member roster is only available to ministry team members and
+                coordinators.
+              </p>
+            </div>
+          )}
+          {ministry.viewer_can_view_roster !== false &&
+            sortedMembers.length > 0 && (
             <div className="bg-white rounded-lg border border-gray-200 p-4 shadow-sm">
               <h3 className="text-sm font-semibold text-gray-900 mb-3">
                 Members ({sortedMembers.length})
@@ -609,7 +624,8 @@ export default function MinistryView({
           )}
 
           {/* Empty State for Members */}
-          {sortedMembers.length === 0 && (
+          {ministry.viewer_can_view_roster !== false &&
+            sortedMembers.length === 0 && (
             <div className="bg-white rounded-lg border border-gray-200 p-4 shadow-sm">
               <h3 className="text-sm font-semibold text-gray-900 mb-2">
                 Members
@@ -653,9 +669,9 @@ export default function MinistryView({
               <Button
                 onClick={onHardDelete}
                 variant="secondary"
-                className="!text-red-600 h-10 min-h-[44px] px-4 text-sm font-medium bg-white border border-red-200 hover:bg-red-50 hover:border-red-300 flex items-center justify-center shrink-0"
-                aria-label="Delete ministry permanently"
-                title="Delete ministry permanently"
+                className="!text-red-600 h-10 min-h-[44px] px-4 text-sm font-medium bg-white border border-red-200 hover:bg-red-50 hover:border-red-300 flex items-center justify-center space-x-2 shrink-0"
+                aria-label="Delete ministry"
+                title="Delete ministry permanently (admin only)"
               >
                 <svg
                   className="w-4 h-4"
@@ -670,6 +686,7 @@ export default function MinistryView({
                     d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
                   />
                 </svg>
+                <span>Delete</span>
               </Button>
             )}
           </div>

@@ -109,6 +109,7 @@ class UserSerializer(serializers.ModelSerializer):
     cluster_committee_role = serializers.SerializerMethodField()
     cluster_committee_primary_at_headquarters = serializers.SerializerMethodField()
     on_bible_sharers_roster = serializers.SerializerMethodField()
+    can_view_internal_ministries = serializers.SerializerMethodField()
 
     class Meta:
         model = User
@@ -135,6 +136,7 @@ class UserSerializer(serializers.ModelSerializer):
             "cluster_committee_role",
             "cluster_committee_primary_at_headquarters",
             "on_bible_sharers_roster",
+            "can_view_internal_ministries",
         )
         read_only_fields = (
             "id",
@@ -154,6 +156,7 @@ class UserSerializer(serializers.ModelSerializer):
             "cluster_committee_role",
             "cluster_committee_primary_at_headquarters",
             "on_bible_sharers_roster",
+            "can_view_internal_ministries",
         )
 
     def get_full_name(self, obj):
@@ -203,6 +206,11 @@ class UserSerializer(serializers.ModelSerializer):
         from apps.ministries.bible_sharers import person_on_bible_sharers_roster
 
         return person_on_bible_sharers_roster(obj)
+
+    def get_can_view_internal_ministries(self, obj):
+        from apps.ministries.access import user_can_view_internal_ministries
+
+        return user_can_view_internal_ministries(obj)
 
 
 class TokenResponseSerializer(serializers.Serializer):

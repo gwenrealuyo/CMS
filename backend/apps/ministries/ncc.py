@@ -33,9 +33,13 @@ def is_ncc_ministry(ministry: Ministry | None) -> bool:
 @transaction.atomic
 def ensure_ncc_ministry(branch: Branch) -> Ministry:
     """Get or create the BRANCH-scoped NCC / Lessons roster ministry for a branch."""
-    ministry, created = Ministry.objects.get_or_create(
-        code=NCC_MINISTRY_CODE,
-        branch=branch,
+    from .db_compat import get_or_create_ministry_mid_migrate_safe
+
+    ministry, created = get_or_create_ministry_mid_migrate_safe(
+        lookup={
+            "code": NCC_MINISTRY_CODE,
+            "branch": branch,
+        },
         defaults={
             "name": NCC_MINISTRY_NAME,
             "scope": MinistryScope.BRANCH,
@@ -65,27 +69,17 @@ def ensure_ncc_ministry(branch: Branch) -> Ministry:
 
 def seed_ncc_ministries_for_all_branches() -> int:
     """Ensure an NCC ministry exists for every active branch. Returns created count."""
+    from .db_compat import defer_pending_ministry_fields
+
     created = 0
     for branch in Branch.objects.filter(is_active=True).iterator():
-        _, was_created = Ministry.objects.get_or_create(
+        before = defer_pending_ministry_fields(Ministry.objects).filter(
             code=NCC_MINISTRY_CODE,
             branch=branch,
-            defaults={
-                "name": NCC_MINISTRY_NAME,
-                "scope": MinistryScope.BRANCH,
-                "is_system": True,
-                "category": MinistryCategory.CARE,
-                "activity_cadence": MinistryCadence.WEEKLY,
-                "description": (
-                    "New Converts Course / Lessons teachers roster for this branch."
-                ),
-                "is_active": True,
-            },
-        )
-        if was_created:
+        ).exists()
+        ensure_ncc_ministry(branch)
+        if not before:
             created += 1
-        else:
-            ensure_ncc_ministry(branch)
     return created
 
 

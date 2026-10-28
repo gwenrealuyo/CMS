@@ -40,10 +40,12 @@ def headquarters_branch() -> Optional[Branch]:
 
 
 def get_bible_sharers_ministry() -> Optional[Ministry]:
+    from .db_compat import defer_pending_ministry_fields
+
     hq = headquarters_branch()
     if hq is None:
         return None
-    return Ministry.objects.filter(
+    return defer_pending_ministry_fields(Ministry.objects).filter(
         code=BIBLE_SHARERS_MINISTRY_CODE,
         branch=hq,
     ).first()
@@ -52,12 +54,16 @@ def get_bible_sharers_ministry() -> Optional[Ministry]:
 @transaction.atomic
 def ensure_bible_sharers_ministry() -> Optional[Ministry]:
     """Get or create the HQ-branch Bible Sharers roster. No-op without an HQ branch."""
+    from .db_compat import get_or_create_ministry_mid_migrate_safe
+
     hq = headquarters_branch()
     if hq is None:
         return None
-    ministry, created = Ministry.objects.get_or_create(
-        code=BIBLE_SHARERS_MINISTRY_CODE,
-        branch=hq,
+    ministry, created = get_or_create_ministry_mid_migrate_safe(
+        lookup={
+            "code": BIBLE_SHARERS_MINISTRY_CODE,
+            "branch": hq,
+        },
         defaults={
             "name": BIBLE_SHARERS_MINISTRY_NAME,
             "scope": MinistryScope.BRANCH,

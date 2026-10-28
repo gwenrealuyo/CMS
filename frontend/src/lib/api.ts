@@ -1566,6 +1566,8 @@ export const ministriesApi = {
     code?: string;
     is_system?: boolean;
     branch?: number | string;
+    /** directory (default) | internal | all */
+    visibility?: string;
   }) => api.get<Ministry[]>("/ministries/", { params }),
   retrieve: (id: number | string) => api.get<Ministry>(`/ministries/${id}/`),
   create: (data: MinistryCreateInput) =>
@@ -2548,6 +2550,7 @@ export interface User {
   ncc_lessons_role?: "PRIMARY" | "SUPPORT" | null;
   ncc_primary_at_headquarters?: boolean;
   cluster_committee_role?: "PRIMARY" | "SUPPORT" | null;
+  can_view_internal_ministries?: boolean;
   cluster_committee_primary_at_headquarters?: boolean;
   on_bible_sharers_roster?: boolean;
 }

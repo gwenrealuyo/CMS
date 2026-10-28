@@ -41,6 +41,11 @@ class MinistryScope(models.TextChoices):
     NATIONAL = "NATIONAL", "National"
 
 
+class MinistryVisibility(models.TextChoices):
+    DIRECTORY = "DIRECTORY", "Directory"
+    INTERNAL = "INTERNAL", "Internal"
+
+
 class Ministry(models.Model):
     name = models.CharField(max_length=100)
     code = models.CharField(
@@ -92,11 +97,22 @@ class Ministry(models.Model):
     meeting_schedule = models.JSONField(blank=True, null=True)
     communication_channel = models.URLField(blank=True)
     is_active = models.BooleanField(default=True)
+    visibility = models.CharField(
+        max_length=20,
+        choices=MinistryVisibility.choices,
+        default=MinistryVisibility.DIRECTORY,
+        help_text=(
+            "DIRECTORY = shown in the ministries directory and search by default. "
+            "INTERNAL = hidden from the directory unless the viewer is authorized "
+            "and requests internal ministries."
+        ),
+    )
     is_system = models.BooleanField(
         default=False,
         help_text=(
             "System ministries (e.g. NCC, Bible Sharers, and Cluster Committee "
-            "rosters) are protected from normal delete/code edits."
+            "rosters) are protected from normal code/scope/branch edits. "
+            "Only admins may permanently delete them."
         ),
     )
     created_at = models.DateTimeField(auto_now_add=True)

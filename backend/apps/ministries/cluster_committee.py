@@ -74,9 +74,13 @@ def cluster_committee_role(user: Optional[Person]) -> Optional[str]:
 @transaction.atomic
 def ensure_cluster_committee_ministry(branch: Branch) -> Ministry:
     """Get or create the BRANCH-scoped Cluster Committee ministry for a branch."""
-    ministry, _created = Ministry.objects.get_or_create(
-        code=CLUSTER_COMMITTEE_MINISTRY_CODE,
-        branch=branch,
+    from .db_compat import get_or_create_ministry_mid_migrate_safe
+
+    ministry, _created = get_or_create_ministry_mid_migrate_safe(
+        lookup={
+            "code": CLUSTER_COMMITTEE_MINISTRY_CODE,
+            "branch": branch,
+        },
         defaults={
             "name": CLUSTER_COMMITTEE_MINISTRY_NAME,
             "scope": MinistryScope.BRANCH,

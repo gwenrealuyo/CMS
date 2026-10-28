@@ -81,6 +81,7 @@ export default function MinistriesPage() {
     [user, moduleEnabled],
   );
   const userCanEditMinistry = (ministry: Ministry) => {
+    if (ministry.viewer_can_edit != null) return Boolean(ministry.viewer_can_edit);
     if (!isClusterCommitteeRoster(ministry)) return canWriteMinistriesAccess;
     if (user?.role === "ADMIN" || user?.role === "PASTOR") return true;
     if (
@@ -99,11 +100,17 @@ export default function MinistriesPage() {
       ),
     );
     if (hqSenior) return true;
+    if (
+      ministry.primary_coordinator?.id != null &&
+      Number(ministry.primary_coordinator.id) === Number(user?.id)
+    ) {
+      return true;
+    }
     return canWriteMinistriesAccess;
   };
+  const canViewInternalMinistries = Boolean(user?.can_view_internal_ministries);
   const defaultBranchFilter = useMemo((): number | "all" => {
     if (!user) return "all";
-    if (user.can_see_all_branches) return "all";
     if (user.branch != null) return Number(user.branch);
     return "all";
   }, [user]);
@@ -206,6 +213,7 @@ export default function MinistriesPage() {
     setFilter("scope", "all");
     setFilter("branch", defaultBranchFilter);
     setFilter("is_active", true);
+    setFilter("visibility", "directory");
   };
 
   const cadenceLabels: Record<string, string> = {
@@ -268,10 +276,6 @@ export default function MinistriesPage() {
   };
 
   const handleHardDelete = (ministry: Ministry) => {
-    if (isSystemMinistry(ministry)) {
-      toast.error("System ministries cannot be deleted.");
-      return;
-    }
     setDeleteConfirmation({
       isOpen: true,
       ministry,
@@ -540,6 +544,31 @@ export default function MinistriesPage() {
                 </select>
               </div>
 
+              {canViewInternalMinistries && (
+                <div className="min-w-0">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Visibility
+                  </label>
+                  <select
+                    value={filters.visibility ?? "directory"}
+                    onChange={(event) =>
+                      setFilter(
+                        "visibility",
+                        event.target.value as
+                          | "directory"
+                          | "internal"
+                          | "all",
+                      )
+                    }
+                    className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-ring"
+                  >
+                    <option value="directory">Directory</option>
+                    <option value="internal">Internal</option>
+                    <option value="all">All</option>
+                  </select>
+                </div>
+              )}
+
               <div className="flex w-full items-end tablet:w-auto">
                 <Button
                   variant="tertiary"
@@ -763,13 +792,16 @@ export default function MinistriesPage() {
                             </svg>
                           </button>
                         )}
-                        {userCanHardDelete &&
-                          !isSystemMinistry(row as Ministry) && (
+                        {userCanHardDelete && (
                             <button
                               type="button"
                               onClick={() => handleHardDelete(row as Ministry)}
                               className="flex items-center justify-center p-2 min-h-[44px] min-w-[44px] text-red-600 hover:bg-red-50 rounded-md transition-colors"
-                              title="Delete Ministry"
+                              title={
+                                isSystemMinistry(row as Ministry)
+                                  ? "Delete system ministry (admin only)"
+                                  : "Delete Ministry"
+                              }
                               aria-label="Delete Ministry"
                             >
                               <svg
@@ -834,9 +866,7 @@ export default function MinistriesPage() {
                 : undefined
             }
             onHardDelete={
-              userCanHardDelete &&
-              viewMinistry &&
-              !isSystemMinistry(viewMinistry)
+              userCanHardDelete && viewMinistry
                 ? () => {
                     setIsViewOpen(false);
                     handleHardDelete(viewMinistry);
@@ -873,6 +903,7 @@ export default function MinistriesPage() {
             people={people}
             cadenceOptions={cadenceOptionsForForm}
             categoryOptions={categoryOptionsForForm}
+            canChangeVisibility={canWriteMinistriesAccess}
             onSubmit={async (values: MinistryFormValues) => {
               try {
                 setIsSubmitting(true);
@@ -926,6 +957,9 @@ export default function MinistriesPage() {
                   communication_channel:
                     values.communication_channel || undefined,
                   is_active: values.is_active,
+                  visibility: values.show_in_directory
+                    ? ("DIRECTORY" as const)
+                    : ("INTERNAL" as const),
                 };
 
                 const created = await createMinistry(payload);
@@ -1039,7 +1073,12 @@ export default function MinistriesPage() {
         onClose={closeDeleteConfirmation}
         onConfirm={handleDeleteConfirm}
         title="Delete Ministry Permanently"
-        message={`Are you sure you want to delete the "${deleteConfirmation.ministry?.name}" ministry? This action cannot be undone and will permanently remove this ministry from the system.`}
+        message={
+          deleteConfirmation.ministry &&
+          isSystemMinistry(deleteConfirmation.ministry)
+            ? `Delete the system ministry "${deleteConfirmation.ministry.name}"? This cannot be undone. Related roster memberships will be removed, and features that rely on this roster may stop working until it is recreated.`
+            : `Are you sure you want to delete the "${deleteConfirmation.ministry?.name}" ministry? This action cannot be undone and will permanently remove this ministry from the system.`
+        }
         confirmText="Delete Ministry"
         cancelText="Cancel"
         variant="danger"
@@ -1069,6 +1108,8 @@ export default function MinistriesPage() {
             cadenceOptions={cadenceOptionsForForm}
             categoryOptions={categoryOptionsForForm}
             initialData={editMinistry}
+            coordinatorOnlyEdit={!canWriteMinistriesAccess}
+            canChangeVisibility={canWriteMinistriesAccess}
             onSubmit={async (values: MinistryFormValues) => {
               try {
                 setIsSubmitting(true);
@@ -1097,30 +1138,27 @@ export default function MinistriesPage() {
                   ),
                 );
 
-                const lockCommitteeLeadership =
-                  isClusterCommitteeRoster(editMinistry) &&
-                  user?.cluster_committee_role === "SUPPORT";
+                const isCommittee = isClusterCommitteeRoster(editMinistry);
+                const hqClusterSenior = Boolean(
+                  user?.branch_is_headquarters &&
+                    user.module_coordinator_assignments?.some(
+                      (assignment) =>
+                        assignment.module === "CLUSTER" &&
+                        assignment.level === "SENIOR_COORDINATOR",
+                    ),
+                );
+                const canEditLeadership =
+                  canWriteMinistriesAccess ||
+                  (isCommittee &&
+                    (user?.cluster_committee_role === "PRIMARY" ||
+                      hqClusterSenior));
+                const coordinatorOnlyEdit = !canWriteMinistriesAccess;
+                const lockLeadership = !canEditLeadership;
                 const payload = {
                   name: values.name.trim(),
-                  code: values.code.trim().toUpperCase(),
                   description: values.description,
                   category: values.category,
                   activity_cadence: values.activity_cadence,
-                  ...(lockCommitteeLeadership
-                    ? {}
-                    : {
-                        primary_coordinator_id: values.primary_coordinator_id
-                          ? Number(values.primary_coordinator_id)
-                          : null,
-                        support_coordinator_ids: supportIds,
-                      }),
-                  scope: values.scope,
-                  branch:
-                    values.scope === "NATIONAL"
-                      ? null
-                      : values.branch_id
-                        ? Number(values.branch_id)
-                        : null,
                   meeting_location: values.meeting_location,
                   meeting_schedule:
                     Object.keys(meetingSchedule).length > 0
@@ -1128,7 +1166,30 @@ export default function MinistriesPage() {
                       : null,
                   communication_channel:
                     values.communication_channel || undefined,
-                  is_active: values.is_active,
+                  ...(coordinatorOnlyEdit
+                    ? {}
+                    : {
+                        code: values.code.trim().toUpperCase(),
+                        scope: values.scope,
+                        branch:
+                          values.scope === "NATIONAL"
+                            ? null
+                            : values.branch_id
+                              ? Number(values.branch_id)
+                              : null,
+                        is_active: values.is_active,
+                        visibility: values.show_in_directory
+                          ? ("DIRECTORY" as const)
+                          : ("INTERNAL" as const),
+                      }),
+                  ...(lockLeadership
+                    ? {}
+                    : {
+                        primary_coordinator_id: values.primary_coordinator_id
+                          ? Number(values.primary_coordinator_id)
+                          : null,
+                        support_coordinator_ids: supportIds,
+                      }),
                 };
 
                 const updated = await updateMinistry(editMinistry.id, payload);

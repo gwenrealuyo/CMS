@@ -33,7 +33,8 @@ The Ministries module manages church ministries, their coordinators, and team me
   - `meeting_schedule` (JSONField, optional) - Meeting schedule details (day, time, window, notes)
   - `communication_channel` (URLField, optional) - Link to communication channel (e.g., WhatsApp, Discord)
   - `is_active` (BooleanField, default=True) - Whether the ministry is currently active
-  - `is_system` (BooleanField, default=False) - Protected roster ministries (cannot be deleted; code/scope/branch cannot be changed)
+  - `visibility` (CharField) - `DIRECTORY` (default; shown in the ministries directory and search) or `INTERNAL` (hidden unless the viewer is authorized and requests internal / all). Independent of `is_system`. No automatic backfill; set Internal in the UI when needed (e.g. Cluster Committee).
+  - `is_system` (BooleanField, default=False) - Protected roster ministries (code/scope/branch cannot be changed; only admins may permanently delete them)
   - Audit fields: `created_at`, `updated_at` (auto-managed timestamps)
 - Default ordering: Alphabetically by `name`
 - **Reserved codes**:
@@ -52,6 +53,30 @@ System ministries (`is_system=True`) are seeded by the platform, not created in 
 | **Cluster Committee** | `CLUSTER_COMMITTEE` | One `BRANCH` row per branch | Admin, Pastor, headquarters Cluster Senior Coordinator, or that ministry’s **Primary Coordinator** may set Primary Coordinator and Support Coordinators. Support Coordinators cannot change those fields | Primary Coordinator and Support Coordinator share in-branch Cluster oversight (Add Cluster, edit clusters, care, compliance, catch-up, reports, people in scope). They do **not** receive a `SENIOR_COORDINATOR` row. **Senior Coordinator** is the headquarters all-branch Cluster role only. A non-HQ Primary Coordinator is locked to their branch. The headquarters Primary Coordinator, and a `CLUSTER` `SENIOR_COORDINATOR` whose branch is headquarters, can select other branches. |
 
 Detection is **code-based** (`NCC`, `BIBLE_SHARERS`, or `CLUSTER_COMMITTEE`). `is_system` is only the protection flag.
+
+### Visibility and directory
+
+- List defaults to `visibility=directory` (`DIRECTORY` rows only). Global search uses the same list endpoint with no override, so internal ministries do not appear in header search.
+- `visibility=internal` or `visibility=all` returns internal rows only when the viewer is Admin/Pastor, has Ministries write, is primary/support coordinator of that ministry, or (for Cluster Committee) is an HQ Cluster senior coordinator.
+- Retrieve includes directory rows plus internal rows the viewer may see (same as `all` for authorized rows). Unauthorized internal retrieve is 404.
+- Ministries write may toggle **Show in the ministries directory** on create/edit. Coordinators without Ministries write cannot change visibility.
+
+### Roster privacy
+
+Nested `memberships` and `support_coordinators` on retrieve, and rows from `GET /api/ministries/members/`, are returned only when the viewer may see that ministry’s roster:
+
+- Admin or Pastor
+- Ministries module write
+- That ministry’s primary or support coordinators
+- An active `MinistryMember` on that ministry
+- NCC / Bible Sharers roster managers for those system ministries
+- HQ Cluster senior coordinator for Cluster Committee
+
+Otherwise memberships and support coordinators are empty in JSON (no ids/names). Slim list still exposes aggregate `member_count` and `primary_coordinator`. Responses include `viewer_can_view_roster` and `viewer_can_edit`.
+
+### Coordinator edit access
+
+A ministry’s primary and support coordinators may open the edit form and change unlocked fields (name, description, category, cadence, meeting location/schedule, communication channel) and add/update/remove `team_member` / `guest_helper` memberships. They cannot create ministries, mark inactive, delete, or change code, scope, branch, visibility, active flag, or primary/support coordinators (except Cluster Committee leadership rules for primary / HQ senior). Membership destroy uses the same write check as create/update (not admin-only).
 
 ### MinistryMember Model
 
@@ -107,16 +132,17 @@ All routes live under `/api/ministries/`:
     - `is_system` - Filter system-managed ministries
     - `code` - Filter by ministry code (e.g. `NCC`, `BIBLE_SHARERS`)
     - `scope`, `branch` - Filter by ministry scope / branch
+    - `visibility` - `directory` (default), `internal`, or `all` (directory visibility mode, not the model field alone)
     - `search` - Search in name, description, and coordinator names
     - `ordering` - Order by `name`, `activity_cadence`, or `created_at`
-  - **Response**: Array of slim ministry objects with `primary_coordinator` and annotated `member_count` (no nested `memberships` or `support_coordinators`)
+  - **Response**: Array of slim ministry objects with `primary_coordinator`, annotated `member_count`, `visibility`, and `viewer_can_edit` (no nested `memberships` or `support_coordinators`)
   - **Access**: All authenticated non-visitor users (read-only for MEMBER role)
 
 #### Retrieve Ministry
 
 - **GET** `/api/ministries/{id}/`
-  - **Response**: Single ministry object with full details, including nested `memberships` and `support_coordinators`
-  - **Access**: All authenticated non-visitor users (read-only for MEMBER role)
+  - **Response**: Single ministry object with full details. Nested `memberships` / `support_coordinators` only when `viewer_can_view_roster` is true; otherwise empty arrays. Also returns `viewer_can_edit` and `viewer_can_view_roster`.
+  - **Access**: All authenticated non-visitor users (read-only for MEMBER role); internal ministries only if authorized to see them
 
 #### Create Ministry
 
@@ -158,7 +184,7 @@ All routes live under `/api/ministries/`:
 
 - **DELETE** `/api/ministries/{id}/`
   - **Response**: 204 No Content
-  - **Access**: ADMIN, PASTOR, or Ministry Coordinator with write access
+  - **Access**: Admin only (including system rosters such as NCC, Bible Sharers, and Cluster Committee)
   - **Note**: Cascade deletes all related `MinistryMember` entries
 
 ### Ministry Members Endpoint
@@ -251,7 +277,7 @@ All routes live under `/api/ministries/`:
 
 - **Read Operations** (`list`, `retrieve`): `IsAuthenticatedAndNotVisitor`, `IsMemberOrAbove`
 - **Write Operations** (`create`, `update`): `IsAuthenticatedAndNotVisitor`, `HasModuleAccess(MINISTRIES, "write")`
-- **Destroy**: Admin only. System ministries (`is_system=True`) cannot be deleted.
+- **Destroy**: Admin only. Includes system ministries (`is_system=True`); non-admins cannot delete any ministry.
 
 ## Common Workflows
 

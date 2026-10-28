@@ -22,6 +22,8 @@ export type MinistryRole =
 
 export type MinistryScope = "BRANCH" | "NATIONAL";
 
+export type MinistryVisibility = "DIRECTORY" | "INTERNAL";
+
 export interface UserSummary {
   id: number;
   username: string;
@@ -68,13 +70,16 @@ export interface Ministry {
   meeting_schedule: Record<string, unknown> | null;
   communication_channel?: string;
   is_active: boolean;
+  visibility?: MinistryVisibility;
   is_system?: boolean;
   created_at?: string;
   updated_at?: string;
-  /** Present on retrieve/write payloads; omitted from slim directory list. */
+  /** Present on retrieve/write payloads; empty when viewer cannot see roster. */
   memberships?: MinistryMember[];
   /** Annotated count on slim directory list rows. */
   member_count?: number;
+  viewer_can_edit?: boolean;
+  viewer_can_view_roster?: boolean;
 }
 
 export interface MinistryCreateInput {
@@ -91,4 +96,5 @@ export interface MinistryCreateInput {
   meeting_schedule?: Record<string, unknown> | null;
   communication_channel?: string;
   is_active?: boolean;
+  visibility?: MinistryVisibility;
 }

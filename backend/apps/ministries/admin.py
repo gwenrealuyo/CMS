@@ -9,10 +9,11 @@ class MinistryAdmin(admin.ModelAdmin):
         "name",
         "primary_coordinator",
         "activity_cadence",
+        "visibility",
         "is_active",
         "created_at",
     )
-    list_filter = ("activity_cadence", "is_active", "category")
+    list_filter = ("activity_cadence", "visibility", "is_active", "category")
     search_fields = ("name", "description")
     filter_horizontal = ("support_coordinators",)
 

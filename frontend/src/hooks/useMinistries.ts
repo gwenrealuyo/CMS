@@ -10,6 +10,8 @@ import {
   MinistryScope,
 } from "@/src/types/ministry";
 
+export type MinistryVisibilityFilter = "directory" | "internal" | "all";
+
 export interface MinistryFilters {
   activity_cadence?: MinistryCadence | "all";
   category?: MinistryCategory | "all";
@@ -17,6 +19,8 @@ export interface MinistryFilters {
   /** `null` while waiting for auth/branch default to resolve. */
   branch?: number | "all" | null;
   is_active?: boolean | "all";
+  /** directory (default) | internal | all — maps to API `visibility`. */
+  visibility?: MinistryVisibilityFilter;
 }
 
 export const useMinistries = () => {
@@ -27,6 +31,7 @@ export const useMinistries = () => {
     scope: "all",
     branch: null,
     is_active: true,
+    visibility: "directory",
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -52,6 +57,11 @@ export const useMinistries = () => {
       }
       if (filters.is_active !== "all") {
         params.is_active = filters.is_active ?? undefined;
+      }
+      if (filters.visibility && filters.visibility !== "directory") {
+        params.visibility = filters.visibility;
+      } else {
+        params.visibility = "directory";
       }
 
       const response = await ministriesApi.list(params);

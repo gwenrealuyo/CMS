@@ -10,6 +10,13 @@ from rest_framework.exceptions import ValidationError
 
 from apps.people.models import Branch
 
+from .access import (
+    COORDINATOR_LOCKED_MINISTRY_FIELDS,
+    coordinator_only_edit,
+    user_can_edit_ministry,
+    user_can_view_ministry_roster,
+    user_has_ministries_write,
+)
 from .models import (
     BIBLE_SHARERS_MINISTRY_CODE,
     CLUSTER_COMMITTEE_MINISTRY_CODE,
@@ -231,6 +238,7 @@ class MinistryListSerializer(serializers.ModelSerializer):
     primary_coordinator = UserSummarySerializer(read_only=True)
     member_count = serializers.IntegerField(read_only=True, default=0)
     branch = serializers.PrimaryKeyRelatedField(read_only=True)
+    viewer_can_edit = serializers.SerializerMethodField()
 
     class Meta:
         model = Ministry
@@ -247,10 +255,17 @@ class MinistryListSerializer(serializers.ModelSerializer):
             "meeting_location",
             "meeting_schedule",
             "is_active",
+            "visibility",
             "is_system",
             "member_count",
+            "viewer_can_edit",
         )
         read_only_fields = fields
+
+    def get_viewer_can_edit(self, obj: Ministry) -> bool:
+        request = self.context.get("request")
+        user = getattr(request, "user", None) if request is not None else None
+        return user_can_edit_ministry(user, obj)
 
 
 class MinistrySerializer(serializers.ModelSerializer):
@@ -270,7 +285,9 @@ class MinistrySerializer(serializers.ModelSerializer):
         required=False,
         write_only=True,
     )
-    memberships = MinistryMemberSerializer(many=True, read_only=True)
+    memberships = serializers.SerializerMethodField()
+    viewer_can_edit = serializers.SerializerMethodField()
+    viewer_can_view_roster = serializers.SerializerMethodField()
     branch = serializers.PrimaryKeyRelatedField(
         queryset=Branch.objects.all(),
         required=False,
@@ -296,15 +313,49 @@ class MinistrySerializer(serializers.ModelSerializer):
             "meeting_schedule",
             "communication_channel",
             "is_active",
+            "visibility",
             "is_system",
             "created_at",
             "updated_at",
             "memberships",
+            "viewer_can_edit",
+            "viewer_can_view_roster",
         )
-        read_only_fields = ("created_at", "updated_at", "is_system")
+        read_only_fields = (
+            "created_at",
+            "updated_at",
+            "is_system",
+            "viewer_can_edit",
+            "viewer_can_view_roster",
+        )
         # UniqueConstraint(code, branch) auto-adds UniqueTogetherValidator which
         # always requires branch on create; enforce uniqueness in validate().
         validators = []
+
+    def _request_user(self):
+        request = self.context.get("request")
+        return getattr(request, "user", None) if request is not None else None
+
+    def get_viewer_can_edit(self, obj: Ministry) -> bool:
+        return user_can_edit_ministry(self._request_user(), obj)
+
+    def get_viewer_can_view_roster(self, obj: Ministry) -> bool:
+        return user_can_view_ministry_roster(self._request_user(), obj)
+
+    def get_memberships(self, obj: Ministry):
+        if not user_can_view_ministry_roster(self._request_user(), obj):
+            return []
+        memberships = obj.memberships.all()
+        return MinistryMemberSerializer(
+            memberships, many=True, context=self.context
+        ).data
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        if not user_can_view_ministry_roster(self._request_user(), instance):
+            data["support_coordinators"] = []
+            data["memberships"] = []
+        return data
 
     def validate_meeting_schedule(self, value):
         if value in (None, "", {}):
@@ -341,6 +392,59 @@ class MinistrySerializer(serializers.ModelSerializer):
         authenticated = bool(
             user is not None and getattr(user, "is_authenticated", False)
         )
+        initial = self.initial_data if isinstance(self.initial_data, dict) else {}
+
+        if (
+            self.instance is not None
+            and authenticated
+            and coordinator_only_edit(user, self.instance)
+        ):
+            locked_in_request = [
+                key
+                for key in COORDINATOR_LOCKED_MINISTRY_FIELDS
+                if key in initial
+            ]
+            from apps.clusters.permissions import (
+                can_manage_cluster_committee_leadership,
+            )
+            from .cluster_committee import is_cluster_committee_ministry
+
+            if is_cluster_committee_ministry(
+                self.instance
+            ) and can_manage_cluster_committee_leadership(user, self.instance):
+                locked_in_request = [
+                    key
+                    for key in locked_in_request
+                    if key
+                    not in (
+                        "primary_coordinator",
+                        "primary_coordinator_id",
+                        "support_coordinators",
+                        "support_coordinator_ids",
+                    )
+                ]
+            if locked_in_request:
+                raise ValidationError(
+                    {
+                        key: (
+                            "Only Ministries administrators can change this field."
+                        )
+                        for key in locked_in_request
+                    }
+                )
+
+        if (
+            authenticated
+            and not user_has_ministries_write(user)
+            and "visibility" in attrs
+        ):
+            raise ValidationError(
+                {
+                    "visibility": (
+                        "Only Ministries administrators can change visibility."
+                    )
+                }
+            )
 
         if self.instance is None and not attrs.get("code"):
             name = attrs.get("name") or "MINISTRY"
@@ -369,9 +473,6 @@ class MinistrySerializer(serializers.ModelSerializer):
             attrs["support_coordinators"] = unique
 
         instance = self.instance
-        initial = self.initial_data
-        if not isinstance(initial, dict):
-            initial = {}
         # Prefer request payload over model-field defaults injected into attrs
         # (scope defaults to BRANCH on the model, which would skip create defaults).
         scope_in_input = "scope" in initial

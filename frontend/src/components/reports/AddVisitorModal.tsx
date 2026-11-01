@@ -339,7 +339,7 @@ export default function AddVisitorModal({
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div>
             <label className="mb-1 block text-sm font-medium text-gray-700">
-              Date First Attended *
+              Date First Attended
             </label>
             <input
               type="date"
@@ -352,7 +352,6 @@ export default function AddVisitorModal({
               }
               max={todayDateMax}
               className="min-h-[44px] w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-transparent focus:ring-2 focus:ring-ring"
-              required
             />
           </div>
 

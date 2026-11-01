@@ -664,20 +664,6 @@ export default function SundayBibleStudyReportForm({
       setError("Select a branch for this report.");
       return;
     }
-    const missingFirstAttended = visitors.find((row) => {
-      if (!shouldShowFirstAttendanceFields(row)) return false;
-      const dateValue =
-        row.pending?.date_first_attended ?? row.dateFirstAttended;
-      return !String(dateValue || "").trim();
-    });
-    if (missingFirstAttended) {
-      setError(
-        `Enter date first attended for returning ${
-          missingFirstAttended.pending?.prospect_id ? "prospect" : "visitor"
-        } ${missingFirstAttended.name}.`,
-      );
-      return;
-    }
     const payload: SundayBibleStudyReportWrite = {
       session_date: sessionDate,
       session_type: sessionType,
@@ -1154,7 +1140,6 @@ export default function SundayBibleStudyReportForm({
                             Date first attended
                             <input
                               type="date"
-                              required
                               value={
                                 row.pending?.date_first_attended ??
                                 row.dateFirstAttended ??
@@ -1367,6 +1352,8 @@ export default function SundayBibleStudyReportForm({
                 note: String(visitorData.note || ""),
                 inviter_id: inviterId,
                 attendance_kind: "FIRST_TIME",
+                date_first_attended:
+                  visitorData.date_first_attended || null,
                 first_activity_attended:
                   visitorData.first_activity_attended || null,
               },

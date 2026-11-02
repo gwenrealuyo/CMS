@@ -205,8 +205,8 @@ Key features include:
 - Unique constraint: `(cluster, prospect, year, month, stage)` – allows multiple stages per person per month (e.g., BAPTIZED and RECEIVED_HG in same month)
 - Index on `(cluster, year, month, stage)` for efficient queries
 - **Monthly Counting Logic**:
-  - **INVITED**: Count unique persons invited that month (only if they haven't attended yet)
-  - **ATTENDED**: Count unique persons who attended that month (replaces INVITED count if in same month)
+  - **INVITED**: Count unique persons invited that month (independent of Attended — same person can count in both)
+  - **ATTENDED**: Count unique persons who attended that month
   - **BAPTIZED**: Count baptism events that month (journey count, can be separate from RECEIVED_HG)
   - **RECEIVED_HG**: Count Holy Ghost reception events that month (journey count, can be separate from BAPTIZED)
   - **CONVERTED**: Count unique persons who completed both BAPTIZED and RECEIVED_HG by end of month (within same year). Counted in the month they first complete both. Only counted once per person per year.
@@ -332,13 +332,13 @@ All routes live under `/api/evangelism/` (namespaced in `core.urls`):
     - Query params: `?group_by=month` (default) – 12 month rows for the year (`months` is ignored)
     - Query params: `?group_by=cluster` – one row per active cluster in the branch, optional Unassigned, then Total. Requires `branch`. Do not send `evangelism_group`. Optional `months=1,2,3` (default all 12). Optional `week_number` (comma-separated or repeated ISO weeks) further limits milestone dates to those weeks instead of whole months. Counts are distinct-person unions across the window, not sums of monthly cells. `row_kind` is `cluster` | `unassigned` | `total`
     - Counts by month (each stage is independent — a person who hits multiple stages in the same month appears in **each** matching column):
-      - **INVITED**: Visitor (`role=VISITOR`) with `date_joined` in month and no `date_first_attended` yet (date-based; not `Person.status`)
+      - **INVITED**: Visitors (`role=VISITOR`) with `date_first_invited` in month, plus still-unlinked Prospects (`person` null, not dropped) whose `date_first_invited` falls in month. Independent of Attended — same person can appear in both columns. Bucketing uses first invite date (re-invites on later reports do not move the month). Report “Prospects Invited” stamps/keeps the earliest invite on the Prospect; syncs to a linked Person only while they have not attended yet (after attend, Person dates are authoritative). Unlinked prospects are Invited-only — Unique HC and other milestones use Person profiles
       - **ATTENDED**: Visitor (`role=VISITOR`) with `date_first_attended` in month (date-based; not `Person.status`)
       - **NCC** (`students_count`): Distinct people with a `LessonSessionReport.session_date` in that month (same branch/cluster/group scoping). Conversion status / `commitment_form_signed` does **not** exclude them
       - **BAPTIZED**: `water_baptism_date` in month
       - **RECEIVED_HG**: `spirit_baptism_date` in month
       - **REACHED**: Person meets all reached milestones (first invited, first attended, at least one NCC session, water baptism, Holy Ghost); counted in the month of `reached_date` (latest of those milestone dates)
-      - **UNIQUE HC** (`unique_hc_count`): Distinct people who appear in **any** of the columns above for that month (union of person IDs). Someone who progressed through several stages still counts as **1**
+      - **UNIQUE HC** (`unique_hc_count`): Distinct **Person** profiles who appear in any Person-based column for that month (union of person IDs). Unlinked Prospects counted under Invited are not included. Someone who progressed through several stages still counts as **1**
     - Related actions (same query params for `branch`, `cluster`, `evangelism_group` as `/people_tally/`):
       - `GET /people_tally_years/` – years present in tally-related data for the current scope, always including the current church year (`default_year`)
       - `GET /people_tally_detail/` – paginated drill-down for a month window + metric

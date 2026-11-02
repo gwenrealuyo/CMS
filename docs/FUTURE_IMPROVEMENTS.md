@@ -473,7 +473,7 @@ Milestone **DateFields** (lessons finished, journey dates, “today” stamps, t
 3. **Keep the milestone vs timestamp split**:
    - **DateField milestones** — stable calendar day (branch-local when deriving from datetimes; date-only values stay as entered). Same day for all viewers.
    - **DateTimeField UI** — continue showing in the **logged-in user’s local** browser time unless product later asks for branch wall-clock display.
-4. **Align ORM month/year filters** that still use UTC on datetimes (e.g. evangelism tally `date_joined__year` / `__month`) with the same branch calendar when branching TZ ships.
+4. **Align ORM month/year filters** that still use UTC on datetimes (e.g. any remaining evangelism tally datetime fields) with the same branch calendar when branching TZ ships. Invited already uses `date_first_invited` (DateField), not `date_joined`.
 5. Prefer existing **session/meeting calendar dates** (`session_date`, `meeting_date`) over datetime→date when both exist (already done for lessons finished).
 
 ### Do not

@@ -107,7 +107,9 @@ from .services import (
     build_people_tally_cord_rows,
     people_tally_date_window_q,
     people_tally_id_sets,
+    people_tally_unlinked_invited_prospect_ids,
     is_uncorded_cord_param,
+    _prospect_branch_q,
     PEOPLE_TALLY_GROUP_BY_CLUSTER,
     PEOPLE_TALLY_GROUP_BY_CORD,
     PEOPLE_TALLY_ROW_CLUSTER,
@@ -1602,10 +1604,8 @@ class EvangelismWeeklyReportViewSet(viewsets.ModelViewSet):
         years.update(
             people_qs.filter(
                 role="VISITOR",
-                date_joined__isnull=False,
-                date_first_attended__isnull=True,
-            )
-            .dates("date_joined", "year")
+                date_first_invited__isnull=False,
+            ).dates("date_first_invited", "year")
         )
         years.update(
             people_qs.filter(
@@ -1622,6 +1622,21 @@ class EvangelismWeeklyReportViewSet(viewsets.ModelViewSet):
             people_qs.filter(spirit_baptism_date__isnull=False)
             .dates("spirit_baptism_date", "year")
         )
+
+        prospect_qs = Prospect.objects.filter(
+            person__isnull=True,
+            is_dropped_off=False,
+            date_first_invited__isnull=False,
+        )
+        if branch_id is not None:
+            prospect_qs = prospect_qs.filter(_prospect_branch_q(branch_id))
+        if cluster_id is not None:
+            prospect_qs = prospect_qs.filter(
+                Q(inviter_cluster_id=cluster_id) | Q(endorsed_cluster_id=cluster_id)
+            )
+        elif eg_id is not None:
+            prospect_qs = prospect_qs.filter(evangelism_group_id=eg_id)
+        years.update(prospect_qs.dates("date_first_invited", "year"))
 
         lesson_qs = LessonSessionReport.objects.filter(
             session_date__isnull=False,
@@ -1760,16 +1775,18 @@ class EvangelismWeeklyReportViewSet(viewsets.ModelViewSet):
             ).distinct()
 
         cord_scope = cluster_id if isinstance(cluster_id, int) else None
+        # Unlinked prospects have no cord membership; only include them when
+        # not filtering to a specific cord (branch/cluster/uncorded/all).
+        include_unlinked_invited_prospects = cord_raw in (None, "") or is_uncorded_cord_param(
+            cord_raw
+        )
 
         if metric == "invited":
             rows = self._serialize_people_rows(
-                base_people.filter(
-                    role="VISITOR",
-                    date_first_attended__isnull=True,
-                )
+                base_people.filter(role="VISITOR")
                 .filter(
                     people_tally_date_window_q(
-                        "date_joined",
+                        "date_first_invited",
                         year=year_int,
                         months=months,
                         weeks=weeks,
@@ -1777,9 +1794,30 @@ class EvangelismWeeklyReportViewSet(viewsets.ModelViewSet):
                 )
                 .order_by("first_name", "last_name", "username"),
                 metric,
-                date_attr="date_joined",
+                date_attr="date_first_invited",
                 cord_cluster_id=cord_scope,
             )
+            if include_unlinked_invited_prospects:
+                prospect_ids = people_tally_unlinked_invited_prospect_ids(
+                    year=year_int,
+                    months=months,
+                    weeks=weeks,
+                    branch_id=branch_id,
+                    cluster_id=cluster_id if isinstance(cluster_id, int) else None,
+                    evangelism_group_id=eg_id,
+                    unclustered=unclustered,
+                )
+                prospect_rows = self._serialize_prospect_rows(
+                    Prospect.objects.filter(id__in=prospect_ids).order_by(
+                        "first_name", "last_name", "id"
+                    ),
+                    metric,
+                    cord_cluster_id=cord_scope,
+                )
+                for row in prospect_rows:
+                    if row.get("event_date") is None:
+                        row["event_date"] = row.get("date_first_invited")
+                rows = list(rows) + prospect_rows
         elif metric == "attended":
             rows = self._serialize_people_rows(
                 base_people.filter(role="VISITOR")
@@ -1891,7 +1929,7 @@ class EvangelismWeeklyReportViewSet(viewsets.ModelViewSet):
                 weeks=weeks,
                 base_qs=base_people,
                 branch_id=branch_id,
-                cluster_id=cluster_id,
+                cluster_id=cluster_id if isinstance(cluster_id, int) else None,
                 evangelism_group_id=eg_id,
                 group_person_ids=group_person_ids,
                 unclustered=unclustered,

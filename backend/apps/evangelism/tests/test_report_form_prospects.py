@@ -151,6 +151,7 @@ class ReportFormProspectScopeTests(APITestCase):
         self.assertEqual(response.status_code, 201, response.data)
         self.unassigned.refresh_from_db()
         self.assertEqual(self.unassigned.inviter_cluster_id, self.cluster.id)
+        self.assertEqual(self.unassigned.date_first_invited, date(2026, 9, 14))
 
     def test_cluster_report_rejects_other_cluster_prospect(self):
         response = self.client.post(

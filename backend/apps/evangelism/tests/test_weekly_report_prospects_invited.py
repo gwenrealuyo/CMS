@@ -161,6 +161,65 @@ class EvangelismWeeklyReportProspectsInvitedTests(APITestCase):
         self.assertEqual(update.data["new_prospects"], 0)
         self.assertTrue(Prospect.objects.filter(pk=prospect.id).exists())
 
+    def test_prospects_invited_stamps_earliest_invite_date(self):
+        prospect = self._prospect(date_first_invited=None)
+        # Already attended: Person invite date is authoritative and must not move.
+        attended = Person.objects.create_user(
+            username="evrinstamped",
+            password="pass12345",
+            first_name="Vic",
+            last_name="Stamped",
+            role="VISITOR",
+            status="ONGOING",
+            branch=self.branch,
+            date_first_invited=date(2026, 10, 20),
+            date_first_attended=date(2026, 10, 20),
+        )
+        linked = self._prospect(
+            first="Lin",
+            last="Ked",
+            person=attended,
+            date_first_invited=date(2026, 10, 20),
+        )
+
+        response = self.client.post(
+            "/api/evangelism/weekly-reports/",
+            {
+                "evangelism_group_id": self.group.id,
+                "year": 2026,
+                "week_number": 42,
+                "meeting_date": "2026-10-12",
+                "gathering_type": "PHYSICAL",
+                "prospects_invited": [prospect.id, linked.id],
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, 201, response.data)
+
+        prospect.refresh_from_db()
+        linked.refresh_from_db()
+        attended.refresh_from_db()
+        self.assertEqual(prospect.date_first_invited, date(2026, 10, 12))
+        self.assertEqual(linked.date_first_invited, date(2026, 10, 12))
+        self.assertEqual(attended.date_first_invited, date(2026, 10, 20))
+
+        later = self.client.post(
+            "/api/evangelism/weekly-reports/",
+            {
+                "evangelism_group_id": self.group.id,
+                "year": 2026,
+                "week_number": 43,
+                "meeting_date": "2026-10-26",
+                "gathering_type": "PHYSICAL",
+                "prospects_invited": [prospect.id],
+            },
+            format="json",
+        )
+        self.assertEqual(later.status_code, 201, later.data)
+        prospect.refresh_from_db()
+        self.assertEqual(prospect.date_first_invited, date(2026, 10, 12))
+
+
 
 class EvangelismWeeklyReportExistingVisitorTests(APITestCase):
     def setUp(self):

@@ -4,6 +4,7 @@ from django.utils import timezone
 from rest_framework.test import APITestCase
 
 from apps.clusters.models import Cluster, ClusterCord, ClusterCordMembership
+from apps.evangelism.models import Prospect
 from apps.people.models import Branch, Person
 from core.datetime_utils import church_today
 
@@ -108,9 +109,9 @@ class PeopleTallyAPITests(APITestCase):
         self.west.members.add(dual)
 
         invited = self._person("tallyinvite", role="VISITOR", first_name="Ivy")
-        invited.date_joined = self._aware(self.year, 3)
+        invited.date_first_invited = date(self.year, 3, 10)
         invited.date_first_attended = None
-        invited.save(update_fields=["date_joined", "date_first_attended"])
+        invited.save(update_fields=["date_first_invited", "date_first_attended"])
 
         response = self.client.get(
             TALLY_URL,
@@ -253,9 +254,9 @@ class PeopleTallyAPITests(APITestCase):
 
     def test_detail_accepts_months_and_unassigned_cluster(self):
         invited = self._person("tallyunass", role="VISITOR", first_name="Una")
-        invited.date_joined = self._aware(self.year, 4)
+        invited.date_first_invited = date(self.year, 4, 10)
         invited.date_first_attended = None
-        invited.save(update_fields=["date_joined", "date_first_attended"])
+        invited.save(update_fields=["date_first_invited", "date_first_attended"])
 
         clustered = self._person("tallyclus", role="MEMBER", first_name="Cal")
         clustered.water_baptism_date = date(self.year, 4, 18)
@@ -429,3 +430,86 @@ class PeopleTallyAPITests(APITestCase):
         self.assertEqual(uncorded_detail.status_code, 200, uncorded_detail.data)
         self.assertEqual(uncorded_detail.data["count"], 1)
         self.assertEqual(uncorded_detail.data["results"][0]["first_name"], "NoCord")
+
+    def test_invited_and_attended_same_month_count_independently(self):
+        novelina = self._person("tallynovelina", role="VISITOR", first_name="Novelina")
+        novelina.date_first_invited = date(self.year, 10, 11)
+        novelina.date_first_attended = date(self.year, 10, 11)
+        novelina.save(update_fields=["date_first_invited", "date_first_attended"])
+
+        response = self.client.get(
+            TALLY_URL,
+            {"year": self.year, "branch": self.branch.id},
+        )
+        self.assertEqual(response.status_code, 200, response.data)
+        october = self._row_for_month(response.data, 10)
+        self.assertEqual(october["invited_count"], 1)
+        self.assertEqual(october["attended_count"], 1)
+        self.assertEqual(october["unique_hc_count"], 1)
+
+        invited_detail = self.client.get(
+            DETAIL_URL,
+            {
+                "year": self.year,
+                "branch": self.branch.id,
+                "month": 10,
+                "metric": "invited",
+            },
+        )
+        self.assertEqual(invited_detail.status_code, 200, invited_detail.data)
+        self.assertEqual(invited_detail.data["count"], 1)
+        self.assertEqual(invited_detail.data["results"][0]["first_name"], "Novelina")
+
+    def test_unlinked_prospect_counts_in_invited_only(self):
+        inviter = self._person("tallyinviter", role="MEMBER", first_name="Inviter")
+        prospect = Prospect.objects.create(
+            first_name="Una",
+            last_name="Linked",
+            invited_by=inviter,
+            inviter_cluster=self.east,
+            pipeline_stage=Prospect.PipelineStage.INVITED,
+            date_first_invited=date(self.year, 7, 5),
+            is_dropped_off=False,
+        )
+
+        response = self.client.get(
+            TALLY_URL,
+            {"year": self.year, "branch": self.branch.id},
+        )
+        self.assertEqual(response.status_code, 200, response.data)
+        july = self._row_for_month(response.data, 7)
+        self.assertEqual(july["invited_count"], 1)
+        self.assertEqual(july["attended_count"], 0)
+        # Unique HC is Person-profile based; unlinked prospects are Invited-only.
+        self.assertEqual(july["unique_hc_count"], 0)
+
+        cluster_mode = self.client.get(
+            TALLY_URL,
+            {
+                "year": self.year,
+                "branch": self.branch.id,
+                "group_by": "cluster",
+                "months": "7",
+            },
+        )
+        self.assertEqual(cluster_mode.status_code, 200, cluster_mode.data)
+        east_row = self._row_for_kind(cluster_mode.data, "cluster", self.east.id)
+        self.assertEqual(east_row["invited_count"], 1)
+        self.assertEqual(east_row["unique_hc_count"], 0)
+
+        detail = self.client.get(
+            DETAIL_URL,
+            {
+                "year": self.year,
+                "branch": self.branch.id,
+                "month": 7,
+                "metric": "invited",
+                "cluster": self.east.id,
+            },
+        )
+        self.assertEqual(detail.status_code, 200, detail.data)
+        self.assertEqual(detail.data["count"], 1)
+        row = detail.data["results"][0]
+        self.assertEqual(row["entity_type"], "prospect")
+        self.assertEqual(row["id"], prospect.id)
+        self.assertEqual(row["first_name"], "Una")

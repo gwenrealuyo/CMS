@@ -51,6 +51,7 @@ from .services import (
     claim_unassigned_prospect_for_group,
     create_invited_prospect_for_evangelism_group,
     encoded_visitor_prospect_defaults,
+    ensure_earliest_invite_date,
     find_duplicate_invited_prospects_for_group,
     get_default_each1reach1_target,
     group_report_prospect_block_reason,
@@ -1213,6 +1214,8 @@ class EvangelismWeeklyReportSerializer(serializers.ModelSerializer):
         invited_set = list(prospects_invited) + created_prospects
         for prospect in prospects_invited:
             claim_unassigned_prospect_for_group(prospect, group)
+        for prospect in invited_set:
+            ensure_earliest_invite_date(prospect, meeting_date)
         if invited_set:
             report.prospects_invited.set(invited_set)
         self._clear_cancelled_attendance(report)
@@ -1280,6 +1283,8 @@ class EvangelismWeeklyReportSerializer(serializers.ModelSerializer):
             if prospects_invited is not serializers.empty:
                 for prospect in prospects_invited:
                     claim_unassigned_prospect_for_group(prospect, group)
+            for prospect in invited_set:
+                ensure_earliest_invite_date(prospect, meeting_date)
             instance.prospects_invited.set(invited_set)
 
         self._clear_cancelled_attendance(instance)

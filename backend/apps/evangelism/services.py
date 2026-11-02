@@ -605,17 +605,14 @@ def calculate_monthly_statistics(
     elif branch_id is not None:
         query = query.filter(cluster__branch_id=branch_id)
 
-    # Get unique persons per stage
+    # Get unique persons per stage (independent — same prospect can count in multiple stages)
     invited_prospects = query.filter(stage=MonthlyConversionTracking.Stage.INVITED).values_list("prospect_id", flat=True).distinct()
     attended_prospects = query.filter(stage=MonthlyConversionTracking.Stage.ATTENDED).values_list("prospect_id", flat=True).distinct()
     baptized_prospects = query.filter(stage=MonthlyConversionTracking.Stage.BAPTIZED).values_list("prospect_id", flat=True).distinct()
     received_hg_prospects = query.filter(stage=MonthlyConversionTracking.Stage.RECEIVED_HG).values_list("prospect_id", flat=True).distinct()
 
-    # For INVITED: only count if they haven't attended yet
-    invited_count = len([p for p in invited_prospects if p not in attended_prospects])
-
-    # For ATTENDED: count unique persons
-    attended_count = len(attended_prospects)
+    invited_count = len(set(invited_prospects))
+    attended_count = len(set(attended_prospects))
 
     # For BAPTIZED: count events (journey count)
     baptized_count = query.filter(stage=MonthlyConversionTracking.Stage.BAPTIZED).count()
@@ -835,6 +832,85 @@ def person_ids_with_ncc_sessions_for_month(
     )
 
 
+def ensure_earliest_invite_date(
+    prospect: Prospect,
+    meeting_date: Optional[date],
+) -> Prospect:
+    """Keep the earliest invite date on Prospect.
+
+    If a linked Person exists but has not attended yet, sync the same earliest
+    invite onto the Person. Once they have attended, Person milestones are the
+    source of truth and are left alone.
+    """
+    if meeting_date is None:
+        return prospect
+
+    prospect_updates: List[str] = []
+    if prospect.date_first_invited is None:
+        prospect.date_first_invited = meeting_date
+        prospect_updates.append("date_first_invited")
+    elif meeting_date < prospect.date_first_invited:
+        prospect.date_first_invited = meeting_date
+        prospect_updates.append("date_first_invited")
+
+    if prospect_updates:
+        prospect.save(update_fields=prospect_updates)
+
+    person = prospect.person
+    if person is not None and person.date_first_attended is None:
+        person_updates: List[str] = []
+        invite = prospect.date_first_invited or meeting_date
+        if person.date_first_invited is None:
+            person.date_first_invited = invite
+            person_updates.append("date_first_invited")
+        elif invite < person.date_first_invited:
+            person.date_first_invited = invite
+            person_updates.append("date_first_invited")
+        if person_updates:
+            person.save(update_fields=person_updates)
+
+    return prospect
+
+
+def people_tally_unlinked_invited_prospect_ids(
+    *,
+    year: int,
+    months: Sequence[int],
+    branch_id: Optional[int] = None,
+    cluster_id: Optional[int] = None,
+    evangelism_group_id: Optional[int] = None,
+    unclustered: bool = False,
+    weeks: Optional[Sequence[int]] = None,
+) -> Set[int]:
+    """Still-unlinked Prospects whose first invite falls in the tally window."""
+    month_list = list(months)
+    qs = Prospect.objects.filter(
+        person__isnull=True,
+        is_dropped_off=False,
+    ).filter(
+        people_tally_date_window_q(
+            "date_first_invited",
+            year=year,
+            months=month_list,
+            weeks=weeks,
+        )
+    )
+    if branch_id is not None:
+        qs = qs.filter(_prospect_branch_q(branch_id))
+    if unclustered:
+        qs = qs.filter(
+            inviter_cluster__isnull=True,
+            endorsed_cluster__isnull=True,
+        )
+    elif cluster_id is not None:
+        qs = qs.filter(
+            Q(inviter_cluster_id=cluster_id) | Q(endorsed_cluster_id=cluster_id)
+        )
+    elif evangelism_group_id is not None:
+        qs = qs.filter(evangelism_group_id=evangelism_group_id)
+    return set(qs.values_list("id", flat=True))
+
+
 def people_tally_id_sets(
     *,
     year: int,
@@ -847,26 +923,36 @@ def people_tally_id_sets(
     unclustered: bool = False,
     weeks: Optional[Sequence[int]] = None,
 ) -> Dict[str, Set[int]]:
-    """Person ID sets for each people-tally column over the given months/weeks."""
+    """ID sets for each people-tally column over the given months/weeks.
+
+    Person-keyed sets use Person PKs. ``invited_prospects`` uses Prospect PKs for
+    still-unlinked invites and must not be mixed into person membership lookups.
+    """
     month_list = list(months)
     scoped_qs = base_qs
     if unclustered:
         scoped_qs = scoped_qs.filter(clusters__isnull=True).distinct()
 
     invited_ids = set(
-        scoped_qs.filter(
-            role="VISITOR",
-            date_first_attended__isnull=True,
-        )
+        scoped_qs.filter(role="VISITOR")
         .filter(
             people_tally_date_window_q(
-                "date_joined",
+                "date_first_invited",
                 year=year,
                 months=month_list,
                 weeks=weeks,
             )
         )
         .values_list("id", flat=True)
+    )
+    invited_prospect_ids = people_tally_unlinked_invited_prospect_ids(
+        year=year,
+        months=month_list,
+        weeks=weeks,
+        branch_id=branch_id,
+        cluster_id=cluster_id,
+        evangelism_group_id=evangelism_group_id,
+        unclustered=unclustered,
     )
     attended_ids = set(
         scoped_qs.filter(role="VISITOR")
@@ -932,6 +1018,7 @@ def people_tally_id_sets(
     )
     return {
         "invited": invited_ids,
+        "invited_prospects": invited_prospect_ids,
         "attended": attended_ids,
         "students": students_ids,
         "baptized": baptized_ids,
@@ -942,8 +1029,11 @@ def people_tally_id_sets(
 
 
 def people_tally_counts_from_ids(id_sets: Dict[str, Set[int]]) -> Dict[str, int]:
+    # Unlinked prospects only fill Invited. Unique HC and other milestones are
+    # Person-profile based (after attend, tally reads Person dates only).
+    invited_prospects = id_sets.get("invited_prospects") or set()
     return {
-        "invited_count": len(id_sets["invited"]),
+        "invited_count": len(id_sets["invited"]) + len(invited_prospects),
         "attended_count": len(id_sets["attended"]),
         "students_count": len(id_sets["students"]),
         "baptized_count": len(id_sets["baptized"]),
@@ -951,6 +1041,31 @@ def people_tally_counts_from_ids(id_sets: Dict[str, Set[int]]) -> Dict[str, int]
         "reached_count": len(id_sets["reached"]),
         "unique_hc_count": len(id_sets["unique_hc"]),
     }
+
+
+def _person_id_sets_only(id_sets: Dict[str, Set[int]]) -> Set[int]:
+    """Union of person-keyed tally sets (excludes invited_prospects)."""
+    person_ids: Set[int] = set()
+    for key, ids in id_sets.items():
+        if key == "invited_prospects":
+            continue
+        person_ids |= ids
+    return person_ids
+
+
+def _prospect_cluster_ids_map(prospect_ids: Set[int]) -> Dict[int, Set[int]]:
+    mapping: Dict[int, Set[int]] = defaultdict(set)
+    if not prospect_ids:
+        return mapping
+    rows = Prospect.objects.filter(id__in=prospect_ids).values_list(
+        "id", "inviter_cluster_id", "endorsed_cluster_id"
+    )
+    for prospect_id, inviter_cluster_id, endorsed_cluster_id in rows:
+        if inviter_cluster_id:
+            mapping[prospect_id].add(inviter_cluster_id)
+        if endorsed_cluster_id:
+            mapping[prospect_id].add(endorsed_cluster_id)
+    return mapping
 
 
 def build_people_tally_month_rows(
@@ -995,14 +1110,29 @@ def _subset_ids_for_clusters(
     *,
     cluster_id: Optional[int] = None,
     unassigned: bool = False,
+    prospect_cluster_ids: Optional[Dict[int, Set[int]]] = None,
 ) -> Dict[str, Set[int]]:
-    def matches(person_id: int) -> bool:
+    prospect_cluster_ids = prospect_cluster_ids or {}
+
+    def matches_person(person_id: int) -> bool:
         memberships = person_cluster_ids.get(person_id) or set()
         if unassigned:
             return not memberships
         return cluster_id in memberships
 
-    return {key: {pid for pid in ids if matches(pid)} for key, ids in id_sets.items()}
+    def matches_prospect(prospect_id: int) -> bool:
+        memberships = prospect_cluster_ids.get(prospect_id) or set()
+        if unassigned:
+            return not memberships
+        return cluster_id in memberships
+
+    result: Dict[str, Set[int]] = {}
+    for key, ids in id_sets.items():
+        if key == "invited_prospects":
+            result[key] = {pid for pid in ids if matches_prospect(pid)}
+        else:
+            result[key] = {pid for pid in ids if matches_person(pid)}
+    return result
 
 
 def build_people_tally_cluster_rows(
@@ -1026,9 +1156,10 @@ def build_people_tally_cluster_rows(
         base_qs=base_qs,
         branch_id=branch_id,
     )
-    all_ids: Set[int] = set()
-    for ids in id_sets.values():
-        all_ids |= ids
+    all_ids = _person_id_sets_only(id_sets)
+    prospect_cluster_ids = _prospect_cluster_ids_map(
+        id_sets.get("invited_prospects") or set()
+    )
 
     person_cluster_ids: Dict[int, Set[int]] = defaultdict(set)
     if clusters and all_ids:
@@ -1042,7 +1173,10 @@ def build_people_tally_cluster_rows(
     rows: List[dict] = []
     for cluster in clusters:
         clustered = _subset_ids_for_clusters(
-            id_sets, person_cluster_ids, cluster_id=cluster.id
+            id_sets,
+            person_cluster_ids,
+            cluster_id=cluster.id,
+            prospect_cluster_ids=prospect_cluster_ids,
         )
         rows.append(
             {
@@ -1057,7 +1191,10 @@ def build_people_tally_cluster_rows(
         )
 
     unassigned_sets = _subset_ids_for_clusters(
-        id_sets, person_cluster_ids, unassigned=True
+        id_sets,
+        person_cluster_ids,
+        unassigned=True,
+        prospect_cluster_ids=prospect_cluster_ids,
     )
     if any(unassigned_sets.values()):
         rows.append(
@@ -1144,9 +1281,8 @@ def build_people_tally_cord_rows(
         base_qs=base_qs,
         branch_id=branch_id,
     )
-    all_ids: Set[int] = set()
-    for ids in id_sets.values():
-        all_ids |= ids
+    all_ids = _person_id_sets_only(id_sets)
+    invited_prospects = id_sets.get("invited_prospects") or set()
 
     person_cord = _person_active_cord_map(
         branch_id=branch_id,
@@ -1159,8 +1295,13 @@ def build_people_tally_cord_rows(
 
     rows: List[dict] = []
     for cord in cords:
+        # Unlinked prospects have no cord membership — cord rows stay person-only.
         subset = {
-            key: ids & cord_member_ids.get(cord.id, set())
+            key: (
+                set()
+                if key == "invited_prospects"
+                else ids & cord_member_ids.get(cord.id, set())
+            )
             for key, ids in id_sets.items()
         }
         cluster = cord.cluster
@@ -1179,8 +1320,11 @@ def build_people_tally_cord_rows(
         )
 
     corded_ids = set(person_cord.keys())
-    uncorded = {key: ids - corded_ids for key, ids in id_sets.items()}
-    if any(uncorded.values()):
+    uncorded = {
+        key: (set(ids) if key == "invited_prospects" else ids - corded_ids)
+        for key, ids in id_sets.items()
+    }
+    if any(uncorded.values()) or invited_prospects:
         rows.append(
             {
                 "month": None,

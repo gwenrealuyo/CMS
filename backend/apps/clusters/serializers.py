@@ -21,6 +21,7 @@ from apps.evangelism.services import (
     claim_unassigned_prospect_for_cluster,
     cluster_report_prospect_block_reason,
     create_invited_prospect_for_cluster,
+    ensure_earliest_invite_date,
     find_duplicate_invited_prospects,
     mark_prospect_attended,
     prospect_belongs_to_cluster,
@@ -1355,6 +1356,8 @@ class ClusterWeeklyReportSerializer(serializers.ModelSerializer):
         promoted_prospect_ids = {p.pk for p in prospects_attended}
         invited_set = [p for p in invited_set if p.pk not in promoted_prospect_ids]
         self._claim_invited_prospects(cluster, prospects_invited)
+        for prospect in invited_set:
+            ensure_earliest_invite_date(prospect, meeting_date)
         if invited_set:
             report.prospects_invited.set(invited_set)
 
@@ -1440,6 +1443,8 @@ class ClusterWeeklyReportSerializer(serializers.ModelSerializer):
             invited_set = [p for p in invited_set if p.pk not in promoted_prospect_ids]
             if prospects_invited is not serializers.empty:
                 self._claim_invited_prospects(cluster, prospects_invited)
+            for prospect in invited_set:
+                ensure_earliest_invite_date(prospect, meeting_date)
             # Unlink only — never delete Prospect rows
             instance.prospects_invited.set(invited_set)
 

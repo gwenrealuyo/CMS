@@ -76,10 +76,16 @@ export default function AssignLessonsDropdown({
       if (!isSelectablePerson(person) || person.has_finished_lessons) {
         return false;
       }
+      if ((person.role || "").trim().toUpperCase() !== "VISITOR") {
+        return false;
+      }
       if (
         currentUserId != null &&
         String(person.id) === String(currentUserId)
       ) {
+        return false;
+      }
+      if (person.has_lesson_enrollment) {
         return false;
       }
       const personId = Number(person.id);
@@ -89,25 +95,48 @@ export default function AssignLessonsDropdown({
       if (pendingStudentIds?.has(personId)) {
         return false;
       }
+      if (enrollmentByStudent.has(personId)) {
+        return false;
+      }
       return !assignedStudentIds.has(personId);
     });
-  }, [assignedStudentIds, currentUserId, pendingStudentIds, people]);
+  }, [
+    assignedStudentIds,
+    currentUserId,
+    enrollmentByStudent,
+    pendingStudentIds,
+    people,
+  ]);
 
   const emptyEligibleMessage = useMemo(() => {
-    const selectable = people.filter(isSelectablePerson);
-    const notFinished = selectable.filter((person) => !person.has_finished_lessons);
+    const visitors = people.filter(
+      (person) =>
+        isSelectablePerson(person) &&
+        (person.role || "").trim().toUpperCase() === "VISITOR",
+    );
+    if (visitors.length === 0) {
+      return "No visitors available to assign.";
+    }
+    const notFinished = visitors.filter((person) => !person.has_finished_lessons);
     if (notFinished.length === 0) {
       return "No people available (all have finished lessons).";
     }
     const allAlreadyAssigned = notFinished.every((person) => {
       const personId = Number(person.id);
-      return !Number.isNaN(personId) && assignedStudentIds.has(personId);
+      if (Number.isNaN(personId)) {
+        return false;
+      }
+      return (
+        person.has_lesson_enrollment === true ||
+        enrollmentByStudent.has(personId) ||
+        assignedStudentIds.has(personId)
+      );
     });
     if (allAlreadyAssigned) {
       return "No people available (all eligible students already have lessons assigned).";
     }
     return "No people available.";
-  }, [assignedStudentIds, people]);
+  }, [assignedStudentIds, enrollmentByStudent, people]);
 
   const filteredPeople = useMemo(() => {
     if (!searchQuery.trim()) {

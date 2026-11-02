@@ -139,6 +139,7 @@ interface LessonsPageViewProps {
   studentTeacherById: Map<number, LessonPersonSummary>;
   progressFilterLessonId: number | null;
   progressSearchQuery: string;
+  progressTeacherFilterKey: string;
   progressStatusFilter: ProgressStatusFilter;
   progressSortField: ProgressSortField;
   progressSortDirection: "asc" | "desc";
@@ -262,6 +263,7 @@ interface LessonsPageViewProps {
   ) => Promise<void>;
   onProgressFilterChange: (lessonId: number | null) => void;
   onProgressSearchQueryChange: (value: string) => void;
+  onProgressTeacherFilterChange: (value: string) => void;
   onProgressStatusFilterChange: (value: ProgressStatusFilter) => void;
   onProgressSortChange: (field: ProgressSortField) => void;
   onTeacherOverviewClick: (group: TeacherProgressGroup) => void;
@@ -412,6 +414,7 @@ export default function LessonsPageView({
   onTransferTeacher,
   onProgressFilterChange,
   onProgressSearchQueryChange,
+  onProgressTeacherFilterChange,
   onProgressStatusFilterChange,
   onProgressSortChange,
   onTeacherOverviewClick,
@@ -436,6 +439,7 @@ export default function LessonsPageView({
   studentTeacherById,
   progressFilterLessonId,
   progressSearchQuery,
+  progressTeacherFilterKey,
   progressStatusFilter,
   progressSortField,
   progressSortDirection,
@@ -698,6 +702,8 @@ export default function LessonsPageView({
               onProgressFilterChange={onProgressFilterChange}
               progressSearchQuery={progressSearchQuery}
               onProgressSearchQueryChange={onProgressSearchQueryChange}
+              progressTeacherFilterKey={progressTeacherFilterKey}
+              onProgressTeacherFilterChange={onProgressTeacherFilterChange}
               progressStatusFilter={progressStatusFilter}
               onProgressStatusFilterChange={onProgressStatusFilterChange}
               progressSortField={progressSortField}
@@ -730,7 +736,7 @@ export default function LessonsPageView({
             >
               <AssignmentRequestQueue
                 title="For approval"
-                description="Teachers requested these students for themselves. Approving assigns the student and the selected lessons. Rejecting leaves the student unassigned."
+                description="Teachers requested these students for themselves. Approving assigns the student and any requested lessons. Rejecting leaves the student unassigned."
                 requests={assignmentRequests}
                 loading={assignmentRequestsLoading}
                 error={assignmentRequestsError}

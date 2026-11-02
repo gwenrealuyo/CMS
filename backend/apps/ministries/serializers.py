@@ -1,4 +1,5 @@
 import json
+from typing import Optional
 
 from django.contrib.auth import get_user_model
 from django.db import transaction
@@ -61,11 +62,14 @@ class UserSummarySerializer(serializers.ModelSerializer):
         )
 
 
+_MINISTRY_PERSON_QS = User.objects.exclude(role__in=("ADMIN", "VISITOR"))
+
+
 class MinistryMemberSerializer(serializers.ModelSerializer):
     member = UserSummarySerializer(read_only=True)
     member_id = serializers.PrimaryKeyRelatedField(
         source="member",
-        queryset=User.objects.exclude(role="ADMIN"),
+        queryset=_MINISTRY_PERSON_QS,
         write_only=True,
         required=False,
     )
@@ -141,6 +145,10 @@ class MinistryMemberSerializer(serializers.ModelSerializer):
             "ministry", getattr(self.instance, "ministry", None)
         )
         member = attrs.get("member", getattr(self.instance, "member", None))
+        if member is not None and getattr(member, "role", None) == "VISITOR":
+            raise serializers.ValidationError(
+                {"member_id": "Visitors cannot be added to a ministry."}
+            )
         if ministry is not None and member is not None:
             qs = MinistryMember.objects.filter(ministry=ministry, member=member)
             if self.instance is not None:
@@ -238,6 +246,7 @@ class MinistryListSerializer(serializers.ModelSerializer):
     primary_coordinator = UserSummarySerializer(read_only=True)
     member_count = serializers.IntegerField(read_only=True, default=0)
     branch = serializers.PrimaryKeyRelatedField(read_only=True)
+    branch_name = serializers.SerializerMethodField()
     viewer_can_edit = serializers.SerializerMethodField()
 
     class Meta:
@@ -251,6 +260,7 @@ class MinistryListSerializer(serializers.ModelSerializer):
             "activity_cadence",
             "scope",
             "branch",
+            "branch_name",
             "primary_coordinator",
             "meeting_location",
             "meeting_schedule",
@@ -262,6 +272,12 @@ class MinistryListSerializer(serializers.ModelSerializer):
         )
         read_only_fields = fields
 
+    def get_branch_name(self, obj: Ministry) -> Optional[str]:
+        branch = getattr(obj, "branch", None)
+        if branch and getattr(branch, "name", None):
+            return branch.name
+        return None
+
     def get_viewer_can_edit(self, obj: Ministry) -> bool:
         request = self.context.get("request")
         user = getattr(request, "user", None) if request is not None else None
@@ -272,7 +288,7 @@ class MinistrySerializer(serializers.ModelSerializer):
     primary_coordinator = UserSummarySerializer(read_only=True)
     primary_coordinator_id = serializers.PrimaryKeyRelatedField(
         source="primary_coordinator",
-        queryset=User.objects.exclude(role="ADMIN"),
+        queryset=_MINISTRY_PERSON_QS,
         required=False,
         allow_null=True,
         write_only=True,
@@ -280,7 +296,7 @@ class MinistrySerializer(serializers.ModelSerializer):
     support_coordinators = UserSummarySerializer(many=True, read_only=True)
     support_coordinator_ids = serializers.PrimaryKeyRelatedField(
         source="support_coordinators",
-        queryset=User.objects.exclude(role="ADMIN"),
+        queryset=_MINISTRY_PERSON_QS,
         many=True,
         required=False,
         write_only=True,
@@ -293,6 +309,7 @@ class MinistrySerializer(serializers.ModelSerializer):
         required=False,
         allow_null=True,
     )
+    branch_name = serializers.SerializerMethodField()
 
     class Meta:
         model = Ministry
@@ -305,6 +322,7 @@ class MinistrySerializer(serializers.ModelSerializer):
             "activity_cadence",
             "scope",
             "branch",
+            "branch_name",
             "primary_coordinator",
             "primary_coordinator_id",
             "support_coordinators",
@@ -325,6 +343,7 @@ class MinistrySerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
             "is_system",
+            "branch_name",
             "viewer_can_edit",
             "viewer_can_view_roster",
         )
@@ -335,6 +354,12 @@ class MinistrySerializer(serializers.ModelSerializer):
     def _request_user(self):
         request = self.context.get("request")
         return getattr(request, "user", None) if request is not None else None
+
+    def get_branch_name(self, obj: Ministry) -> Optional[str]:
+        branch = getattr(obj, "branch", None)
+        if branch and getattr(branch, "name", None):
+            return branch.name
+        return None
 
     def get_viewer_can_edit(self, obj: Ministry) -> bool:
         return user_can_edit_ministry(self._request_user(), obj)
@@ -459,12 +484,25 @@ class MinistrySerializer(serializers.ModelSerializer):
                 suffix += 1
             attrs["code"] = candidate
 
+        if primary is not None and getattr(primary, "role", None) == "VISITOR":
+            raise ValidationError(
+                {"primary_coordinator_id": "Visitors cannot be ministry coordinators."}
+            )
+
         if "support_coordinators" in attrs and attrs["support_coordinators"]:
             unique = []
             seen_ids = set()
             for coordinator in attrs["support_coordinators"]:
                 if coordinator is None:
                     continue
+                if getattr(coordinator, "role", None) == "VISITOR":
+                    raise ValidationError(
+                        {
+                            "support_coordinator_ids": (
+                                "Visitors cannot be ministry coordinators."
+                            )
+                        }
+                    )
                 if primary and coordinator.pk == primary.pk:
                     continue
                 if coordinator.pk not in seen_ids:

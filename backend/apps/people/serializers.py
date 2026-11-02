@@ -2032,6 +2032,7 @@ class PersonListSerializer(serializers.ModelSerializer):
     can_view_profile = serializers.SerializerMethodField()
     cord_id = serializers.SerializerMethodField()
     cord_name = serializers.SerializerMethodField()
+    has_lesson_enrollment = serializers.SerializerMethodField()
     cluster_ids = serializers.PrimaryKeyRelatedField(
         source="clusters", many=True, read_only=True
     )
@@ -2067,6 +2068,8 @@ class PersonListSerializer(serializers.ModelSerializer):
             "water_baptism_date",
             "spirit_baptism_date",
             "first_activity_attended",
+            "has_finished_lessons",
+            "has_lesson_enrollment",
             "cluster_codes",
             "cluster_labels",
             "cluster_ids",
@@ -2107,6 +2110,9 @@ class PersonListSerializer(serializers.ModelSerializer):
 
     def get_family_names(self, obj: Person):
         return [f.name for f in obj.families.all()]
+
+    def get_has_lesson_enrollment(self, obj: Person) -> bool:
+        return getattr(obj, "lesson_enrollment", None) is not None
 
     def get_cord_id(self, obj: Person):
         cord = self._list_effective_cord(obj)

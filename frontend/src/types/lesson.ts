@@ -46,6 +46,7 @@ export interface LessonPersonSummary {
   member_id?: string | null;
   status?: string | null;
   cluster_codes?: string[] | null;
+  evangelism_group_names?: string[] | null;
   branch?: number | null;
 }
 

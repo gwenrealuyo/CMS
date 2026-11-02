@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import Card from "@/src/components/ui/Card";
 import ErrorMessage from "@/src/components/ui/ErrorMessage";
+import ScalableSelect from "@/src/components/ui/ScalableSelect";
 import ToolbarSearch from "@/src/components/ui/ToolbarSearch";
 import ViewModeToggle from "@/src/components/ui/ViewModeToggle";
 import LessonProgressTable from "./LessonProgressTable";
@@ -17,15 +18,14 @@ import {
 } from "@/src/types/lesson";
 import { Person } from "@/src/types/person";
 import { LessonPersonLike } from "@/src/lib/lessonsUtils";
+import { formatPersonName } from "@/src/lib/name";
 import {
   effectiveListViewMode,
   getInitialListViewMode,
   useIsMdUp,
   useIsTabletUp,
 } from "@/src/lib/listViewMode";
-import {
-  TOOLBAR_CARD_CLASS,
-} from "@/src/lib/toolbarStyles";
+import { TOOLBAR_CARD_CLASS } from "@/src/lib/toolbarStyles";
 
 type ProgressStatusFilter = "ALL" | LessonProgressStatus;
 
@@ -40,6 +40,8 @@ interface MemberProgressSectionProps {
   onProgressFilterChange: (lessonId: number | null) => void;
   progressSearchQuery: string;
   onProgressSearchQueryChange: (value: string) => void;
+  progressTeacherFilterKey: string;
+  onProgressTeacherFilterChange: (value: string) => void;
   progressStatusFilter: ProgressStatusFilter;
   onProgressStatusFilterChange: (value: ProgressStatusFilter) => void;
   progressSortField: ProgressSortField;
@@ -78,6 +80,8 @@ export default function MemberProgressSection({
   onProgressFilterChange,
   progressSearchQuery,
   onProgressSearchQueryChange,
+  progressTeacherFilterKey,
+  onProgressTeacherFilterChange,
   progressStatusFilter,
   onProgressStatusFilterChange,
   progressSortField,
@@ -110,6 +114,17 @@ export default function MemberProgressSection({
   const isMdUp = useIsMdUp();
   const effectiveViewMode = effectiveListViewMode(viewMode, isTabletUp);
 
+  const teacherFilterOptions = useMemo(
+    () => [
+      ...teacherChoices.map((teacher) => ({
+        value: String(teacher.id),
+        label: `Tr. ${formatPersonName(teacher)}`,
+      })),
+      { value: "no-teacher", label: "No teacher" },
+    ],
+    [teacherChoices],
+  );
+
   return (
     <Card title="Student Progress">
       <div className="space-y-5">
@@ -121,7 +136,7 @@ export default function MemberProgressSection({
           <div className="flex flex-col gap-3 md:flex-row md:items-center md:gap-2">
             <ToolbarSearch
               fullWidth
-              className="md:min-w-0 md:max-w-none md:flex-[2]"
+              className="md:min-w-0 md:max-w-[14rem] md:flex-1"
               value={progressSearchQuery}
               onChange={onProgressSearchQueryChange}
               placeholder="Search student..."
@@ -134,6 +149,19 @@ export default function MemberProgressSection({
               viewMode={viewMode}
               onViewModeChange={setViewMode}
             />
+
+            <div className="w-full md:min-w-0 md:max-w-[12rem] md:flex-1">
+              <ScalableSelect
+                options={teacherFilterOptions}
+                value={progressTeacherFilterKey}
+                onChange={onProgressTeacherFilterChange}
+                placeholder="All teachers"
+                searchPlaceholder="Search teacher..."
+                emptyMessage="No teachers found"
+                className="min-h-[44px]"
+                pinnedOption={{ value: "", label: "All teachers" }}
+              />
+            </div>
 
             <select
               className="min-h-[44px] w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm md:min-w-0 md:max-w-[9rem] md:flex-1 md:truncate"

@@ -100,6 +100,7 @@ export default function LessonsPageContainer() {
     number | null
   >(null);
   const [progressSearchQuery, setProgressSearchQuery] = useState("");
+  const [progressTeacherFilterKey, setProgressTeacherFilterKey] = useState("");
   const [focusTeacherKey, setFocusTeacherKey] = useState<string | null>(null);
   const [progressStatusFilter, setProgressStatusFilter] =
     useState<ProgressStatusFilter>("ALL");
@@ -654,6 +655,20 @@ export default function LessonsPageContainer() {
         return false;
       }
 
+      if (progressTeacherFilterKey) {
+        const teacher = studentTeacherById.get(summary.person.id);
+        if (progressTeacherFilterKey === "no-teacher") {
+          if (teacher) {
+            return false;
+          }
+        } else if (
+          teacher?.id == null ||
+          String(teacher.id) !== progressTeacherFilterKey
+        ) {
+          return false;
+        }
+      }
+
       if (progressStatusFilter !== "ALL") {
         if (progressStatusFilter === "SKIPPED") {
           if (!summary.allProgress.some((record) => record.status === "SKIPPED")) {
@@ -751,6 +766,7 @@ export default function LessonsPageContainer() {
     progressSortDirection,
     progressSortField,
     progressStatusFilter,
+    progressTeacherFilterKey,
     studentTeacherById,
   ]);
 
@@ -1637,6 +1653,11 @@ export default function LessonsPageContainer() {
     setProgressStatusFilter(value);
   };
 
+  const handleProgressTeacherFilterChange = (value: string) => {
+    setProgressTeacherFilterKey(value);
+    setFocusTeacherKey(value || null);
+  };
+
   const handleProgressSortChange = (field: ProgressSortField) => {
     if (progressSortField === field) {
       setProgressSortDirection((previous) =>
@@ -1666,11 +1687,14 @@ export default function LessonsPageContainer() {
     setProgressSearchQuery("");
     setProgressFilterLessonId(null);
     setProgressStatusFilter("ALL");
+    setProgressTeacherFilterKey("");
+    setFocusTeacherKey(null);
     closePersonProgressModal();
   };
 
   const handleTeacherOverviewClick = (group: TeacherProgressGroup) => {
     resetProgressBrowseState();
+    setProgressTeacherFilterKey(group.key);
     setFocusTeacherKey(group.key);
     setActiveContentTab("progress");
   };
@@ -2071,6 +2095,7 @@ export default function LessonsPageContainer() {
       }}
       progressFilterLessonId={progressFilterLessonId}
       progressSearchQuery={progressSearchQuery}
+      progressTeacherFilterKey={progressTeacherFilterKey}
       progressStatusFilter={progressStatusFilter}
       progressSortField={progressSortField}
       progressSortDirection={progressSortDirection}
@@ -2180,6 +2205,7 @@ export default function LessonsPageContainer() {
       onRejectAssignmentRequest={handleRejectAssignmentRequest}
       onProgressFilterChange={handleProgressFilterChange}
       onProgressSearchQueryChange={handleProgressSearchQueryChange}
+      onProgressTeacherFilterChange={handleProgressTeacherFilterChange}
       onProgressStatusFilterChange={handleProgressStatusFilterChange}
       onProgressSortChange={handleProgressSortChange}
       onTeacherOverviewClick={handleTeacherOverviewClick}

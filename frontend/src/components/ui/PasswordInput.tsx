@@ -14,6 +14,7 @@ interface PasswordInputProps {
   showStrengthIndicator?: boolean;
   disabled?: boolean;
   autoComplete?: string;
+  autoFocus?: boolean;
 }
 
 export default function PasswordInput({
@@ -27,6 +28,7 @@ export default function PasswordInput({
   showStrengthIndicator = false,
   disabled = false,
   autoComplete = "current-password",
+  autoFocus = false,
 }: PasswordInputProps) {
   const [showPassword, setShowPassword] = useState(false);
 
@@ -62,6 +64,7 @@ export default function PasswordInput({
           required={required}
           disabled={disabled}
           autoComplete={autoComplete}
+          autoFocus={autoFocus}
           className={`w-full px-3 py-2 pr-10 border border-gray-300 rounded-md bg-white text-base md:text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent [&::-ms-reveal]:hidden [&::-ms-clear]:hidden ${className}`}
         />
         <button

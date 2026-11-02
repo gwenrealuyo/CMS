@@ -582,6 +582,10 @@ def submit_lesson_assignment_request(
     reason = student_cannot_be_own_teacher_error(student, teacher)
     if reason:
         raise ValidationError({"teacher_id": reason})
+    if getattr(student, "role", None) != "VISITOR":
+        raise ValidationError(
+            {"student_id": "Only visitors can be requested for lesson assignment."}
+        )
     if student.has_finished_lessons:
         raise ValidationError({"student_id": "This person has finished lessons."})
     if LessonStudentEnrollment.objects.filter(student=student).exists():
@@ -721,8 +725,12 @@ def person_assignment_eligibility_error(
     """
     Return a human-readable reason when a person cannot receive lesson assignment.
     """
+    if getattr(person, "role", None) != "VISITOR":
+        return "is not a visitor"
     if person.has_finished_lessons:
         return "has finished lessons"
+    if LessonStudentEnrollment.objects.filter(student=person).exists():
+        return "already has a lessons teacher"
     if lesson is not None and PersonLessonProgress.objects.filter(
         person=person, lesson=lesson
     ).exists():

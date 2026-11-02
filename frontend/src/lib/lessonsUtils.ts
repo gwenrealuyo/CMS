@@ -364,7 +364,7 @@ export function formatTeacherStudentRatio(rows: TeacherProgressGroup[]): string 
 
 export function formatTeacherGroupHeader(group: TeacherProgressGroup): string {
   const teacherName = group.teacher
-    ? formatPersonName(group.teacher)
+    ? `Tr. ${formatPersonName(group.teacher)}`
     : "No teacher";
   const prefix = group.number != null ? `${group.number}. ` : "";
   return (

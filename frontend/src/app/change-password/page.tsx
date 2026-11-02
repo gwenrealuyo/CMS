@@ -128,6 +128,7 @@ function ChangePasswordPageContent() {
                 }
                 placeholder="Enter current password"
                 required
+                autoFocus
               />
             </div>
           )}

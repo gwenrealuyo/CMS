@@ -9,6 +9,7 @@ import {
   moduleSettingsApi,
 } from "@/src/lib/api";
 import { useAuth } from "@/src/contexts/AuthContext";
+import { canBrowseProspects } from "@/src/lib/evangelism/evangelismPermissions";
 import { isSelectablePerson } from "@/src/lib/peopleSelectors";
 import {
   GLOBAL_SEARCH_ENTITY_ORDER,
@@ -39,7 +40,7 @@ export function useGlobalSearch({
   query,
   debounceMs = 300,
 }: UseGlobalSearchOptions) {
-  const { user } = useAuth();
+  const { user, isSeniorCoordinator } = useAuth();
   const [debouncedQuery, setDebouncedQuery] = useState("");
   const [resultsByEntity, setResultsByEntity] = useState<
     Partial<Record<GlobalSearchEntity, GlobalSearchResult[]>>
@@ -55,6 +56,13 @@ export function useGlobalSearch({
   const debounceRef = useRef<NodeJS.Timeout | null>(null);
 
   const isAdmin = user?.role === "ADMIN";
+  const canOpenProspects = canBrowseProspects({ user, isSeniorCoordinator });
+  const isLessonsTeacher = Boolean(
+    user?.module_coordinator_assignments?.some(
+      (assignment) =>
+        assignment.module === "LESSONS" && assignment.level === "TEACHER",
+    ),
+  );
 
   useEffect(() => {
     if (!user) {
@@ -96,10 +104,14 @@ export function useGlobalSearch({
   }, [query, debounceMs]);
 
   const enabledEntities = useMemo(() => {
-    return GLOBAL_SEARCH_ENTITY_ORDER.filter((entity) =>
-      isEntityEnabled(entity, moduleEnabled, Boolean(isAdmin)),
-    );
-  }, [moduleEnabled, isAdmin]);
+    return GLOBAL_SEARCH_ENTITY_ORDER.filter((entity) => {
+      // NCC / Lessons teachers need prospect preview even when Evangelism is off.
+      if (entity === "prospect" && isLessonsTeacher) {
+        return true;
+      }
+      return isEntityEnabled(entity, moduleEnabled, Boolean(isAdmin));
+    });
+  }, [moduleEnabled, isAdmin, isLessonsTeacher]);
 
   const runSearch = useCallback(async () => {
     const trimmed = debouncedQuery;
@@ -115,6 +127,13 @@ export function useGlobalSearch({
     setErrors({});
 
     const params = { search: trimmed, page: 1, page_size: GLOBAL_SEARCH_PAGE_SIZE };
+    const prospectParams = {
+      ...params,
+      person_isnull: true as const,
+      ...(user?.branch && !user.can_see_all_branches
+        ? { branch: user.branch }
+        : {}),
+    };
 
     type FetchTask = {
       entity: GlobalSearchEntity;
@@ -179,13 +198,15 @@ export function useGlobalSearch({
       tasks.push({
         entity: "prospect",
         run: async () => {
-          const response = await evangelismApi.listProspects({
-            ...params,
-            person_isnull: true,
-          });
+          const response = await evangelismApi.listProspects(prospectParams);
           return unwrapList(response.data)
             .filter((prospect) => !prospect.person)
-            .map(mapProspectToResult);
+            .map((prospect) =>
+              mapProspectToResult(prospect, {
+                // Teachers and other non-privileged users get preview only.
+                canOpen: canOpenProspects,
+              }),
+            );
         },
       });
     }
@@ -230,7 +251,7 @@ export function useGlobalSearch({
     setResultsByEntity(nextResults);
     setErrors(nextErrors);
     setLoading(false);
-  }, [debouncedQuery, enabledEntities]);
+  }, [debouncedQuery, enabledEntities, user, canOpenProspects]);
 
   useEffect(() => {
     runSearch();

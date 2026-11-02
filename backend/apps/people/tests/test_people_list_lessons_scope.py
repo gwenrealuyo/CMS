@@ -169,12 +169,33 @@ class PeopleListLessonsScopeAPITests(APITestCase):
         directory_ids = self._list_ids(page_size=100)
         self.assertIn(self.teacher.id, directory_ids)
         self.assertNotIn(self.same_branch.id, directory_ids)
+        self.assertIn(self.same_branch_visitor.id, directory_ids)
 
         ids = self._list_ids(for_lessons="true", page_size=100)
         self.assertIn(self.teacher.id, ids)
         self.assertIn(self.same_branch.id, ids)
         self.assertIn(self.same_branch_visitor.id, ids)
         self.assertNotIn(self.other_branch_person.id, ids)
+
+    def test_lessons_teacher_directory_previews_visitors_only(self):
+        ModuleCoordinator.objects.create(
+            person=self.teacher,
+            module=ModuleCoordinator.ModuleType.LESSONS,
+            level=ModuleCoordinator.CoordinatorLevel.TEACHER,
+            resource_id=None,
+        )
+        self.client.force_authenticate(self.teacher)
+        response = self.client.get("/api/people/people/", {"page_size": 100})
+        self.assertEqual(response.status_code, 200, response.data)
+        by_id = {row["id"]: row for row in response.data.get("results", [])}
+        self.assertIn(self.same_branch_visitor.id, by_id)
+        self.assertFalse(by_id[self.same_branch_visitor.id]["can_view_profile"])
+        self.assertNotIn(self.same_branch.id, by_id)
+
+        retrieve = self.client.get(
+            f"/api/people/people/{self.same_branch_visitor.id}/"
+        )
+        self.assertEqual(retrieve.status_code, 404)
 
     def test_member_for_lessons_does_not_widen(self):
         self.client.force_authenticate(self.plain_member)

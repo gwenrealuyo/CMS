@@ -72,7 +72,7 @@ function TeacherGroupHeader({
   onToggle: () => void;
 }) {
   const teacherName = group.teacher
-    ? formatPersonName(group.teacher)
+    ? `Tr. ${formatPersonName(group.teacher)}`
     : "No teacher";
   const title =
     group.number != null ? `${group.number}. ${teacherName}` : teacherName;

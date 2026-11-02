@@ -116,9 +116,19 @@ class LessonSerializer(serializers.ModelSerializer):
 
 class PersonNestedSerializer(serializers.ModelSerializer):
     cluster_codes = serializers.SerializerMethodField()
+    evangelism_group_names = serializers.SerializerMethodField()
 
     def get_cluster_codes(self, obj):
-        return [code for code in obj.clusters.values_list("code", flat=True) if code]
+        return [cluster.code for cluster in obj.clusters.all() if cluster.code]
+
+    def get_evangelism_group_names(self, obj):
+        return sorted(
+            {
+                group.name
+                for group in obj.evangelism_groups.all()
+                if group.name
+            }
+        )
 
     class Meta:
         model = Person
@@ -132,6 +142,7 @@ class PersonNestedSerializer(serializers.ModelSerializer):
             "member_id",
             "status",
             "cluster_codes",
+            "evangelism_group_names",
             "branch",
         ]
 

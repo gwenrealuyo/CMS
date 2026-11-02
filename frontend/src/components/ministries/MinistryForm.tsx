@@ -121,6 +121,13 @@ function getMinistryRoleLabel(role: MinistryRole): string {
   );
 }
 
+function isMinistrySelectablePerson(person: Person): boolean {
+  return (
+    isSelectablePerson(person) &&
+    (person.role || "").toUpperCase() !== "VISITOR"
+  );
+}
+
 const DAYS_OF_WEEK = [
   { label: "Not set", value: "" },
   { label: "Sunday", value: "Sunday" },
@@ -323,7 +330,7 @@ export default function MinistryForm({
   const coordinatorOptions = useMemo(
     () =>
       people
-        .filter(isSelectablePerson)
+        .filter(isMinistrySelectablePerson)
         .map(personToSelectOption)
         .sort((a, b) => a.label.localeCompare(b.label)),
     [people, showBranchCodeInPickers],
@@ -344,13 +351,13 @@ export default function MinistryForm({
     ],
   );
 
-  // Filter available people for member selection (exclude admins and already added members)
+  // Filter available people for member selection (exclude admins, visitors, already added)
   const availablePeopleForMembers = useMemo(
     () =>
       people
         .filter(
           (person) =>
-            isSelectablePerson(person) &&
+            isMinistrySelectablePerson(person) &&
             !values.members.some((m) => m.member_id === String(person.id)) &&
             values.primary_coordinator_id !== String(person.id) &&
             !values.support_coordinator_ids.includes(String(person.id)),

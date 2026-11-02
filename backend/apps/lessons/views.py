@@ -861,7 +861,17 @@ class LessonAssignmentRequestViewSet(
         user = self.request.user
         queryset = LessonAssignmentRequest.objects.select_related(
             "student", "teacher", "requested_by", "reviewed_by"
-        ).prefetch_related("lessons")
+        ).prefetch_related(
+            "lessons",
+            "student__clusters",
+            "student__evangelism_groups",
+            "teacher__clusters",
+            "teacher__evangelism_groups",
+            "requested_by__clusters",
+            "requested_by__evangelism_groups",
+            "reviewed_by__clusters",
+            "reviewed_by__evangelism_groups",
+        )
 
         if getattr(user, "role", None) in ["ADMIN", "PASTOR"] or has_lessons_browse_all(
             user

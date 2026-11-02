@@ -2,6 +2,8 @@ from datetime import date
 
 from rest_framework.test import APITestCase
 
+from apps.clusters.models import Cluster
+from apps.evangelism.models import EvangelismGroup
 from apps.lessons.models import (
     Lesson,
     LessonAssignmentRequest,
@@ -38,8 +40,8 @@ class LessonAssignmentRequestAPITests(APITestCase):
         self.other_teacher = self._person(
             "assignteacher2", "Theo", "Teacher", self.branch
         )
-        self.student = self._person("assignstudent", "Sam", "Student", self.branch)
-        self.other_branch_student = self._person(
+        self.student = self._visitor("assignstudent", "Sam", "Student", self.branch)
+        self.other_branch_student = self._visitor(
             "assignotherstu", "Omar", "Other", self.other_branch
         )
         self._lessons_role(
@@ -62,6 +64,17 @@ class LessonAssignmentRequestAPITests(APITestCase):
             role="MEMBER",
             water_baptism_date=date(2020, 1, 1),
             status="ACTIVE",
+            branch=branch,
+        )
+
+    def _visitor(self, username, first_name, last_name, branch):
+        return Person.objects.create_user(
+            username=username,
+            password="pass12345",
+            first_name=first_name,
+            last_name=last_name,
+            role="VISITOR",
+            status="ONGOING",
             branch=branch,
         )
 
@@ -305,3 +318,44 @@ class LessonAssignmentRequestAPITests(APITestCase):
         )
         self.assertEqual(response.status_code, 400, response.data)
         self.assertFalse(LessonAssignmentRequest.objects.exists())
+
+    def test_request_payload_includes_affiliation_for_student_and_teacher(self):
+        student_cluster = Cluster.objects.create(
+            name="North Cluster",
+            code="NORTH",
+            branch=self.branch,
+            is_active=True,
+        )
+        student_cluster.members.add(self.student)
+        teacher_group = EvangelismGroup.objects.create(
+            name="East Circle",
+            branch=self.branch,
+            is_active=True,
+        )
+        teacher_group.members.add(self.teacher)
+
+        self.client.force_authenticate(self.teacher)
+        created = self.client.post(
+            "/api/lessons/assignment-requests/",
+            self._request_payload(self.student, self.teacher),
+            format="json",
+        )
+        self.assertEqual(created.status_code, 201, created.data)
+        self.assertEqual(created.data["student"]["status"], "ONGOING")
+        self.assertEqual(created.data["student"]["cluster_codes"], ["NORTH"])
+        self.assertEqual(created.data["student"]["evangelism_group_names"], [])
+        self.assertEqual(created.data["teacher"]["status"], "ACTIVE")
+        self.assertEqual(created.data["teacher"]["cluster_codes"], [])
+        self.assertEqual(
+            created.data["teacher"]["evangelism_group_names"], ["East Circle"]
+        )
+
+        self.client.force_authenticate(self.coordinator)
+        listed = self.client.get(
+            "/api/lessons/assignment-requests/",
+            {"status": "pending"},
+        )
+        self.assertEqual(listed.status_code, 200, listed.data)
+        row = next(item for item in listed.data if item["id"] == created.data["id"])
+        self.assertEqual(row["student"]["cluster_codes"], ["NORTH"])
+        self.assertEqual(row["teacher"]["evangelism_group_names"], ["East Circle"])

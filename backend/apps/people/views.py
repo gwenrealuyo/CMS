@@ -164,9 +164,11 @@ class PersonViewSet(viewsets.ModelViewSet):
 
         NCC primary/support coordinators list/search same-branch people (global
         search preview). Profile retrieve stays narrow except same-branch
-        visitors (background check). Lessons ModuleCoordinator assignments and
-        Lessons teachers keep the narrow directory unless `for_lessons=True`,
-        which widens list/search for Assign Lessons and session pickers.
+        visitors (background check). NCC / Lessons teachers list/search
+        same-branch visitors for preview only (no profile retrieve). Lessons
+        ModuleCoordinator assignments and Lessons teachers keep a narrow
+        directory for other people unless `for_lessons=True`, which widens
+        list/search for Assign Lessons and session pickers.
         """
         user = self.request.user
         queryset = super().get_queryset()
@@ -336,6 +338,25 @@ class PersonViewSet(viewsets.ModelViewSet):
             if student_ids:
                 people_querysets.append(queryset.filter(id__in=student_ids))
 
+        # 3b. NCC / Lessons teachers: list/search same-branch visitors for global
+        # search preview. Profile retrieve stays on students + self/household
+        # (NCC primary/support already widen visitors for background checks).
+        from apps.lessons.coordinator_access import is_scoped_lessons_teacher
+
+        if is_scoped_lessons_teacher(user) and not for_profile:
+            people_querysets.append(queryset.filter(role="VISITOR"))
+            # Keep the MEMBER baseline (self + household) when visitor preview
+            # widens the list; otherwise the union path skips that fallback.
+            family_member_ids = (
+                Person.objects.filter(families__members=user)
+                .exclude(role="ADMIN")
+                .values_list("id", flat=True)
+                .distinct()
+            )
+            people_querysets.append(
+                queryset.filter(id__in=list(family_member_ids) + [user.id])
+            )
+
         # 4. Bible Sharer: Members of assigned evangelism groups (directory).
         # Weekly-report pickers use for_report (same-branch, below) instead.
         bible_sharer_assignments = user.module_coordinator_assignments.filter(
@@ -450,6 +471,9 @@ class PersonViewSet(viewsets.ModelViewSet):
                     "module_coordinator_assignments",
                 )
             )
+        if getattr(self, "action", None) in ("list", "admin_accounts"):
+            # Needed by PersonListSerializer eligibility fields for Assign Lessons.
+            qs = qs.select_related("lesson_enrollment")
         # M2M filters (cluster) can duplicate rows; distinct keeps pagination stable.
         if getattr(self, "action", None) == "list" and (
             self.request.query_params.get("cluster")

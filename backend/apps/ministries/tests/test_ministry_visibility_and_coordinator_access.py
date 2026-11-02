@@ -287,3 +287,49 @@ class MinistryVisibilityAndCoordinatorAccessTests(APITestCase):
         deleted = self.client.delete(f"/api/ministries/{committee_id}/")
         self.assertEqual(deleted.status_code, 204, deleted.data)
         self.assertFalse(Ministry.objects.filter(pk=committee_id).exists())
+
+    def test_visitor_cannot_be_added_as_member_or_coordinator(self):
+        visitor = Person.objects.create_user(
+            username="visvisitor",
+            password="pass12345",
+            first_name="Vis",
+            last_name="Visitor",
+            role="VISITOR",
+            status="ONGOING",
+            branch=self.branch,
+        )
+        self.client.force_authenticate(self.admin)
+        as_member = self.client.post(
+            "/api/ministries/members/",
+            {
+                "ministry": self.worship.id,
+                "member_id": visitor.id,
+                "role": MinistryRole.TEAM_MEMBER,
+            },
+            format="json",
+        )
+        self.assertEqual(as_member.status_code, 400, as_member.data)
+        self.assertFalse(
+            MinistryMember.objects.filter(
+                ministry=self.worship, member=visitor
+            ).exists()
+        )
+
+        as_primary = self.client.patch(
+            f"/api/ministries/{self.worship.id}/",
+            {"primary_coordinator_id": visitor.id},
+            format="json",
+        )
+        self.assertEqual(as_primary.status_code, 400, as_primary.data)
+        self.worship.refresh_from_db()
+        self.assertEqual(self.worship.primary_coordinator_id, self.primary.id)
+
+        as_support = self.client.patch(
+            f"/api/ministries/{self.worship.id}/",
+            {"support_coordinator_ids": [self.support.id, visitor.id]},
+            format="json",
+        )
+        self.assertEqual(as_support.status_code, 400, as_support.data)
+        self.assertFalse(
+            self.worship.support_coordinators.filter(pk=visitor.id).exists()
+        )

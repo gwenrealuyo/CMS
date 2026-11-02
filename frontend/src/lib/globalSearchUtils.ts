@@ -37,14 +37,14 @@ export function isEntityEnabled(
   moduleEnabled: Partial<Record<ModuleType, boolean>>,
   isAdmin: boolean,
 ): boolean {
-  const module = ENTITY_MODULE_MAP[entity];
-  if (!module) {
+  const moduleType = ENTITY_MODULE_MAP[entity];
+  if (!moduleType) {
     return true;
   }
   if (isAdmin) {
     return true;
   }
-  return moduleEnabled[module] !== false;
+  return moduleEnabled[moduleType] !== false;
 }
 
 export function mapPersonToResult(person: Person): GlobalSearchResult {
@@ -91,11 +91,18 @@ export function mapClusterToResult(cluster: Cluster): GlobalSearchResult {
 }
 
 export function mapMinistryToResult(ministry: Ministry): GlobalSearchResult {
+  const branchLabel =
+    ministry.branch_name?.trim() ||
+    (ministry.scope === "NATIONAL" ? "National" : undefined);
+  const subtitleParts = [ministry.category || undefined, branchLabel].filter(
+    Boolean,
+  );
+
   return {
     id: String(ministry.id),
     entity: "ministry",
     title: ministry.name,
-    subtitle: ministry.category || undefined,
+    subtitle: subtitleParts.length > 0 ? subtitleParts.join(" · ") : undefined,
     href: `/ministries?open=${ministry.id}`,
   };
 }
@@ -121,13 +128,17 @@ export function prospectDisplayName(prospect: Prospect): string {
     .join(" ");
 }
 
-export function mapProspectToResult(prospect: Prospect): GlobalSearchResult {
+export function mapProspectToResult(
+  prospect: Prospect,
+  options?: { canOpen?: boolean },
+): GlobalSearchResult {
   return {
     id: String(prospect.id),
     entity: "prospect",
     title: prospectDisplayName(prospect),
     subtitle: prospect.pipeline_stage || undefined,
     href: `/evangelism?tab=prospects&open=${prospect.id}`,
+    canOpen: options?.canOpen,
   };
 }
 

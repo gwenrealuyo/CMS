@@ -62,6 +62,7 @@ export interface Ministry {
   category: MinistryCategory;
   scope: MinistryScope;
   branch?: number | null;
+  branch_name?: string | null;
   activity_cadence: MinistryCadence;
   primary_coordinator: UserSummary | null;
   /** Present on retrieve/write payloads; omitted from slim directory list. */

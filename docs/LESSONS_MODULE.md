@@ -58,9 +58,12 @@ This drops all `lessons_*` tables and re-migrates (clears lesson progress, enrol
 
 Bulk assign (`POST /api/lessons/progress/assign/`) and the frontend **Assign Lessons** dropdown only target students who:
 
+- Have role **VISITOR** (members, pastors, and other non-visitors are excluded even with no teacher yet)
 - Do **not** have `has_finished_lessons=True`
-- Do **not** already have any `PersonLessonProgress` row
+- Do **not** already have a lessons enrollment (`has_lesson_enrollment`) or any `PersonLessonProgress` row
 - Are **not** the logged-in user (the Assign Lessons picker hides them so a teacher cannot pick themselves)
+
+The people list used by Assign Lessons (`for_lessons=1`) includes `has_finished_lessons` and `has_lesson_enrollment` so scoped Lessons teachers can hide finished / already-assigned students even when their progress and enrollment APIs only return their own students.
 
 A person cannot be their own lessons teacher (`student_id != teacher_id`). A lessons teacher may still be assigned as a student of a **different** teacher. This is enforced on bulk assign, enrollment create, teacher transfer, session reports, and person-profile `lesson_teacher_id`.
 
@@ -162,7 +165,7 @@ Entry: [`frontend/src/app/lessons/page.tsx`](../frontend/src/app/lessons/page.ts
 - `NccLessonsPdfSection` / `CommitmentFormSection` — global booklet and commitment PDFs on the Files tab (`LessonPdfResourceCard`).
 - `LessonStatsCards` — dashboard-style metrics (ADMIN, PASTOR, senior coordinators including NCC primary, cluster coordinators, Lessons coordinators, and Lessons teachers); respects `branch_id` on summary API. Teachers see ongoing / completed / average for their assigned students only (help text says so); unassigned visitors remain branch-wide. **Completed This Year** counts students whose course finish date (`completed_at`, else `lessons_finished_at`) falls in the current year; historical bulk imports are excluded.
 - `AssignLessonsDropdown` — multi-select assign; eligible students only; status/cluster under names. Scoped teachers are locked to themselves and submit for coordinator approval.
-- `AssignmentRequestQueue` — teacher “Waiting for approval” list on Student Progress, and the coordinator **For approval** queue on the Teachers tab.
+- `AssignmentRequestQueue` — teacher “Waiting for approval” list on Student Progress, and the coordinator **For approval** queue on the Teachers tab. Rows show student and teacher status plus cluster code and/or evangelism group inline with each name (requested lessons are not listed). Shared cluster or evangelism group is highlighted on the card. Client-side pagination shows 5 requests per page.
 - `PersonLessonProgressModal` — per-student progress, commitment toggle, teacher transfer (coordinators). Coordinators can **Assign teacher** from this modal when a student has progress (including finished / legacy) but no enrollment.
 - `LessonSessionReportForm` — log/edit sessions (lesson vs pre-lesson topic picker).
 - `LessonContentTabs` — tab bar plus optional `branchFilter` slot on the right.

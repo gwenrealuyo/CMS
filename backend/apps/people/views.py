@@ -162,10 +162,11 @@ class PersonViewSet(viewsets.ModelViewSet):
         list/search to same-branch people so weekly-report attendee pickers can
         include existing visitor Person profiles. Profile access stays narrow.
 
-        Lessons coordinators (including NCC support) and Lessons teachers keep
-        the narrow directory, but `for_lessons=True` widens list/search to
-        same-branch people for Assign Lessons and session pickers. Profile
-        access stays narrow.
+        NCC primary/support coordinators list/search same-branch people (global
+        search preview). Profile retrieve stays narrow except same-branch
+        visitors (background check). Lessons ModuleCoordinator assignments and
+        Lessons teachers keep the narrow directory unless `for_lessons=True`,
+        which widens list/search for Assign Lessons and session pickers.
         """
         user = self.request.user
         queryset = super().get_queryset()
@@ -251,6 +252,27 @@ class PersonViewSet(viewsets.ModelViewSet):
 
         if is_non_senior_evangelism_coordinator(user) and not for_profile:
             people_querysets.append(queryset)
+
+        # 1c. NCC primary/support: list/search same-branch people for global search
+        # preview. Profile retrieve includes same-branch visitors (background
+        # check) plus self/household; other members stay preview-only unless
+        # another module scope grants profile access.
+        from apps.lessons.coordinator_access import ncc_lessons_role
+
+        if ncc_lessons_role(user) is not None:
+            if for_profile:
+                people_querysets.append(queryset.filter(role="VISITOR"))
+                family_member_ids = (
+                    Person.objects.filter(families__members=user)
+                    .exclude(role="ADMIN")
+                    .values_list("id", flat=True)
+                    .distinct()
+                )
+                people_querysets.append(
+                    queryset.filter(id__in=list(family_member_ids) + [user.id])
+                )
+            else:
+                people_querysets.append(queryset)
 
         # 2. Sunday School Teacher: Students in classes where they are teacher/assistant
         sunday_school_assignments = user.module_coordinator_assignments.filter(

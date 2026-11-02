@@ -3,7 +3,6 @@ import { PersonStatus } from "@/src/types/person";
 export type GlobalSearchEntity =
   | "person"
   | "cluster"
-  | "event"
   | "ministry"
   | "evangelism_group"
   | "prospect"
@@ -16,6 +15,7 @@ export interface PersonSearchMeta {
   branchCode?: string;
   memberId?: string;
   cordName?: string;
+  canViewProfile?: boolean;
 }
 
 export interface GlobalSearchResult {
@@ -25,12 +25,13 @@ export interface GlobalSearchResult {
   subtitle?: string;
   href: string;
   personMeta?: PersonSearchMeta;
+  /** False when list/search is wider than profile retrieve (preview only). */
+  canOpen?: boolean;
 }
 
 export const GLOBAL_SEARCH_ENTITY_LABELS: Record<GlobalSearchEntity, string> = {
   person: "People",
   cluster: "Clusters",
-  event: "Events",
   ministry: "Ministries",
   evangelism_group: "Evangelism groups",
   prospect: "Prospects",
@@ -42,7 +43,6 @@ export const GLOBAL_SEARCH_ENTITY_ORDER: GlobalSearchEntity[] = [
   "person",
   "family",
   "cluster",
-  "event",
   "ministry",
   "evangelism_group",
   "prospect",

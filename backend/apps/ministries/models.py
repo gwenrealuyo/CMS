@@ -107,12 +107,13 @@ class Ministry(models.Model):
             "and requests internal ministries."
         ),
     )
+    # System rosters (NCC, Bible Sharers, Cluster Committee): code/scope/branch
+    # stay locked for normal edits; only admins may permanently delete them.
     is_system = models.BooleanField(
         default=False,
         help_text=(
-            "System ministries (e.g. NCC, Bible Sharers, and Cluster Committee "
-            "rosters) are protected from normal code/scope/branch edits. "
-            "Only admins may permanently delete them."
+            "System ministries (e.g. NCC, Bible Sharers, and Cluster "
+            "Committee rosters) are protected from normal delete/code edits."
         ),
     )
     created_at = models.DateTimeField(auto_now_add=True)

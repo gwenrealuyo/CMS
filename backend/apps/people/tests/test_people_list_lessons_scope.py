@@ -83,14 +83,24 @@ class PeopleListLessonsScopeAPITests(APITestCase):
         results = response.data.get("results", response.data)
         return {row["id"] for row in results}
 
-    def test_ncc_support_directory_is_self_only(self):
+    def test_ncc_support_directory_includes_same_branch_people(self):
         ministry = ensure_ncc_ministry(self.branch)
         ministry.support_coordinators.add(self.coordinator)
         self.client.force_authenticate(self.coordinator)
         ids = self._list_ids(page_size=100)
         self.assertIn(self.coordinator.id, ids)
-        self.assertNotIn(self.same_branch.id, ids)
-        self.assertNotIn(self.same_branch_visitor.id, ids)
+        self.assertIn(self.same_branch.id, ids)
+        self.assertIn(self.same_branch_visitor.id, ids)
+        self.assertNotIn(self.other_branch_person.id, ids)
+
+    def test_ncc_primary_directory_includes_same_branch_people(self):
+        ministry = ensure_ncc_ministry(self.branch)
+        ministry.primary_coordinator = self.coordinator
+        ministry.save(update_fields=["primary_coordinator"])
+        self.client.force_authenticate(self.coordinator)
+        ids = self._list_ids(page_size=100)
+        self.assertIn(self.same_branch.id, ids)
+        self.assertIn(self.same_branch_visitor.id, ids)
         self.assertNotIn(self.other_branch_person.id, ids)
 
     def test_ncc_support_for_lessons_includes_same_branch_people(self):
@@ -103,12 +113,33 @@ class PeopleListLessonsScopeAPITests(APITestCase):
         self.assertIn(self.same_branch_visitor.id, ids)
         self.assertNotIn(self.other_branch_person.id, ids)
 
-    def test_ncc_support_cannot_retrieve_unrelated_person(self):
+    def test_ncc_support_cannot_retrieve_unrelated_member(self):
         ministry = ensure_ncc_ministry(self.branch)
         ministry.support_coordinators.add(self.coordinator)
         self.client.force_authenticate(self.coordinator)
         response = self.client.get(f"/api/people/people/{self.same_branch.id}/")
         self.assertEqual(response.status_code, 404)
+
+    def test_ncc_support_can_retrieve_same_branch_visitor(self):
+        ministry = ensure_ncc_ministry(self.branch)
+        ministry.support_coordinators.add(self.coordinator)
+        self.client.force_authenticate(self.coordinator)
+        response = self.client.get(
+            f"/api/people/people/{self.same_branch_visitor.id}/"
+        )
+        self.assertEqual(response.status_code, 200, response.data)
+        self.assertEqual(response.data["id"], self.same_branch_visitor.id)
+
+    def test_ncc_support_list_marks_profile_access(self):
+        ministry = ensure_ncc_ministry(self.branch)
+        ministry.support_coordinators.add(self.coordinator)
+        self.client.force_authenticate(self.coordinator)
+        response = self.client.get("/api/people/people/", {"page_size": 100})
+        self.assertEqual(response.status_code, 200, response.data)
+        by_id = {row["id"]: row for row in response.data.get("results", [])}
+        self.assertTrue(by_id[self.coordinator.id]["can_view_profile"])
+        self.assertFalse(by_id[self.same_branch.id]["can_view_profile"])
+        self.assertTrue(by_id[self.same_branch_visitor.id]["can_view_profile"])
 
     def test_lessons_coordinator_for_lessons_includes_same_branch_people(self):
         ModuleCoordinator.objects.create(

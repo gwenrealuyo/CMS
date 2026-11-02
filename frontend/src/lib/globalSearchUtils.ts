@@ -7,7 +7,6 @@ import { formatPersonName } from "@/src/lib/name";
 import { Person } from "@/src/types/person";
 import { Family } from "@/src/types/person";
 import { Cluster } from "@/src/types/cluster";
-import { Event } from "@/src/types/event";
 import { Ministry } from "@/src/types/ministry";
 import { EvangelismGroup, Prospect } from "@/src/types/evangelism";
 import { SundaySchoolClass } from "@/src/types/sundaySchool";
@@ -27,7 +26,6 @@ export const ENTITY_MODULE_MAP: Partial<
   Record<GlobalSearchEntity, ModuleType>
 > = {
   cluster: "CLUSTER",
-  event: "EVENTS",
   ministry: "MINISTRIES",
   evangelism_group: "EVANGELISM",
   prospect: "EVANGELISM",
@@ -54,18 +52,21 @@ export function mapPersonToResult(person: Person): GlobalSearchResult {
   const branchCode = person.branch_code?.trim() || undefined;
   const memberId = person.member_id?.trim() || undefined;
   const cordName = person.cord_name?.trim() || undefined;
+  const canViewProfile = person.can_view_profile !== false;
 
   return {
     id: String(person.id),
     entity: "person",
     title: formatPersonName(person),
     href: `/people?open=${person.id}`,
+    canOpen: canViewProfile,
     personMeta: {
       status: person.status,
       clusterCodes,
       branchCode,
       memberId,
       cordName,
+      canViewProfile,
     },
   };
 }
@@ -86,16 +87,6 @@ export function mapClusterToResult(cluster: Cluster): GlobalSearchResult {
     title: cluster.name || "Unnamed cluster",
     subtitle: cluster.code || cluster.location || undefined,
     href: `/clusters?open=${cluster.id}`,
-  };
-}
-
-export function mapEventToResult(event: Event): GlobalSearchResult {
-  return {
-    id: String(event.id),
-    entity: "event",
-    title: event.title,
-    subtitle: event.type || undefined,
-    href: `/events?open=${event.id}`,
   };
 }
 

@@ -208,8 +208,8 @@ export default function PeoplePage() {
       if (person && person.can_view_profile === false) {
         setDirectoryAccessNotice(
           mode === "edit"
-            ? "You can only edit people in your cluster. Assign them to your cluster first (Clusters → Assign Members), then try again."
-            : "You can only view profiles of people in your cluster. Assign them to your cluster first, then open their profile.",
+            ? "You can search this person, but you do not have access to edit their profile."
+            : "You can search this person for a preview, but you do not have access to open their full profile.",
         );
         return;
       }
@@ -223,8 +223,8 @@ export default function PeoplePage() {
         } catch {
           setDirectoryAccessNotice(
             mode === "edit"
-              ? "You can only edit people in your cluster. Assign them to your cluster first (Clusters → Assign Members), then try again."
-              : "You can only view profiles of people in your cluster. Assign them to your cluster first, then open their profile.",
+              ? "You can search this person, but you do not have access to edit their profile."
+              : "You can search this person for a preview, but you do not have access to open their full profile.",
           );
           return;
         }
@@ -340,8 +340,8 @@ export default function PeoplePage() {
       } catch {
         setDirectoryAccessNotice(
           mode === "edit"
-            ? "You can only edit people in your cluster. Assign them to your cluster first (Clusters → Assign Members), then try again."
-            : "You can only view profiles of people in your cluster. Assign them to your cluster first, then open their profile.",
+            ? "You can search this person, but you do not have access to edit their profile."
+            : "You can search this person for a preview, but you do not have access to open their full profile.",
         );
       } finally {
         if (!cancelled) {

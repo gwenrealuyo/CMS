@@ -3,7 +3,6 @@ import {
   peopleApi,
   familiesApi,
   clustersApi,
-  eventsApi,
   ministriesApi,
   evangelismApi,
   sundaySchoolApi,
@@ -22,7 +21,6 @@ import {
   MIN_GLOBAL_SEARCH_LENGTH,
   isEntityEnabled,
   mapClusterToResult,
-  mapEventToResult,
   mapEvangelismGroupToResult,
   mapFamilyToResult,
   mapMinistryToResult,
@@ -153,16 +151,6 @@ export function useGlobalSearch({
         run: async () => {
           const response = await clustersApi.getAll(params);
           return response.data.map(mapClusterToResult);
-        },
-      });
-    }
-
-    if (enabledEntities.includes("event")) {
-      tasks.push({
-        entity: "event",
-        run: async () => {
-          const response = await eventsApi.getAll(params);
-          return unwrapList(response.data).map(mapEventToResult);
         },
       });
     }

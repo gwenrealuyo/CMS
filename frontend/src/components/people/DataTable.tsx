@@ -703,7 +703,7 @@ export default function DataTable({
                     type="button"
                     title={
                       person.can_view_profile === false
-                        ? "Only people in your cluster can be viewed. Assign them to your cluster first."
+                        ? "Preview only — you do not have access to open this full profile."
                         : undefined
                     }
                     onClick={(e) => {
@@ -750,7 +750,7 @@ export default function DataTable({
                     type="button"
                     title={
                       person.can_view_profile === false
-                        ? "Only people in your cluster can be edited. Assign them to your cluster first."
+                        ? "Preview only — you do not have access to edit this profile."
                         : undefined
                     }
                     onClick={(e) => {
@@ -1027,7 +1027,7 @@ export default function DataTable({
                         className="text-left w-full"
                         title={
                           person.can_view_profile === false
-                            ? "Only people in your cluster can be viewed. Assign them to your cluster first."
+                            ? "Preview only — you do not have access to open this full profile."
                             : undefined
                         }
                       >
@@ -1192,7 +1192,7 @@ export default function DataTable({
                                 className={TABLE_ENTITY_LINK_CLASS}
                                 title={
                                   person.can_view_profile === false
-                                    ? "Only people in your cluster can be viewed. Assign them to your cluster first."
+                                    ? "Preview only — you do not have access to open this full profile."
                                     : "View profile"
                                 }
                               >
@@ -1207,7 +1207,7 @@ export default function DataTable({
                               className={TABLE_ENTITY_LINK_CLASS}
                               title={
                                 person.can_view_profile === false
-                                  ? "Only people in your cluster can be viewed. Assign them to your cluster first."
+                                  ? "Preview only — you do not have access to open this full profile."
                                   : "View profile"
                               }
                             >
@@ -1450,7 +1450,7 @@ export default function DataTable({
                               className={TABLE_ENTITY_LINK_CLASS}
                               title={
                                 person.can_view_profile === false
-                                  ? "Only people in your cluster can be viewed. Assign them to your cluster first."
+                                  ? "Preview only — you do not have access to open this full profile."
                                   : "View profile"
                               }
                             >
@@ -1465,7 +1465,7 @@ export default function DataTable({
                             className={TABLE_ENTITY_LINK_CLASS}
                             title={
                               person.can_view_profile === false
-                                ? "Only people in your cluster can be viewed. Assign them to your cluster first."
+                                ? "Preview only — you do not have access to open this full profile."
                                 : "View profile"
                             }
                           >

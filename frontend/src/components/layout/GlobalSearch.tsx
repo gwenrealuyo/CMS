@@ -15,7 +15,6 @@ import {
   UserIcon,
   UserGroupIcon,
   Squares2X2Icon,
-  CalendarIcon,
   MegaphoneIcon,
   AcademicCapIcon,
   RectangleStackIcon,
@@ -42,7 +41,6 @@ const ENTITY_ICONS: Record<
   person: UserIcon,
   family: RectangleStackIcon,
   cluster: Squares2X2Icon,
-  event: CalendarIcon,
   ministry: UserGroupIcon,
   evangelism_group: MegaphoneIcon,
   prospect: MegaphoneIcon,
@@ -74,6 +72,7 @@ function formatPersonLocation(meta: PersonSearchMeta): string | null {
 
 function PersonSearchResultContent({ result }: { result: GlobalSearchResult }) {
   const meta = result.personMeta;
+  const previewOnly = result.canOpen === false;
   if (!meta) {
     return (
       <>
@@ -91,7 +90,14 @@ function PersonSearchResultContent({ result }: { result: GlobalSearchResult }) {
 
   return (
     <>
-      <span className="text-sm font-medium text-gray-900">{result.title}</span>
+      <span className="flex flex-wrap items-center gap-2">
+        <span className="text-sm font-medium text-gray-900">{result.title}</span>
+        {previewOnly && (
+          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-gray-100 text-gray-600">
+            Preview
+          </span>
+        )}
+      </span>
       <div className="flex flex-wrap items-center gap-2 mt-0.5">
         <span
           className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium ${getPersonStatusColor(
@@ -115,6 +121,7 @@ export default function GlobalSearch({
   const [query, setQuery] = useState("");
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(-1);
+  const [previewNotice, setPreviewNotice] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -129,7 +136,8 @@ export default function GlobalSearch({
   } = useGlobalSearch({ query });
 
   const showDropdown =
-    dropdownOpen && (hasQuery || loading) && query.trim().length > 0;
+    dropdownOpen && (hasQuery || loading || Boolean(previewNotice)) &&
+    query.trim().length > 0;
 
   useEffect(() => {
     if (autoFocus) {
@@ -139,6 +147,7 @@ export default function GlobalSearch({
 
   useEffect(() => {
     setActiveIndex(-1);
+    setPreviewNotice(null);
   }, [debouncedQuery, flatResults.length]);
 
   useEffect(() => {
@@ -148,6 +157,7 @@ export default function GlobalSearch({
         !containerRef.current.contains(event.target as Node)
       ) {
         setDropdownOpen(false);
+        setPreviewNotice(null);
       }
     };
     document.addEventListener("mousedown", handleClickOutside);
@@ -156,6 +166,14 @@ export default function GlobalSearch({
 
   const selectResult = useCallback(
     (result: GlobalSearchResult) => {
+      if (result.canOpen === false) {
+        setDropdownOpen(true);
+        setPreviewNotice(
+          "Preview only — you can see this person in search, but you do not have access to open their full profile.",
+        );
+        return;
+      }
+      setPreviewNotice(null);
       setDropdownOpen(false);
       setQuery("");
       onClose?.();
@@ -167,6 +185,7 @@ export default function GlobalSearch({
   const handleKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
     if (event.key === "Escape") {
       setDropdownOpen(false);
+      setPreviewNotice(null);
       onClose?.();
       return;
     }
@@ -205,6 +224,7 @@ export default function GlobalSearch({
     setQuery("");
     setDropdownOpen(false);
     setActiveIndex(-1);
+    setPreviewNotice(null);
     inputRef.current?.focus();
   };
 
@@ -224,7 +244,7 @@ export default function GlobalSearch({
         }}
         onFocus={() => setDropdownOpen(true)}
         onKeyDown={handleKeyDown}
-        placeholder="Search people, clusters, events…"
+        placeholder="Search people, clusters, ministries…"
         className={inputClassName}
         aria-label="Global search"
         aria-expanded={showDropdown}
@@ -269,6 +289,12 @@ export default function GlobalSearch({
         {!loading && isEmpty && (
           <p className="px-4 py-3 text-sm text-gray-500">
             No results for &ldquo;{debouncedQuery}&rdquo;
+          </p>
+        )}
+
+        {previewNotice && (
+          <p className="px-4 py-3 text-sm text-amber-800 bg-amber-50 border-b border-amber-100">
+            {previewNotice}
           </p>
         )}
 

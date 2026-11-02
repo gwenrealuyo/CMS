@@ -249,10 +249,20 @@ export default function ClusterReportsDashboard({
 
   const applyMonthFilter = (monthValue: string) => {
     setSelectedMonth(monthValue);
-    if (!monthValue) return;
+    if (!monthValue) {
+      setSelectedWeek("");
+      return;
+    }
     setSelectedWeek(
       String(defaultIsoWeekForMonth(selectedYear, Number(monthValue))),
     );
+  };
+
+  const applyWeekFilter = (weekValue: string) => {
+    setSelectedWeek(weekValue);
+    if (!weekValue) return;
+    const { start } = getWeekDateRange(selectedYear, Number(weekValue));
+    setSelectedMonth(String(start.getMonth() + 1).padStart(2, "0"));
   };
 
   const weekFilterOptions = useMemo(() => {
@@ -1779,10 +1789,10 @@ export default function ClusterReportsDashboard({
                   const currentWeek = getLocalISOWeekNumber(new Date());
                   if (selectedWeek === "") {
                     // Switch to current week
-                    setSelectedWeek(currentWeek.toString());
+                    applyWeekFilter(currentWeek.toString());
                   } else {
                     // Switch to all weeks
-                    setSelectedWeek("");
+                    applyWeekFilter("");
                   }
                 }}
                 className="flex items-center gap-1.5 text-xs font-medium text-primary hover:text-primary hover:underline transition-colors"
@@ -1829,7 +1839,7 @@ export default function ClusterReportsDashboard({
             </div>
             <select
               value={selectedWeek}
-              onChange={(e) => setSelectedWeek(e.target.value)}
+              onChange={(e) => applyWeekFilter(e.target.value)}
               className="w-full px-2 py-2 min-h-[44px] border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-ring focus:border-transparent"
             >
               <option value="">All Weeks</option>

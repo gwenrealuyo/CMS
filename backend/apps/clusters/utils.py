@@ -27,6 +27,28 @@ def parse_iso_weeks(year, week_numbers):
     return weeks
 
 
+def iso_weeks_overlapping_month(iso_year: int, month: int) -> list[int]:
+    """
+    ISO week numbers in ``iso_year`` whose work week belongs to calendar
+    ``month`` (1–12). Ownership is the Thursday of the Mon–Sun ISO week
+    (same anchor ISO uses for week-year). Matches frontend
+    ``isoWeeksOverlappingMonth`` — e.g. a week ending Nov 1 with Thursday in
+    October counts only for October.
+    """
+    if not 1 <= month <= 12:
+        return []
+    weeks: list[int] = []
+    for week in range(1, 54):
+        try:
+            monday = date.fromisocalendar(iso_year, week, 1)
+        except ValueError:
+            continue
+        thursday = monday + timedelta(days=3)
+        if thursday.year == iso_year and thursday.month == month:
+            weeks.append(week)
+    return weeks
+
+
 def week_span(weeks):
     """Monday of the earliest week through Sunday of the latest week."""
     starts = [date.fromisocalendar(year, week, 1) for year, week in weeks]

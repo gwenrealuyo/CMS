@@ -79,8 +79,10 @@ export function getIsoWeekDateRange(
 }
 
 /**
- * ISO week numbers in `isoYear` that include at least one day in calendar
- * `month` (1–12) of that year.
+ * ISO week numbers in `isoYear` whose work week belongs to calendar `month`
+ * (1–12). Ownership is the Thursday of the Mon–Sun ISO week (same anchor ISO
+ * uses for week-year), so a week with Monday in October and Sunday Nov 1
+ * counts only for October — not November.
  */
 export function isoWeeksOverlappingMonth(
   isoYear: number,
@@ -91,15 +93,11 @@ export function isoWeeksOverlappingMonth(
     const { start } = getIsoWeekDateRange(isoYear, week);
     const thursday = new Date(start);
     thursday.setDate(start.getDate() + 3);
-    if (thursday.getFullYear() !== isoYear) continue;
-
-    for (let offset = 0; offset < 7; offset += 1) {
-      const day = new Date(start);
-      day.setDate(start.getDate() + offset);
-      if (day.getFullYear() === isoYear && day.getMonth() + 1 === month) {
-        weeks.push(week);
-        break;
-      }
+    if (
+      thursday.getFullYear() === isoYear &&
+      thursday.getMonth() + 1 === month
+    ) {
+      weeks.push(week);
     }
   }
   return weeks;

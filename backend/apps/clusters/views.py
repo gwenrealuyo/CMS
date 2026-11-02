@@ -61,6 +61,7 @@ from .utils import (
     calculate_trend,
     is_at_risk,
     get_weeks_in_range,
+    iso_weeks_overlapping_month,
     parse_iso_weeks,
     previous_iso_weeks,
     recent_iso_weeks,
@@ -755,14 +756,29 @@ class ClusterWeeklyReportViewSet(viewsets.ModelViewSet):
         user = self.request.user
         queryset = super().get_queryset()
 
-        # Apply month filter if provided
+        # Month filter applies only when no week is selected — week takes priority
+        # so cross-month ISO weeks (e.g. W44 with Nov 1) are not truncated.
+        # When month is set alone ("All Weeks"), filter by ISO weeks overlapping
+        # that calendar month — not meeting_date__month — so a Nov 1 meeting in
+        # October's last work week still appears.
         month = self.request.query_params.get("month")
-        if month:
+        week_number = self.request.query_params.get("week_number")
+        year_param = self.request.query_params.get("year")
+        if month and not week_number:
             try:
                 month_int = int(month)
                 if 1 <= month_int <= 12:
-                    queryset = queryset.filter(meeting_date__month=month_int)
-            except ValueError:
+                    year_int = int(year_param) if year_param else None
+                    if year_int is not None:
+                        overlapping_weeks = iso_weeks_overlapping_month(
+                            year_int, month_int
+                        )
+                        queryset = queryset.filter(
+                            year=year_int, week_number__in=overlapping_weeks
+                        )
+                    else:
+                        queryset = queryset.filter(meeting_date__month=month_int)
+            except (TypeError, ValueError):
                 pass
 
         # Permission-based visibility (before branch scoping)

@@ -110,6 +110,10 @@ interface ClusterReportsDashboardProps {
   onEditReport?: (report: ClusterWeeklyReport) => void;
   onSetReportSelectedCluster?: (cluster: Cluster | null) => void;
   refreshTrigger?: number; // Increment this to trigger a refresh
+  /** When true, branch is controlled by the page header (e.g. Clusters tabs). */
+  hideBranchFilter?: boolean;
+  /** Page-header branch id; used when `hideBranchFilter` is true. "" means all branches. */
+  branchId?: string;
 }
 
 export default function ClusterReportsDashboard({
@@ -123,6 +127,8 @@ export default function ClusterReportsDashboard({
   onEditReport: externalOnEditReport,
   onSetReportSelectedCluster: externalOnSetReportSelectedCluster,
   refreshTrigger,
+  hideBranchFilter = false,
+  branchId,
 }: ClusterReportsDashboardProps) {
   const [reports, setReports] = useState<ClusterWeeklyReport[]>([]);
   const [totalCount, setTotalCount] = useState(0);
@@ -329,6 +335,10 @@ export default function ClusterReportsDashboard({
   }, [user, isSeniorCoordinator]);
 
   useEffect(() => {
+    if (hideBranchFilter) {
+      setSelectedBranchId(branchId ?? "");
+      return;
+    }
     if (!user) {
       setSelectedBranchId("");
       prevUserIdRef.current = undefined;
@@ -346,10 +356,10 @@ export default function ClusterReportsDashboard({
     if (user.branch != null && user.branch !== undefined) {
       setSelectedBranchId((prev) => (prev === "" ? String(user.branch) : prev));
     }
-  }, [user]);
+  }, [user, hideBranchFilter, branchId]);
 
   useEffect(() => {
-    if (!canChangeBranchFilter) {
+    if (hideBranchFilter || !canChangeBranchFilter) {
       setBranchPickerOptions([]);
       return;
     }
@@ -374,7 +384,7 @@ export default function ClusterReportsDashboard({
     return () => {
       cancelled = true;
     };
-  }, [canChangeBranchFilter]);
+  }, [canChangeBranchFilter, hideBranchFilter]);
 
   const editableBranchSelectOptions = useMemo(
     () => [{ value: "", label: "All branches" }, ...branchPickerOptions],
@@ -1658,21 +1668,23 @@ export default function ClusterReportsDashboard({
       {/* Filters */}
       <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 lg:flex lg:flex-nowrap">
-          <div className="lg:w-36 lg:shrink-0">
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Branch
-            </label>
-            {reportsBranchSelectInteractive ? (
-              reportsBranchFilterSelect
-            ) : (
-              <LockedControlTooltip
-                label={reportsBranchHoverHint}
-                wrapperClassName="block w-full cursor-default"
-              >
-                {reportsBranchFilterSelect}
-              </LockedControlTooltip>
-            )}
-          </div>
+          {!hideBranchFilter && (
+            <div className="lg:w-36 lg:shrink-0">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Branch
+              </label>
+              {reportsBranchSelectInteractive ? (
+                reportsBranchFilterSelect
+              ) : (
+                <LockedControlTooltip
+                  label={reportsBranchHoverHint}
+                  wrapperClassName="block w-full cursor-default"
+                >
+                  {reportsBranchFilterSelect}
+                </LockedControlTooltip>
+              )}
+            </div>
+          )}
 
           <div className="min-w-0 lg:flex-1">
             <label className="block text-sm font-medium text-gray-700 mb-1">

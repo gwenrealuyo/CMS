@@ -1756,7 +1756,10 @@ export default function ClustersPageView({
         )}
 
         {activeTab === "compliance" && canAccessCompliance && (
-          <ClusterComplianceTab />
+          <ClusterComplianceTab
+            branchId={clusterBranchSelectedId}
+            clusters={allClusters}
+          />
         )}
 
         {canAccessClusterReports &&
@@ -1782,6 +1785,8 @@ export default function ClustersPageView({
               <ClusterReportsDashboard
                 clusters={reportFormClusters as any}
                 clustersForReportForm={reportFormClusters as any}
+                hideBranchFilter
+                branchId={clusterBranchSelectedId}
                 externalShowForm={isReportFormOpen}
                 externalSelectedCluster={reportSelectedCluster}
                 externalEditingReport={editingReport}

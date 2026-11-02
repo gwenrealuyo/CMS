@@ -969,6 +969,7 @@ export const clusterReportsApi = {
     year?: number;
     week_number?: string;
     branch_id?: number | string;
+    cluster_id?: number | string;
     coordinator_id?: number;
     status?: 'COMPLIANT' | 'NON_COMPLIANT' | 'PARTIAL';
     min_compliance_rate?: number;
@@ -998,6 +999,7 @@ export const clusterReportsApi = {
     year?: number;
     week_number?: string;
     branch_id?: number | string;
+    cluster_id?: number | string;
     coordinator_id?: number;
     status?: 'COMPLIANT' | 'NON_COMPLIANT' | 'PARTIAL';
     min_compliance_rate?: number;

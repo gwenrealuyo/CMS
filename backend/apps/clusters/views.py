@@ -1166,6 +1166,7 @@ class ClusterWeeklyReportViewSet(viewsets.ModelViewSet):
         - start_date (YYYY-MM-DD): Start of compliance period when week_number is omitted
         - end_date (YYYY-MM-DD): End of compliance period when week_number is omitted
         - branch_id: Filter by branch
+        - cluster_id: Filter by a single cluster
         - coordinator_id: Filter by coordinator
         - status: Filter by compliance status (COMPLIANT, NON_COMPLIANT, PARTIAL)
         - min_compliance_rate: Minimum compliance rate threshold (0-100)
@@ -1189,6 +1190,13 @@ class ClusterWeeklyReportViewSet(viewsets.ModelViewSet):
         if branch_id:
             try:
                 clusters = clusters.filter(branch_id=int(branch_id))
+            except ValueError:
+                pass
+
+        cluster_id = request.query_params.get('cluster_id')
+        if cluster_id:
+            try:
+                clusters = clusters.filter(id=int(cluster_id))
             except ValueError:
                 pass
         

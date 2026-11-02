@@ -92,14 +92,17 @@ class PeopleListReportScopeAPITests(APITestCase):
         results = response.data.get("results", response.data)
         return {row["id"] for row in results}
 
-    def test_bible_sharer_directory_is_group_members_only(self):
+    def test_bible_sharer_directory_includes_group_members_and_visitor_preview(self):
         self.client.force_authenticate(self.sharer)
-        ids = self._list_ids()
-        self.assertIn(self.sharer.id, ids)
-        self.assertIn(self.group_member.id, ids)
-        self.assertNotIn(self.same_branch_visitor.id, ids)
-        self.assertNotIn(self.plain_member.id, ids)
-        self.assertNotIn(self.other_branch_visitor.id, ids)
+        response = self.client.get("/api/people/people/", {"page_size": 100})
+        self.assertEqual(response.status_code, 200, response.data)
+        by_id = {row["id"]: row for row in response.data.get("results", [])}
+        self.assertIn(self.sharer.id, by_id)
+        self.assertIn(self.group_member.id, by_id)
+        self.assertIn(self.same_branch_visitor.id, by_id)
+        self.assertFalse(by_id[self.same_branch_visitor.id]["can_view_profile"])
+        self.assertNotIn(self.plain_member.id, by_id)
+        self.assertNotIn(self.other_branch_visitor.id, by_id)
 
     def test_bible_sharer_report_list_includes_same_branch_visitors(self):
         self.client.force_authenticate(self.sharer)

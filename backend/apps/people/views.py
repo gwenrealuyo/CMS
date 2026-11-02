@@ -157,10 +157,10 @@ class PersonViewSet(viewsets.ModelViewSet):
         assign members), but profile retrieve/update stays limited to people in
         their managed cluster(s) (plus other module scopes).
 
-        Bible Sharers (and other non-privileged evangelism report writers) keep
-        the narrow directory list (group members), but `for_report=True` widens
-        list/search to same-branch people so weekly-report attendee pickers can
-        include existing visitor Person profiles. Profile access stays narrow.
+        Bible Sharers list/search assigned evangelism group members plus
+        same-branch visitors (global search preview). `for_report=True` widens
+        further to same-branch people for weekly-report attendee pickers.
+        Profile access stays narrow (group members + self/household).
 
         NCC primary/support coordinators list/search same-branch people (global
         search preview). Profile retrieve stays narrow except same-branch
@@ -357,8 +357,10 @@ class PersonViewSet(viewsets.ModelViewSet):
                 queryset.filter(id__in=list(family_member_ids) + [user.id])
             )
 
-        # 4. Bible Sharer: Members of assigned evangelism groups (directory).
-        # Weekly-report pickers use for_report (same-branch, below) instead.
+        # 4. Bible Sharer: Members of assigned evangelism groups (directory),
+        # plus same-branch visitors for global search preview. Profile stays
+        # narrow (group members + self/household). Weekly-report pickers use
+        # for_report (same-branch, below) instead.
         bible_sharer_assignments = user.module_coordinator_assignments.filter(
             module=ModuleCoordinator.ModuleType.EVANGELISM,
             level=ModuleCoordinator.CoordinatorLevel.BIBLE_SHARER,
@@ -381,6 +383,17 @@ class PersonViewSet(viewsets.ModelViewSet):
                 )
                 if member_ids:
                     people_querysets.append(queryset.filter(id__in=member_ids))
+            if not for_profile:
+                people_querysets.append(queryset.filter(role="VISITOR"))
+                family_member_ids = (
+                    Person.objects.filter(families__members=user)
+                    .exclude(role="ADMIN")
+                    .values_list("id", flat=True)
+                    .distinct()
+                )
+                people_querysets.append(
+                    queryset.filter(id__in=list(family_member_ids) + [user.id])
+                )
 
         # 5. Evangelism report writers: same-branch people for attendee pickers
         # only (for_report=1). Directory and profile stay on the scopes above.

@@ -30,6 +30,7 @@ import ToolbarSearch from "@/src/components/ui/ToolbarSearch";
 import ViewModeToggle from "@/src/components/ui/ViewModeToggle";
 import BranchFilterFrame from "@/src/components/ui/BranchFilterFrame";
 import {
+  TOOLBAR_BRANCH_HEADER_LOCKED_WRAPPER_CLASS,
   TOOLBAR_BRANCH_HEADER_SELECT_CLASS,
   TOOLBAR_BRANCH_HEADER_SELECT_LOCKED_CLASS,
   TOOLBAR_CARD_CLASS,
@@ -577,7 +578,10 @@ export default function ClustersPageView({
     return clusterBranchSelectInteractive ? (
       selectEl
     ) : (
-      <LockedControlTooltip label={clusterBranchHoverHint}>
+      <LockedControlTooltip
+        label={clusterBranchHoverHint}
+        wrapperClassName={TOOLBAR_BRANCH_HEADER_LOCKED_WRAPPER_CLASS}
+      >
         {selectEl}
       </LockedControlTooltip>
     );

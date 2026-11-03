@@ -8,7 +8,7 @@ export default function BranchFilterFrame({
   children: ReactNode;
 }) {
   return (
-    <div className="relative w-full min-w-0 sm:w-52 sm:shrink-0">
+    <div className="relative w-full min-w-0 max-w-full md:w-52 md:shrink-0">
       <BuildingOffice2Icon
         className="pointer-events-none absolute left-2.5 top-1/2 z-10 h-4 w-4 -translate-y-1/2 text-gray-500"
         aria-hidden

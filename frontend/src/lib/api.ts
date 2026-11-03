@@ -2111,6 +2111,7 @@ export const evangelismApi = {
     year?: number;
     week_number?: string;
     branch_id?: number | string;
+    evangelism_group?: number | string;
     status?: string;
   }) =>
     api.get<EvangelismComplianceData>(
@@ -2123,6 +2124,7 @@ export const evangelismApi = {
     year?: number;
     week_number?: string;
     branch_id?: number | string;
+    evangelism_group?: number | string;
     status?: string;
   }) =>
     api.get("/evangelism/weekly-reports/compliance_export_csv/", {

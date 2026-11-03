@@ -13,8 +13,10 @@ import type { FamiliesListParams } from "@/src/lib/api";
 import BranchFilterFrame from "@/src/components/ui/BranchFilterFrame";
 import {
   TOOLBAR_ACTION_BUTTON_CLASS,
+  TOOLBAR_BRANCH_HEADER_LOCKED_WRAPPER_CLASS,
   TOOLBAR_BRANCH_HEADER_SELECT_CLASS,
   TOOLBAR_BRANCH_HEADER_SELECT_LOCKED_CLASS,
+  TOOLBAR_BRANCH_HEADER_SLOT_CLASS,
   TOOLBAR_CARD_CLASS,
   TOOLBAR_DESKTOP_ACTION_BUTTON_CLASS,
   TOOLBAR_STACKED_ACTION_BUTTON_CLASS,
@@ -322,7 +324,10 @@ export default function FamilyManagementDashboard({
     return familyBranchSelectInteractive ? (
       selectEl
     ) : (
-      <LockedControlTooltip label={familyBranchHoverHint}>
+      <LockedControlTooltip
+        label={familyBranchHoverHint}
+        wrapperClassName={TOOLBAR_BRANCH_HEADER_LOCKED_WRAPPER_CLASS}
+      >
         {selectEl}
       </LockedControlTooltip>
     );
@@ -635,7 +640,7 @@ export default function FamilyManagementDashboard({
 
       {/* Branch filter (Lessons-style: right of module chrome) */}
       <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-end">
-        <div className="flex w-full shrink-0 items-center md:w-auto">
+        <div className={TOOLBAR_BRANCH_HEADER_SLOT_CLASS}>
           {renderFamilyBranchSelect()}
         </div>
       </div>

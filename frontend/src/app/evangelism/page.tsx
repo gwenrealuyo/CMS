@@ -74,8 +74,10 @@ import { FilterCondition } from "@/src/components/people/FilterBar";
 import ToolbarSearch from "@/src/components/ui/ToolbarSearch";
 import ViewModeToggle from "@/src/components/ui/ViewModeToggle";
 import {
+  TOOLBAR_BRANCH_HEADER_LOCKED_WRAPPER_CLASS,
   TOOLBAR_BRANCH_HEADER_SELECT_CLASS,
   TOOLBAR_BRANCH_HEADER_SELECT_LOCKED_CLASS,
+  TOOLBAR_BRANCH_HEADER_SLOT_CLASS,
   TOOLBAR_CARD_CLASS,
   TOOLBAR_DESKTOP_ACTION_BUTTON_CLASS,
   TOOLBAR_STACKED_ACTION_BUTTON_CLASS,
@@ -1418,7 +1420,10 @@ export default function EvangelismPage() {
     return evangelismBranchSelectInteractive ? (
       branchSelectEl
     ) : (
-      <LockedControlTooltip label={EVANGELISM_BRANCH_LOCKED_HINT}>
+      <LockedControlTooltip
+        label={EVANGELISM_BRANCH_LOCKED_HINT}
+        wrapperClassName={TOOLBAR_BRANCH_HEADER_LOCKED_WRAPPER_CLASS}
+      >
         {branchSelectEl}
       </LockedControlTooltip>
     );
@@ -1763,7 +1768,7 @@ export default function EvangelismPage() {
                 )}
               </nav>
             </div>
-            <div className="flex w-full shrink-0 items-center md:w-auto md:pb-1">
+            <div className={`${TOOLBAR_BRANCH_HEADER_SLOT_CLASS} md:pb-1`}>
               {renderEvangelismGroupsBranchSelect()}
             </div>
           </div>
@@ -2332,8 +2337,8 @@ export default function EvangelismPage() {
 
         {activeTab === "prospects" && canBrowseProspectsTab && (
           <ProspectsBrowse
-            branches={branches}
             clusters={clusters}
+            branch={tallyBranch}
             highlightProspectId={searchParams.get("open")}
             initialClusterId={searchParams.get("cluster")}
           />
@@ -2344,6 +2349,7 @@ export default function EvangelismPage() {
           <div className="space-y-6">
             <Each1Reach1Dashboard
               year={new Date().getFullYear()}
+              branch={tallyBranch}
               canManageGoals={
                 evangelismPrivileged || canWriteEvangelismAccess
               }
@@ -2412,6 +2418,8 @@ export default function EvangelismPage() {
               groups={reportablePickerGroups}
               clusters={clusters}
               branches={branches}
+              hideBranchFilter
+              branchId={tallyBranch === "" ? "" : String(tallyBranch)}
               openSubmitNonce={reportsSubmitNonce}
               refreshTrigger={reportsListRefresh}
               presetGroupId={reportsPresetGroupId}
@@ -2423,7 +2431,10 @@ export default function EvangelismPage() {
         )}
 
         {activeTab === "compliance" && canAccessEvangelismComplianceTab && (
-          <EvangelismComplianceTab />
+          <EvangelismComplianceTab
+            branchId={tallyBranch === "" ? "" : String(tallyBranch)}
+            groups={reportablePickerGroups}
+          />
         )}
 
         {/* Bible Sharers Tab */}
@@ -2435,6 +2446,8 @@ export default function EvangelismPage() {
             onReportRequestHandled={() =>
               setBibleStudyFormRequestSeen(bibleStudyFormRequest)
             }
+            branchId={tallyBranch === "" ? "" : String(tallyBranch)}
+            branches={branches}
           />
         )}
 

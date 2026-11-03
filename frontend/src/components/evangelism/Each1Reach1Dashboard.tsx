@@ -7,21 +7,12 @@ import LoadingSpinner from "@/src/components/ui/LoadingSpinner";
 import ErrorMessage from "@/src/components/ui/ErrorMessage";
 import Modal from "@/src/components/ui/Modal";
 import ViewModeToggle from "@/src/components/ui/ViewModeToggle";
-import { LockedControlTooltip } from "@/src/components/ui/LockedControlTooltip";
-import EvangelismToolbarSearch, {
-  EVANGELISM_BRANCH_SELECT_LOCKED_CLASS,
-} from "@/src/components/evangelism/EvangelismToolbarSearch";
+import EvangelismToolbarSearch from "@/src/components/evangelism/EvangelismToolbarSearch";
 import { ChevronDownIcon, ChevronUpIcon } from "@heroicons/react/24/outline";
 import { Each1Reach1Goal } from "@/src/types/evangelism";
 import { Cluster } from "@/src/types/cluster";
-import { Branch } from "@/src/types/branch";
 import { useEach1Reach1Goals } from "@/src/hooks/useEvangelism";
-import { branchesApi, clustersApi, evangelismApi } from "@/src/lib/api";
-import { useAuth } from "@/src/contexts/AuthContext";
-import {
-  canChangeEvangelismBranchFilter,
-  EVANGELISM_BRANCH_LOCKED_HINT,
-} from "@/src/lib/evangelismBranchFilter";
+import { clustersApi, evangelismApi } from "@/src/lib/api";
 import {
   getEach1Reach1GoalStatusChipClass,
   getEach1Reach1ProgressBarBgClass,
@@ -34,8 +25,6 @@ import {
 import {
   TOOLBAR_ACTIONS_ROW_CLASS,
   TOOLBAR_ACTION_BUTTON_CLASS,
-  TOOLBAR_BRANCH_SELECT_CLASS,
-  TOOLBAR_BRANCH_SELECT_FULL_WIDTH_CLASS,
   TOOLBAR_CARD_CLASS,
   TOOLBAR_DESKTOP_ACTION_BUTTON_CLASS,
 } from "@/src/lib/toolbarStyles";
@@ -45,6 +34,8 @@ interface Each1Reach1DashboardProps {
   canManageGoals?: boolean;
   /** When set, create/edit is limited to these cluster IDs. Omit for all clusters. */
   manageableClusterIds?: number[];
+  /** Page-header branch id; "" means all branches. */
+  branch?: number | "";
 }
 
 const DUPLICATE_GOAL_ERROR = "A goal already exists for this cluster and year.";
@@ -53,14 +44,8 @@ export default function Each1Reach1Dashboard({
   year,
   canManageGoals = true,
   manageableClusterIds,
+  branch = "",
 }: Each1Reach1DashboardProps) {
-  const { user, isSeniorCoordinator } = useAuth();
-  const canChangeBranchFilter = useMemo(
-    () => canChangeEvangelismBranchFilter(user, isSeniorCoordinator),
-    [user, isSeniorCoordinator],
-  );
-  const each1BranchUserIdRef = useRef<number | undefined>(undefined);
-
   type SortField =
     | "cluster"
     | "target_conversions"
@@ -69,11 +54,8 @@ export default function Each1Reach1Dashboard({
     | "status";
 
   const currentYear = year || new Date().getFullYear();
-  const [branches, setBranches] = useState<Branch[]>([]);
-  const [branchesLoading, setBranchesLoading] = useState(false);
   const [filterYear, setFilterYear] = useState(currentYear);
   const [filterStatus, setFilterStatus] = useState("ALL");
-  const [filterBranch, setFilterBranch] = useState<number | "">("");
   const [searchInput, setSearchInput] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [clusters, setClusters] = useState<Cluster[]>([]);
@@ -132,10 +114,10 @@ export default function Each1Reach1Dashboard({
     () => ({
       year: filterYear,
       status: filterStatus !== "ALL" ? filterStatus : undefined,
-      cluster__branch: filterBranch || undefined,
+      cluster__branch: branch || undefined,
       search: debouncedSearch || undefined,
     }),
-    [filterYear, filterStatus, filterBranch, debouncedSearch],
+    [filterYear, filterStatus, branch, debouncedSearch],
   );
   const {
     goals,
@@ -152,44 +134,18 @@ export default function Each1Reach1Dashboard({
   useEffect(() => {
     const loadDependencies = async () => {
       try {
-        setBranchesLoading(true);
         setClustersLoading(true);
-        const [clustersResponse, branchesResponse] = await Promise.all([
-          clustersApi.getAll(),
-          branchesApi.getAll(),
-        ]);
+        const clustersResponse = await clustersApi.getAll();
         setClusters(clustersResponse.data);
-        setBranches(branchesResponse.data);
       } catch (err) {
         console.error(err);
       } finally {
-        setBranchesLoading(false);
         setClustersLoading(false);
       }
     };
 
     loadDependencies();
   }, []);
-
-  useEffect(() => {
-    if (!user) {
-      each1BranchUserIdRef.current = undefined;
-      return;
-    }
-    if (each1BranchUserIdRef.current !== user.id) {
-      each1BranchUserIdRef.current = user.id;
-      setFilterBranch(
-        user.branch != null && user.branch !== undefined ? user.branch : "",
-      );
-    }
-  }, [user]);
-
-  useEffect(() => {
-    if (!user || canChangeBranchFilter) return;
-    if (user.branch != null && filterBranch !== user.branch) {
-      setFilterBranch(user.branch);
-    }
-  }, [user, canChangeBranchFilter, filterBranch]);
 
   useEffect(() => {
     if (!showGoalModal || !selectedClusterId) {
@@ -275,13 +231,6 @@ export default function Each1Reach1Dashboard({
   const resetFilters = () => {
     setFilterYear(currentYear);
     setFilterStatus("ALL");
-    setFilterBranch(
-      canChangeBranchFilter
-        ? ""
-        : user?.branch != null && user.branch !== undefined
-          ? user.branch
-          : "",
-    );
     setSearchInput("");
     setDebouncedSearch("");
   };
@@ -412,78 +361,10 @@ export default function Each1Reach1Dashboard({
     );
   };
 
-  const renderEach1BranchSelect = (touchTarget = false) => {
-    const each1BranchInteractive = canChangeBranchFilter && !branchesLoading;
-    const branchSelectEl = (
-      <select
-        aria-label="Filter by branch"
-        aria-disabled={!each1BranchInteractive}
-        tabIndex={each1BranchInteractive ? 0 : -1}
-        value={filterBranch}
-        onChange={(e) => {
-          if (!each1BranchInteractive) return;
-          setFilterBranch(Number(e.target.value) || "");
-        }}
-        disabled={canChangeBranchFilter && branchesLoading}
-        className={`${
-          each1BranchInteractive
-            ? touchTarget
-              ? TOOLBAR_BRANCH_SELECT_FULL_WIDTH_CLASS
-              : TOOLBAR_BRANCH_SELECT_CLASS
-            : EVANGELISM_BRANCH_SELECT_LOCKED_CLASS
-        } ${touchTarget ? "h-full min-h-[44px]" : ""} ${
-          canChangeBranchFilter && branchesLoading
-            ? "cursor-wait bg-gray-50 text-gray-500"
-            : ""
-        }`}
-      >
-        {canChangeBranchFilter ? (
-          <>
-            <option value="">All branches</option>
-            {branches.map((branch) => (
-              <option key={branch.id} value={branch.id}>
-                {branch.name}
-              </option>
-            ))}
-          </>
-        ) : user?.branch != null ? (
-          <>
-            {branches
-              .filter((b) => Number(b.id) === Number(user.branch))
-              .map((branch) => (
-                <option key={branch.id} value={branch.id}>
-                  {branch.name}
-                </option>
-              ))}
-            {!branches.some((b) => Number(b.id) === Number(user.branch)) && (
-              <option value={Number(user.branch)}>
-                {user.branch_name?.trim() ?? `Branch #${user.branch}`}
-              </option>
-            )}
-          </>
-        ) : (
-          <option value="">No branch assigned</option>
-        )}
-      </select>
-    );
-    return !canChangeBranchFilter ? (
-      <LockedControlTooltip
-        label={EVANGELISM_BRANCH_LOCKED_HINT}
-        wrapperClassName={`block min-w-0 w-full cursor-default ${
-          touchTarget ? "h-full" : "md:w-52 md:shrink-0"
-        }`}
-      >
-        {branchSelectEl}
-      </LockedControlTooltip>
-    ) : (
-      branchSelectEl
-    );
-  };
-
   return (
     <div className="space-y-6">
       <div className={TOOLBAR_CARD_CLASS}>
-        {/* Mobile — stacked 3-row toolbar */}
+        {/* Mobile — stacked toolbar */}
         <div className="flex flex-col gap-3 xl:hidden">
           <EvangelismToolbarSearch
             value={searchInput}
@@ -493,19 +374,12 @@ export default function Each1Reach1Dashboard({
             fullWidth
           />
 
-          <div className="grid grid-cols-2 items-stretch gap-3">
-            <div className="min-w-0">
-              {renderEach1BranchSelect(true)}
-            </div>
-            <div className="min-w-0">
-              <ViewModeToggle
-                fullWidth
-                className="h-full items-stretch"
-                viewMode={viewMode}
-                onViewModeChange={setViewMode}
-              />
-            </div>
-          </div>
+          <ViewModeToggle
+            fullWidth
+            className="h-11 items-stretch"
+            viewMode={viewMode}
+            onViewModeChange={setViewMode}
+          />
 
           <div className={TOOLBAR_ACTIONS_ROW_CLASS}>
             <input
@@ -559,7 +433,6 @@ export default function Each1Reach1Dashboard({
               placeholder="Search groups…"
               ariaLabel="Search by cluster or evangelism group name"
             />
-            {renderEach1BranchSelect()}
             <ViewModeToggle
               compact
               viewMode={viewMode}

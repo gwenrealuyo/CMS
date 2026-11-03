@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { ChevronDownIcon, ChevronUpIcon } from "@heroicons/react/24/outline";
-import { evangelismApi, branchesApi } from "@/src/lib/api";
+import { evangelismApi } from "@/src/lib/api";
 import {
   BibleSharerDirectoryPerson,
   BibleSharersCoverage,
@@ -15,15 +15,7 @@ import ErrorMessage from "@/src/components/ui/ErrorMessage";
 import Table from "@/src/components/ui/Table";
 import Pagination from "@/src/components/ui/Pagination";
 import ViewModeToggle from "@/src/components/ui/ViewModeToggle";
-import { LockedControlTooltip } from "@/src/components/ui/LockedControlTooltip";
-import EvangelismToolbarSearch, {
-  EVANGELISM_BRANCH_SELECT_LOCKED_CLASS,
-} from "@/src/components/evangelism/EvangelismToolbarSearch";
-import { useAuth } from "@/src/contexts/AuthContext";
-import {
-  canChangeEvangelismBranchFilter,
-  EVANGELISM_BRANCH_LOCKED_HINT,
-} from "@/src/lib/evangelismBranchFilter";
+import EvangelismToolbarSearch from "@/src/components/evangelism/EvangelismToolbarSearch";
 import {
   CLUSTER_CODE_BADGE_CLASSNAME,
   getClusterCodeBadgeStyle,
@@ -41,8 +33,6 @@ import {
 } from "@/src/lib/listViewMode";
 import {
   TOOLBAR_ACTIONS_ROW_CLASS,
-  TOOLBAR_BRANCH_SELECT_CLASS,
-  TOOLBAR_BRANCH_SELECT_FULL_WIDTH_CLASS,
   TOOLBAR_CARD_CLASS,
 } from "@/src/lib/toolbarStyles";
 
@@ -114,20 +104,19 @@ function PersonStatusChips({ person }: { person: BibleSharerDirectoryPerson }) {
   );
 }
 
-export default function BibleSharersCoverageComponent() {
-  const { user, isSeniorCoordinator } = useAuth();
-  const canChangeBranchFilter = useMemo(
-    () => canChangeEvangelismBranchFilter(user, isSeniorCoordinator),
-    [user, isSeniorCoordinator],
-  );
-  const branchUserIdRef = useRef<number | undefined>(undefined);
+interface BibleSharersCoverageProps {
+  /** Page-header branch id; "" means all branches. */
+  branch?: number | "";
+  branches?: Branch[];
+}
 
+export default function BibleSharersCoverageComponent({
+  branch = "",
+  branches = [],
+}: BibleSharersCoverageProps) {
   const [coverage, setCoverage] = useState<BibleSharersCoverage | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [branches, setBranches] = useState<Branch[]>([]);
-  const [branchesLoading, setBranchesLoading] = useState(false);
-  const [filterBranch, setFilterBranch] = useState<number | "">("");
   const [searchInput, setSearchInput] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
@@ -151,47 +140,12 @@ export default function BibleSharersCoverageComponent() {
   }, [searchInput]);
 
   useEffect(() => {
-    const loadBranches = async () => {
-      try {
-        setBranchesLoading(true);
-        const response = await branchesApi.getAll();
-        setBranches(response.data);
-      } catch (err) {
-        console.error(err);
-      } finally {
-        setBranchesLoading(false);
-      }
-    };
-    void loadBranches();
-  }, []);
-
-  useEffect(() => {
-    if (!user) {
-      branchUserIdRef.current = undefined;
-      return;
-    }
-    if (branchUserIdRef.current !== user.id) {
-      branchUserIdRef.current = user.id;
-      setFilterBranch(
-        user.branch != null && user.branch !== undefined ? user.branch : "",
-      );
-    }
-  }, [user]);
-
-  useEffect(() => {
-    if (!user || canChangeBranchFilter) return;
-    if (user.branch != null && filterBranch !== user.branch) {
-      setFilterBranch(user.branch);
-    }
-  }, [user, canChangeBranchFilter, filterBranch]);
-
-  useEffect(() => {
     const fetchCoverage = async () => {
       try {
         setLoading(true);
         setError(null);
         const response = await evangelismApi.getBibleSharersCoverage(
-          filterBranch ? { branch: filterBranch } : undefined,
+          branch ? { branch } : undefined,
         );
         setCoverage(response.data);
       } catch (err: any) {
@@ -213,15 +167,15 @@ export default function BibleSharersCoverageComponent() {
     };
 
     void fetchCoverage();
-  }, [filterBranch]);
+  }, [branch]);
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [debouncedSearch, statusFilter, filterBranch, itemsPerPage]);
+  }, [debouncedSearch, statusFilter, branch, itemsPerPage]);
 
   const branchById = useMemo(() => {
     const map = new Map<number, Branch>();
-    branches.forEach((branch) => map.set(Number(branch.id), branch));
+    branches.forEach((item) => map.set(Number(item.id), item));
     return map;
   }, [branches]);
 
@@ -275,73 +229,6 @@ export default function BibleSharersCoverageComponent() {
       <ChevronUpIcon className="h-4 w-4 text-gray-500" />
     ) : (
       <ChevronDownIcon className="h-4 w-4 text-gray-500" />
-    );
-  };
-
-  const renderBranchSelect = (fullWidth = false) => {
-    const interactive = canChangeBranchFilter && !branchesLoading;
-    const branchSelectEl = (
-      <select
-        aria-label="Branch"
-        aria-disabled={!interactive}
-        tabIndex={interactive ? 0 : -1}
-        value={filterBranch}
-        onChange={(event) => {
-          if (!interactive) return;
-          setFilterBranch(Number(event.target.value) || "");
-        }}
-        disabled={canChangeBranchFilter && branchesLoading}
-        className={`${
-          interactive
-            ? fullWidth
-              ? TOOLBAR_BRANCH_SELECT_FULL_WIDTH_CLASS
-              : TOOLBAR_BRANCH_SELECT_CLASS
-            : EVANGELISM_BRANCH_SELECT_LOCKED_CLASS
-        }${fullWidth ? " h-full min-h-[44px]" : ""}`}
-      >
-        {canChangeBranchFilter ? (
-          <>
-            <option value="">All branches</option>
-            {branches.map((branch) => (
-              <option key={branch.id} value={branch.id}>
-                {branch.name}
-              </option>
-            ))}
-          </>
-        ) : user?.branch != null ? (
-          <>
-            {branches
-              .filter((branch) => Number(branch.id) === Number(user.branch))
-              .map((branch) => (
-                <option key={branch.id} value={branch.id}>
-                  {branch.name}
-                </option>
-              ))}
-            {!branches.some(
-              (branch) => Number(branch.id) === Number(user.branch),
-            ) && (
-              <option value={String(user.branch)}>
-                {user.branch_name?.trim() || `Branch #${user.branch}`}
-              </option>
-            )}
-          </>
-        ) : (
-          <option value="">No branch assigned</option>
-        )}
-      </select>
-    );
-
-    return interactive ? (
-      branchSelectEl
-    ) : (
-      <LockedControlTooltip
-        label={EVANGELISM_BRANCH_LOCKED_HINT}
-        wrapperClassName={
-          fullWidth ? "block h-full w-full min-w-0 cursor-default" : undefined
-        }
-      >
-        {branchSelectEl}
-      </LockedControlTooltip>
     );
   };
 
@@ -454,17 +341,12 @@ export default function BibleSharersCoverageComponent() {
             ariaLabel="Search Bible Sharers"
             fullWidth
           />
-          <div className="grid grid-cols-2 items-stretch gap-3">
-            <div className="min-w-0">{renderBranchSelect(true)}</div>
-            <div className="min-w-0">
-              <ViewModeToggle
-                fullWidth
-                className="h-full items-stretch"
-                viewMode={viewMode}
-                onViewModeChange={setViewMode}
-              />
-            </div>
-          </div>
+          <ViewModeToggle
+            fullWidth
+            className="h-11 items-stretch"
+            viewMode={viewMode}
+            onViewModeChange={setViewMode}
+          />
           <div className={TOOLBAR_ACTIONS_ROW_CLASS}>
             {statusSelect(
               "min-h-[44px] w-full min-w-0 flex-1 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm",
@@ -479,7 +361,6 @@ export default function BibleSharersCoverageComponent() {
             placeholder="Search Bible Sharers…"
             ariaLabel="Search Bible Sharers"
           />
-          {renderBranchSelect()}
           <ViewModeToggle
             compact={isMdUp}
             viewMode={viewMode}

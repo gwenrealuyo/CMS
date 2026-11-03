@@ -63,6 +63,10 @@ export interface EvangelismReportsDashboardProps {
   externalShowForm?: boolean;
   /** Lets the page keep this dashboard mounted while the submit modal is open. */
   onFormOpenChange?: (open: boolean) => void;
+  /** When true, branch is controlled by the page header. */
+  hideBranchFilter?: boolean;
+  /** Page-header branch id; used when `hideBranchFilter` is true. "" means all branches. */
+  branchId?: string;
 }
 
 const GATHERING_FILTER = [
@@ -104,6 +108,8 @@ export default function EvangelismReportsDashboard({
   initialViewReportId = null,
   externalShowForm,
   onFormOpenChange,
+  hideBranchFilter = false,
+  branchId,
 }: EvangelismReportsDashboardProps) {
   const { user, isSeniorCoordinator } = useAuth();
   const canChangeBranchFilter = useMemo(
@@ -220,6 +226,14 @@ export default function EvangelismReportsDashboard({
   }, [showExportDropdown]);
 
   useEffect(() => {
+    if (hideBranchFilter) {
+      const next = branchId ?? "";
+      if (selectedBranch !== next) {
+        setSelectedBranch(next);
+        setReportsScope("");
+      }
+      return;
+    }
     if (!user) {
       reportsBranchUserIdRef.current = undefined;
       return;
@@ -233,9 +247,10 @@ export default function EvangelismReportsDashboard({
       );
       setReportsScope("");
     }
-  }, [user]);
+  }, [user, hideBranchFilter, branchId, selectedBranch]);
 
   useEffect(() => {
+    if (hideBranchFilter) return;
     if (!user || canChangeBranchFilter) return;
     if (user.branch != null && selectedBranch !== String(user.branch)) {
       setSelectedBranch(String(user.branch));
@@ -243,7 +258,7 @@ export default function EvangelismReportsDashboard({
     if (user.branch == null && selectedBranch !== "") {
       setSelectedBranch("");
     }
-  }, [user, canChangeBranchFilter, selectedBranch]);
+  }, [user, canChangeBranchFilter, selectedBranch, hideBranchFilter]);
 
   const evangelismGroupsScoped = useMemo(() => {
     if (!selectedBranch) return groups;
@@ -902,37 +917,51 @@ export default function EvangelismReportsDashboard({
   return (
     <div className="space-y-6">
       <Card>
-        <div className="grid min-w-0 w-full grid-cols-1 gap-4 tablet:grid-cols-12 xl:gap-4 xl:[grid-template-columns:minmax(0,1.15fr)_minmax(0,2.1fr)_minmax(6.5rem,0.68fr)_minmax(10.5rem,0.92fr)_minmax(10.5rem,0.88fr)]">
-          <div className="min-w-0 tablet:col-span-5 xl:col-span-1">
-            <label className="mb-1 block text-sm font-medium text-gray-700">
-              Branch
-            </label>
-            {canChangeBranchFilter ? (
-              <ScalableSelect
-                value={selectedBranch}
-                options={branchOptions}
-                onChange={(v) => {
-                  setSelectedBranch(v);
-                  setReportsScope("");
-                }}
-                className="w-full min-w-0 text-sm"
-              />
-            ) : (
-              <LockedControlTooltip
-                label={EVANGELISM_BRANCH_LOCKED_HINT}
-                wrapperClassName="inline-block min-w-0 w-full align-middle cursor-default"
-              >
+        <div
+          className={
+            hideBranchFilter
+              ? "grid min-w-0 w-full grid-cols-1 gap-4 tablet:grid-cols-12 xl:gap-4 xl:[grid-template-columns:minmax(0,2.1fr)_minmax(6.5rem,0.68fr)_minmax(10.5rem,0.92fr)_minmax(10.5rem,0.88fr)]"
+              : "grid min-w-0 w-full grid-cols-1 gap-4 tablet:grid-cols-12 xl:gap-4 xl:[grid-template-columns:minmax(0,1.15fr)_minmax(0,2.1fr)_minmax(6.5rem,0.68fr)_minmax(10.5rem,0.92fr)_minmax(10.5rem,0.88fr)]"
+          }
+        >
+          {!hideBranchFilter && (
+            <div className="min-w-0 tablet:col-span-5 xl:col-span-1">
+              <label className="mb-1 block text-sm font-medium text-gray-700">
+                Branch
+              </label>
+              {canChangeBranchFilter ? (
                 <ScalableSelect
                   value={selectedBranch}
                   options={branchOptions}
-                  onChange={() => {}}
-                  interactionBlocked
+                  onChange={(v) => {
+                    setSelectedBranch(v);
+                    setReportsScope("");
+                  }}
                   className="w-full min-w-0 text-sm"
                 />
-              </LockedControlTooltip>
-            )}
-          </div>
-          <div className="min-w-0 tablet:col-span-7 xl:col-span-1">
+              ) : (
+                <LockedControlTooltip
+                  label={EVANGELISM_BRANCH_LOCKED_HINT}
+                  wrapperClassName="inline-block min-w-0 w-full align-middle cursor-default"
+                >
+                  <ScalableSelect
+                    value={selectedBranch}
+                    options={branchOptions}
+                    onChange={() => {}}
+                    interactionBlocked
+                    className="w-full min-w-0 text-sm"
+                  />
+                </LockedControlTooltip>
+              )}
+            </div>
+          )}
+          <div
+            className={
+              hideBranchFilter
+                ? "min-w-0 tablet:col-span-12 xl:col-span-1"
+                : "min-w-0 tablet:col-span-7 xl:col-span-1"
+            }
+          >
             <label className="mb-1 block text-sm font-medium text-gray-700">
               Evangelism group
             </label>

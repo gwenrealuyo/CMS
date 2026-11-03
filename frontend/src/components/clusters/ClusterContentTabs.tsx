@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import SegmentedControl from "@/src/components/ui/SegmentedControl";
+import { TOOLBAR_BRANCH_HEADER_SLOT_CLASS } from "@/src/lib/toolbarStyles";
 
 export type ClusterContentTab =
   | "clusters"
@@ -49,9 +50,7 @@ export default function ClusterContentTabs({
         />
       </div>
       {branchFilter ? (
-        <div className="flex w-full shrink-0 items-center md:w-auto">
-          {branchFilter}
-        </div>
+        <div className={TOOLBAR_BRANCH_HEADER_SLOT_CLASS}>{branchFilter}</div>
       ) : null}
     </div>
   );

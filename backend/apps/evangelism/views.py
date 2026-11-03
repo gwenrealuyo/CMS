@@ -710,16 +710,35 @@ class EvangelismWeeklyReportViewSet(viewsets.ModelViewSet):
             branch_raw = request.query_params.get("branch_id") or request.query_params.get(
                 "branch"
             )
+            group_raw = request.query_params.get(
+                "evangelism_group"
+            ) or request.query_params.get("group_id")
             clusters = clusters_for_compliance(request.user, branch_raw)
+            unclustered_groups = unclustered_groups_for_compliance(
+                request.user, branch_raw
+            )
+            if group_raw not in (None, ""):
+                try:
+                    group_id = int(group_raw)
+                except (TypeError, ValueError) as exc:
+                    raise ComplianceQueryError("Invalid evangelism_group.") from exc
+                group = EvangelismGroup.objects.filter(id=group_id).first()
+                if group is None:
+                    clusters = clusters.none()
+                    unclustered_groups = unclustered_groups.none()
+                elif group.cluster_id:
+                    clusters = clusters.filter(id=group.cluster_id)
+                    unclustered_groups = unclustered_groups.none()
+                else:
+                    clusters = clusters.none()
+                    unclustered_groups = unclustered_groups.filter(id=group_id)
             payload = build_evangelism_compliance(
                 clusters,
                 start_date,
                 end_date,
                 status=request.query_params.get("status") or None,
                 weeks=weeks,
-                unclustered_groups=unclustered_groups_for_compliance(
-                    request.user, branch_raw
-                ),
+                unclustered_groups=unclustered_groups,
             )
         except ComplianceQueryError as exc:
             return None, Response({"error": exc.message}, status=status.HTTP_400_BAD_REQUEST)
@@ -736,6 +755,7 @@ class EvangelismWeeklyReportViewSet(viewsets.ModelViewSet):
         - start_date (YYYY-MM-DD): used when week_number is omitted; default 4 weeks ago
         - end_date (YYYY-MM-DD): used when week_number is omitted; default today
         - branch_id: filter by branch when the user may change branch
+        - evangelism_group / group_id: filter to one evangelism group
         - status: filters table rows only (COMPLIANT, NON_COMPLIANT, PARTIAL, NO_GROUP)
         """
         payload, error = self._evangelism_compliance_payload(request)

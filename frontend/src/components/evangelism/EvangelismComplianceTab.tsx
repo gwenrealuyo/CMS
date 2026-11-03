@@ -1,25 +1,23 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
-import { branchesApi, evangelismApi } from "@/src/lib/api";
+import { useEffect, useMemo, useState } from "react";
+import { evangelismApi } from "@/src/lib/api";
 import { formatLocaleDate } from "@/src/lib/date";
-import { canChangeEvangelismBranchFilter } from "@/src/lib/evangelismBranchFilter";
 import {
   getIsoWeekDateRange,
   getIsoWeekParts,
   isoWeeksInYear,
 } from "@/src/lib/isoWeek";
-import { useAuth } from "@/src/contexts/AuthContext";
 import {
   EvangelismComplianceData,
   EvangelismComplianceStatus,
+  EvangelismGroup,
 } from "@/src/types/evangelism";
 import Button from "@/src/components/ui/Button";
 import Card from "@/src/components/ui/Card";
 import ErrorMessage from "@/src/components/ui/ErrorMessage";
 import LoadingSpinner from "@/src/components/ui/LoadingSpinner";
 import ScalableSelect from "@/src/components/ui/ScalableSelect";
-import { LockedControlTooltip } from "@/src/components/ui/LockedControlTooltip";
 
 const todayIso = getIsoWeekParts(new Date());
 const ALL_WEEKS = "all";
@@ -35,6 +33,13 @@ function formatWeekDateRange(year: number, weekNumber: number): string {
     return `${startMonth} ${startDay}-${endDay}`;
   }
   return `${startMonth} ${startDay}-${endMonth} ${endDay}`;
+}
+
+function groupMatchesBranch(group: EvangelismGroup, branchId: string) {
+  const direct = group.branch ?? group.branch_id;
+  if (direct != null && String(direct) === branchId) return true;
+  const clusterBranch = group.cluster?.branch;
+  return clusterBranch != null && String(clusterBranch) === branchId;
 }
 
 const STATUS_LABEL: Record<EvangelismComplianceStatus, string> = {
@@ -57,12 +62,17 @@ function statusBadgeClass(status: EvangelismComplianceStatus) {
   }
 }
 
-export default function EvangelismComplianceTab() {
-  const { user, isSeniorCoordinator } = useAuth();
-  const canChangeBranch = useMemo(
-    () => canChangeEvangelismBranchFilter(user, isSeniorCoordinator),
-    [user, isSeniorCoordinator],
-  );
+interface EvangelismComplianceTabProps {
+  /** Page-header branch id; "" means all branches. */
+  branchId?: string;
+  /** Groups available for the filter (already access-scoped by the page). */
+  groups?: EvangelismGroup[];
+}
+
+export default function EvangelismComplianceTab({
+  branchId = "",
+  groups = [],
+}: EvangelismComplianceTabProps) {
   const [selectedYear, setSelectedYear] = useState<number>(todayIso.year);
   const [availableYears, setAvailableYears] = useState<number[]>([
     todayIso.year,
@@ -70,18 +80,37 @@ export default function EvangelismComplianceTab() {
   const [selectedWeeks, setSelectedWeeks] = useState<string[]>([
     String(todayIso.week),
   ]);
+  const [selectedGroupId, setSelectedGroupId] = useState<string>("");
   const [statusFilter, setStatusFilter] = useState<
     EvangelismComplianceStatus | "ALL"
   >("ALL");
-  const [selectedBranchId, setSelectedBranchId] = useState<string>("");
-  const [branchPickerOptions, setBranchPickerOptions] = useState<
-    { value: string; label: string }[]
-  >([]);
-  const [branchesLoading, setBranchesLoading] = useState(false);
   const [data, setData] = useState<EvangelismComplianceData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const prevUserIdRef = useRef<number | undefined>(undefined);
+
+  const groupOptions = useMemo(() => {
+    const scoped = branchId
+      ? groups.filter((group) => groupMatchesBranch(group, branchId))
+      : groups;
+    return [
+      { value: "", label: "All groups" },
+      ...scoped.map((group) => ({
+        value: String(group.id),
+        label: group.name || `Group ${group.id}`,
+        hasBibleSharers:
+          (group.bible_sharer_ids?.length ?? 0) > 0 ||
+          Boolean(group.is_bible_sharers_group),
+      })),
+    ];
+  }, [groups, branchId]);
+
+  useEffect(() => {
+    setSelectedGroupId((prev) => {
+      if (!prev) return prev;
+      const stillValid = groupOptions.some((option) => option.value === prev);
+      return stillValid ? prev : "";
+    });
+  }, [groupOptions, branchId]);
 
   const weekOptions = useMemo(
     () =>
@@ -131,88 +160,10 @@ export default function EvangelismComplianceTab() {
   };
 
   useEffect(() => {
-    if (!user) {
-      setSelectedBranchId("");
-      prevUserIdRef.current = undefined;
-      return;
-    }
-    if (prevUserIdRef.current !== user.id) {
-      prevUserIdRef.current = user.id;
-      setSelectedBranchId(
-        user.branch != null && user.branch !== undefined
-          ? String(user.branch)
-          : "",
-      );
-    }
-  }, [user]);
-
-  useEffect(() => {
-    if (!canChangeBranch) {
-      setBranchPickerOptions([]);
-      return;
-    }
-    let cancelled = false;
-    setBranchesLoading(true);
-    branchesApi
-      .getAll({ is_active: true })
-      .then((response) => {
-        if (cancelled) return;
-        const rows = Array.isArray(response.data) ? response.data : [];
-        setBranchPickerOptions(
-          rows.map((branch) => ({
-            value: String(branch.id),
-            label: branch.name,
-          })),
-        );
-      })
-      .catch(() => {
-        if (!cancelled) setBranchPickerOptions([]);
-      })
-      .finally(() => {
-        if (!cancelled) setBranchesLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [canChangeBranch]);
-
-  const branchFilterLabel = useMemo(() => {
-    if (!selectedBranchId) return "No branch";
-    if (
-      user?.branch_name &&
-      user.branch != null &&
-      String(user.branch) === selectedBranchId
-    ) {
-      return user.branch_name;
-    }
-    const option = branchPickerOptions.find(
-      (item) => item.value === selectedBranchId,
-    );
-    return option?.label ?? `Branch #${selectedBranchId}`;
-  }, [selectedBranchId, user?.branch, user?.branch_name, branchPickerOptions]);
-
-  const branchSelectOptions = useMemo(() => {
-    if (canChangeBranch) {
-      return [{ value: "", label: "All branches" }, ...branchPickerOptions];
-    }
-    if (selectedBranchId) {
-      return [{ value: selectedBranchId, label: branchFilterLabel }];
-    }
-    return [{ value: "", label: "No branch assigned" }];
-  }, [
-    canChangeBranch,
-    branchPickerOptions,
-    selectedBranchId,
-    branchFilterLabel,
-  ]);
-
-  const branchSelectInteractive = canChangeBranch && !branchesLoading;
-
-  useEffect(() => {
     let cancelled = false;
     evangelismApi
       .weeklyReportsDistinctYears(
-        selectedBranchId ? { branch: selectedBranchId } : undefined,
+        branchId ? { branch: branchId } : undefined,
       )
       .then((response) => {
         if (cancelled) return;
@@ -228,10 +179,9 @@ export default function EvangelismComplianceTab() {
     return () => {
       cancelled = true;
     };
-  }, [selectedBranchId]);
+  }, [branchId]);
 
   useEffect(() => {
-    if (!user) return;
     if (!weekParam) {
       setData(null);
       setError(null);
@@ -246,7 +196,8 @@ export default function EvangelismComplianceTab() {
         const response = await evangelismApi.compliance({
           year: selectedYear,
           week_number: weekParam,
-          branch_id: selectedBranchId || undefined,
+          branch_id: branchId || undefined,
+          evangelism_group: selectedGroupId || undefined,
           status: statusFilter !== "ALL" ? statusFilter : undefined,
         });
         if (!cancelled) setData(response.data);
@@ -265,7 +216,7 @@ export default function EvangelismComplianceTab() {
     return () => {
       cancelled = true;
     };
-  }, [user, selectedYear, weekParam, selectedBranchId, statusFilter]);
+  }, [selectedYear, weekParam, branchId, selectedGroupId, statusFilter]);
 
   const handleExportCSV = async () => {
     if (!weekParam) return;
@@ -273,7 +224,8 @@ export default function EvangelismComplianceTab() {
       const response = await evangelismApi.exportComplianceCSV({
         year: selectedYear,
         week_number: weekParam,
-        branch_id: selectedBranchId || undefined,
+        branch_id: branchId || undefined,
+        evangelism_group: selectedGroupId || undefined,
         status: statusFilter !== "ALL" ? statusFilter : undefined,
       });
       const blob = new Blob([response.data], { type: "text/csv" });
@@ -338,43 +290,19 @@ export default function EvangelismComplianceTab() {
           <div className="grid grid-cols-1 items-end gap-4 sm:grid-cols-2 xl:grid-cols-12">
             <div className="xl:col-span-3">
               <label className="mb-1 block text-sm font-medium text-gray-700">
-                Branch
+                Evangelism group
               </label>
-              {branchSelectInteractive ? (
-                <ScalableSelect
-                  options={branchSelectOptions}
-                  value={selectedBranchId}
-                  onChange={setSelectedBranchId}
-                  placeholder="Branch"
-                  searchPlaceholder="Search branches..."
-                  className="w-full"
-                  showSearch
-                  maxHeight={220}
-                  emptyMessage="No branches found"
-                  loading={branchesLoading}
-                />
-              ) : (
-                <LockedControlTooltip
-                  label={
-                    branchesLoading && canChangeBranch
-                      ? "Loading branches…"
-                      : "Branch is limited to your assignment."
-                  }
-                  wrapperClassName="block w-full cursor-default"
-                >
-                  <ScalableSelect
-                    options={branchSelectOptions}
-                    value={selectedBranchId}
-                    onChange={setSelectedBranchId}
-                    placeholder="Branch"
-                    className="w-full"
-                    interactionBlocked
-                    showSearch={false}
-                    maxHeight={220}
-                    emptyMessage="No branches found"
-                  />
-                </LockedControlTooltip>
-              )}
+              <ScalableSelect
+                options={groupOptions}
+                value={selectedGroupId}
+                onChange={setSelectedGroupId}
+                placeholder="All groups"
+                searchPlaceholder="Search groups..."
+                className="w-full"
+                showSearch
+                maxHeight={220}
+                emptyMessage="No groups found"
+              />
             </div>
             <div className="xl:col-span-3">
               <label className="mb-1 block text-sm font-medium text-gray-700">
@@ -562,7 +490,9 @@ export default function EvangelismComplianceTab() {
                         {item.cancelled_weeks?.length ? (
                           <div className="space-y-1">
                             {item.cancelled_weeks.map((entry, index) => (
-                              <div key={`${entry.week}-${entry.group ?? ""}-${index}`}>
+                              <div
+                                key={`${entry.week}-${entry.group ?? ""}-${index}`}
+                              >
                                 Week {entry.week}
                                 {entry.group ? ` — ${entry.group}` : ""}
                                 {entry.reason ? `: ${entry.reason}` : ""}

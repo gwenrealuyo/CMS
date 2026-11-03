@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import Modal from "@/src/components/ui/Modal";
 import ErrorMessage from "@/src/components/ui/ErrorMessage";
@@ -9,7 +9,6 @@ import ToolbarSearch from "@/src/components/ui/ToolbarSearch";
 import ScalableSelect from "@/src/components/ui/ScalableSelect";
 import ViewModeToggle from "@/src/components/ui/ViewModeToggle";
 import Pagination from "@/src/components/ui/Pagination";
-import { LockedControlTooltip } from "@/src/components/ui/LockedControlTooltip";
 import { getInitialListViewMode, useIsMdUp } from "@/src/lib/listViewMode";
 import ProspectsTable from "@/src/components/evangelism/ProspectsTable";
 import ProspectProgressForm from "@/src/components/evangelism/ProspectProgressForm";
@@ -18,13 +17,7 @@ import { useAuth } from "@/src/contexts/AuthContext";
 import { canHardDelete } from "@/src/lib/canHardDelete";
 import { canWriteEvangelismRecords } from "@/src/lib/evangelism/evangelismPermissions";
 import { useModuleSettings } from "@/src/hooks/useModuleSettings";
-import {
-  canChangeProspectsBranchFilter,
-  defaultProspectsListBranch,
-  EVANGELISM_BRANCH_LOCKED_HINT,
-} from "@/src/lib/evangelismBranchFilter";
 import { TOOLBAR_CARD_CLASS } from "@/src/lib/toolbarStyles";
-import { Branch } from "@/src/types/branch";
 import { Cluster } from "@/src/types/cluster";
 import { Prospect } from "@/src/types/evangelism";
 
@@ -45,26 +38,23 @@ const FILTER_SELECT_CLASS =
   "block h-11 w-full min-w-0 rounded-lg border border-gray-300 bg-white pl-3 pr-8 text-base md:text-sm text-gray-900 focus:ring-2 focus:ring-ring focus:border-transparent";
 
 interface ProspectsBrowseProps {
-  branches: Branch[];
   clusters: Cluster[];
+  /** Page-header branch id; "" means all branches. */
+  branch?: number | "";
   highlightProspectId?: string | null;
   initialClusterId?: string | null;
 }
 
 export default function ProspectsBrowse({
-  branches,
   clusters,
+  branch = "",
   highlightProspectId,
   initialClusterId,
 }: ProspectsBrowseProps) {
-  const { user, isSeniorCoordinator } = useAuth();
+  const { user } = useAuth();
   const { moduleEnabled } = useModuleSettings();
   const canWrite = canWriteEvangelismRecords({ user, moduleEnabled });
   const userCanHardDelete = canHardDelete(user);
-  const canChangeBranch = canChangeProspectsBranchFilter(
-    user,
-    isSeniorCoordinator,
-  );
 
   const [searchValue, setSearchValue] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
@@ -72,9 +62,6 @@ export default function ProspectsBrowse({
   const [sourceFilter, setSourceFilter] = useState<string>("all");
   const [clusterFilter, setClusterFilter] = useState<string>(
     initialClusterId ? String(initialClusterId) : "all",
-  );
-  const [branchFilter, setBranchFilter] = useState<number | "all">(
-    defaultProspectsListBranch(user),
   );
   const [progressProspect, setProgressProspect] = useState<Prospect | null>(
     null,
@@ -86,7 +73,6 @@ export default function ProspectsBrowse({
   );
   const isMdUp = useIsMdUp();
   const effectiveViewMode: "table" | "cards" = isMdUp ? "table" : viewMode;
-  const branchUserSyncRef = useRef<number | undefined>(undefined);
 
   useEffect(() => {
     const timeout = setTimeout(() => setDebouncedSearch(searchValue.trim()), 300);
@@ -100,19 +86,17 @@ export default function ProspectsBrowse({
   }, [initialClusterId]);
 
   useEffect(() => {
-    if (!user) {
-      branchUserSyncRef.current = undefined;
-      return;
-    }
-    if (branchUserSyncRef.current !== user.id) {
-      branchUserSyncRef.current = user.id;
-      setBranchFilter(defaultProspectsListBranch(user));
-      return;
-    }
-    if (!canChangeBranch && user.branch != null) {
-      setBranchFilter(user.branch);
-    }
-  }, [user, canChangeBranch]);
+    setClusterFilter((prev) => {
+      if (prev === "all" || !branch) return prev;
+      const stillValid = clusters.some(
+        (cluster) =>
+          String(cluster.id) === prev &&
+          cluster.branch != null &&
+          Number(cluster.branch) === Number(branch),
+      );
+      return stillValid ? prev : "all";
+    });
+  }, [branch, clusters]);
 
   const apiFilters = useMemo(() => {
     const filters: {
@@ -128,8 +112,8 @@ export default function ProspectsBrowse({
     if (stageFilter !== "all_active" && stageFilter !== "dropped") {
       filters.pipeline_stage = stageFilter;
     }
-    if (branchFilter !== "all") {
-      filters.branch = branchFilter;
+    if (branch !== "") {
+      filters.branch = branch;
     }
     if (clusterFilter !== "all") {
       filters.cluster = clusterFilter;
@@ -141,7 +125,7 @@ export default function ProspectsBrowse({
       filters.search = debouncedSearch;
     }
     return filters;
-  }, [stageFilter, branchFilter, clusterFilter, sourceFilter, debouncedSearch]);
+  }, [stageFilter, branch, clusterFilter, sourceFilter, debouncedSearch]);
 
   const {
     prospects,
@@ -160,7 +144,7 @@ export default function ProspectsBrowse({
     setCurrentPage(1);
   }, [
     stageFilter,
-    branchFilter,
+    branch,
     clusterFilter,
     sourceFilter,
     debouncedSearch,
@@ -174,11 +158,11 @@ export default function ProspectsBrowse({
   }, [highlightProspectId, prospects]);
 
   const clustersForBranch = useMemo(() => {
-    if (branchFilter === "all") return clusters;
+    if (branch === "") return clusters;
     return clusters.filter(
-      (cluster) => Number(cluster.branch) === Number(branchFilter),
+      (cluster) => Number(cluster.branch) === Number(branch),
     );
-  }, [clusters, branchFilter]);
+  }, [clusters, branch]);
 
   const clusterOptions = useMemo(
     () => [
@@ -192,54 +176,6 @@ export default function ProspectsBrowse({
       })),
     ],
     [clustersForBranch],
-  );
-
-  const filterSelectClass = canChangeBranch
-    ? FILTER_SELECT_CLASS
-    : `${FILTER_SELECT_CLASS} pointer-events-none cursor-default`;
-
-  const branchSelect = (
-    <select
-      aria-label="Branch"
-      aria-disabled={!canChangeBranch}
-      tabIndex={canChangeBranch ? 0 : -1}
-      value={branchFilter === "all" ? "all" : String(branchFilter)}
-      onChange={(e) => {
-        if (!canChangeBranch) return;
-        const value = e.target.value;
-        setBranchFilter(value === "all" ? "all" : Number(value));
-        setClusterFilter("all");
-      }}
-      className={filterSelectClass}
-    >
-      {canChangeBranch ? (
-        <>
-          <option value="all">All branches</option>
-          {branches.map((branch) => (
-            <option key={branch.id} value={String(branch.id)}>
-              {branch.name}
-            </option>
-          ))}
-        </>
-      ) : user?.branch != null ? (
-        <>
-          {branches
-            .filter((b) => Number(b.id) === Number(user.branch))
-            .map((branch) => (
-              <option key={branch.id} value={String(branch.id)}>
-                {branch.name}
-              </option>
-            ))}
-          {!branches.some((b) => Number(b.id) === Number(user.branch)) && (
-            <option value={String(user.branch)}>
-              {user.branch_name?.trim() || `Branch #${user.branch}`}
-            </option>
-          )}
-        </>
-      ) : (
-        <option value="all">No branch assigned</option>
-      )}
-    </select>
   );
 
   return (
@@ -265,19 +201,7 @@ export default function ProspectsBrowse({
               </p>
             )}
           </div>
-          <div className="grid grid-cols-1 items-stretch gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            <div className="min-w-0 w-full">
-              {canChangeBranch ? (
-                branchSelect
-              ) : (
-                <LockedControlTooltip
-                  label={EVANGELISM_BRANCH_LOCKED_HINT}
-                  wrapperClassName="block w-full min-w-0 cursor-default"
-                >
-                  {branchSelect}
-                </LockedControlTooltip>
-              )}
-            </div>
+          <div className="grid grid-cols-1 items-stretch gap-3 tablet:grid-cols-3">
             <div className="min-w-0 w-full">
               <ScalableSelect
                 options={clusterOptions}

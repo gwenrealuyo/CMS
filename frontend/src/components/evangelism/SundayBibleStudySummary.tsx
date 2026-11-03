@@ -1,8 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { branchesApi, evangelismApi } from "@/src/lib/api";
-import { Branch } from "@/src/types/branch";
+import { evangelismApi } from "@/src/lib/api";
 import {
   SundayBibleStudySummary as Summary,
   SundaySessionType,
@@ -11,8 +10,6 @@ import {
 import Card from "@/src/components/ui/Card";
 import ErrorMessage from "@/src/components/ui/ErrorMessage";
 import LoadingSpinner from "@/src/components/ui/LoadingSpinner";
-import ScalableSelect from "@/src/components/ui/ScalableSelect";
-import { useAuth } from "@/src/contexts/AuthContext";
 import { mostRecentSunday } from "@/src/components/evangelism/sundayBibleStudyDates";
 
 function Stat({ label, value }: { label: string; value: number }) {
@@ -24,34 +21,19 @@ function Stat({ label, value }: { label: string; value: number }) {
   );
 }
 
-export default function SundayBibleStudySummaryView() {
-  const { user } = useAuth();
-  const isAdmin = user?.role === "ADMIN";
+interface SundayBibleStudySummaryViewProps {
+  /** Page-header branch id; "" means all branches. */
+  branchId?: string;
+}
+
+export default function SundayBibleStudySummaryView({
+  branchId = "",
+}: SundayBibleStudySummaryViewProps) {
   const [sessionDate, setSessionDate] = useState(mostRecentSunday);
   const [sessionType, setSessionType] = useState<"" | SundaySessionType>("");
-  const [branchId, setBranchId] = useState("");
-  const [branches, setBranches] = useState<Branch[]>([]);
   const [summary, setSummary] = useState<Summary | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!isAdmin) return;
-    let cancelledLoad = false;
-    const loadBranches = async () => {
-      try {
-        const response = await branchesApi.getAll({ is_active: true });
-        if (cancelledLoad) return;
-        setBranches(Array.isArray(response.data) ? response.data : []);
-      } catch (err) {
-        console.error(err);
-      }
-    };
-    void loadBranches();
-    return () => {
-      cancelledLoad = true;
-    };
-  }, [isAdmin]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -60,7 +42,7 @@ export default function SundayBibleStudySummaryView() {
       const response = await evangelismApi.sundayBibleStudySummary({
         session_date: sessionDate || undefined,
         session_type: sessionType || undefined,
-        branch: isAdmin && branchId ? branchId : undefined,
+        branch: branchId || undefined,
       });
       setSummary(response.data);
     } catch (err) {
@@ -69,7 +51,7 @@ export default function SundayBibleStudySummaryView() {
     } finally {
       setLoading(false);
     }
-  }, [sessionDate, sessionType, isAdmin, branchId]);
+  }, [sessionDate, sessionType, branchId]);
 
   useEffect(() => {
     void load();
@@ -78,7 +60,7 @@ export default function SundayBibleStudySummaryView() {
   return (
     <div className="space-y-4">
       <Card>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <label className="block text-sm font-medium text-gray-700">
             Sunday
             <input
@@ -102,28 +84,6 @@ export default function SundayBibleStudySummaryView() {
               <option value="AFTER_SERVICE">After Service</option>
             </select>
           </label>
-          {isAdmin && (
-            <div className="block text-sm font-medium text-gray-700">
-              Branch
-              <div className="mt-1">
-                <ScalableSelect
-                  options={branches.map((branch) => ({
-                    value: String(branch.id),
-                    label: branch.name,
-                  }))}
-                  value={branchId}
-                  onChange={setBranchId}
-                  pinnedOption={{ value: "", label: "All branches" }}
-                  placeholder="All branches"
-                  searchPlaceholder="Search branches..."
-                  className="w-full"
-                  showSearch
-                  maxHeight={280}
-                  emptyMessage="No branches found"
-                />
-              </div>
-            </div>
-          )}
         </div>
       </Card>
       {error && <ErrorMessage message={error} />}

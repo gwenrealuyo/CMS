@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, type ReactNode } from "react";
+import { TOOLBAR_BRANCH_HEADER_SLOT_CLASS } from "@/src/lib/toolbarStyles";
 
 export type LessonContentTab =
   | "lesson"
@@ -162,7 +163,7 @@ export default function LessonContentTabs({
         </nav>
       </div>
       {branchFilter ? (
-        <div className="flex w-full shrink-0 items-center md:w-auto md:pb-1">
+        <div className={`${TOOLBAR_BRANCH_HEADER_SLOT_CLASS} md:pb-1`}>
           {branchFilter}
         </div>
       ) : null}

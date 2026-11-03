@@ -3,6 +3,7 @@ import { LockedControlTooltip } from "@/src/components/ui/LockedControlTooltip";
 import { LESSONS_BRANCH_LOCKED_HINT } from "@/src/lib/lessonsBranchFilter";
 import BranchFilterFrame from "@/src/components/ui/BranchFilterFrame";
 import {
+  TOOLBAR_BRANCH_HEADER_LOCKED_WRAPPER_CLASS,
   TOOLBAR_BRANCH_HEADER_SELECT_CLASS,
   TOOLBAR_BRANCH_HEADER_SELECT_LOCKED_CLASS,
 } from "@/src/lib/toolbarStyles";
@@ -567,7 +568,10 @@ export default function LessonsPageView({
     return lessonsBranchSelectInteractive ? (
       selectEl
     ) : (
-      <LockedControlTooltip label={lessonsBranchHoverHint}>
+      <LockedControlTooltip
+        label={lessonsBranchHoverHint}
+        wrapperClassName={TOOLBAR_BRANCH_HEADER_LOCKED_WRAPPER_CLASS}
+      >
         {selectEl}
       </LockedControlTooltip>
     );

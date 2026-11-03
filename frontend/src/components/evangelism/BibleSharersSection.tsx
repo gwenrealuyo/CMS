@@ -5,6 +5,7 @@ import { evangelismApi } from "@/src/lib/api";
 import BibleSharersCoverage from "@/src/components/evangelism/BibleSharersCoverage";
 import SundayBibleStudyReports from "@/src/components/evangelism/SundayBibleStudyReports";
 import SundayBibleStudySummaryView from "@/src/components/evangelism/SundayBibleStudySummary";
+import { Branch } from "@/src/types/branch";
 
 type SharerView = "roster" | "reports" | "summary";
 
@@ -15,6 +16,9 @@ interface BibleSharersSectionProps {
   openFormRequest?: boolean;
   /** Called once that blank report has been opened. */
   onReportRequestHandled?: () => void;
+  /** Page-header branch id; "" means all branches. */
+  branchId?: string;
+  branches?: Branch[];
 }
 
 const VIEWS: { id: SharerView; label: string }[] = [
@@ -28,6 +32,8 @@ export default function BibleSharersSection({
   canDeleteReports,
   openFormRequest = false,
   onReportRequestHandled,
+  branchId = "",
+  branches = [],
 }: BibleSharersSectionProps) {
   const [view, setView] = useState<SharerView>("roster");
   const [facilitators, setFacilitators] = useState<
@@ -74,7 +80,12 @@ export default function BibleSharersSection({
           </button>
         ))}
       </div>
-      {view === "roster" && <BibleSharersCoverage />}
+      {view === "roster" && (
+        <BibleSharersCoverage
+          branch={branchId ? Number(branchId) : ""}
+          branches={branches}
+        />
+      )}
       {view === "reports" && (
         <SundayBibleStudyReports
           facilitators={facilitators}
@@ -84,7 +95,9 @@ export default function BibleSharersSection({
           onFormRequestHandled={onReportRequestHandled}
         />
       )}
-      {view === "summary" && <SundayBibleStudySummaryView />}
+      {view === "summary" && (
+        <SundayBibleStudySummaryView branchId={branchId} />
+      )}
     </div>
   );
 }

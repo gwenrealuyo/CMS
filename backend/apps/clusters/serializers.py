@@ -1361,6 +1361,15 @@ class ClusterWeeklyReportSerializer(serializers.ModelSerializer):
         if invited_set:
             report.prospects_invited.set(invited_set)
 
+        if not validated_data.get("cancelled") and meeting_date:
+            from apps.evangelism.visitor_follow_up import bump_activity_from_report_links
+
+            bump_activity_from_report_links(
+                invited_prospects=invited_set,
+                attended_people=unique_visitors,
+                activity_date=meeting_date,
+            )
+
         self._clear_cancelled_attendance(report)
         return report
 
@@ -1447,6 +1456,15 @@ class ClusterWeeklyReportSerializer(serializers.ModelSerializer):
                 ensure_earliest_invite_date(prospect, meeting_date)
             # Unlink only — never delete Prospect rows
             instance.prospects_invited.set(invited_set)
+
+        if not cancelled and meeting_date:
+            from apps.evangelism.visitor_follow_up import bump_activity_from_report_links
+
+            bump_activity_from_report_links(
+                invited_prospects=list(instance.prospects_invited.all()),
+                attended_people=list(instance.visitors_attended.all()),
+                activity_date=meeting_date,
+            )
 
         self._clear_cancelled_attendance(instance)
         return instance

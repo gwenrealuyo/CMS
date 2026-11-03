@@ -500,14 +500,111 @@ class Prospect(models.Model):
         return self.display_name
 
 
+class VisitorFollowUpCase(models.Model):
+    """Inviter-owned caseload for a prospect until active Lessons enrollment."""
+
+    class RecommendedAction(models.TextChoices):
+        FOLLOW_UP_MONITOR = "FOLLOW_UP_MONITOR", "Follow up and monitor progress"
+        VISITATION = "VISITATION", "Visitation and follow up"
+        NO_ACTION = "NO_ACTION", "No action for now"
+        OTHER = "OTHER", "Other"
+
+    class CaseStatus(models.TextChoices):
+        OPEN = "OPEN", "Open"
+        IN_PROGRESS = "IN_PROGRESS", "Ongoing"
+        NO_ACTION = "NO_ACTION", "Low priority"
+        CLOSED = "CLOSED", "Closed"
+
+    class ClosedReason(models.TextChoices):
+        ENROLLED = "ENROLLED", "Enrolled in Lessons"
+        DROPPED_OFF = "DROPPED_OFF", "Dropped off"
+        DECEASED = "DECEASED", "Deceased"
+        REACHED = "REACHED", "Reached"
+        MANUAL = "MANUAL", "Manual"
+
+    prospect = models.OneToOneField(
+        Prospect,
+        on_delete=models.CASCADE,
+        related_name="visitor_follow_up_case",
+    )
+    details = models.TextField(blank=True)
+    recommended_action = models.CharField(
+        max_length=30,
+        choices=RecommendedAction.choices,
+        blank=True,
+    )
+    recommended_action_other = models.CharField(max_length=255, blank=True)
+    assigned_to = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="assigned_visitor_follow_up_cases",
+    )
+    due_date = models.DateField(null=True, blank=True)
+    case_status = models.CharField(
+        max_length=20,
+        choices=CaseStatus.choices,
+        default=CaseStatus.OPEN,
+    )
+    closed_reason = models.CharField(
+        max_length=20,
+        choices=ClosedReason.choices,
+        blank=True,
+    )
+    remarks = models.TextField(blank=True)
+    opened_at = models.DateTimeField(auto_now_add=True)
+    closed_at = models.DateTimeField(null=True, blank=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    updated_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="updated_visitor_follow_up_cases",
+    )
+
+    class Meta:
+        ordering = ("-updated_at", "-id")
+        verbose_name = "Visitor Follow-up Case"
+        verbose_name_plural = "Visitor Follow-up Cases"
+        indexes = [
+            models.Index(fields=["case_status"], name="evang_vfu_case_status_idx"),
+            models.Index(
+                fields=["recommended_action"],
+                name="evang_vfu_case_action_idx",
+            ),
+        ]
+
+    @property
+    def is_open_caseload(self) -> bool:
+        return self.case_status in {
+            self.CaseStatus.OPEN,
+            self.CaseStatus.IN_PROGRESS,
+            self.CaseStatus.NO_ACTION,
+        }
+
+    def __str__(self):
+        return f"{self.prospect_id} ({self.case_status})"
+
+
 class FollowUpTask(models.Model):
     class TaskType(models.TextChoices):
         PHONE_CALL = "PHONE_CALL", "Phone Call"
         TEXT_MESSAGE = "TEXT_MESSAGE", "Text Message"
         VISIT = "VISIT", "Visit"
-        EMAIL = "EMAIL", "Email"
+        INVITE_SUNDAY_SERVICE = "INVITE_SUNDAY_SERVICE", "Invite to next Sunday service"
+        INVITE_BIBLE_STUDY = "INVITE_BIBLE_STUDY", "Invite to Bible study"
+        INVITE_FELLOWSHIP = "INVITE_FELLOWSHIP", "Invite to fellowship activity"
+        INVITE_NCC = "INVITE_NCC", "Invite to take NCC"
+        INVITE_OTHER_CHURCH = (
+            "INVITE_OTHER_CHURCH",
+            "Invite to other church activities",
+        )
         PRAYER = "PRAYER", "Prayer"
         OTHER = "OTHER", "Other"
+        # Deprecated — kept for legacy seed/API rows; new UI does not offer it.
+        EMAIL = "EMAIL", "Email"
 
     class Status(models.TextChoices):
         PENDING = "PENDING", "Pending"
@@ -524,12 +621,20 @@ class FollowUpTask(models.Model):
     prospect = models.ForeignKey(
         Prospect, on_delete=models.CASCADE, related_name="follow_up_tasks"
     )
+    case = models.ForeignKey(
+        VisitorFollowUpCase,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="tasks",
+    )
     assigned_to = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
         related_name="assigned_follow_up_tasks",
     )
-    task_type = models.CharField(max_length=20, choices=TaskType.choices)
+    task_type = models.CharField(max_length=30, choices=TaskType.choices)
+    custom_label = models.CharField(max_length=150, blank=True)
     due_date = models.DateField()
     completed_date = models.DateField(null=True, blank=True)
     status = models.CharField(
@@ -555,7 +660,9 @@ class FollowUpTask(models.Model):
         verbose_name_plural = "Follow-up Tasks"
 
     def __str__(self):
-        return f"{self.prospect.display_name} - {self.get_task_type_display()} ({self.get_status_display()})"
+        label = self.custom_label.strip() if self.task_type == self.TaskType.OTHER else ""
+        type_label = label or self.get_task_type_display()
+        return f"{self.prospect.display_name} - {type_label} ({self.get_status_display()})"
 
 
 class DropOff(models.Model):

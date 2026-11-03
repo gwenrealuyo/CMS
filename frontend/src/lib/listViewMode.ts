@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { TABLET_MIN } from "@/src/lib/breakpoints";
+import { DESKTOP_MIN, TABLET_MIN } from "@/src/lib/breakpoints";
 
 export function getInitialListViewMode(
   desktopDefault: "table" | "cards" = "table",
@@ -41,6 +41,22 @@ export function useIsTabletUp(): boolean {
   }, []);
 
   return isTabletUp;
+}
+
+export function useIsDesktopUp(): boolean {
+  // Default true to match typical SSR / desktop-first rendering; sync after mount.
+  const [isDesktopUp, setIsDesktopUp] = useState(true);
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia(`(min-width: ${DESKTOP_MIN}px)`);
+    const onChange = (event: MediaQueryListEvent) =>
+      setIsDesktopUp(event.matches);
+    setIsDesktopUp(mediaQuery.matches);
+    mediaQuery.addEventListener("change", onChange);
+    return () => mediaQuery.removeEventListener("change", onChange);
+  }, []);
+
+  return isDesktopUp;
 }
 
 export function effectiveListViewMode(

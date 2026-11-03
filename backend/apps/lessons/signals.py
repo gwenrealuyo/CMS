@@ -12,8 +12,9 @@ def advance_prospect_on_lesson_session(
     sender, instance: LessonSessionReport, created: bool, **kwargs
 ):
     if created and instance.student_id:
+        # Set lessons_started_at first — Taken NCC requires start date or teacher.
+        sync_person_lessons_started_from_report(instance)
         advance_prospect_to_taken_ncc(
             instance.student,
             activity_date=instance.session_date,
         )
-        sync_person_lessons_started_from_report(instance)

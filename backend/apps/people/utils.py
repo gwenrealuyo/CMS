@@ -241,6 +241,19 @@ def record_person_status_change(
         source_change=change,
     )
 
+    if to_status == "DECEASED":
+        try:
+            from apps.evangelism.visitor_follow_up import (
+                close_visitor_follow_up_for_deceased_person,
+            )
+
+            close_visitor_follow_up_for_deceased_person(
+                person, updated_by=changed_by
+            )
+        except Exception:
+            # Evangelism app may be unavailable in some test contexts.
+            pass
+
     if not from_status:
         return change
 

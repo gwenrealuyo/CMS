@@ -1661,6 +1661,10 @@ class PersonSerializer(serializers.ModelSerializer):
             )
 
         self._sync_evangelism_pipeline_after_save(person, note=note or None)
+        if person.inviter_id:
+            self._sync_visitor_follow_up_after_inviter_change(
+                person, previous_inviter_id=None
+            )
         return person
 
     def to_representation(self, instance):
@@ -1693,6 +1697,7 @@ class PersonSerializer(serializers.ModelSerializer):
         # Store old branch value before update
         old_branch = instance.branch
         old_status = instance.status
+        old_inviter_id = instance.inviter_id
         status_change_reason = (
             validated_data.pop("status_change_reason", None) or ""
         ).strip()
@@ -1789,6 +1794,14 @@ class PersonSerializer(serializers.ModelSerializer):
         self._sync_evangelism_pipeline_after_save(
             updated_instance, note=None
         )
+        if (
+            updated_instance.inviter_id
+            and old_inviter_id != updated_instance.inviter_id
+        ):
+            self._sync_visitor_follow_up_after_inviter_change(
+                updated_instance,
+                previous_inviter_id=old_inviter_id,
+            )
         return updated_instance
 
     def _sync_evangelism_pipeline_after_save(self, person, *, note=None):
@@ -1797,6 +1810,27 @@ class PersonSerializer(serializers.ModelSerializer):
         except ImportError:
             return
         sync_person_evangelism_pipeline(person, notes=note)
+
+    def _sync_visitor_follow_up_after_inviter_change(
+        self, person, *, previous_inviter_id=None
+    ):
+        try:
+            from apps.evangelism.visitor_follow_up import (
+                sync_visitor_follow_up_after_person_inviter_change,
+            )
+        except ImportError:
+            return
+        request = self.context.get("request")
+        updated_by = (
+            request.user
+            if request and getattr(request, "user", None) and request.user.is_authenticated
+            else None
+        )
+        sync_visitor_follow_up_after_person_inviter_change(
+            person,
+            previous_inviter_id=previous_inviter_id,
+            updated_by=updated_by,
+        )
 
     def get_cluster_codes(self, obj: Person):
         # Use .all() so prefetched clusters are reused (avoids N+1 on list).

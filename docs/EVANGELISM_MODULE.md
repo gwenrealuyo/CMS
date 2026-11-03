@@ -12,7 +12,7 @@ Key features include:
 - **Visitor Pipeline**: Track visitors through stages (UI focuses on INVITED → ATTENDED; nurture/baptism continues on Person)
 - **Prospect Tracking**: Track invited visitors separately until they attend; creating a Person happens on ATTENDED
 - **Person progress**: Group-scoped form updates contact, photo, and baptism/invite milestones on Person (Conversion create/update is deprecated)
-- **Follow-up Workflow**: Create and assign follow-up tasks, track completion, auto-generate tasks for inactive visitors
+- **My visitors follow-up**: Inviter-owned caseload (`VisitorFollowUpCase`) for INVITED and ATTENDED prospects until active Lessons enrollment; preset/custom tasks; Needs attention after 14 days without activity (including cluster/evangelism/SBS report links)
 - **Drop-off Detection & Tracking**: Automatic detection based on inactivity period, track drop-off stage and reason, recovery tracking
 - **Conversion Recording**: Deprecated product writes; record baptism/HG on Person (evangelism progress form or People). Historical Conversion rows remain until a later migration.
 - **Each 1 Reach 1 Goals**: Cluster-based goal tracking with automatic progress updates
@@ -150,12 +150,28 @@ Key features include:
   - After save, `new_prospects` is set to `prospects_invited.count()`
 - **Future: walk-in visitors** — v1 requires `invited_by`. Walk-ins with no inviter are deferred; see Clusters module docs. Do not invent a fake inviter.
 
+### VisitorFollowUpCase Model
+
+- `apps.evangelism.models.VisitorFollowUpCase` is the inviter-owned caseload for one prospect (`OneToOne` → `Prospect`).
+- Statuses: `OPEN`, `IN_PROGRESS` (Ongoing), `NO_ACTION` (Low priority), `CLOSED` — Open/Ongoing are derived from open tasks; Low priority is a manual soft pause
+- Closed reasons: `ENROLLED`, `DROPPED_OFF`, `DECEASED`, `REACHED`, `MANUAL`
+- Auto-opens when a prospect is created INVITED / marked ATTENDED (not dropped off, no active Lessons enrollment, person not DECEASED)
+- Closes with `ENROLLED` when `LessonStudentEnrollment.is_active=True`; reopens immediately when enrollment is deactivated (Lessons drop) unless closed as `DECEASED`
+- Closes with `DROPPED_OFF` on prospect drop-off; reopens on recover if still not enrolled
+- Closes with `DECEASED` via My visitors `mark_deceased/` (also sets linked `Person.status=DECEASED`) or when person status is set to DECEASED elsewhere; deceased cases do not reopen
+- **Needs attention**: ≥ 14 days since effective last activity (`last_activity_date` or `date_first_invited`), excluding low-priority cases. Cluster / evangelism weekly reports and Sunday Bible Study visitor rows bump `last_activity_date` when the prospect is invited or the linked person attends
+- UI: Evangelism → **My visitors** (`?tab=my-visitors`). Primary work is **follow-up tasks**; **Mark low priority** / **Resume** for soft pause; **Mark deceased** for death only. Members see their own invites/assignments; coordinators may use group/branch scope. Prospects tab remains senior/pastor/admin directory
+- API: `/api/evangelism/visitor-follow-up-cases/` (list/retrieve + `summary/` + `mark_low_priority/` + `resume/` + `mark_deceased/`). Case fields are largely read-only; status is synced from tasks
+- Backfill: `python manage.py backfill_visitor_follow_up_cases`
+
 ### FollowUpTask Model
 
 - `apps.evangelism.models.FollowUpTask` represents a follow-up task for a prospect with:
   - `prospect` (ForeignKey to Prospect, CASCADE delete) – visitor to follow up with
-  - `assigned_to` (ForeignKey to `people.Person`) – person responsible for follow-up
-  - `task_type` (CharField, choices: PHONE_CALL, TEXT_MESSAGE, VISIT, EMAIL, PRAYER, OTHER) – type of follow-up
+  - `case` (ForeignKey to `VisitorFollowUpCase`, nullable) – optional parent case
+  - `assigned_to` (ForeignKey to `people.Person`) – person responsible for follow-up (defaults to inviter)
+  - `task_type` (CharField) – Phone call, Text/message, Visit, Invite to next Sunday service, Invite to Bible study, Invite to fellowship activity, Invite to take NCC, Invite to other church activities, Prayer, Other (`EMAIL` kept for legacy rows only)
+  - `custom_label` (CharField) – required when type is Other
   - `due_date` (DateField) – when follow-up should be completed
   - `completed_date` (DateField, nullable) – when follow-up was completed
   - `status` (CharField, choices: PENDING, IN_PROGRESS, COMPLETED, CANCELLED) – task status
@@ -164,7 +180,8 @@ Key features include:
   - `created_by` (ForeignKey to `people.Person`, nullable) – person who created the task
   - `created_at`, `updated_at` (DateTimeFields)
 - Default ordering: by `due_date`, then `priority`
-- Auto-create tasks when visitor becomes inactive (configurable threshold)
+- Open tasks are cancelled when the visitor case closes as enrolled or dropped off
+- Overdue / due-soon notifications deep-link to `/evangelism?tab=my-visitors`
 
 ### DropOff Model
 
@@ -337,7 +354,7 @@ All routes live under `/api/evangelism/` (namespaced in `core.urls`):
       - **NCC** (`students_count`): Distinct people with a `LessonSessionReport.session_date` in that month (same branch/cluster/group scoping). Conversion status / `commitment_form_signed` does **not** exclude them
       - **BAPTIZED**: `water_baptism_date` in month
       - **RECEIVED_HG**: `spirit_baptism_date` in month
-      - **REACHED**: Person meets all reached milestones (first invited, first attended, at least one NCC session, water baptism, Holy Ghost); counted in the month of `reached_date` (latest of those milestone dates)
+      - **REACHED**: Person meets all reached milestones (first invited, first attended, Taken NCC via `lessons_started_at` or active lesson teacher, water baptism, Holy Ghost); counted in the month of `reached_date` (latest of those milestone dates)
       - **UNIQUE HC** (`unique_hc_count`): Distinct **Person** profiles who appear in any Person-based column for that month (union of person IDs). Unlinked Prospects counted under Invited are not included. Someone who progressed through several stages still counts as **1**
     - Related actions (same query params for `branch`, `cluster`, `evangelism_group` as `/people_tally/`):
       - `GET /people_tally_years/` – years present in tally-related data for the current scope, always including the current church year (`default_year`)

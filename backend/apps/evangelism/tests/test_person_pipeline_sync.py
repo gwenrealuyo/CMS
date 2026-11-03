@@ -114,3 +114,51 @@ class PersonEvangelismPipelineSyncAPITests(APITestCase):
             self.prospect.pipeline_stage,
             Prospect.PipelineStage.REACHED,
         )
+
+    def test_session_report_alone_without_lessons_started_is_not_taken_ncc(self):
+        from apps.evangelism.services import sync_person_evangelism_pipeline
+        from apps.lessons.models import LessonSessionReport
+
+        # Seed-style report without going through the create signal path.
+        LessonSessionReport.objects.bulk_create(
+            [
+                LessonSessionReport(
+                    teacher=self.inviter,
+                    student=self.visitor,
+                    lesson=self.lesson,
+                    session_date=date(2026, 1, 20),
+                    session_start=datetime(2026, 1, 20, 10, 0, tzinfo=timezone.utc),
+                    submitted_by=self.admin,
+                )
+            ]
+        )
+        self.visitor.lessons_started_at = None
+        self.visitor.save(update_fields=["lessons_started_at"])
+        self.prospect.pipeline_stage = Prospect.PipelineStage.TAKEN_NCC
+        self.prospect.save(update_fields=["pipeline_stage"])
+
+        sync_person_evangelism_pipeline(self.visitor, prospect=self.prospect)
+        self.prospect.refresh_from_db()
+        self.visitor.refresh_from_db()
+        self.assertIsNone(self.visitor.lessons_started_at)
+        self.assertEqual(
+            self.prospect.pipeline_stage,
+            Prospect.PipelineStage.ATTENDED,
+        )
+
+    def test_active_teacher_enrollment_counts_as_taken_ncc(self):
+        from apps.evangelism.services import sync_person_evangelism_pipeline
+        from apps.lessons.models import LessonStudentEnrollment
+
+        LessonStudentEnrollment.objects.create(
+            student=self.visitor,
+            teacher=self.inviter,
+            is_active=True,
+            assigned_by=self.admin,
+        )
+        sync_person_evangelism_pipeline(self.visitor, prospect=self.prospect)
+        self.prospect.refresh_from_db()
+        self.assertEqual(
+            self.prospect.pipeline_stage,
+            Prospect.PipelineStage.TAKEN_NCC,
+        )

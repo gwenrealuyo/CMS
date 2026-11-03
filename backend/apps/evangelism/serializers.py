@@ -41,6 +41,7 @@ from .models import (
     EvangelismSession,
     EvangelismWeeklyReport,
     Prospect,
+    VisitorFollowUpCase,
     FollowUpTask,
     DropOff,
     Conversion,
@@ -1221,6 +1222,14 @@ class EvangelismWeeklyReportSerializer(serializers.ModelSerializer):
         self._clear_cancelled_attendance(report)
         if not report.cancelled:
             self._sync_derived_new_prospects(report)
+            if meeting_date:
+                from .visitor_follow_up import bump_activity_from_report_links
+
+                bump_activity_from_report_links(
+                    invited_prospects=invited_set,
+                    attended_people=deduped_visitors,
+                    activity_date=meeting_date,
+                )
         return report
 
     @transaction.atomic
@@ -1290,6 +1299,14 @@ class EvangelismWeeklyReportSerializer(serializers.ModelSerializer):
         self._clear_cancelled_attendance(instance)
         if not instance.cancelled:
             self._sync_derived_new_prospects(instance)
+            if meeting_date:
+                from .visitor_follow_up import bump_activity_from_report_links
+
+                bump_activity_from_report_links(
+                    invited_prospects=list(instance.prospects_invited.all()),
+                    attended_people=list(instance.visitors_attended.all()),
+                    activity_date=meeting_date,
+                )
         return instance
 
 
@@ -1530,10 +1547,25 @@ class ProspectSerializer(serializers.ModelSerializer):
             if self.instance is not None:
                 already = already.exclude(pk=self.instance.pk)
             existing = already.order_by("-updated_at", "-id").first()
+            # Same person already tracked without a group (My visitors case):
+            # claim that prospect instead of creating a duplicate.
+            claimable = None
+            if existing is None:
+                unassigned = Prospect.objects.filter(
+                    person=person,
+                    evangelism_group__isnull=True,
+                    is_dropped_off=False,
+                )
+                if self.instance is not None:
+                    unassigned = unassigned.exclude(pk=self.instance.pk)
+                claimable = unassigned.order_by("-updated_at", "-id").first()
             if existing is not None:
                 # Already linked. Return that row so the group list can show
                 # them instead of rejecting the add.
                 attrs["_existing_encoded_prospect"] = existing
+                return attrs
+            if claimable is not None:
+                attrs["_claim_encoded_prospect"] = claimable
                 return attrs
             copied = encoded_visitor_prospect_defaults(person)
             for key, value in copied.items():
@@ -1572,8 +1604,22 @@ class ProspectSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         existing = validated_data.pop("_existing_encoded_prospect", None)
+        claimable = validated_data.pop("_claim_encoded_prospect", None)
         if existing is not None:
             return existing
+        if claimable is not None:
+            group = validated_data.get("evangelism_group")
+            updates = []
+            if group is not None and claimable.evangelism_group_id != group.id:
+                claimable.evangelism_group = group
+                updates.append("evangelism_group")
+            invited_by = validated_data.get("invited_by")
+            if invited_by is not None and claimable.invited_by_id is None:
+                claimable.invited_by = invited_by
+                updates.append("invited_by")
+            if updates:
+                claimable.save(update_fields=updates + ["updated_at"])
+            return claimable
         return super().create(validated_data)
 
 
@@ -1584,11 +1630,20 @@ class FollowUpTaskSerializer(serializers.ModelSerializer):
         queryset=Prospect.objects.all(),
         write_only=True,
     )
+    case_id = serializers.PrimaryKeyRelatedField(
+        source="case",
+        queryset=VisitorFollowUpCase.objects.all(),
+        write_only=True,
+        required=False,
+        allow_null=True,
+    )
     assigned_to = PersonSummarySerializer(read_only=True)
     assigned_to_id = serializers.PrimaryKeyRelatedField(
         source="assigned_to",
         queryset=Person.objects.exclude(role="ADMIN"),
         write_only=True,
+        required=False,
+        allow_null=True,
     )
     created_by = PersonSummarySerializer(read_only=True)
     created_by_id = serializers.PrimaryKeyRelatedField(
@@ -1608,10 +1663,13 @@ class FollowUpTaskSerializer(serializers.ModelSerializer):
             "id",
             "prospect",
             "prospect_id",
+            "case",
+            "case_id",
             "assigned_to",
             "assigned_to_id",
             "task_type",
             "task_type_display",
+            "custom_label",
             "due_date",
             "completed_date",
             "status",
@@ -1624,7 +1682,211 @@ class FollowUpTaskSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
         )
-        read_only_fields = ("created_at", "updated_at")
+        read_only_fields = ("created_at", "updated_at", "case")
+
+    def validate(self, attrs):
+        task_type = attrs.get("task_type")
+        if task_type is None and self.instance is not None:
+            task_type = self.instance.task_type
+        custom_label = attrs.get("custom_label")
+        if custom_label is None and self.instance is not None:
+            custom_label = self.instance.custom_label
+        if task_type == FollowUpTask.TaskType.OTHER and not (custom_label or "").strip():
+            raise serializers.ValidationError(
+                {"custom_label": "A short label is required for Other tasks."}
+            )
+        return attrs
+
+    def create(self, validated_data):
+        from .visitor_follow_up import sync_visitor_case_status_from_tasks
+
+        prospect = validated_data["prospect"]
+        if not validated_data.get("assigned_to"):
+            validated_data["assigned_to"] = prospect.invited_by
+        if validated_data.get("assigned_to") is None:
+            raise serializers.ValidationError(
+                {"assigned_to_id": "Assignee is required when the prospect has no inviter."}
+            )
+        if not validated_data.get("case"):
+            case = getattr(prospect, "visitor_follow_up_case", None)
+            if case is not None:
+                validated_data["case"] = case
+        task = super().create(validated_data)
+        # Adding a task resumes low priority and marks Ongoing.
+        sync_visitor_case_status_from_tasks(
+            prospect,
+            clear_low_priority=True,
+        )
+        return task
+
+    def update(self, instance, validated_data):
+        from .visitor_follow_up import sync_visitor_case_status_from_tasks
+
+        task = super().update(instance, validated_data)
+        sync_visitor_case_status_from_tasks(task.prospect)
+        return task
+
+
+class VisitorFollowUpCaseSerializer(serializers.ModelSerializer):
+    prospect = ProspectSerializer(read_only=True)
+    assigned_to = PersonSummarySerializer(read_only=True)
+    assigned_to_id = serializers.PrimaryKeyRelatedField(
+        source="assigned_to",
+        queryset=Person.objects.exclude(role="ADMIN"),
+        write_only=True,
+        required=False,
+        allow_null=True,
+    )
+    updated_by = PersonSummarySerializer(read_only=True)
+    case_status_display = serializers.CharField(
+        source="get_case_status_display", read_only=True
+    )
+    closed_reason_display = serializers.CharField(
+        source="get_closed_reason_display", read_only=True
+    )
+    recommended_action_display = serializers.CharField(
+        source="get_recommended_action_display", read_only=True
+    )
+    needs_attention = serializers.SerializerMethodField()
+    days_since_activity = serializers.SerializerMethodField()
+    last_activity_date = serializers.SerializerMethodField()
+    affiliations = serializers.SerializerMethodField()
+    tasks = FollowUpTaskSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = VisitorFollowUpCase
+        fields = (
+            "id",
+            "prospect",
+            "details",
+            "recommended_action",
+            "recommended_action_display",
+            "recommended_action_other",
+            "assigned_to",
+            "assigned_to_id",
+            "due_date",
+            "case_status",
+            "case_status_display",
+            "closed_reason",
+            "closed_reason_display",
+            "remarks",
+            "opened_at",
+            "closed_at",
+            "updated_at",
+            "updated_by",
+            "needs_attention",
+            "days_since_activity",
+            "last_activity_date",
+            "affiliations",
+            "tasks",
+        )
+        read_only_fields = (
+            "opened_at",
+            "closed_at",
+            "updated_at",
+            "updated_by",
+            "closed_reason",
+            "case_status",
+            "details",
+            "recommended_action",
+            "recommended_action_other",
+            "due_date",
+            "remarks",
+            "assigned_to",
+            "assigned_to_id",
+        )
+
+    def get_last_activity_date(self, obj):
+        from .visitor_follow_up import effective_last_activity_date
+
+        value = effective_last_activity_date(obj.prospect)
+        return value.isoformat() if value else None
+
+    def get_days_since_activity(self, obj):
+        from .visitor_follow_up import effective_last_activity_date
+
+        anchor = effective_last_activity_date(obj.prospect)
+        if anchor is None:
+            return None
+        return (church_today() - anchor).days
+
+    def get_needs_attention(self, obj):
+        from .visitor_follow_up import (
+            case_is_low_priority,
+            prospect_needs_attention,
+        )
+
+        if not obj.is_open_caseload:
+            return False
+        # Low priority is parked — not in the Needs attention queue.
+        if case_is_low_priority(obj):
+            return False
+        return prospect_needs_attention(obj.prospect)
+
+    def get_affiliations(self, obj):
+        """
+        Clusters / evangelism groups linked via prospect FKs or person membership.
+
+        Encoded visitors often have cluster membership on Person without
+        Prospect.inviter_cluster / evangelism_group set.
+        """
+        prospect = obj.prospect
+        clusters_by_id = {}
+        groups_by_id = {}
+
+        def add_cluster(cluster):
+            if cluster is None:
+                return
+            cid = getattr(cluster, "pk", None)
+            if cid is None or cid in clusters_by_id:
+                return
+            clusters_by_id[cid] = {
+                "id": cid,
+                "code": (getattr(cluster, "code", None) or "") or None,
+                "name": (getattr(cluster, "name", None) or "") or None,
+            }
+
+        def add_group(group):
+            if group is None:
+                return
+            gid = getattr(group, "pk", None)
+            if gid is None or gid in groups_by_id:
+                return
+            groups_by_id[gid] = {
+                "id": gid,
+                "name": (getattr(group, "name", None) or "") or None,
+            }
+            add_cluster(getattr(group, "cluster", None))
+
+        add_cluster(getattr(prospect, "inviter_cluster", None))
+        add_cluster(getattr(prospect, "endorsed_cluster", None))
+        add_group(getattr(prospect, "evangelism_group", None))
+
+        person = getattr(prospect, "person", None)
+        if person is not None:
+            for cluster in person.clusters.all():
+                if getattr(cluster, "is_active", True):
+                    add_cluster(cluster)
+            for group in person.evangelism_groups.all():
+                if getattr(group, "is_active", True):
+                    add_group(group)
+            # Other prospects for the same person (e.g. second evangelism group).
+            for sibling in Prospect.objects.filter(
+                person=person, is_dropped_off=False
+            ).select_related(
+                "evangelism_group",
+                "evangelism_group__cluster",
+                "inviter_cluster",
+                "endorsed_cluster",
+            ):
+                add_group(sibling.evangelism_group)
+                add_cluster(getattr(sibling, "inviter_cluster", None))
+                add_cluster(getattr(sibling, "endorsed_cluster", None))
+
+        return {
+            "clusters": list(clusters_by_id.values()),
+            "evangelism_groups": list(groups_by_id.values()),
+        }
 
 
 class DropOffSerializer(serializers.ModelSerializer):

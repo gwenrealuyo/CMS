@@ -84,6 +84,74 @@ def is_evangelism_senior_or_privileged(user) -> bool:
     return user.is_senior_coordinator(EVANGELISM)
 
 
+def user_can_access_visitor_follow_up(user) -> bool:
+    """Any authenticated non-visitor member may use My visitors (scoped)."""
+    if not getattr(user, "is_authenticated", False):
+        return False
+    if getattr(user, "role", None) == "VISITOR":
+        return False
+    if not is_module_enabled(EVANGELISM):
+        return False
+    return getattr(user, "role", None) in ("MEMBER", "PASTOR", "ADMIN")
+
+
+def filter_visitor_follow_up_cases_for_user(user, queryset, *, scope: str = "mine"):
+    """
+    Scope VisitorFollowUpCase queryset.
+
+    scope=mine — invited_by or assigned_to is the user (default for everyone)
+    scope=group — managed evangelism groups / inviter clusters for coordinators
+    scope=branch — branch-wide for senior/pastor/admin
+    """
+    from django.db.models import Q
+
+    from apps.clusters.permissions import managed_cluster_ids_for_operator
+
+    if not user_can_access_visitor_follow_up(user):
+        return queryset.none()
+
+    # Inviter may be on Prospect and/or on the linked Person (encoded visitors).
+    mine = (
+        Q(prospect__invited_by=user)
+        | Q(assigned_to=user)
+        | Q(prospect__person__inviter=user)
+    )
+
+    if scope == "mine" or not scope:
+        return queryset.filter(mine).distinct()
+
+    if is_evangelism_senior_or_privileged(user) or user.is_senior_coordinator(
+        ModuleCoordinator.ModuleType.CLUSTER
+    ):
+        if scope == "branch":
+            if getattr(user, "role", None) == "ADMIN" or user.can_see_all_branches():
+                return queryset
+            if not user.branch_id:
+                return queryset.filter(mine).distinct()
+            return queryset.filter(
+                Q(prospect__invited_by__branch_id=user.branch_id)
+                | Q(prospect__person__branch_id=user.branch_id)
+                | Q(prospect__evangelism_group__branch_id=user.branch_id)
+                | Q(prospect__inviter_cluster__branch_id=user.branch_id)
+                | mine
+            ).distinct()
+        # group scope for seniors falls through to broader group filter below
+
+    if scope in ("group", "branch"):
+        group_ids = managed_group_ids_for_coordinator(user)
+        cluster_ids = managed_cluster_ids_for_operator(user)
+        q = mine
+        if group_ids:
+            q |= Q(prospect__evangelism_group_id__in=group_ids)
+        if cluster_ids:
+            q |= Q(prospect__inviter_cluster_id__in=cluster_ids) | Q(
+                prospect__endorsed_cluster_id__in=cluster_ids
+            )
+        return queryset.filter(q).distinct()
+
+    return queryset.filter(mine).distinct()
+
+
 def is_non_senior_evangelism_coordinator(user) -> bool:
     if not getattr(user, "is_authenticated", False):
         return False

@@ -7,6 +7,7 @@ from .views import (
     EvangelismSessionViewSet,
     EvangelismWeeklyReportViewSet,
     ProspectViewSet,
+    VisitorFollowUpCaseViewSet,
     FollowUpTaskViewSet,
     DropOffViewSet,
     ConversionViewSet,
@@ -26,6 +27,11 @@ router.register(
     basename="sunday-bible-study",
 )
 router.register(r"prospects", ProspectViewSet, basename="prospect")
+router.register(
+    r"visitor-follow-up-cases",
+    VisitorFollowUpCaseViewSet,
+    basename="visitor-follow-up-case",
+)
 router.register(r"follow-up-tasks", FollowUpTaskViewSet, basename="follow-up-task")
 router.register(r"drop-offs", DropOffViewSet, basename="drop-off")
 router.register(r"conversions", ConversionViewSet, basename="conversion")

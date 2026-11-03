@@ -879,6 +879,12 @@ class SundayBibleStudyReportSerializer(serializers.ModelSerializer):
             self._sync_visitors(
                 report, visitor_rows, new_rows, visitor_keys, new_keys
             )
+            from .visitor_follow_up import bump_activity_for_attended_people
+
+            bump_activity_for_attended_people(
+                [row.person for row in report.visitors.select_related("person")],
+                report.session_date,
+            )
 
     @transaction.atomic
     def create(self, validated_data):

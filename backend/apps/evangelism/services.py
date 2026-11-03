@@ -214,6 +214,9 @@ def create_invited_prospect_for_cluster(
         )
     except ValueError:
         pass
+    from .visitor_follow_up import ensure_visitor_follow_up_case
+
+    ensure_visitor_follow_up_case(prospect)
     return prospect
 
 
@@ -306,6 +309,9 @@ def create_invited_prospect_for_evangelism_group(
             )
         except ValueError:
             pass
+    from .visitor_follow_up import ensure_visitor_follow_up_case
+
+    ensure_visitor_follow_up_case(prospect)
     return prospect
 
 
@@ -397,6 +403,9 @@ def mark_prospect_attended(
             cluster,
             prospect.last_activity_date,
         )
+    from .visitor_follow_up import ensure_visitor_follow_up_case
+
+    ensure_visitor_follow_up_case(prospect)
     return prospect
 
 
@@ -855,6 +864,10 @@ def ensure_earliest_invite_date(
 
     if prospect_updates:
         prospect.save(update_fields=prospect_updates)
+
+    from .visitor_follow_up import touch_prospect_activity
+
+    touch_prospect_activity(prospect, meeting_date)
 
     person = prospect.person
     if person is not None and person.date_first_attended is None:
@@ -1588,6 +1601,32 @@ def person_has_ncc_session(person: Person) -> bool:
     return LessonSessionReport.objects.filter(student_id=person.pk).exists()
 
 
+def person_has_active_lesson_teacher(person: Person) -> bool:
+    from apps.lessons.models import LessonStudentEnrollment
+
+    return LessonStudentEnrollment.objects.filter(
+        student_id=person.pk,
+        is_active=True,
+        teacher_id__isnull=False,
+    ).exists()
+
+
+def person_has_taken_ncc_milestone(
+    person: Person,
+    *,
+    lesson_start_date: Optional[date] = None,
+) -> bool:
+    """
+    Taken NCC for pipeline / reached milestones.
+
+    Requires lessons_started_at (or an explicit lesson_start_date) or an active
+    Lessons enrollment with a teacher — not a bare session report alone.
+    """
+    if lesson_start_date or getattr(person, "lessons_started_at", None):
+        return True
+    return person_has_active_lesson_teacher(person)
+
+
 def get_earliest_ncc_session_date(person: Person) -> Optional[date]:
     from apps.lessons.models import LessonSessionReport
 
@@ -1604,7 +1643,7 @@ def person_meets_all_reached_milestones(person: Person) -> bool:
         return False
     if not person.date_first_attended:
         return False
-    if not person_has_ncc_session(person):
+    if not person_has_taken_ncc_milestone(person):
         return False
     if not person.water_baptism_date:
         return False
@@ -1618,6 +1657,7 @@ def get_latest_milestone_date(person: Person) -> Optional[date]:
         person.date_first_invited,
         person.date_first_attended,
         get_earliest_ncc_session_date(person),
+        getattr(person, "lessons_started_at", None),
         person.water_baptism_date,
         person.spirit_baptism_date,
     ]
@@ -1626,23 +1666,26 @@ def get_latest_milestone_date(person: Person) -> Optional[date]:
 
 
 def people_meeting_reached_milestones(qs):
-    from apps.lessons.models import LessonSessionReport
+    from django.db.models import Exists, OuterRef, Q
 
-    student_ids = LessonSessionReport.objects.values_list(
-        "student_id", flat=True
-    ).distinct()
+    from apps.lessons.models import LessonStudentEnrollment
+
+    active_teacher = LessonStudentEnrollment.objects.filter(
+        student_id=OuterRef("pk"),
+        is_active=True,
+        teacher_id__isnull=False,
+    )
     return qs.filter(
         date_first_invited__isnull=False,
         date_first_attended__isnull=False,
         water_baptism_date__isnull=False,
         spirit_baptism_date__isnull=False,
-        id__in=student_ids,
-    )
+    ).filter(Q(lessons_started_at__isnull=False) | Exists(active_teacher))
 
 
 def annotate_people_reached_date(qs):
     from django.db.models import OuterRef, Subquery
-    from django.db.models.functions import Greatest
+    from django.db.models.functions import Coalesce, Greatest
     from apps.lessons.models import LessonSessionReport
 
     earliest_ncc = (
@@ -1650,7 +1693,9 @@ def annotate_people_reached_date(qs):
         .order_by("session_date")
         .values("session_date")[:1]
     )
-    return qs.annotate(earliest_ncc_date=Subquery(earliest_ncc)).annotate(
+    return qs.annotate(
+        earliest_ncc_date=Coalesce(Subquery(earliest_ncc), "lessons_started_at")
+    ).annotate(
         reached_date=Greatest(
             "date_first_invited",
             "date_first_attended",
@@ -1669,8 +1714,9 @@ def resolve_pipeline_stage_for_person(
     if person_meets_all_reached_milestones(person):
         return Prospect.PipelineStage.REACHED
 
-    has_ncc_session = person_has_ncc_session(person)
-    has_ncc_tracking = has_ncc_session or bool(lesson_start_date)
+    has_ncc_tracking = person_has_taken_ncc_milestone(
+        person, lesson_start_date=lesson_start_date
+    )
 
     milestones = [
         (Prospect.PipelineStage.INVITED, bool(person.date_first_invited)),
@@ -1694,6 +1740,9 @@ def advance_prospect_to_taken_ncc(
     *,
     activity_date: Optional[date] = None,
 ) -> None:
+    if not person_has_taken_ncc_milestone(person):
+        return
+
     prospect = (
         Prospect.objects.filter(person=person, is_dropped_off=False)
         .order_by("-updated_at")

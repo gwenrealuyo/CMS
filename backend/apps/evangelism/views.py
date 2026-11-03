@@ -51,6 +51,7 @@ from .permissions import (
     ensure_user_can_mutate_evangelism_group_records,
     ensure_user_can_submit_evangelism_report_or_privileged,
     ensure_user_manages_evangelism_group_or_privileged,
+    filter_visitor_follow_up_cases_for_user,
     filter_weekly_reports_for_user,
     reportable_tally_group_ids_for_coordinator,
     user_can_manage_each1reach1_cluster,
@@ -65,6 +66,7 @@ from .models import (
     EvangelismSession,
     EvangelismWeeklyReport,
     Prospect,
+    VisitorFollowUpCase,
     FollowUpTask,
     DropOff,
     Conversion,
@@ -82,6 +84,7 @@ from .serializers import (
     EvangelismPeopleTallySerializer,
     EvangelismTallyDrilldownSerializer,
     ProspectSerializer,
+    VisitorFollowUpCaseSerializer,
     FollowUpTaskSerializer,
     DropOffSerializer,
     ConversionSerializer,
@@ -2121,7 +2124,10 @@ class ProspectViewSet(viewsets.ModelViewSet):
                     or person.date_first_invited
                     or church_today()
                 )
-        serializer.save(**extra)
+        prospect = serializer.save(**extra)
+        from .visitor_follow_up import ensure_visitor_follow_up_case
+
+        ensure_visitor_follow_up_case(prospect)
 
     def perform_update(self, serializer):
         self._ensure_group_record_write(self._group_from_serializer(serializer))
@@ -2314,6 +2320,9 @@ class ProspectViewSet(viewsets.ModelViewSet):
             reason=request.data.get("reason", ""),
             reason_details=request.data.get("reason_details", ""),
         )
+        from .visitor_follow_up import close_visitor_follow_up_for_drop_off
+
+        close_visitor_follow_up_for_drop_off(prospect, updated_by=request.user)
 
         serializer = self.get_serializer(prospect)
         return Response(serializer.data)
@@ -2335,14 +2344,246 @@ class ProspectViewSet(viewsets.ModelViewSet):
             drop_off.recovered_date = church_today()
             drop_off.save()
 
+        from .visitor_follow_up import ensure_visitor_follow_up_case
+
+        ensure_visitor_follow_up_case(prospect, updated_by=request.user)
+
         serializer = self.get_serializer(prospect)
         return Response(serializer.data)
+
+
+class VisitorFollowUpCasePagination(PageNumberPagination):
+    page_size = 50
+    page_size_query_param = "page_size"
+    max_page_size = 200
+
+
+class VisitorFollowUpCaseViewSet(viewsets.ModelViewSet):
+    """Inviter My visitors caseload. List + retrieve + actions; create via sync."""
+
+    serializer_class = VisitorFollowUpCaseSerializer
+    pagination_class = VisitorFollowUpCasePagination
+    permission_classes = [IsAuthenticatedAndNotVisitor, IsMemberOrAbove]
+    http_method_names = ["get", "post", "patch", "head", "options"]
+    filter_backends = (filters.SearchFilter, filters.OrderingFilter)
+    search_fields = (
+        "prospect__first_name",
+        "prospect__last_name",
+        "prospect__facebook_name",
+        "prospect__inviter_cluster__code",
+        "prospect__inviter_cluster__name",
+        "prospect__endorsed_cluster__code",
+        "prospect__endorsed_cluster__name",
+        "prospect__evangelism_group__name",
+        "prospect__evangelism_group__cluster__code",
+        "prospect__person__clusters__code",
+        "prospect__person__clusters__name",
+        "prospect__person__evangelism_groups__name",
+        "details",
+        "remarks",
+        "recommended_action_other",
+    )
+    ordering_fields = ("updated_at", "due_date", "opened_at")
+    ordering = ("-updated_at", "-id")
+
+    def create(self, request, *args, **kwargs):
+        return Response(
+            {"detail": "Visitor follow-up cases are created automatically."},
+            status=status.HTTP_405_METHOD_NOT_ALLOWED,
+        )
+
+    def get_queryset(self):
+        from .visitor_follow_up import (
+            OPEN_CASE_STATUSES,
+            needs_attention_cutoff,
+        )
+
+        queryset = (
+            VisitorFollowUpCase.objects.select_related(
+                "prospect",
+                "prospect__invited_by",
+                "prospect__person",
+                "prospect__evangelism_group",
+                "prospect__evangelism_group__cluster",
+                "prospect__inviter_cluster",
+                "prospect__endorsed_cluster",
+                "assigned_to",
+                "updated_by",
+            )
+            .prefetch_related(
+                "tasks",
+                "tasks__assigned_to",
+                "tasks__created_by",
+                "prospect__person__clusters",
+                "prospect__person__evangelism_groups",
+                "prospect__person__evangelism_groups__cluster",
+            )
+            .all()
+        )
+        scope = self.request.query_params.get("scope") or "mine"
+        # Lazy backfill: encoded VISITOR people with Person.inviter but no Prospect/case.
+        if self.action == "list" and scope in ("mine", "", None):
+            from .visitor_follow_up import ensure_visitor_follow_up_for_inviter
+
+            ensure_visitor_follow_up_for_inviter(
+                self.request.user, updated_by=self.request.user
+            )
+
+        queryset = filter_visitor_follow_up_cases_for_user(
+            self.request.user, queryset, scope=scope
+        )
+        from .visitor_follow_up import visitor_follow_up_caseload_eligible_q
+
+        # Members / non-VISITOR linked people never appear on My Visitors.
+        queryset = queryset.filter(visitor_follow_up_caseload_eligible_q())
+
+        case_status = self.request.query_params.get("case_status")
+        include_closed = self.request.query_params.get("include_closed") in (
+            "1",
+            "true",
+            "True",
+        )
+        if self.action == "list":
+            if case_status:
+                queryset = queryset.filter(case_status=case_status)
+            elif not include_closed:
+                queryset = queryset.filter(case_status__in=OPEN_CASE_STATUSES)
+            # Same Person must not appear as multiple My visitors cards.
+            from .visitor_follow_up import dedupe_visitor_follow_up_cases_by_person
+
+            queryset = dedupe_visitor_follow_up_cases_by_person(queryset)
+
+        needs_attention = self.request.query_params.get("needs_attention")
+        if needs_attention in ("1", "true", "True"):
+            cutoff = needs_attention_cutoff()
+            # Exclude low-priority (NO_ACTION) parked cases from this queue.
+            queryset = (
+                queryset.filter(case_status__in=OPEN_CASE_STATUSES)
+                .exclude(case_status=VisitorFollowUpCase.CaseStatus.NO_ACTION)
+                .filter(
+                    Q(prospect__last_activity_date__lte=cutoff)
+                    | Q(
+                        prospect__last_activity_date__isnull=True,
+                        prospect__date_first_invited__lte=cutoff,
+                    )
+                    | Q(
+                        prospect__last_activity_date__isnull=True,
+                        prospect__date_first_invited__isnull=True,
+                    )
+                )
+            )
+
+        assigned_to = self.request.query_params.get("assigned_to")
+        if assigned_to == "me":
+            queryset = queryset.filter(
+                Q(assigned_to=self.request.user)
+                | Q(prospect__invited_by=self.request.user)
+            )
+        elif assigned_to:
+            queryset = queryset.filter(assigned_to_id=assigned_to)
+
+        # Longest quiet gap first for open caseload browsing
+        if self.request.query_params.get("order") == "quietest":
+            queryset = queryset.annotate(
+                activity_anchor=Coalesce(
+                    "prospect__last_activity_date",
+                    "prospect__date_first_invited",
+                )
+            ).order_by("activity_anchor", "prospect__last_name", "prospect__first_name")
+
+        return queryset
+
+    @action(detail=False, methods=["get"])
+    def summary(self, request):
+        from .visitor_follow_up import (
+            OPEN_CASE_STATUSES,
+            needs_attention_cutoff,
+            prospect_needs_attention,
+        )
+
+        from .visitor_follow_up import dedupe_visitor_follow_up_cases_by_person
+
+        from .visitor_follow_up import visitor_follow_up_caseload_eligible_q
+
+        scope = request.query_params.get("scope") or "mine"
+        base = filter_visitor_follow_up_cases_for_user(
+            request.user,
+            VisitorFollowUpCase.objects.select_related("prospect").all(),
+            scope=scope,
+        ).filter(visitor_follow_up_caseload_eligible_q())
+        open_qs = dedupe_visitor_follow_up_cases_by_person(
+            base.filter(case_status__in=OPEN_CASE_STATUSES)
+        )
+        low_priority = open_qs.filter(
+            case_status=VisitorFollowUpCase.CaseStatus.NO_ACTION
+        ).count()
+        active_open = open_qs.exclude(
+            case_status=VisitorFollowUpCase.CaseStatus.NO_ACTION
+        )
+        needs = 0
+        for case in active_open.select_related("prospect").only(
+            "id",
+            "case_status",
+            "prospect__last_activity_date",
+            "prospect__date_first_invited",
+        ):
+            if prospect_needs_attention(case.prospect):
+                needs += 1
+        return Response(
+            {
+                "open_caseload": open_qs.count(),
+                "needs_attention": needs,
+                "no_action": low_priority,
+                "low_priority": low_priority,
+                "needs_attention_days": 14,
+                "cutoff": needs_attention_cutoff().isoformat(),
+            }
+        )
+
+    @action(detail=True, methods=["post"])
+    def mark_low_priority(self, request, pk=None):
+        from .visitor_follow_up import mark_visitor_follow_up_low_priority
+
+        case = self.get_object()
+        reason = (request.data.get("reason") or "").strip()
+        try:
+            mark_visitor_follow_up_low_priority(
+                case, reason=reason, updated_by=request.user
+            )
+        except ValueError as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+        case.refresh_from_db()
+        return Response(self.get_serializer(case).data)
+
+    @action(detail=True, methods=["post"])
+    def resume(self, request, pk=None):
+        from .visitor_follow_up import resume_visitor_follow_up
+
+        case = self.get_object()
+        try:
+            resume_visitor_follow_up(case, updated_by=request.user)
+        except ValueError as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+        case.refresh_from_db()
+        return Response(self.get_serializer(case).data)
+
+    @action(detail=True, methods=["post"])
+    def mark_deceased(self, request, pk=None):
+        from .visitor_follow_up import mark_visitor_deceased
+
+        case = self.get_object()
+        reason = (request.data.get("reason") or "").strip()
+        mark_visitor_deceased(
+            case.prospect, updated_by=request.user, reason=reason
+        )
+        case.refresh_from_db()
+        return Response(self.get_serializer(case).data)
 
 
 class FollowUpTaskViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticatedAndNotVisitor, IsMemberOrAbove]
     queryset = FollowUpTask.objects.select_related(
-        "prospect", "assigned_to", "created_by"
+        "prospect", "case", "assigned_to", "created_by"
     ).all()
     serializer_class = FollowUpTaskSerializer
     filter_backends = (
@@ -2350,18 +2591,44 @@ class FollowUpTaskViewSet(viewsets.ModelViewSet):
         filters.SearchFilter,
         filters.OrderingFilter,
     )
-    filterset_fields = ("prospect", "assigned_to", "status", "priority")
-    search_fields = ("prospect__first_name", "prospect__last_name", "notes")
+    filterset_fields = ("prospect", "assigned_to", "status", "priority", "case")
+    search_fields = (
+        "prospect__first_name",
+        "prospect__last_name",
+        "notes",
+        "custom_label",
+    )
     ordering_fields = ("due_date", "priority", "created_at")
     ordering = ("due_date", "priority")
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        # Members only see tasks for prospects they invited or are assigned
+        user = self.request.user
+        if user.role in ("ADMIN", "PASTOR") or user.is_senior_coordinator(
+            ModuleCoordinator.ModuleType.EVANGELISM
+        ):
+            return qs
+        return qs.filter(
+            Q(prospect__invited_by=user)
+            | Q(assigned_to=user)
+            | Q(case__assigned_to=user)
+        ).distinct()
+
+    def perform_create(self, serializer):
+        created_by = serializer.validated_data.get("created_by") or self.request.user
+        serializer.save(created_by=created_by)
 
     @action(detail=True, methods=["post"])
     def complete(self, request, pk=None):
         """Mark task as completed."""
+        from .visitor_follow_up import sync_visitor_case_status_from_tasks
+
         task = self.get_object()
         task.status = FollowUpTask.Status.COMPLETED
         task.completed_date = church_today()
         task.save()
+        sync_visitor_case_status_from_tasks(task.prospect, updated_by=request.user)
 
         serializer = self.get_serializer(task)
         return Response(serializer.data)
@@ -2370,7 +2637,7 @@ class FollowUpTaskViewSet(viewsets.ModelViewSet):
     def overdue(self, request):
         """List overdue tasks."""
         today = church_today()
-        overdue_tasks = self.queryset.filter(
+        overdue_tasks = self.get_queryset().filter(
             due_date__lt=today,
             status__in=[FollowUpTask.Status.PENDING, FollowUpTask.Status.IN_PROGRESS],
         )
@@ -2405,6 +2672,10 @@ class DropOffViewSet(viewsets.ModelViewSet):
         prospect.is_dropped_off = False
         prospect.last_activity_date = church_today()
         prospect.save()
+
+        from .visitor_follow_up import ensure_visitor_follow_up_case
+
+        ensure_visitor_follow_up_case(prospect, updated_by=request.user)
 
         serializer = self.get_serializer(drop_off)
         return Response(serializer.data)

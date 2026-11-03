@@ -138,6 +138,7 @@ Open **Evangelism** for Bible study groups, visitor follow-up, and conversion tr
 | Tab | Purpose |
 |-----|---------|
 | **Groups** | Bible study / evangelism groups (leaders, members, cluster link) |
+| **My visitors** | Inviter caseload: follow up invited/attending visitors with tasks until they enroll in Lessons (Needs attention after 14 quiet days). Members land here by default. |
 | **Each 1 Reach 1** | Annual conversion goals by cluster |
 | **Tally** | People tally (Invited, Attended, NCC, Baptized, Received HG, Reached, Unique HC). **By cluster** (default) lists every cluster in the selected branch for All year, YTD, a quarter, or chosen months. **By month** is the year grid. A person who hits several stages in the window counts in each of those columns, and once under Unique HC. Click a count to see names; Unique HC highlights the stages achieved in the selected months. |
 | **Reports** | Evangelism reports |
@@ -146,6 +147,7 @@ Open **Evangelism** for Bible study groups, visitor follow-up, and conversion tr
 ### Common tasks
 
 - **Create or update a group** — coordinators add leaders, members, and meeting details. Coordinators may create more than one group; new groups wait for senior coordinator approval before reports can be filed. Assigned groups can be edited immediately.
+- **Follow up my visitors** — open **My visitors** and add tasks (call, visit, invite to Sunday service / Bible study / fellowship / NCC, and more). Case status is automatic (Open / Ongoing from tasks). Use **Mark low priority** when someone asked for space or expressed disinterest (not a closed case). **Mark deceased** closes the case and, if they have a person profile, sets their status to Deceased. The case also closes when the visitor gets an active Lessons teacher and reopens if Lessons drops them.
 - **Track prospects** — invited visitors until they attend; mark **Attended** when they come.
 - **Record conversions** — water baptism and Holy Ghost reception dates update the person's profile and Journey.
 - **Submit a report** — evangelism coordinators use **Reports** or **+ → Submit Evangelism Report**. Due reminders follow the group's meeting frequency (weekly, biweekly, monthly, or never for irregular).

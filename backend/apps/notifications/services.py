@@ -455,7 +455,7 @@ def _build_follow_up_alerts(user) -> List[NotificationItem]:
                 severity="warning",
                 title="Overdue follow-up",
                 body=f"{name} — due {task.due_date.isoformat()}",
-                href="/evangelism?tab=groups",
+                href="/evangelism?tab=my-visitors",
                 occurred_at=_date_to_aware_datetime(task.due_date),
             )
         )
@@ -479,7 +479,7 @@ def _build_follow_up_alerts(user) -> List[NotificationItem]:
                 severity="info",
                 title="Follow-up due soon",
                 body=f"{name} — due {task.due_date.isoformat()}",
-                href="/evangelism?tab=groups",
+                href="/evangelism?tab=my-visitors",
                 occurred_at=_date_to_aware_datetime(task.due_date),
             )
         )

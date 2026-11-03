@@ -8,6 +8,7 @@ from .models import (
     SundayBibleStudyReport,
     SundayBibleStudyVisitor,
     Prospect,
+    VisitorFollowUpCase,
     FollowUpTask,
     DropOff,
     Conversion,
@@ -152,6 +153,26 @@ class ProspectAdmin(admin.ModelAdmin):
     )
 
 
+@admin.register(VisitorFollowUpCase)
+class VisitorFollowUpCaseAdmin(admin.ModelAdmin):
+    list_display = (
+        "prospect",
+        "case_status",
+        "closed_reason",
+        "assigned_to",
+        "due_date",
+        "updated_at",
+    )
+    list_filter = ("case_status", "closed_reason", "recommended_action")
+    search_fields = (
+        "prospect__first_name",
+        "prospect__last_name",
+        "details",
+        "remarks",
+    )
+    raw_id_fields = ("prospect", "assigned_to", "updated_by")
+
+
 @admin.register(FollowUpTask)
 class FollowUpTaskAdmin(admin.ModelAdmin):
     list_display = (
@@ -164,9 +185,14 @@ class FollowUpTaskAdmin(admin.ModelAdmin):
         "created_at",
     )
     list_filter = ("status", "priority", "task_type", "assigned_to")
-    search_fields = ("prospect__first_name", "prospect__last_name", "notes")
+    search_fields = (
+        "prospect__first_name",
+        "prospect__last_name",
+        "notes",
+        "custom_label",
+    )
     date_hierarchy = "due_date"
-    raw_id_fields = ("prospect", "assigned_to", "created_by")
+    raw_id_fields = ("prospect", "case", "assigned_to", "created_by")
 
 
 @admin.register(DropOff)

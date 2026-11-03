@@ -430,12 +430,18 @@ def ensure_lesson_enrollment(
     Provide either a live ``teacher`` Person or both historical name parts
     (former / unknown teacher for legacy records).
     """
+    from apps.evangelism.visitor_follow_up import (
+        close_visitor_follow_up_for_enrollment,
+    )
+
     existing = (
         LessonStudentEnrollment.objects.filter(student=student)
         .select_related("teacher", "student")
         .first()
     )
     if existing:
+        if existing.is_active:
+            close_visitor_follow_up_for_enrollment(student, updated_by=assigned_by)
         return existing
 
     if teacher is not None:
@@ -475,6 +481,7 @@ def ensure_lesson_enrollment(
         reviewed_by=assigned_by,
         note="A lessons teacher was assigned.",
     )
+    close_visitor_follow_up_for_enrollment(student, updated_by=assigned_by)
     return enrollment
 
 
@@ -697,6 +704,9 @@ def reject_lesson_assignment_request(
     locked.save(
         update_fields=["status", "reviewed_by", "reviewed_at", "review_note", "updated_at"]
     )
+    from apps.evangelism.visitor_follow_up import ensure_visitor_follow_up_for_person
+
+    ensure_visitor_follow_up_for_person(locked.student, updated_by=reviewer)
     return locked
 
 
@@ -1386,6 +1396,11 @@ def stop_remaining_lessons(student: Person) -> None:
         is_active=False,
         updated_at=timezone.now(),
     )
+    from apps.evangelism.visitor_follow_up import (
+        reopen_visitor_follow_up_for_inactive_enrollment,
+    )
+
+    reopen_visitor_follow_up_for_inactive_enrollment(student)
 
 
 def clear_lesson_follow_up_for_newer_session(report: LessonSessionReport) -> None:

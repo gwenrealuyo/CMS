@@ -1,3 +1,20 @@
+/** e.g. Wednesday, November 4, 2026 — date-only strings stay on the calendar day. */
+export function formatLongDisplayDate(value?: string | null): string | null {
+  if (!value) return null;
+  const trimmed = value.trim();
+  const ymd = parseLocalYmd(trimmed);
+  const date = ymd
+    ? new Date(ymd.year, ymd.month - 1, ymd.day)
+    : new Date(trimmed);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleDateString("en-US", {
+    weekday: "long",
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
+}
+
 /** e.g. May 1, 2026 — date-only strings stay on the calendar day (no UTC shift). */
 export function formatDisplayDate(value?: string | null): string | null {
   if (!value) return null;

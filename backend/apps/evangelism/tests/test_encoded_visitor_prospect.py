@@ -121,6 +121,34 @@ class EncodedVisitorProspectAPITests(APITestCase):
         self.assertIsNone(response.data.get("person"))
         self.assertEqual(response.data["pipeline_stage"], Prospect.PipelineStage.INVITED)
 
+    def test_encoded_visitor_with_ungrouped_prospect_is_claimed_not_duplicated(self):
+        """My visitors may already have a person-linked prospect with no group."""
+        existing = Prospect.objects.create(
+            first_name="Eva",
+            last_name="Cubian",
+            invited_by=self.coordinator,
+            person=self.encoded_visitor,
+            pipeline_stage=Prospect.PipelineStage.ATTENDED,
+            evangelism_group=None,
+        )
+        self.client.force_authenticate(self.coordinator)
+        response = self.client.post(
+            PROSPECTS_URL,
+            {
+                "person_id": self.encoded_visitor.id,
+                "evangelism_group_id": self.owned_group.id,
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, 201, response.data)
+        self.assertEqual(response.data["id"], existing.id)
+        existing.refresh_from_db()
+        self.assertEqual(existing.evangelism_group_id, self.owned_group.id)
+        self.assertEqual(
+            Prospect.objects.filter(person=self.encoded_visitor).count(),
+            1,
+        )
+
     def test_encoded_visitor_already_on_group_is_returned_and_listed(self):
         existing = Prospect.objects.create(
             first_name="Eva",

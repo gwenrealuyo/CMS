@@ -2385,19 +2385,52 @@ export const evangelismApi = {
   recover: (id: number | string) =>
     api.post<Prospect>(`/evangelism/prospects/${id}/recover/`),
 
+  // Visitor follow-up (My visitors)
+  listVisitorFollowUpCases: (params?: Record<string, string | number | boolean | undefined>) =>
+    api.get<any>("/evangelism/visitor-follow-up-cases/", { params }),
+  getVisitorFollowUpCase: (id: number | string) =>
+    api.get<any>(`/evangelism/visitor-follow-up-cases/${id}/`),
+  updateVisitorFollowUpCase: (
+    id: number | string,
+    data: Record<string, unknown>
+  ) => api.patch<any>(`/evangelism/visitor-follow-up-cases/${id}/`, data),
+  markVisitorFollowUpLowPriority: (
+    id: number | string,
+    data?: { reason?: string }
+  ) =>
+    api.post<any>(
+      `/evangelism/visitor-follow-up-cases/${id}/mark_low_priority/`,
+      data || {}
+    ),
+  resumeVisitorFollowUp: (id: number | string) =>
+    api.post<any>(`/evangelism/visitor-follow-up-cases/${id}/resume/`, {}),
+  markVisitorFollowUpDeceased: (
+    id: number | string,
+    data?: { reason?: string }
+  ) =>
+    api.post<any>(
+      `/evangelism/visitor-follow-up-cases/${id}/mark_deceased/`,
+      data || {}
+    ),
+  getVisitorFollowUpSummary: (params?: {
+    scope?: string;
+  }) =>
+    api.get<any>("/evangelism/visitor-follow-up-cases/summary/", { params }),
+
   // Follow-up Tasks
   listFollowUpTasks: (params?: {
     prospect?: number | string;
     assigned_to?: number | string;
     status?: string;
     priority?: string;
+    case?: number | string;
   }) => api.get<FollowUpTask[]>("/evangelism/follow-up-tasks/", { params }),
   getFollowUpTask: (id: number | string) =>
     api.get<FollowUpTask>(`/evangelism/follow-up-tasks/${id}/`),
-  createFollowUpTask: (data: Partial<FollowUpTask>) =>
+  createFollowUpTask: (data: Record<string, unknown>) =>
     api.post<FollowUpTask>("/evangelism/follow-up-tasks/", data),
-  updateFollowUpTask: (id: number | string, data: Partial<FollowUpTask>) =>
-    api.put<FollowUpTask>(`/evangelism/follow-up-tasks/${id}/`, data),
+  updateFollowUpTask: (id: number | string, data: Record<string, unknown>) =>
+    api.patch<FollowUpTask>(`/evangelism/follow-up-tasks/${id}/`, data),
   deleteFollowUpTask: (id: number | string) =>
     api.delete(`/evangelism/follow-up-tasks/${id}/`),
   completeTask: (id: number | string) =>

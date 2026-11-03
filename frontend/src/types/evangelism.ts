@@ -260,20 +260,49 @@ export type TaskType =
   | "PHONE_CALL"
   | "TEXT_MESSAGE"
   | "VISIT"
-  | "EMAIL"
+  | "INVITE_SUNDAY_SERVICE"
+  | "INVITE_BIBLE_STUDY"
+  | "INVITE_FELLOWSHIP"
+  | "INVITE_NCC"
+  | "INVITE_OTHER_CHURCH"
   | "PRAYER"
-  | "OTHER";
+  | "OTHER"
+  | "EMAIL";
 export type TaskStatus = "PENDING" | "IN_PROGRESS" | "COMPLETED" | "CANCELLED";
 export type TaskPriority = "LOW" | "MEDIUM" | "HIGH" | "URGENT";
 
+export type VisitorFollowUpCaseStatus =
+  | "OPEN"
+  | "IN_PROGRESS"
+  | "NO_ACTION"
+  | "CLOSED";
+
+export type VisitorFollowUpClosedReason =
+  | "ENROLLED"
+  | "DROPPED_OFF"
+  | "DECEASED"
+  | "REACHED"
+  | "MANUAL"
+  | "";
+
+export type VisitorFollowUpRecommendedAction =
+  | "FOLLOW_UP_MONITOR"
+  | "VISITATION"
+  | "NO_ACTION"
+  | "OTHER"
+  | "";
+
 export interface FollowUpTask {
-  id: string;
+  id: number | string;
   prospect: Prospect;
-  prospect_id: string;
+  prospect_id?: number | string;
+  case?: number | null;
+  case_id?: number | string | null;
   assigned_to: Person;
-  assigned_to_id: string;
+  assigned_to_id?: number | string;
   task_type: TaskType;
   task_type_display: string;
+  custom_label?: string;
   due_date: string;
   completed_date?: string;
   status: TaskStatus;
@@ -282,9 +311,61 @@ export interface FollowUpTask {
   priority: TaskPriority;
   priority_display: string;
   created_by?: Person;
-  created_by_id?: string;
+  created_by_id?: number | string;
   created_at: string;
   updated_at: string;
+}
+
+export interface VisitorFollowUpAffiliationCluster {
+  id: number;
+  code?: string | null;
+  name?: string | null;
+}
+
+export interface VisitorFollowUpAffiliationGroup {
+  id: number;
+  name?: string | null;
+}
+
+export interface VisitorFollowUpAffiliations {
+  clusters: VisitorFollowUpAffiliationCluster[];
+  evangelism_groups: VisitorFollowUpAffiliationGroup[];
+}
+
+export interface VisitorFollowUpCase {
+  id: number;
+  prospect: Prospect;
+  details?: string;
+  recommended_action?: VisitorFollowUpRecommendedAction;
+  recommended_action_display?: string;
+  recommended_action_other?: string;
+  assigned_to?: Person | null;
+  assigned_to_id?: number | null;
+  due_date?: string | null;
+  case_status: VisitorFollowUpCaseStatus;
+  case_status_display?: string;
+  closed_reason?: VisitorFollowUpClosedReason;
+  closed_reason_display?: string;
+  remarks?: string;
+  opened_at: string;
+  closed_at?: string | null;
+  updated_at: string;
+  updated_by?: Person | null;
+  needs_attention?: boolean;
+  days_since_activity?: number | null;
+  last_activity_date?: string | null;
+  affiliations?: VisitorFollowUpAffiliations;
+  tasks?: FollowUpTask[];
+}
+
+export interface VisitorFollowUpSummary {
+  open_caseload: number;
+  needs_attention: number;
+  /** @deprecated Prefer low_priority */
+  no_action: number;
+  low_priority?: number;
+  needs_attention_days: number;
+  cutoff: string;
 }
 
 export type DropOffReason =

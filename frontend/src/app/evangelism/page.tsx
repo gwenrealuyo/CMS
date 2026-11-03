@@ -105,6 +105,7 @@ import { useModuleSettings } from "@/src/hooks/useModuleSettings";
 import { canHardDelete } from "@/src/lib/canHardDelete";
 import { canBrowseProspects, canBrowseBibleSharers, canAccessEvangelismCompliance, canWriteEvangelism, canSubmitEvangelismReport, assignedEvangelismGroupIds, canApproveEvangelismGroup, canManageEvangelismGroup, canSubmitEvangelismReportForGroup, isEvangelismGroupApproved, canManageBibleSharersRoster } from "@/src/lib/evangelism/evangelismPermissions";
 import ProspectsBrowse from "@/src/components/evangelism/ProspectsBrowse";
+import MyVisitorsRoster from "@/src/components/evangelism/MyVisitorsRoster";
 import {
   canChangeEvangelismBranchFilter,
   defaultEvangelismListBranch,
@@ -114,6 +115,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 const EVANGELISM_PAGE_TABS = [
   "groups",
+  "my-visitors",
   "prospects",
   "each1reach1",
   "tally",
@@ -136,7 +138,8 @@ export default function EvangelismPage() {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const { user, isSeniorCoordinator } = useAuth();
+  const { user, isSeniorCoordinator, isModuleCoordinator, isPlainMember } =
+    useAuth();
   const { moduleEnabled } = useModuleSettings();
   const userCanHardDelete = canHardDelete(user);
   const canWriteEvangelismAccess = useMemo(
@@ -152,6 +155,13 @@ export default function EvangelismPage() {
       (user.role === "ADMIN" ||
         user.role === "PASTOR" ||
         isSeniorCoordinator("EVANGELISM")),
+  );
+  const canUseMyVisitorsOversight = Boolean(
+    evangelismPrivileged ||
+      isSeniorCoordinator("CLUSTER") ||
+      isModuleCoordinator("EVANGELISM", "COORDINATOR") ||
+      isModuleCoordinator("CLUSTER", "COORDINATOR") ||
+      isModuleCoordinator("CLUSTER", "ASSISTANT_COORDINATOR"),
   );
   const canBrowseProspectsTab = useMemo(
     () => canBrowseProspects({ user, isSeniorCoordinator }),
@@ -405,7 +415,10 @@ export default function EvangelismPage() {
     useState<EvangelismWeeklyReport | null>(null);
   const [pendingDeleteGroupReport, setPendingDeleteGroupReport] =
     useState<EvangelismWeeklyReport | null>(null);
-  const [activeTab, setActiveTab] = useState<EvangelismPageTab>("groups");
+  const plainMember = isPlainMember();
+  const [activeTab, setActiveTab] = useState<EvangelismPageTab>(
+    plainMember ? "my-visitors" : "groups",
+  );
   const [reportsSubmitNonce, setReportsSubmitNonce] = useState(0);
   const [bibleStudyFormRequest, setBibleStudyFormRequest] = useState(0);
   const [bibleStudyFormRequestSeen, setBibleStudyFormRequestSeen] = useState(0);
@@ -481,21 +494,31 @@ export default function EvangelismPage() {
   useEffect(() => {
     const tabParam = searchParams.get("tab");
     if (tabParam === "prospects" && !canBrowseProspectsTab) {
-      setActiveTab("groups");
+      setActiveTab(plainMember ? "my-visitors" : "groups");
       return;
     }
     if (tabParam === "bible_sharers" && !canBrowseBibleSharersTab) {
-      setActiveTab("groups");
+      setActiveTab(plainMember ? "my-visitors" : "groups");
       return;
     }
     if (tabParam === "compliance" && !canAccessEvangelismComplianceTab) {
-      setActiveTab("groups");
+      setActiveTab(plainMember ? "my-visitors" : "groups");
       return;
     }
     if (isEvangelismPageTab(tabParam)) {
       setActiveTab(tabParam);
+      return;
     }
-  }, [searchParams, canBrowseProspectsTab, canBrowseBibleSharersTab, canAccessEvangelismComplianceTab]);
+    if (!tabParam && plainMember) {
+      setActiveTab("my-visitors");
+    }
+  }, [
+    searchParams,
+    canBrowseProspectsTab,
+    canBrowseBibleSharersTab,
+    canAccessEvangelismComplianceTab,
+    plainMember,
+  ]);
 
   useEffect(() => {
     const approval = searchParams.get("approval");
@@ -1641,6 +1664,19 @@ export default function EvangelismPage() {
                 >
                   Groups
                 </button>
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={activeTab === "my-visitors"}
+                  onClick={() => selectTab("my-visitors")}
+                  className={`shrink-0 snap-start py-4 px-1 border-b-2 font-medium text-sm transition-colors whitespace-nowrap min-w-[90px] ${
+                    activeTab === "my-visitors"
+                      ? "border-primary text-primary"
+                      : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                  }`}
+                >
+                  My Visitors
+                </button>
                 {canBrowseProspectsTab && (
                   <button
                     type="button"
@@ -2285,6 +2321,13 @@ export default function EvangelismPage() {
             </PersonDetailPanel>
           )}
           </div>
+        )}
+
+        {activeTab === "my-visitors" && (
+          <MyVisitorsRoster
+            canUseOversightScope={canUseMyVisitorsOversight}
+            defaultScope="mine"
+          />
         )}
 
         {activeTab === "prospects" && canBrowseProspectsTab && (

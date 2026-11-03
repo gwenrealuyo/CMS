@@ -123,8 +123,8 @@ Returns the same shape as `GET` (typically empty `items`).
 | `cluster_report_due` | Users who **manage** at least one cluster; CLUSTER module enabled | No `ClusterWeeklyReport` for managed cluster for **current ISO week** |
 | `evangelism_report_due` | Users who **manage** at least one evangelism group; EVANGELISM module enabled | Cadence from `EvangelismGroup.meeting_frequency`: **WEEKLY** — no report whose ISO week is the current week; **BIWEEKLY** — no report with `meeting_date` in the last 14 days (inclusive); **MONTHLY** — no report with `meeting_date` in the current church calendar month; **IRREGULAR** — never. Inactive and **pending/rejected** groups are skipped. |
 | `cluster_report_overdue` | `ADMIN`, `PASTOR`, or cluster **senior coordinator** | Clusters in oversight scope missing this week’s report (excludes clusters the user already gets as `cluster_report_due`) |
-| `follow_up_overdue` | User assigned on `FollowUpTask` | `due_date` before today; status `PENDING` or `IN_PROGRESS` |
-| `follow_up_due_soon` | Same | Due within the next **3 days**; same statuses |
+| `follow_up_overdue` | User assigned on `FollowUpTask` | `due_date` before today; status `PENDING` or `IN_PROGRESS`. Href `/evangelism?tab=my-visitors` |
+| `follow_up_due_soon` | Same | Due within the next **3 days**; same statuses. Href `/evangelism?tab=my-visitors` |
 | `event_booking_pending` | Admin, Pastor, Events Coordinator, Events Senior Coordinator; EVENTS module enabled | `Event.booking_status=pending` (up to 10 newest). Href `/events?booking=pending` |
 | `evangelism_group_pending` | Admin, Pastor, Evangelism Senior Coordinator; EVANGELISM module enabled | `EvangelismGroup.approval_status=pending` (up to 10 newest, branch-scoped unless HQ). Href `/evangelism?tab=groups&approval=pending` |
 | `lesson_assignment_pending` | Admin, Pastor, Lessons Coordinator / Senior, NCC primary or support; LESSONS module enabled | `LessonAssignmentRequest.status=pending` (up to 10 newest, branch-scoped unless the user can see all branches). Href `/lessons?tab=teachers&approval=pending` |

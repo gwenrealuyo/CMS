@@ -1,7 +1,11 @@
 "use client";
 
 import Button from "@/src/components/ui/Button";
-import { AgendaGroups, EventCardItem } from "@/src/lib/events/agenda";
+import {
+  AgendaGroups,
+  EventCardItem,
+  isSameLocalDay,
+} from "@/src/lib/events/agenda";
 import EventAgendaRow from "@/src/components/events/EventAgendaRow";
 
 interface EventAgendaPanelProps {
@@ -132,32 +136,67 @@ export default function EventAgendaPanel({
                 : "",
             ].join(" ")}
           >
-            {groups.sections.map((section) => (
-              <div key={section.label}>
-                {groups.mode !== "day" && (
-                  <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide py-1.5 px-3 sticky top-0 bg-white z-10">
-                    {section.label}
-                  </h3>
-                )}
+            {groups.sections.map((section) => {
+              const now = new Date();
+              const sectionIsToday =
+                section.label === "Today" ||
+                (groups.mode === "day" &&
+                  selectedDate != null &&
+                  isSameLocalDay(selectedDate, now));
+              const todayDateLabel = now.toLocaleDateString("en-US", {
+                weekday: "short",
+                month: "short",
+                day: "numeric",
+              });
+
+              return (
                 <div
-                  className={[
-                    "flex flex-col gap-2",
-                    isSparseDesktop ? "lg:gap-4" : "",
-                  ].join(" ")}
+                  key={section.label}
+                  className={
+                    sectionIsToday && groups.mode !== "day"
+                      ? "rounded-xl border border-primary/20 bg-primary/10 p-2"
+                      : undefined
+                  }
                 >
-                  {section.items.map((item) => (
-                    <EventAgendaRow
-                      key={item.id}
-                      event={item.event}
-                      occurrenceStartDate={item.occurrence.start_date}
-                      occurrenceEndDate={item.occurrence.end_date}
-                      onClick={() => onView(item)}
-                      size={rowSize}
-                    />
-                  ))}
+                  {groups.mode !== "day" && (
+                    <h3
+                      className={[
+                        "text-xs font-semibold uppercase tracking-wide py-1.5 px-3 sticky top-0 z-10",
+                        sectionIsToday
+                          ? "text-primary bg-primary/10"
+                          : "text-gray-500 bg-white",
+                      ].join(" ")}
+                    >
+                      {section.label}
+                      {sectionIsToday && (
+                        <span className="ml-2 font-medium normal-case tracking-normal text-primary/80">
+                          {todayDateLabel}
+                        </span>
+                      )}
+                    </h3>
+                  )}
+                  <div
+                    className={[
+                      "flex flex-col gap-2",
+                      isSparseDesktop ? "lg:gap-4" : "",
+                    ].join(" ")}
+                  >
+                    {section.items.map((item) => (
+                      <EventAgendaRow
+                        key={item.id}
+                        event={item.event}
+                        occurrenceStartDate={item.occurrence.start_date}
+                        occurrenceEndDate={item.occurrence.end_date}
+                        onClick={() => onView(item)}
+                        size={rowSize}
+                        highlighted={sectionIsToday && groups.mode === "day"}
+                        continues={Boolean(item.continues)}
+                      />
+                    ))}
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
             {groups.truncated && (
               <p className="text-xs text-gray-500 text-center px-3 py-2">
                 Showing the next 100 upcoming events within 90 days.

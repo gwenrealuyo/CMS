@@ -1,6 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { PencilSquareIcon, UserPlusIcon } from "@heroicons/react/24/outline";
+import { StarIcon } from "@heroicons/react/24/solid";
 import toast from "react-hot-toast";
 import Button from "@/src/components/ui/Button";
 import LoadingSpinner from "@/src/components/ui/LoadingSpinner";
@@ -19,15 +21,18 @@ import type {
 const VERSE_HOOK =
   "“A cord… is not quickly broken” (Ecc 4:12)—we form small cords of five so each person is held by others.";
 
-/** Nickname only for cord chips; falls back to first name, then full display name. */
+/** Nickname (or first name) plus surname initial, e.g. "Bing H." */
 function cordDisplayNickname(person: {
   nickname?: string | null;
   first_name?: string | null;
+  last_name?: string | null;
 }): string {
   const nick = (person.nickname ?? "").trim();
-  if (nick) return nick;
   const first = (person.first_name ?? "").trim();
-  if (first) return first;
+  const given = nick || first;
+  const lastInitial = (person.last_name ?? "").trim().charAt(0).toUpperCase();
+  if (given && lastInitial) return `${given} ${lastInitial}.`;
+  if (given) return given;
   return formatPersonName(person);
 }
 
@@ -181,9 +186,11 @@ export default function ClusterCordsSection({
             <ul className="space-y-3">
               {cords.map((cord) => {
                 const subId = cord.sub_coordinator?.id ?? null;
-                const subName = cord.sub_coordinator
-                  ? cordDisplayNickname(cord.sub_coordinator)
-                  : null;
+                const subMember =
+                  subId == null
+                    ? null
+                    : (cord.members_details.find((m) => m.id === subId) ??
+                      cord.sub_coordinator);
                 const memberChips = cord.members_details.filter(
                   (m) => subId == null || m.id !== subId,
                 );
@@ -195,91 +202,115 @@ export default function ClusterCordsSection({
                     key={cord.id}
                     className="rounded-lg border border-gray-200 bg-white p-3 card-shadow"
                   >
-                    <div className="min-w-0">
-                      <div className="flex flex-wrap items-center gap-2">
-                        {canManage ? (
-                          <button
-                            type="button"
-                            className="font-medium text-primary hover:underline text-left min-h-[44px] sm:min-h-0"
-                            onClick={() => {
-                              setEditing(cord);
-                              setFormOpen(true);
-                            }}
-                          >
-                            {cord.name}
-                          </button>
-                        ) : (
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
                           <span className="font-medium text-gray-900">
                             {cord.name}
                           </span>
-                        )}
-                        <span className="text-xs text-gray-500">
-                          {cord.member_count} members
-                        </span>
-                        {subName && (
-                          <span className="inline-flex items-center rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
-                            Sub-coordinator: {subName}
+                          {subMember && (
+                            <span className="inline-flex items-center rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
+                              Sub-coordinator: {cordDisplayNickname(subMember)}
+                            </span>
+                          )}
+                          <span className="text-xs text-gray-500">
+                            {cord.member_count} members
                           </span>
+                          {cord.size_warning && (
+                            <span className="text-xs text-amber-700">
+                              {cord.size_warning}
+                            </span>
+                          )}
+                        </div>
+                        {(subMember ||
+                          memberChips.length > 0 ||
+                          (cord.invited_visitors?.length ?? 0) > 0) && (
+                          <div className="mt-2 flex flex-wrap gap-1.5">
+                            {subMember && (
+                              <span
+                                title={`Sub-coordinator${
+                                  subMember.status
+                                    ? ` · ${formatPersonStatusLabel(subMember.status)}`
+                                    : ""
+                                }`}
+                                className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ring-1 ring-amber-400 ${getPersonStatusColor(subMember.status)}`}
+                              >
+                                <StarIcon
+                                  className="h-3 w-3 shrink-0 text-amber-500"
+                                  aria-hidden
+                                />
+                                <span className="sr-only">Sub-coordinator: </span>
+                                {cordDisplayNickname(subMember)}
+                              </span>
+                            )}
+                            {memberChips.map((m) => (
+                              <span
+                                key={m.id}
+                                title={
+                                  m.status
+                                    ? formatPersonStatusLabel(m.status)
+                                    : undefined
+                                }
+                                className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${getPersonStatusColor(m.status)}`}
+                              >
+                                {cordDisplayNickname(m)}
+                              </span>
+                            ))}
+                            {(cord.invited_visitors || []).map((v) => (
+                              <span
+                                key={`visitor-${v.id}`}
+                                title={`Visitor${
+                                  v.status
+                                    ? ` · ${formatPersonStatusLabel(v.status)}`
+                                    : ""
+                                }`}
+                                className={`inline-flex items-center gap-1 rounded-full border border-dashed border-black/20 px-2 py-0.5 text-xs font-medium ${getPersonStatusColor(v.status)}`}
+                              >
+                                <UserPlusIcon
+                                  className="h-3 w-3 shrink-0"
+                                  aria-hidden
+                                />
+                                <span className="sr-only">Visitor: </span>
+                                {cordDisplayNickname(v)}
+                              </span>
+                            ))}
+                          </div>
                         )}
-                        {cord.size_warning && (
-                          <span className="text-xs text-amber-700">
-                            {cord.size_warning}
-                          </span>
+                        {(careOpen > 0 || careAttention > 0) && (
+                          <p className="mt-2 text-xs text-amber-800">
+                            Cluster Care: {careOpen} open
+                            {careAttention > 0
+                              ? ` · ${careAttention} need attention`
+                              : ""}
+                            {onCareFocus && (
+                              <>
+                                {" · "}
+                                <button
+                                  type="button"
+                                  className="font-medium text-primary underline"
+                                  onClick={() => onCareFocus(cord.id)}
+                                >
+                                  View in Care
+                                </button>
+                              </>
+                            )}
+                          </p>
                         )}
                       </div>
-                      {(memberChips.length > 0 ||
-                        (cord.invited_visitors?.length ?? 0) > 0) && (
-                        <div className="mt-2 flex flex-wrap gap-1.5">
-                          {memberChips.map((m) => (
-                            <span
-                              key={m.id}
-                              title={
-                                m.status
-                                  ? formatPersonStatusLabel(m.status)
-                                  : undefined
-                              }
-                              className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${getPersonStatusColor(m.status)}`}
-                            >
-                              {cordDisplayNickname(m)}
-                            </span>
-                          ))}
-                          {(cord.invited_visitors || []).map((v) => (
-                            <span
-                              key={`visitor-${v.id}`}
-                              title={`Visitor${
-                                v.status
-                                  ? ` · ${formatPersonStatusLabel(v.status)}`
-                                  : ""
-                              }`}
-                              className={`inline-flex items-center gap-1 rounded-full border border-dashed border-black/20 px-2 py-0.5 text-xs font-medium ${getPersonStatusColor(v.status)}`}
-                            >
-                              {cordDisplayNickname(v)}
-                              <span className="rounded bg-black/10 px-1 py-px text-[10px] font-medium uppercase tracking-wide">
-                                Visitor
-                              </span>
-                            </span>
-                          ))}
-                        </div>
-                      )}
-                      {(careOpen > 0 || careAttention > 0) && (
-                        <p className="mt-2 text-xs text-amber-800">
-                          Cluster Care: {careOpen} open
-                          {careAttention > 0
-                            ? ` · ${careAttention} need attention`
-                            : ""}
-                          {onCareFocus && (
-                            <>
-                              {" · "}
-                              <button
-                                type="button"
-                                className="font-medium text-primary underline"
-                                onClick={() => onCareFocus(cord.id)}
-                              >
-                                View in Care
-                              </button>
-                            </>
-                          )}
-                        </p>
+                      {canManage && (
+                        <button
+                          type="button"
+                          className="inline-flex shrink-0 items-center gap-1 rounded-md border border-gray-200 bg-gray-50 px-2.5 text-xs font-medium text-gray-700 transition-colors hover:border-primary/30 hover:bg-primary/5 hover:text-primary min-h-[44px] sm:min-h-[32px]"
+                          aria-label={`Edit ${cord.name}`}
+                          title={`Edit ${cord.name}`}
+                          onClick={() => {
+                            setEditing(cord);
+                            setFormOpen(true);
+                          }}
+                        >
+                          <PencilSquareIcon className="h-3.5 w-3.5" aria-hidden />
+                          Edit
+                        </button>
                       )}
                     </div>
                   </li>

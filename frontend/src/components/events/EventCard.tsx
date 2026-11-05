@@ -28,6 +28,33 @@ export default function EventCard({
   const nextEnd =
     occurrenceEndDate || event.next_occurrence?.end_date || event.end_date;
 
+  const formatDateTime = (dateString: string) =>
+    new Date(dateString).toLocaleString("en-US", {
+      weekday: "short",
+      month: "short",
+      day: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+    });
+
+  const formatEndLabel = (startIso: string, endIso: string) => {
+    const start = new Date(startIso);
+    const end = new Date(endIso);
+    const sameDay =
+      !Number.isNaN(start.getTime()) &&
+      !Number.isNaN(end.getTime()) &&
+      start.getFullYear() === end.getFullYear() &&
+      start.getMonth() === end.getMonth() &&
+      start.getDate() === end.getDate();
+    if (sameDay) {
+      return end.toLocaleTimeString("en-US", {
+        hour: "numeric",
+        minute: "2-digit",
+      });
+    }
+    return formatDateTime(endIso);
+  };
+
   return (
     <Card>
       <div className="space-y-4">
@@ -72,22 +99,9 @@ export default function EventCard({
               />
             </svg>
             <div>
-              <div className="font-medium">
-                {new Date(nextStart).toLocaleDateString("en-US", {
-                  weekday: "short",
-                  month: "short",
-                  day: "numeric",
-                  hour: "numeric",
-                  minute: "2-digit",
-                })}
-              </div>
+              <div className="font-medium">{formatDateTime(nextStart)}</div>
               <div className="text-xs text-gray-500">
-                Ends
-                {" "}
-                {new Date(nextEnd).toLocaleTimeString("en-US", {
-                  hour: "numeric",
-                  minute: "2-digit",
-                })}
+                Ends {formatEndLabel(nextStart, nextEnd)}
               </div>
               {event.is_recurring && event.recurrence_pattern && (
                 <div className="text-xs text-gray-500 mt-1">

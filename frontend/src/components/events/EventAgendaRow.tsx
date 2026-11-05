@@ -18,11 +18,21 @@ interface EventAgendaRowProps {
   occurrenceEndDate: string;
   onClick: () => void;
   size?: EventAgendaRowSize;
+  highlighted?: boolean;
+  continues?: boolean;
 }
 
 function shouldShowTypeChip(event: Event): boolean {
   const typeLabel = (event.type_display || event.type).trim().toLowerCase();
   return typeLabel !== event.title.trim().toLowerCase();
+}
+
+function ContinuesChip() {
+  return (
+    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium text-gray-600 bg-white border border-dashed border-gray-400">
+      Continues
+    </span>
+  );
 }
 
 function PendingChip({ size = "sm" }: { size?: "sm" | "md" }) {
@@ -38,11 +48,13 @@ function EventMeta({
   size = "compact",
   viewerPresent = false,
   viewerMode = null,
+  continues = false,
 }: {
   event: Event;
   size?: EventAgendaRowSize;
   viewerPresent?: boolean;
   viewerMode?: ReturnType<typeof viewerAttendanceForOccurrence>["mode"];
+  continues?: boolean;
 }) {
   const { getChipStyle } = useEventTypeStyles();
   const showChip = shouldShowTypeChip(event);
@@ -51,6 +63,7 @@ function EventMeta({
 
   return (
     <>
+      {continues && <ContinuesChip />}
       {showChip && (
         <span style={getChipStyle(event.type, "sm")}>
           {event.type_display || event.type}
@@ -75,11 +88,44 @@ function EventMeta({
   );
 }
 
-function formatTime(dateString: string): string {
-  return new Date(dateString).toLocaleTimeString("en-US", {
+function formatTime(date: Date): string {
+  return date.toLocaleTimeString("en-US", {
     hour: "numeric",
     minute: "2-digit",
   });
+}
+
+function isSameLocalCalendarDay(a: Date, b: Date): boolean {
+  return (
+    a.getFullYear() === b.getFullYear() &&
+    a.getMonth() === b.getMonth() &&
+    a.getDate() === b.getDate()
+  );
+}
+
+function formatTimeRange(startIso: string, endIso: string): string {
+  const start = new Date(startIso);
+  const end = new Date(endIso);
+  if (Number.isNaN(start.getTime())) return "";
+  if (Number.isNaN(end.getTime())) return formatTime(start);
+
+  const startTime = formatTime(start);
+  const endTime = formatTime(end);
+  if (isSameLocalCalendarDay(start, end)) {
+    const [startClock, startMeridiem = ""] = startTime.split(" ");
+    const [, endMeridiem = ""] = endTime.split(" ");
+    if (startMeridiem && startMeridiem === endMeridiem) {
+      return `${startClock} – ${endTime}`;
+    }
+    return `${startTime} – ${endTime}`;
+  }
+
+  const endDate = end.toLocaleDateString("en-US", {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+  });
+  return `${startTime} – ${endDate}, ${endTime}`;
 }
 
 function getOccurrenceAttendanceCount(
@@ -97,11 +143,13 @@ function EventComfortableDetails({
   occurrenceStartDate,
   viewerPresent,
   viewerMode,
+  continues = false,
 }: {
   event: Event;
   occurrenceStartDate: string;
   viewerPresent: boolean;
   viewerMode: ReturnType<typeof viewerAttendanceForOccurrence>["mode"];
+  continues?: boolean;
 }) {
   const { getChipStyle } = useEventTypeStyles();
   const attendeeCount = getOccurrenceAttendanceCount(event, occurrenceStartDate);
@@ -109,6 +157,7 @@ function EventComfortableDetails({
   return (
     <div className="flex flex-col gap-2 min-w-0">
       <div className="flex items-center gap-2 flex-wrap">
+        {continues && <ContinuesChip />}
         <span style={getChipStyle(event.type, "sm")}>
           {event.type_display || event.type}
         </span>
@@ -187,11 +236,12 @@ export default function EventAgendaRow({
   occurrenceEndDate,
   onClick,
   size = "compact",
+  highlighted = false,
+  continues = false,
 }: EventAgendaRowProps) {
   const { user } = useAuth();
   const isComfortable = size === "comfortable";
-  const startTime = formatTime(occurrenceStartDate);
-  const endTime = formatTime(occurrenceEndDate);
+  const timeRange = formatTimeRange(occurrenceStartDate, occurrenceEndDate);
   const viewerAttendance = viewerAttendanceForOccurrence(
     event,
     user?.id,
@@ -211,8 +261,14 @@ export default function EventAgendaRow({
       onClick={onClick}
       onKeyDown={handleKeyDown}
       className={[
-        "flex w-full gap-3 min-h-[44px] px-3 py-2.5 rounded-lg border border-gray-200 bg-white",
-        "hover:border-gray-300 hover:bg-gray-50 shadow-sm transition-colors text-left",
+        "flex w-full gap-3 min-h-[44px] px-3 py-2.5 rounded-lg border shadow-sm transition-colors text-left",
+        continues && highlighted
+          ? "border-dashed border-primary/40 bg-primary/5 hover:bg-primary/10"
+          : continues
+            ? "border-dashed border-gray-300 bg-gray-50 hover:border-gray-400 hover:bg-gray-100"
+            : highlighted
+              ? "border-primary/30 bg-primary/10 hover:border-primary/40 hover:bg-primary/15"
+              : "border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50",
         isComfortable
           ? "lg:px-5 lg:py-4 lg:min-h-[112px] lg:gap-4 lg:items-start"
           : "sm:items-center sm:py-2",
@@ -220,18 +276,11 @@ export default function EventAgendaRow({
     >
       <span
         className={[
-          "shrink-0 w-16 pt-0.5 sm:pt-0 text-sm font-medium text-gray-700 tabular-nums",
-          isComfortable ? "lg:w-24 lg:pt-1" : "",
+          "shrink-0 self-center whitespace-nowrap text-sm font-medium text-gray-700 tabular-nums",
+          isComfortable ? "lg:text-base" : "",
         ].join(" ")}
       >
-        <span className={isComfortable ? "lg:block lg:text-base" : ""}>
-          {startTime}
-        </span>
-        {isComfortable && (
-          <span className="hidden lg:block text-sm text-gray-500 mt-1">
-            to {endTime}
-          </span>
-        )}
+        {timeRange}
       </span>
 
       {/* Mobile: title + meta stacked */}
@@ -245,6 +294,7 @@ export default function EventAgendaRow({
             size={size}
             viewerPresent={viewerAttendance.present}
             viewerMode={viewerAttendance.mode}
+            continues={continues}
           />
         </span>
       </span>
@@ -265,6 +315,7 @@ export default function EventAgendaRow({
             size={size}
             viewerPresent={viewerAttendance.present}
             viewerMode={viewerAttendance.mode}
+            continues={continues}
           />
         </span>
       </span>
@@ -280,6 +331,7 @@ export default function EventAgendaRow({
             occurrenceStartDate={occurrenceStartDate}
             viewerPresent={viewerAttendance.present}
             viewerMode={viewerAttendance.mode}
+            continues={continues}
           />
         </span>
       )}

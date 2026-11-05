@@ -4,10 +4,14 @@ export type EventCardItem = {
   id: string;
   event: Event;
   occurrence: EventOccurrence;
+  /** Later day of a multi-day event, shown again so that day is not missed. */
+  continues?: boolean;
 };
 
 export type AgendaSection = {
   label: string;
+  /** Local midnight for the day this section represents. */
+  dayTime: number;
   items: EventCardItem[];
 };
 
@@ -107,29 +111,111 @@ function formatMonthTitle(date: Date): string {
   });
 }
 
+function localDayKey(date: Date): string {
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${date.getFullYear()}-${month}-${day}`;
+}
+
+/** Each local day an occurrence overlaps inside [windowStart, windowEnd). */
+function listTouchedDays(
+  startIso: string,
+  endIso: string | null | undefined,
+  windowStart: Date,
+  windowEnd: Date
+): Date[] {
+  const start = new Date(startIso);
+  if (Number.isNaN(start.getTime())) return [];
+
+  const end = endIso ? new Date(endIso) : start;
+  const resolvedEnd =
+    Number.isNaN(end.getTime()) || end.getTime() < start.getTime() ? start : end;
+
+  const rangeStart = startOfLocalDay(start);
+  const clippedStart =
+    rangeStart < windowStart ? startOfLocalDay(windowStart) : rangeStart;
+
+  const endMs =
+    resolvedEnd.getTime() === start.getTime()
+      ? start.getTime()
+      : resolvedEnd.getTime() - 1;
+  const lastDay = startOfLocalDay(new Date(Math.max(endMs, start.getTime())));
+  const windowLast = new Date(windowEnd.getTime() - 1);
+  const clippedEnd =
+    lastDay >= windowEnd ? startOfLocalDay(windowLast) : lastDay;
+
+  if (clippedStart > clippedEnd || windowLast.getTime() < windowStart.getTime()) {
+    return [];
+  }
+
+  const days: Date[] = [];
+  const cursor = new Date(clippedStart);
+  while (cursor <= clippedEnd && days.length < 366) {
+    days.push(new Date(cursor));
+    cursor.setDate(cursor.getDate() + 1);
+  }
+  return days;
+}
+
+/** Today first, then later days, then earlier days in the same list. */
+function orderSectionsWithTodayFirst(
+  sections: AgendaSection[],
+  now: Date
+): AgendaSection[] {
+  const todayStart = startOfLocalDay(now);
+  const tomorrowStart = new Date(todayStart);
+  tomorrowStart.setDate(tomorrowStart.getDate() + 1);
+
+  const rank = (section: AgendaSection) => {
+    if (section.label === "Today") return 0;
+    return section.dayTime >= tomorrowStart.getTime() ? 1 : 2;
+  };
+
+  return [...sections].sort((a, b) => {
+    const rankDiff = rank(a) - rank(b);
+    if (rankDiff !== 0) return rankDiff;
+    return a.dayTime - b.dayTime;
+  });
+}
+
 function groupItemsByDay(
   items: EventCardItem[],
-  now: Date
+  now: Date,
+  windowStart: Date,
+  windowEnd: Date
 ): { sections: AgendaSection[]; capped: EventCardItem[]; truncated: boolean } {
-  const grouped = new Map<string, EventCardItem[]>();
-  const labelOrder: string[] = [];
+  const grouped = new Map<string, AgendaSection>();
 
   for (const item of items) {
-    const occurrenceDate = new Date(item.occurrence.start_date);
-    const label = formatDayLabel(occurrenceDate, now);
+    const start = new Date(item.occurrence.start_date);
+    const days = listTouchedDays(
+      item.occurrence.start_date,
+      item.occurrence.end_date,
+      windowStart,
+      windowEnd
+    );
 
-    if (!grouped.has(label)) {
-      grouped.set(label, []);
-      labelOrder.push(label);
+    for (const day of days) {
+      const key = localDayKey(day);
+      let section = grouped.get(key);
+      if (!section) {
+        section = {
+          label: formatDayLabel(day, now),
+          dayTime: startOfLocalDay(day).getTime(),
+          items: [],
+        };
+        grouped.set(key, section);
+      }
+      section.items.push({
+        ...item,
+        continues:
+          !Number.isNaN(start.getTime()) && !isSameLocalDay(start, day),
+      });
     }
-    grouped.get(label)!.push(item);
   }
 
   return {
-    sections: labelOrder.map((label) => ({
-      label,
-      items: grouped.get(label)!,
-    })),
+    sections: orderSectionsWithTodayFirst(Array.from(grouped.values()), now),
     capped: items,
     truncated: false,
   };
@@ -156,12 +242,27 @@ export function buildAgendaGroups(
       )
     );
 
+    const selectedDay = startOfLocalDay(options.selectedDate);
     return {
       mode: "day",
       title: `${formatDayTitle(options.selectedDate)} · ${eventCountLabel(dayItems.length)}`,
       sections:
         dayItems.length > 0
-          ? [{ label: formatDayTitle(options.selectedDate), items: dayItems }]
+          ? [
+              {
+                label: formatDayTitle(options.selectedDate),
+                dayTime: selectedDay.getTime(),
+                items: dayItems.map((item) => {
+                  const start = new Date(item.occurrence.start_date);
+                  return {
+                    ...item,
+                    continues:
+                      !Number.isNaN(start.getTime()) &&
+                      !isSameLocalDay(start, selectedDay),
+                  };
+                }),
+              },
+            ]
           : [],
       totalCount: dayItems.length,
       truncated: false,
@@ -169,7 +270,18 @@ export function buildAgendaGroups(
   }
 
   if (options.monthDate) {
-    const { sections, capped } = groupItemsByDay(sorted, now);
+    const monthStart = startOfLocalDay(options.monthDate);
+    const monthEnd = new Date(
+      monthStart.getFullYear(),
+      monthStart.getMonth() + 1,
+      1
+    );
+    const { sections, capped } = groupItemsByDay(
+      sorted,
+      now,
+      monthStart,
+      monthEnd
+    );
 
     return {
       mode: "month",
@@ -181,7 +293,9 @@ export function buildAgendaGroups(
   }
 
   if (options.yearOnly) {
-    const { sections, capped } = groupItemsByDay(sorted, now);
+    const yearStart = new Date(options.yearOnly, 0, 1);
+    const yearEnd = new Date(options.yearOnly + 1, 0, 1);
+    const { sections, capped } = groupItemsByDay(sorted, now, yearStart, yearEnd);
 
     return {
       mode: "year",
@@ -196,9 +310,17 @@ export function buildAgendaGroups(
   const maxDate = new Date(startOfToday);
   maxDate.setDate(maxDate.getDate() + UPCOMING_MAX_DAYS);
 
+  const windowEnd = new Date(maxDate);
+  windowEnd.setDate(windowEnd.getDate() + 1);
+
   const upcoming = sorted.filter((item) => {
-    const occurrenceDate = new Date(item.occurrence.start_date);
-    return occurrenceDate >= startOfToday && occurrenceDate <= maxDate;
+    const start = new Date(item.occurrence.start_date);
+    const end = new Date(item.occurrence.end_date || item.occurrence.start_date);
+    const resolvedEnd =
+      Number.isNaN(end.getTime()) || end.getTime() < start.getTime()
+        ? start
+        : end;
+    return start < windowEnd && resolvedEnd > startOfToday;
   });
 
   let truncated = upcoming.length > UPCOMING_MAX_ITEMS;
@@ -206,7 +328,7 @@ export function buildAgendaGroups(
     ? upcoming.slice(0, UPCOMING_MAX_ITEMS)
     : upcoming;
 
-  const { sections } = groupItemsByDay(capped, now);
+  const { sections } = groupItemsByDay(capped, now, startOfToday, windowEnd);
 
   return {
     mode: "upcoming",

@@ -25,8 +25,10 @@ class EventType(models.Model):
     counts_as_activity = models.BooleanField(
         default=True,
         help_text=(
-            "If false, this type is a room hold only and is not a person's "
-            "first activity attended."
+            "If true, this type may appear as First Activity Attended and "
+            "guest check-in may stamp it when an event opts in. Types "
+            "tracked elsewhere (e.g. Clustering via cluster reports) should "
+            "leave this off. Independent of room-hold booking mode."
         ),
     )
 
@@ -200,9 +202,9 @@ class Event(models.Model):
     counts_toward_first_activity = models.BooleanField(
         default=False,
         help_text=(
-            "When enabled on a non-room-hold activity event, guest check-in "
-            "may set the person's first activity attended to this event type. "
-            "Ignored (forced off) for room holds and non-activity types."
+            "Derived on save from the event type's counts_as_activity and "
+            "whether this is a room hold. Guest check-in uses type "
+            "eligibility directly; kept for admin/API visibility."
         ),
     )
     self_checkin_enabled = models.BooleanField(

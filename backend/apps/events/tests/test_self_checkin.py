@@ -1327,9 +1327,9 @@ class SelfCheckInAPITests(APITestCase):
         visitor = Person.objects.get(first_name="Guesty", last_name="Crusade")
         self.assertEqual(visitor.first_activity_attended_id, "CONCERT_CRUSADE")
 
-    def test_guest_skips_first_activity_when_flag_off(self):
-        self.event.counts_toward_first_activity = False
-        self.event.save(update_fields=["counts_toward_first_activity"])
+    def test_guest_skips_first_activity_when_type_ineligible(self):
+        self.event.event_type.counts_as_activity = False
+        self.event.event_type.save(update_fields=["counts_as_activity"])
         self.other_event.self_checkin_enabled = False
         self.other_event.save(update_fields=["self_checkin_enabled"])
         self.client.force_authenticate(self.coordinator)

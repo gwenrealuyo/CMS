@@ -235,8 +235,8 @@ type FormDefaults = {
   track_expected_attendees: boolean;
   allow_cross_branch_attendance: boolean;
   tardy_grace_minutes: number;
+  is_room_hold: boolean;
   estimated_headcount: number | "";
-  counts_toward_first_activity: boolean;
   self_checkin_enabled: boolean;
   attendance_format: "hybrid" | "online_only" | "onsite_only";
 };
@@ -259,8 +259,8 @@ function withExpectedAttendeeDefaults(
     | "track_expected_attendees"
     | "allow_cross_branch_attendance"
     | "tardy_grace_minutes"
+    | "is_room_hold"
     | "estimated_headcount"
-    | "counts_toward_first_activity"
     | "self_checkin_enabled"
     | "attendance_format"
   >,
@@ -274,8 +274,8 @@ function withExpectedAttendeeDefaults(
     track_expected_attendees: defaults.type === "SUNDAY_SERVICE",
     allow_cross_branch_attendance: false,
     tardy_grace_minutes: 0,
+    is_room_hold: defaults.type === "MEETING",
     estimated_headcount: "",
-    counts_toward_first_activity: false,
     self_checkin_enabled: defaults.type === "SUNDAY_SERVICE",
     attendance_format: "hybrid",
   };
@@ -416,12 +416,13 @@ export default function EventForm({
         allow_cross_branch_attendance:
           initialData.allow_cross_branch_attendance ?? false,
         tardy_grace_minutes: initialData.tardy_grace_minutes ?? 0,
+        is_room_hold:
+          (initialData.type || "") === "MEETING" ||
+          Boolean(initialData.is_room_hold),
         estimated_headcount:
           initialData.estimated_headcount != null
             ? Number(initialData.estimated_headcount)
             : "",
-        counts_toward_first_activity:
-          initialData.counts_toward_first_activity ?? false,
         self_checkin_enabled:
           initialData.self_checkin_enabled ??
           (initialData.type || "SUNDAY_SERVICE") === "SUNDAY_SERVICE",
@@ -493,13 +494,10 @@ export default function EventForm({
   );
   const selectedTypeIsActivity =
     selectedTypeOption?.counts_as_activity !== false;
-  const isRoomHold = useMemo(
-    () =>
-      formData.type === "MEETING" ||
-      Boolean(initialData?.is_room_hold) ||
-      selectedTypeOption?.counts_as_activity === false,
-    [formData.type, initialData?.is_room_hold, selectedTypeOption],
-  );
+  // Room hold is an explicit booking mode (plus MEETING type), not derived
+  // from type first-activity eligibility.
+  const isRoomHold =
+    formData.type === "MEETING" || Boolean(formData.is_room_hold);
   const showEstimatedHeadcount = isRoomHold || isBookingRequest;
   const selectedRoomForCapacity = useMemo(() => {
     if (formData.room === "" || formData.room === OFFSITE_ROOM) return null;
@@ -719,12 +717,11 @@ export default function EventForm({
           eventTypeOptions.find((option) => option.value === value)?.label ||
           value;
         nextState.title = optionLabel;
+        if (value === "MEETING") {
+          nextState.is_room_hold = true;
+        }
         const nextIsRoomHold =
-          value === "MEETING" ||
-          (
-            visibleTypeOptions.find((option) => option.value === value) ||
-            eventTypeOptions.find((option) => option.value === value)
-          )?.counts_as_activity === false;
+          value === "MEETING" || Boolean(nextState.is_room_hold);
         if (nextIsRoomHold && prev.room === OFFSITE_ROOM) {
           nextState.room = "";
           nextState.location = "";
@@ -732,7 +729,6 @@ export default function EventForm({
         if (nextIsRoomHold) {
           nextState.self_checkin_enabled = false;
           nextState.attendance_format = "hybrid";
-          nextState.counts_toward_first_activity = false;
         } else if (value === "SUNDAY_SERVICE") {
           nextState.self_checkin_enabled = true;
           nextState.attendance_format = "hybrid";
@@ -749,6 +745,22 @@ export default function EventForm({
           nextState.branch = userBranchId === "" ? "" : userBranchId;
           nextState.room = "";
           nextState.location = "";
+        }
+      }
+
+      if (name === "is_room_hold") {
+        const checkedHold = Boolean(checked);
+        nextState.is_room_hold =
+          prev.type === "MEETING" ? true : checkedHold;
+        if (nextState.is_room_hold) {
+          nextState.self_checkin_enabled = false;
+          nextState.attendance_format = "hybrid";
+          if (prev.room === OFFSITE_ROOM) {
+            nextState.room = "";
+            nextState.location = "";
+          }
+        } else if (!isBookingRequest) {
+          nextState.estimated_headcount = "";
         }
       }
 
@@ -984,9 +996,9 @@ export default function EventForm({
           : Number(formData.estimated_headcount)
         : null,
       counts_toward_first_activity:
-        isRoomHold || formData.type === "MEETING"
-          ? false
-          : formData.counts_toward_first_activity,
+        !isRoomHold &&
+        formData.type !== "MEETING" &&
+        selectedTypeIsActivity,
       self_checkin_enabled: isRoomHold
         ? false
         : formData.attendance_format === "onsite_only"
@@ -1316,37 +1328,45 @@ export default function EventForm({
                     church-wide event details.
                   </p>
                 )}
-                {((!isRoomHold && selectedTypeIsActivity) || isRoomHold) && (
-                  <div className="space-y-3 rounded-lg border border-gray-200 bg-gray-50 p-4">
-                    {!isRoomHold && selectedTypeIsActivity && (
-                      <label className="flex items-start gap-3 cursor-pointer">
-                        <input
-                          type="checkbox"
-                          name="counts_toward_first_activity"
-                          checked={formData.counts_toward_first_activity}
-                          onChange={handleChange}
-                          className="mt-1 h-4 w-4 rounded border-gray-300 text-primary focus:ring-ring"
-                        />
-                        <span>
-                          <span className="block text-sm font-medium text-gray-800">
-                            Counts toward first activity attended
-                          </span>
-                          <span className="mt-0.5 block text-xs text-gray-500">
-                            Only for real first-encounter sessions (not
-                            practices or planning). Guest check-in may set first
-                            activity to this event type.
-                          </span>
-                        </span>
-                      </label>
-                    )}
-                    {isRoomHold && (
-                      <p className="text-xs text-gray-600">
-                        This books a room in the church building. It is not
-                        recorded as a person&apos;s first activity attended.
-                      </p>
-                    )}
-                  </div>
-                )}
+                <div className="space-y-3 rounded-lg border border-gray-200 bg-gray-50 p-4">
+                  <label className="flex items-start gap-3 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      name="is_room_hold"
+                      checked={isRoomHold}
+                      disabled={formData.type === "MEETING"}
+                      onChange={handleChange}
+                      className="mt-1 h-4 w-4 rounded border-gray-300 text-primary focus:ring-ring"
+                    />
+                    <span>
+                      <span className="block text-sm font-medium text-gray-800">
+                        Room booking / meeting only
+                      </span>
+                      <span className="mt-0.5 block text-xs text-gray-500">
+                        Requires a room in the church building. Door attendance
+                        is allowed; self-check-in and first activity credit are
+                        off. Keep the event type to show which activity this is
+                        about (e.g. Clustering, Mini Worship).
+                      </span>
+                    </span>
+                  </label>
+                  {isRoomHold ? (
+                    <p className="text-xs text-gray-600">
+                      This books a room in the church building. It is not
+                      recorded as a person&apos;s first activity attended.
+                    </p>
+                  ) : !selectedTypeIsActivity ? (
+                    <p className="text-xs text-gray-600">
+                      This event type is not eligible for first activity
+                      attended (configured under Manage Types).
+                    </p>
+                  ) : (
+                    <p className="text-xs text-gray-600">
+                      Guest check-in may set first activity to this type
+                      (eligible under Manage Types).
+                    </p>
+                  )}
+                </div>
                 {isRoomHold && roomHoldNeedsLastMinute && (
                   <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
                     {LAST_MINUTE_ADMIN_NOTE}

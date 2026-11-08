@@ -39,7 +39,7 @@ class EventTypeSerializer(serializers.ModelSerializer):
             "counts_as_activity",
             "event_count",
         ]
-        read_only_fields = ["is_system", "counts_as_activity", "event_count"]
+        read_only_fields = ["is_system", "event_count"]
 
     def validate_code(self, value):
         if not EVENT_TYPE_CODE_PATTERN.match(value):
@@ -59,6 +59,16 @@ class EventTypeSerializer(serializers.ModelSerializer):
     def validate(self, attrs):
         if self.instance:
             attrs.pop("code", None)
+        code = (
+            getattr(self.instance, "code", None)
+            if self.instance
+            else attrs.get("code")
+        )
+        # Unaffiliated Room hold type is never a first-activity option.
+        if code == "MEETING":
+            attrs["counts_as_activity"] = False
+        elif self.instance is None and "counts_as_activity" not in attrs:
+            attrs["counts_as_activity"] = True
         return super().validate(attrs)
 
 
@@ -468,25 +478,13 @@ class EventSerializer(serializers.ModelSerializer):
             is_room_hold = True
             attrs["is_room_hold"] = True
 
-        counts_toward_first_activity = attrs.get(
-            "counts_toward_first_activity",
-            getattr(instance, "counts_toward_first_activity", False),
-        )
+        # Derived from type eligibility + room-hold mode (no per-event UI).
         if is_room_hold:
-            counts_toward_first_activity = False
             attrs["counts_toward_first_activity"] = False
-        elif (
-            counts_toward_first_activity
-            and event_type is not None
-            and not getattr(event_type, "counts_as_activity", True)
-        ):
-            raise ValidationError(
-                {
-                    "counts_toward_first_activity": (
-                        "Only activity event types can count toward first "
-                        "activity attended."
-                    )
-                }
+        else:
+            attrs["counts_toward_first_activity"] = bool(
+                event_type is not None
+                and getattr(event_type, "counts_as_activity", True)
             )
 
         if is_room_hold and room is None:

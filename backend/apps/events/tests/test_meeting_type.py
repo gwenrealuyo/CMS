@@ -131,6 +131,28 @@ class MeetingTypeAPITests(APITestCase):
         self.assertFalse(by_code["MEETING"]["counts_as_activity"])
         self.assertTrue(by_code["SUNDAY_SERVICE"]["counts_as_activity"])
 
+    def test_event_type_counts_as_activity_is_writable(self):
+        self.client.force_authenticate(self.admin)
+        turned_off = self.client.patch(
+            f"/api/event-types/{self.clustering.code}/",
+            {"counts_as_activity": False},
+            format="json",
+        )
+        self.assertEqual(turned_off.status_code, 200, turned_off.data)
+        self.assertFalse(turned_off.data["counts_as_activity"])
+        self.clustering.refresh_from_db()
+        self.assertFalse(self.clustering.counts_as_activity)
+
+        meeting_forced = self.client.patch(
+            f"/api/event-types/{self.meeting.code}/",
+            {"counts_as_activity": True},
+            format="json",
+        )
+        self.assertEqual(meeting_forced.status_code, 200, meeting_forced.data)
+        self.assertFalse(meeting_forced.data["counts_as_activity"])
+        self.meeting.refresh_from_db()
+        self.assertFalse(self.meeting.counts_as_activity)
+
     def test_person_cannot_set_meeting_as_first_activity(self):
         self.client.force_authenticate(self.admin)
         rejected = self.client.patch(

@@ -1311,6 +1311,7 @@ export const eventTypesApi = {
     label: string;
     color: string;
     sort_order: number;
+    counts_as_activity?: boolean;
   }) => api.post<EventTypeOption>("/event-types/", data),
   update: (
     code: string,
@@ -1318,6 +1319,7 @@ export const eventTypesApi = {
       label: string;
       color: string;
       sort_order: number;
+      counts_as_activity: boolean;
     }>
   ) => api.patch<EventTypeOption>(`/event-types/${encodeURIComponent(code)}/`, data),
   delete: (code: string) =>

@@ -125,6 +125,7 @@ export const useEvents = (options: UseEventsOptions = {}) => {
       label: string;
       color: string;
       sort_order: number;
+      counts_as_activity?: boolean;
     }) => {
       const response = await eventTypesApi.create(data);
       setEventTypes((current) =>
@@ -144,6 +145,7 @@ export const useEvents = (options: UseEventsOptions = {}) => {
         label: string;
         color: string;
         sort_order: number;
+        counts_as_activity: boolean;
       }>
     ) => {
       const response = await eventTypesApi.update(code, data);

@@ -83,21 +83,22 @@ The recurrence service expands this pattern on demand in `apps.events.services.r
 
 - Event types are stored in `EventType` (`code`, `label`, `color`, `sort_order`, `is_system`, `counts_as_activity`).
 - `GET /api/event-types/` and legacy `GET /api/events/types/` return type metadata including hex colors and `counts_as_activity`.
-- Coordinators with Events write access can manage types from the Events page (**Manage Types**): add custom types, edit labels/colors/sort order, and delete unused non-system types. `counts_as_activity` is read-only (custom types always count as an activity).
+- Coordinators with Events write access can manage types from the Events page (**Manage Types**): add custom types, edit labels/colors/sort order/`counts_as_activity`, and delete unused non-system types.
+- **`counts_as_activity`** (editable) is type-level eligibility for First Activity Attended: when off, the type is omitted from person-form choices and guest check-in cannot stamp it. Use this for types tracked elsewhere (e.g. Clustering via cluster reports). Independent of room-hold booking mode. **`MEETING`** is always forced off.
 - Calendar dots, agenda chips, cards, and the event detail view use each type's `color` from the API (not hardcoded frontend maps).
-- Seeded system types (`is_system=true`) cannot be deleted; types referenced by events are protected.
+- Seeded system types (`is_system=true`) cannot be deleted; types referenced by events are protected. Re-seeding does not overwrite an existing type’s `counts_as_activity` (except keeping `MEETING` false).
 
 ### Room hold
 
 Room booking / meeting-only mode is driven by **`Event.is_room_hold`** (not solely by event type):
 
-- **`event_type`** still shows what the booking is about (affiliation). Admins can tag a room meeting as Mini Worship, Camping, etc.
+- **`event_type`** still shows what the booking is about (affiliation). Admins can tag a room meeting as Mini Worship, Clustering, Camping, etc. via the **Room booking / meeting only** checkbox on the event form.
 - **`MEETING`** (label **Room hold**, `counts_as_activity=false`) is the unaffiliated hold type. Selecting it forces `is_room_hold=true`. It never appears as First Activity Attended on person forms; `PersonSerializer` rejects that code.
 - Room holds require a real `EventRoom` on the selected branch. Other / off-site is not allowed.
 - **Lead time:** future room holds must start **≥ 24 hours** ahead (church timezone). Within 24 hours, only the branch’s **last-minute / walk-in** room (`EventRoom.is_last_minute_fallback`, one active per branch) may be used, and start must be **≥ 15 minutes** from now. The form shows a note to contact church building administrators if those rules cannot be met. Past/already-started holds skip this check.
 - **Door attendance / check-in is allowed** (building in/out). Self-check-in cannot be enabled. Registration and expected-attendee mode stay off.
 - **`estimated_headcount`** (optional) is planning metadata for approvers and facilities — not attendance Remaining/Surprises and not registration capacity. The form shows it for room holds and booking requests; exceeding room capacity is a soft warning only (API still accepts).
-- **`counts_toward_first_activity`** (default off) controls whether guest check-in may set `first_activity_attended` to the event type. Forced off for room holds. Practices and planning leave it off even when the type is a ministry activity.
+- Guest check-in may set `first_activity_attended` when the event is **not** a room hold and the type is eligible (`EventType.counts_as_activity`). There is no per-event first-activity checkbox; configure eligibility under **Manage Types**. `Event.counts_toward_first_activity` is derived on save for visibility.
 - Follows the same publish-vs-pending booking rules and room overlap checks as other events. Sunday Service uniqueness does **not** apply, so a room hold can run at the same time as Sunday Service in a different room.
 - Shown on the Events agenda/calendar (and **Manage Pending** when pending) so the room looks booked.
 

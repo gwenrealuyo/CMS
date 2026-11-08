@@ -21,10 +21,16 @@ type EventTypesManagerProps = {
     label: string;
     color: string;
     sort_order: number;
+    counts_as_activity: boolean;
   }) => Promise<EventTypeOption>;
   onUpdate: (
     code: string,
-    data: Partial<{ label: string; color: string; sort_order: number }>
+    data: Partial<{
+      label: string;
+      color: string;
+      sort_order: number;
+      counts_as_activity: boolean;
+    }>
   ) => Promise<EventTypeOption>;
   onDelete?: (code: string) => Promise<void>;
 };
@@ -34,6 +40,7 @@ type FormState = {
   label: string;
   color: string;
   sort_order: number;
+  counts_as_activity: boolean;
 };
 
 const emptyForm = (): FormState => ({
@@ -41,6 +48,7 @@ const emptyForm = (): FormState => ({
   label: "",
   color: DEFAULT_EVENT_TYPE_COLOR,
   sort_order: 150,
+  counts_as_activity: true,
 });
 
 export default function EventTypesManager({
@@ -113,17 +121,24 @@ export default function EventTypesManager({
       label: type.label,
       color: normalizeHexColor(type.color),
       sort_order: type.sort_order,
+      counts_as_activity:
+        type.code === "MEETING" ? false : type.counts_as_activity !== false,
     });
     setShowForm(true);
     requestAnimationFrame(() => scrollModalContentToTop());
   };
 
   const handleLabelChange = (label: string) => {
-    setForm((prev) => ({
-      ...prev,
-      label,
-      code: editingCode ? prev.code : labelToEventTypeCode(label),
-    }));
+    setForm((prev) => {
+      const nextCode = editingCode ? prev.code : labelToEventTypeCode(label);
+      return {
+        ...prev,
+        label,
+        code: nextCode,
+        counts_as_activity:
+          nextCode === "MEETING" ? false : prev.counts_as_activity,
+      };
+    });
   };
 
   const handleSave = async (e: React.FormEvent) => {
@@ -140,19 +155,24 @@ export default function EventTypesManager({
     setSaving(true);
     try {
       const color = normalizeHexColor(form.color);
+      const code = (editingCode || form.code.trim()).toUpperCase();
+      const counts_as_activity =
+        code === "MEETING" ? false : form.counts_as_activity;
       if (editingCode) {
         await onUpdate(editingCode, {
           label: form.label.trim(),
           color,
           sort_order: form.sort_order,
+          counts_as_activity,
         });
         toast.success("Event type updated.");
       } else {
         await onCreate({
-          code: form.code.trim().toUpperCase(),
+          code,
           label: form.label.trim(),
           color,
           sort_order: form.sort_order,
+          counts_as_activity,
         });
         toast.success("Event type created.");
       }
@@ -198,8 +218,9 @@ export default function EventTypesManager({
       >
         <div ref={contentRef} className="space-y-4">
           <p className="text-sm text-gray-600">
-            Customize labels and colors for calendar dots and agenda chips.
-            System types cannot be deleted.
+            Customize labels, colors, and whether a type may count as First
+            Activity Attended. System types cannot be deleted. Room-hold
+            booking mode is chosen per event, not here.
           </p>
 
           {!showForm ? (
@@ -290,6 +311,36 @@ export default function EventTypesManager({
                 </div>
               </div>
 
+              <label className="flex items-start gap-3 cursor-pointer rounded-lg border border-gray-200 bg-white p-3">
+                <input
+                  type="checkbox"
+                  checked={
+                    form.code.toUpperCase() === "MEETING"
+                      ? false
+                      : form.counts_as_activity
+                  }
+                  disabled={form.code.toUpperCase() === "MEETING"}
+                  onChange={(e) =>
+                    setForm((prev) => ({
+                      ...prev,
+                      counts_as_activity: e.target.checked,
+                    }))
+                  }
+                  className="mt-1 h-4 w-4 rounded border-gray-300 text-primary focus:ring-ring"
+                />
+                <span>
+                  <span className="block text-sm font-medium text-gray-800">
+                    Eligible for first activity attended
+                  </span>
+                  <span className="mt-0.5 block text-xs text-gray-500">
+                    When on, this type can appear on person profiles and guest
+                    check-in may stamp it (unless the event is a room hold).
+                    Turn off for types tracked elsewhere (e.g. Clustering via
+                    cluster reports). Room hold (MEETING) stays off.
+                  </span>
+                </span>
+              </label>
+
               <div className="flex items-center gap-3">
                 <span className="text-xs text-gray-500">Preview</span>
                 <span
@@ -334,10 +385,11 @@ export default function EventTypesManager({
           )}
 
           <div className="border border-gray-200 rounded-lg overflow-hidden">
-            <div className="hidden md:grid md:grid-cols-[auto_1fr_auto_auto_auto] gap-3 px-4 py-2 bg-gray-50 text-xs font-semibold text-gray-500 uppercase tracking-wide">
+            <div className="hidden md:grid md:grid-cols-[auto_minmax(0,1fr)_auto_auto_auto_auto] gap-3 px-4 py-2 bg-gray-50 text-xs font-semibold text-gray-500 uppercase tracking-wide">
               <span>Color</span>
               <span>Label</span>
               <span>Code</span>
+              <span>1st act.</span>
               <span>Order</span>
               <span className="text-right">Actions</span>
             </div>
@@ -347,10 +399,11 @@ export default function EventTypesManager({
                   Boolean(onDelete) &&
                   !type.is_system &&
                   (type.event_count ?? 0) === 0;
+                const eligible = type.counts_as_activity !== false;
                 return (
                   <div
                     key={type.code}
-                    className="px-4 py-3 grid grid-cols-1 gap-3 md:grid-cols-[auto_1fr_auto_auto_auto] md:items-center"
+                    className="px-4 py-3 grid grid-cols-1 gap-3 md:grid-cols-[auto_minmax(0,1fr)_auto_auto_auto_auto] md:items-center"
                   >
                     <span
                       className="w-4 h-4 rounded-full shrink-0"
@@ -361,10 +414,18 @@ export default function EventTypesManager({
                       <div className="md:hidden text-xs text-gray-500 mt-1">
                         {type.code} · order {type.sort_order}
                         {type.is_system ? " · system" : ""}
+                        {eligible ? " · 1st activity" : " · not 1st activity"}
                       </div>
                     </div>
                     <span className="hidden md:block text-xs text-gray-500 font-mono">
                       {type.code}
+                    </span>
+                    <span
+                      className={`hidden md:block text-xs font-medium ${
+                        eligible ? "text-emerald-700" : "text-gray-400"
+                      }`}
+                    >
+                      {eligible ? "Yes" : "No"}
                     </span>
                     <span className="hidden md:block text-xs text-gray-500">
                       {type.sort_order}

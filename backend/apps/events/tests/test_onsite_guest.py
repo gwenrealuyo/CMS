@@ -374,9 +374,9 @@ class OnsiteGuestAPITests(APITestCase):
         )
         self.assertEqual(record.attendance_mode, "ONSITE")
 
-    def test_onsite_guest_skips_first_activity_when_flag_off(self):
-        self.event.counts_toward_first_activity = False
-        self.event.save(update_fields=["counts_toward_first_activity"])
+    def test_onsite_guest_skips_first_activity_when_type_ineligible(self):
+        self.event_type.counts_as_activity = False
+        self.event_type.save(update_fields=["counts_as_activity"])
         self.client.force_authenticate(self.coordinator)
         response = self.client.post(
             "/api/events/onsite-guest/visitors/",

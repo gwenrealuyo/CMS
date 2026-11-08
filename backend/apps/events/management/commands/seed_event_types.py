@@ -15,17 +15,24 @@ class Command(BaseCommand):
                 code=code,
                 defaults={"label": label, "sort_order": sort_order},
             )
-            counts_as_activity = code not in NON_ACTIVITY_EVENT_TYPE_CODES
             extra_fields = []
             if was_created:
                 event_type.color = color
                 event_type.is_system = True
-                extra_fields.extend(["color", "is_system"])
+                # Only set on create so later Manage Types edits are preserved.
+                event_type.counts_as_activity = (
+                    code not in NON_ACTIVITY_EVENT_TYPE_CODES
+                )
+                extra_fields.extend(["color", "is_system", "counts_as_activity"])
             elif not event_type.is_system:
                 event_type.is_system = True
                 extra_fields.append("is_system")
-            if event_type.counts_as_activity != counts_as_activity:
-                event_type.counts_as_activity = counts_as_activity
+            # MEETING must stay non-activity even if an older row drifted.
+            if (
+                code == "MEETING"
+                and event_type.counts_as_activity
+            ):
+                event_type.counts_as_activity = False
                 extra_fields.append("counts_as_activity")
             # update_or_create already persisted label/sort_order; re-save
             # only when other flags changed.

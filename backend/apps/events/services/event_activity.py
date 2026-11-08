@@ -12,12 +12,10 @@ def first_activity_type_for_event(event: "Event") -> Optional["EventType"]:
     """
     Event type to set as a person's first activity from guest check-in.
 
-    Room holds never count. Otherwise requires counts_toward_first_activity
-    and an activity-capable event type.
+    Room holds never count. Otherwise uses the event type's
+    ``counts_as_activity`` eligibility (Manage Types).
     """
     if getattr(event, "is_room_hold", False):
-        return None
-    if not getattr(event, "counts_toward_first_activity", False):
         return None
     event_type = getattr(event, "event_type", None)
     if event_type is None or not getattr(event_type, "counts_as_activity", True):

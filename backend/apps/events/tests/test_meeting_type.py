@@ -283,3 +283,123 @@ class MeetingTypeAPITests(APITestCase):
             format="json",
         )
         self.assertIn(response.status_code, (200, 201), response.data)
+
+    def test_estimated_headcount_create_and_update(self):
+        start = make_aware_local(2026, 10, 11, 14)
+        created = self.client.post(
+            "/api/events/",
+            self._payload(start, estimated_headcount=20),
+            format="json",
+        )
+        self.assertEqual(created.status_code, 201, created.data)
+        self.assertEqual(created.data["estimated_headcount"], 20)
+
+        event_id = created.data["id"]
+        updated = self.client.put(
+            f"/api/events/{event_id}/",
+            self._payload(
+                start,
+                title=created.data["title"],
+                estimated_headcount=25,
+            ),
+            format="json",
+        )
+        self.assertEqual(updated.status_code, 200, updated.data)
+        self.assertEqual(updated.data["estimated_headcount"], 25)
+
+        cleared = self.client.put(
+            f"/api/events/{event_id}/",
+            self._payload(
+                start,
+                title=created.data["title"],
+                estimated_headcount=None,
+            ),
+            format="json",
+        )
+        self.assertEqual(cleared.status_code, 200, cleared.data)
+        self.assertIsNone(cleared.data["estimated_headcount"])
+
+    def test_estimated_headcount_over_room_capacity_allowed(self):
+        self.sanctuary.capacity = 10
+        self.sanctuary.save(update_fields=["capacity"])
+        start = make_aware_local(2026, 10, 12, 14)
+        response = self.client.post(
+            "/api/events/",
+            self._payload(start, estimated_headcount=40),
+            format="json",
+        )
+        self.assertEqual(response.status_code, 201, response.data)
+        self.assertEqual(response.data["estimated_headcount"], 40)
+
+    def test_pending_booking_notification_includes_estimated_headcount(self):
+        start = make_aware_local(2026, 10, 13, 14)
+        self.client.force_authenticate(self.cluster_coord)
+        pending = self.client.post(
+            "/api/events/",
+            self._payload(
+                start,
+                title="Headcount notify",
+                estimated_headcount=18,
+            ),
+            format="json",
+        )
+        self.assertEqual(pending.status_code, 201, pending.data)
+        self.assertEqual(pending.data["booking_status"], "pending")
+        self.assertEqual(pending.data["estimated_headcount"], 18)
+
+        self.client.force_authenticate(self.events_coord)
+        feed = self.client.get("/api/notifications/")
+        self.assertEqual(feed.status_code, 200, feed.data)
+        pending_bodies = [
+            item["body"]
+            for item in feed.data["items"]
+            if item["type"] == "event_booking_pending"
+        ]
+        self.assertTrue(
+            any("18 expected" in body for body in pending_bodies),
+            pending_bodies,
+        )
+
+    def test_room_hold_within_24h_requires_last_minute_room(self):
+        from django.utils import timezone
+
+        self.hall.is_last_minute_fallback = True
+        self.hall.save(update_fields=["is_last_minute_fallback"])
+        start = timezone.now() + timedelta(hours=2)
+        blocked = self.client.post(
+            "/api/events/",
+            self._payload(start, room=self.sanctuary.id),
+            format="json",
+        )
+        self.assertEqual(blocked.status_code, 400, blocked.data)
+
+        allowed = self.client.post(
+            "/api/events/",
+            self._payload(start, room=self.hall.id, title="Last minute hold"),
+            format="json",
+        )
+        self.assertEqual(allowed.status_code, 201, allowed.data)
+
+    def test_room_hold_within_15_minutes_rejected(self):
+        from django.utils import timezone
+
+        self.hall.is_last_minute_fallback = True
+        self.hall.save(update_fields=["is_last_minute_fallback"])
+        start = timezone.now() + timedelta(minutes=5)
+        response = self.client.post(
+            "/api/events/",
+            self._payload(start, room=self.hall.id),
+            format="json",
+        )
+        self.assertEqual(response.status_code, 400, response.data)
+
+    def test_room_hold_beyond_24h_any_room(self):
+        from django.utils import timezone
+
+        start = timezone.now() + timedelta(hours=30)
+        response = self.client.post(
+            "/api/events/",
+            self._payload(start, room=self.sanctuary.id, title="Advance hold"),
+            format="json",
+        )
+        self.assertEqual(response.status_code, 201, response.data)

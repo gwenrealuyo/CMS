@@ -6,6 +6,7 @@ import React, {
   useCallback,
   useRef,
   useEffect,
+  useLayoutEffect,
 } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { usePageTitle } from "@/src/hooks/usePageTitle";
@@ -13,6 +14,8 @@ import toast from "react-hot-toast";
 import DashboardLayout from "@/src/components/layout/DashboardLayout";
 import Button from "@/src/components/ui/Button";
 import Modal from "@/src/components/ui/Modal";
+import BranchFilterFrame from "@/src/components/ui/BranchFilterFrame";
+import { LockedControlTooltip } from "@/src/components/ui/LockedControlTooltip";
 import EventCalendar from "@/src/components/events/EventCalendar";
 import EventForm from "@/src/components/events/EventForm";
 import EventView from "@/src/components/events/EventView";
@@ -29,6 +32,9 @@ import EventsFilterToolbar from "@/src/components/events/EventsFilterToolbar";
 import EventAgendaPanel from "@/src/components/events/EventAgendaPanel";
 import EventTypesManager from "@/src/components/events/EventTypesManager";
 import EventRoomsManager from "@/src/components/events/EventRoomsManager";
+import EquipmentTypesManager from "@/src/components/events/EquipmentTypesManager";
+import VehiclesManager from "@/src/components/events/VehiclesManager";
+import FacilitiesBookingsPanel from "@/src/components/events/FacilitiesBookingsPanel";
 import { EventTypeStylesProvider } from "@/src/contexts/EventTypeStylesContext";
 import { useAuth } from "@/src/contexts/AuthContext";
 import { canHardDelete } from "@/src/lib/canHardDelete";
@@ -43,6 +49,17 @@ import {
   buildAgendaGroups,
   EventCardItem,
 } from "@/src/lib/events/agenda";
+import {
+  canChangeEventsBranchFilter,
+  EVENTS_BRANCH_LOCKED_HINT,
+} from "@/src/lib/eventsBranchFilter";
+import { branchesApi } from "@/src/lib/api";
+import {
+  TOOLBAR_BRANCH_HEADER_LOCKED_WRAPPER_CLASS,
+  TOOLBAR_BRANCH_HEADER_SELECT_CLASS,
+  TOOLBAR_BRANCH_HEADER_SELECT_LOCKED_CLASS,
+  TOOLBAR_BRANCH_HEADER_SLOT_CLASS,
+} from "@/src/lib/toolbarStyles";
 
 function toLocalDayKey(value?: string | null): string | null {
   if (!value) return null;
@@ -63,6 +80,20 @@ const MONTH_NAMES = [
   "November",
   "December",
 ];
+
+const EVENTS_SHOW_CALENDAR_KEY = "eventsShowCalendar";
+
+function readShowCalendarPreference(): boolean {
+  try {
+    const saved = localStorage.getItem(EVENTS_SHOW_CALENDAR_KEY);
+    if (saved !== null) {
+      return saved === "1";
+    }
+  } catch {
+    // ignore storage errors
+  }
+  return true;
+}
 
 export default function EventsPage() {
   usePageTitle("Events");
@@ -105,7 +136,29 @@ export default function EventsPage() {
   const [calendarMonthDate, setCalendarMonthDate] = useState<Date>(
     () => new Date()
   );
+  // Default visible so SSR matches first paint; hydrate from localStorage after mount.
   const [showCalendar, setShowCalendar] = useState(true);
+  const [calendarPrefHydrated, setCalendarPrefHydrated] = useState(false);
+
+  useEffect(() => {
+    setShowCalendar(readShowCalendarPreference());
+    setCalendarPrefHydrated(true);
+  }, []);
+
+  useEffect(() => {
+    if (!calendarPrefHydrated) return;
+    try {
+      localStorage.setItem(
+        EVENTS_SHOW_CALENDAR_KEY,
+        showCalendar ? "1" : "0"
+      );
+    } catch {
+      // ignore storage errors
+    }
+  }, [showCalendar, calendarPrefHydrated]);
+
+  const hideCalendar = useCallback(() => setShowCalendar(false), []);
+  const revealCalendar = useCallback(() => setShowCalendar(true), []);
   const [filterType, setFilterType] = useState<string>("all");
   const [filterMonth, setFilterMonth] = useState<string>(() =>
     new Date().getMonth().toString()
@@ -116,10 +169,130 @@ export default function EventsPage() {
   const [yearFilterInitialized, setYearFilterInitialized] = useState(false);
   const [isTypesManagerOpen, setIsTypesManagerOpen] = useState(false);
   const [isRoomsManagerOpen, setIsRoomsManagerOpen] = useState(false);
+  const [isEquipmentManagerOpen, setIsEquipmentManagerOpen] = useState(false);
+  const [isVehiclesManagerOpen, setIsVehiclesManagerOpen] = useState(false);
+  const [manageMenuOpen, setManageMenuOpen] = useState(false);
+  const manageMenuRef = useRef<HTMLDivElement>(null);
+  const resourceParam = searchParams.get("resource");
+  const [facilitiesTab, setFacilitiesTab] = useState<"events" | "vehicle">(
+    resourceParam === "vehicle" ? "vehicle" : "events",
+  );
   const currentYear = new Date().getFullYear().toString();
   const { user, isModuleCoordinator, isSeniorCoordinator } = useAuth();
   const userCanHardDelete = canHardDelete(user);
   const { moduleEnabled } = useModuleSettings();
+
+  const eventsBranchCanChangeFilter = useMemo(
+    () => canChangeEventsBranchFilter(user),
+    [user],
+  );
+  const [selectedBranchId, setSelectedBranchId] = useState("");
+  const [branchPickerOptions, setBranchPickerOptions] = useState<
+    { value: string; label: string }[]
+  >([]);
+  const [branchesLoading, setBranchesLoading] = useState(false);
+  const [branchFilterReady, setBranchFilterReady] = useState(false);
+  const eventsBranchUserIdRef = useRef<number | undefined>(undefined);
+
+  useLayoutEffect(() => {
+    if (!user) {
+      setSelectedBranchId("");
+      setBranchFilterReady(false);
+      eventsBranchUserIdRef.current = undefined;
+      return;
+    }
+    if (eventsBranchUserIdRef.current !== user.id) {
+      eventsBranchUserIdRef.current = user.id;
+      setSelectedBranchId(
+        user.branch != null && user.branch !== undefined
+          ? String(user.branch)
+          : "",
+      );
+    } else if (user.branch != null && user.branch !== undefined) {
+      setSelectedBranchId((previous) =>
+        previous === "" ? String(user.branch) : previous,
+      );
+    }
+    setBranchFilterReady(true);
+  }, [user]);
+
+  useEffect(() => {
+    if (!eventsBranchCanChangeFilter) {
+      setBranchPickerOptions([]);
+      return;
+    }
+    let cancelled = false;
+    setBranchesLoading(true);
+    branchesApi
+      .getAll({ is_active: true })
+      .then((response) => {
+        if (cancelled) return;
+        const rows = Array.isArray(response.data) ? response.data : [];
+        setBranchPickerOptions(
+          rows.map((branch) => ({
+            value: String(branch.id),
+            label: branch.name,
+          })),
+        );
+      })
+      .catch((error) => {
+        console.error("Failed to load branches", error);
+        if (!cancelled) setBranchPickerOptions([]);
+      })
+      .finally(() => {
+        if (!cancelled) setBranchesLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [eventsBranchCanChangeFilter]);
+
+  const eventsBranchEditableOptions = useMemo(
+    () => [{ value: "", label: "All branches" }, ...branchPickerOptions],
+    [branchPickerOptions],
+  );
+
+  const eventsBranchFilterLabel = useMemo(() => {
+    if (!selectedBranchId) return "All branches";
+    if (
+      user?.branch_name &&
+      user.branch != null &&
+      String(user.branch) === selectedBranchId
+    ) {
+      return user.branch_name;
+    }
+    const match = branchPickerOptions.find(
+      (option) => option.value === selectedBranchId,
+    );
+    return match?.label ?? `Branch #${selectedBranchId}`;
+  }, [
+    selectedBranchId,
+    user?.branch,
+    user?.branch_name,
+    branchPickerOptions,
+  ]);
+
+  const eventsBranchReadonlyOptions = useMemo(() => {
+    if (selectedBranchId) {
+      return [{ value: selectedBranchId, label: eventsBranchFilterLabel }];
+    }
+    return [{ value: "", label: "No branch" }];
+  }, [selectedBranchId, eventsBranchFilterLabel]);
+
+  const listBranchParam = useMemo(() => {
+    if (!branchFilterReady || !user) return null;
+    if (eventsBranchCanChangeFilter) {
+      return selectedBranchId;
+    }
+    return user.branch != null && user.branch !== undefined
+      ? String(user.branch)
+      : "";
+  }, [
+    branchFilterReady,
+    user,
+    eventsBranchCanChangeFilter,
+    selectedBranchId,
+  ]);
 
   const {
     events,
@@ -141,7 +314,73 @@ export default function EventsPage() {
     createEventType,
     updateEventType,
     deleteEventType,
-  } = useEvents();
+  } = useEvents({
+    branch: listBranchParam,
+    enabled: listBranchParam !== null,
+  });
+
+  const eventsBranchSelectInteractive =
+    eventsBranchCanChangeFilter && !branchesLoading;
+
+  const eventsBranchHoverHint = useMemo(() => {
+    if (eventsBranchSelectInteractive) return "";
+    if (branchesLoading && eventsBranchCanChangeFilter) {
+      return "Loading branches…";
+    }
+    return EVENTS_BRANCH_LOCKED_HINT;
+  }, [eventsBranchSelectInteractive, branchesLoading, eventsBranchCanChangeFilter]);
+
+  const renderEventsBranchSelect = () => {
+    const options =
+      branchesLoading && eventsBranchCanChangeFilter ? (
+        <option value="">Loading…</option>
+      ) : (
+        (eventsBranchCanChangeFilter
+          ? eventsBranchEditableOptions
+          : eventsBranchReadonlyOptions
+        ).map((option) => (
+          <option
+            key={option.value === "" ? "__all_branches__" : option.value}
+            value={option.value}
+          >
+            {option.label}
+          </option>
+        ))
+      );
+
+    const selectEl = (
+      <BranchFilterFrame>
+        <select
+          aria-label="Branch"
+          aria-disabled={!eventsBranchSelectInteractive}
+          tabIndex={eventsBranchSelectInteractive ? 0 : -1}
+          value={selectedBranchId}
+          onChange={(event) => {
+            if (!eventsBranchSelectInteractive) return;
+            setSelectedBranchId(event.target.value);
+          }}
+          className={
+            eventsBranchSelectInteractive
+              ? TOOLBAR_BRANCH_HEADER_SELECT_CLASS
+              : TOOLBAR_BRANCH_HEADER_SELECT_LOCKED_CLASS
+          }
+        >
+          {options}
+        </select>
+      </BranchFilterFrame>
+    );
+
+    return eventsBranchSelectInteractive ? (
+      selectEl
+    ) : (
+      <LockedControlTooltip
+        label={eventsBranchHoverHint}
+        wrapperClassName={TOOLBAR_BRANCH_HEADER_LOCKED_WRAPPER_CLASS}
+      >
+        {selectEl}
+      </LockedControlTooltip>
+    );
+  };
 
   const canWriteEventsAccess = useMemo(
     () => canWriteEvents({ user, moduleEnabled }),
@@ -165,8 +404,30 @@ export default function EventsPage() {
     () => canManageEventRooms({ user, moduleEnabled }),
     [user, moduleEnabled]
   );
+  const showManageMenu = canManageEventTypes || canManageRooms;
   const [filterBooking, setFilterBooking] = useState<string>("all");
   const [reviewLoading, setReviewLoading] = useState(false);
+
+  useEffect(() => {
+    if (!manageMenuOpen) return;
+    const onDocMouseDown = (event: MouseEvent) => {
+      if (
+        manageMenuRef.current &&
+        !manageMenuRef.current.contains(event.target as Node)
+      ) {
+        setManageMenuOpen(false);
+      }
+    };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setManageMenuOpen(false);
+    };
+    document.addEventListener("mousedown", onDocMouseDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", onDocMouseDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [manageMenuOpen]);
 
   useEffect(() => {
     if (action === "create" && canCreateEventsAccess) {
@@ -931,7 +1192,7 @@ export default function EventsPage() {
       <DashboardLayout>
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
         <h1 className="text-2xl font-bold text-foreground">Church Events</h1>
-        <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+        <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto sm:items-center">
           {canApproveBookings && (
             <Button
               variant={filterBooking === "pending" ? "primary" : "tertiary"}
@@ -944,23 +1205,94 @@ export default function EventsPage() {
                 : "Manage Pending"}
             </Button>
           )}
-          {canManageRooms && (
-            <Button
-              variant="tertiary"
-              onClick={() => setIsRoomsManagerOpen(true)}
-              className="w-full sm:w-auto min-h-[44px]"
-            >
-              Manage Rooms
-            </Button>
-          )}
-          {canManageEventTypes && (
-            <Button
-              variant="tertiary"
-              onClick={() => setIsTypesManagerOpen(true)}
-              className="w-full sm:w-auto min-h-[44px]"
-            >
-              Manage Types
-            </Button>
+          {showManageMenu && (
+            <div ref={manageMenuRef} className="relative w-full sm:w-auto">
+              <Button
+                type="button"
+                variant="tertiary"
+                className="w-full sm:w-auto min-h-[44px] gap-1"
+                aria-haspopup="menu"
+                aria-expanded={manageMenuOpen}
+                onClick={() => setManageMenuOpen((open) => !open)}
+              >
+                Manage
+                <svg
+                  className={`w-4 h-4 shrink-0 transition-transform ${
+                    manageMenuOpen ? "rotate-180" : ""
+                  }`}
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                  aria-hidden="true"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M19 9l-7 7-7-7"
+                  />
+                </svg>
+              </Button>
+              {manageMenuOpen && (
+                <div
+                  role="menu"
+                  className="absolute right-0 z-20 mt-1 w-full min-w-[12rem] rounded-md border border-gray-200 bg-white shadow-lg py-1 sm:w-48"
+                >
+                  {canManageEventTypes && (
+                    <button
+                      type="button"
+                      role="menuitem"
+                      className="w-full px-3 py-3 text-left text-sm text-gray-700 hover:bg-gray-50 sm:py-2 min-h-[44px] sm:min-h-0"
+                      onClick={() => {
+                        setIsTypesManagerOpen(true);
+                        setManageMenuOpen(false);
+                      }}
+                    >
+                      Event types
+                    </button>
+                  )}
+                  {canManageRooms && (
+                    <button
+                      type="button"
+                      role="menuitem"
+                      className="w-full px-3 py-3 text-left text-sm text-gray-700 hover:bg-gray-50 sm:py-2 min-h-[44px] sm:min-h-0"
+                      onClick={() => {
+                        setIsRoomsManagerOpen(true);
+                        setManageMenuOpen(false);
+                      }}
+                    >
+                      Rooms
+                    </button>
+                  )}
+                  {canManageRooms && (
+                    <button
+                      type="button"
+                      role="menuitem"
+                      className="w-full px-3 py-3 text-left text-sm text-gray-700 hover:bg-gray-50 sm:py-2 min-h-[44px] sm:min-h-0"
+                      onClick={() => {
+                        setIsEquipmentManagerOpen(true);
+                        setManageMenuOpen(false);
+                      }}
+                    >
+                      Equipment catalog
+                    </button>
+                  )}
+                  {canManageRooms && (
+                    <button
+                      type="button"
+                      role="menuitem"
+                      className="w-full px-3 py-3 text-left text-sm text-gray-700 hover:bg-gray-50 sm:py-2 min-h-[44px] sm:min-h-0"
+                      onClick={() => {
+                        setIsVehiclesManagerOpen(true);
+                        setManageMenuOpen(false);
+                      }}
+                    >
+                      Vehicles &amp; drivers
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
           )}
           {canCreateEventsAccess && (
             <Button onClick={openCreateModal} className="w-full sm:w-auto min-h-[44px]">
@@ -976,6 +1308,63 @@ export default function EventsPage() {
         </div>
       )}
 
+      <div className="mb-6 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+        {(canCreateEventsAccess || canManageRooms) ? (
+          <div className="min-w-0 flex-1 border-b border-gray-200">
+            <nav
+              className="-mb-px flex snap-x snap-mandatory gap-4 overflow-x-auto scroll-smooth"
+              role="tablist"
+              aria-label="Events sections"
+            >
+              {(
+                [
+                  ["events", "Events / rooms"],
+                  ["vehicle", "Vehicles"],
+                ] as const
+              ).map(([key, label]) => {
+                const isActive = facilitiesTab === key;
+                return (
+                  <button
+                    key={key}
+                    type="button"
+                    role="tab"
+                    aria-selected={isActive}
+                    onClick={() => setFacilitiesTab(key)}
+                    className={[
+                      "shrink-0 snap-start py-4 px-1 border-b-2 font-medium text-sm transition-colors whitespace-nowrap",
+                      isActive
+                        ? "border-primary text-primary"
+                        : "border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700",
+                    ].join(" ")}
+                  >
+                    {label}
+                  </button>
+                );
+              })}
+            </nav>
+          </div>
+        ) : (
+          <div className="min-w-0 flex-1" />
+        )}
+        <div className={`${TOOLBAR_BRANCH_HEADER_SLOT_CLASS} md:pb-1`}>
+          {renderEventsBranchSelect()}
+        </div>
+      </div>
+
+      {facilitiesTab === "vehicle" && (
+        <FacilitiesBookingsPanel
+          mode="vehicle"
+          canManage={canManageRooms}
+          canRequest={canRequestBooking || canManageRooms}
+          pendingOnly={filterBooking === "pending"}
+          branchId={
+            selectedBranchId === "" ? "" : Number(selectedBranchId)
+          }
+        />
+      )}
+
+      {facilitiesTab === "events" && (
+      <>
       <EventsFilterToolbar
         searchQuery={searchQuery}
         onSearchChange={handleSearchChange}
@@ -997,40 +1386,40 @@ export default function EventsPage() {
         totalCount={eventCardItems.length}
       />
 
-      <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(320px,420px)] xl:grid-cols-[minmax(0,1fr)_minmax(340px,480px)] gap-4 lg:gap-6 lg:items-start">
-        <div className="min-w-0">
-          <div className="flex items-center mb-3 gap-2 lg:hidden">
-            <h2 className="text-lg font-semibold text-gray-700">Calendar</h2>
-            <Button
-              variant="tertiary"
-              onClick={() => setShowCalendar((prev) => !prev)}
-              className="flex items-center gap-1 text-xs !px-2 !py-1 min-h-[44px]"
-              aria-expanded={showCalendar}
-            >
-              <svg
-                className={`w-4 h-4 transition-transform ${
-                  showCalendar ? "rotate-90" : "rotate-0"
-                }`}
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-                aria-hidden="true"
+      <div
+        className={[
+          "grid grid-cols-1 gap-4 lg:gap-6 lg:items-start",
+          showCalendar
+            ? "lg:grid-cols-[minmax(0,1fr)_minmax(320px,420px)] xl:grid-cols-[minmax(0,1fr)_minmax(340px,480px)]"
+            : "lg:grid-cols-1",
+        ].join(" ")}
+      >
+        {showCalendar ? (
+          <div className="min-w-0">
+            <div className="flex items-center mb-3 gap-2 lg:hidden">
+              <h2 className="text-lg font-semibold text-gray-700">Calendar</h2>
+              <Button
+                variant="tertiary"
+                onClick={hideCalendar}
+                className="flex items-center gap-1 text-xs !px-2 !py-1 min-h-[44px]"
+                aria-expanded={true}
               >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M9 5l7 7-7 7"
-                />
-              </svg>
-            </Button>
-          </div>
-          {!showCalendar && (
-            <div className="lg:hidden mb-3 text-xs text-gray-500">
-              Calendar hidden. Tap the arrow to show it.
+                <svg
+                  className="w-4 h-4 rotate-90"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                  aria-hidden="true"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M9 5l7 7-7 7"
+                  />
+                </svg>
+              </Button>
             </div>
-          )}
-          <div className={showCalendar ? "block" : "hidden lg:block"}>
             <EventCalendar
               events={filteredCalendarEvents}
               currentMonthDate={calendarMonthDate}
@@ -1039,7 +1428,37 @@ export default function EventsPage() {
               selectedDate={selectedDate}
             />
           </div>
-        </div>
+        ) : (
+          <div className="lg:hidden">
+            <div className="flex items-center gap-2">
+              <h2 className="text-lg font-semibold text-gray-700">Calendar</h2>
+              <Button
+                variant="tertiary"
+                onClick={revealCalendar}
+                className="flex items-center gap-1 text-xs !px-2 !py-1 min-h-[44px]"
+                aria-expanded={false}
+              >
+                <svg
+                  className="w-4 h-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                  aria-hidden="true"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M9 5l7 7-7 7"
+                  />
+                </svg>
+              </Button>
+            </div>
+            <p className="mt-1 text-xs text-gray-500">
+              Calendar hidden. Tap the arrow to show it.
+            </p>
+          </div>
+        )}
 
         <EventAgendaPanel
           groups={agendaGroups}
@@ -1049,8 +1468,13 @@ export default function EventsPage() {
           onView={handleViewItem}
           onClearDate={clearDateFilter}
           onCreateEvent={canCreateEventsAccess ? openCreateModal : undefined}
+          calendarCollapsed={!showCalendar}
+          onMaximizeAgenda={hideCalendar}
+          onShowCalendar={revealCalendar}
         />
       </div>
+      </>
+      )}
 
       <Modal
         isOpen={isModalOpen}
@@ -1234,6 +1658,18 @@ export default function EventsPage() {
         <EventRoomsManager
           isOpen={isRoomsManagerOpen}
           onClose={() => setIsRoomsManagerOpen(false)}
+        />
+      )}
+      {canManageRooms && (
+        <EquipmentTypesManager
+          isOpen={isEquipmentManagerOpen}
+          onClose={() => setIsEquipmentManagerOpen(false)}
+        />
+      )}
+      {canManageRooms && (
+        <VehiclesManager
+          isOpen={isVehiclesManagerOpen}
+          onClose={() => setIsVehiclesManagerOpen(false)}
         />
       )}
     </DashboardLayout>

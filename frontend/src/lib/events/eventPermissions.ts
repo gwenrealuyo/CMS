@@ -14,6 +14,7 @@ const EVENTS_ROOM_MANAGE_LEVELS: ModuleCoordinator["level"][] = [
 
 const REQUEST_BOOKING_LEVELS: ModuleCoordinator["level"][] = [
   "COORDINATOR",
+  "ASSISTANT_COORDINATOR",
   "SENIOR_COORDINATOR",
 ];
 

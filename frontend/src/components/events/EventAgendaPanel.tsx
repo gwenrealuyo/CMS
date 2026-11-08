@@ -16,6 +16,12 @@ interface EventAgendaPanelProps {
   onView: (item: EventCardItem) => void;
   onClearDate?: () => void;
   onCreateEvent?: () => void;
+  /** When true, agenda uses the full main column (calendar hidden). */
+  calendarCollapsed?: boolean;
+  /** Desktop: hide calendar and widen agenda. */
+  onMaximizeAgenda?: () => void;
+  /** Desktop: restore calendar beside agenda. */
+  onShowCalendar?: () => void;
 }
 
 export default function EventAgendaPanel({
@@ -26,10 +32,17 @@ export default function EventAgendaPanel({
   onView,
   onClearDate,
   onCreateEvent,
+  calendarCollapsed = false,
+  onMaximizeAgenda,
+  onShowCalendar,
 }: EventAgendaPanelProps) {
   const totalItems = groups.totalCount;
-  const isSparseDesktop = totalItems > 0 && totalItems <= 3;
-  const rowSize = isSparseDesktop ? "comfortable" : "compact";
+  const isSparseDesktop =
+    !calendarCollapsed && totalItems > 0 && totalItems <= 3;
+  // Expanded agenda (calendar hidden) shows full row details for every event.
+  const rowSize =
+    calendarCollapsed || isSparseDesktop ? "comfortable" : "compact";
+  const showLayoutControls = Boolean(onMaximizeAgenda || onShowCalendar);
 
   return (
     <div
@@ -40,10 +53,63 @@ export default function EventAgendaPanel({
           : "lg:max-h-[calc(100vh-8rem)] lg:overflow-y-auto",
       ].join(" ")}
     >
-      <div className="px-4 md:px-6 py-4 border-b border-gray-100 shrink-0">
-        <h2 className="text-base md:text-lg font-semibold text-foreground">
+      <div className="px-4 md:px-6 py-4 border-b border-gray-100 shrink-0 flex items-center justify-between gap-2">
+        <h2 className="text-base md:text-lg font-semibold text-foreground min-w-0 truncate">
           {groups.title}
         </h2>
+        {showLayoutControls && (
+          <div className="hidden lg:flex items-center gap-0.5 shrink-0">
+            {calendarCollapsed
+              ? onShowCalendar && (
+                  <button
+                    type="button"
+                    onClick={onShowCalendar}
+                    aria-label="Show calendar"
+                    title="Show calendar"
+                    className="inline-flex h-8 w-8 items-center justify-center rounded-md text-gray-500 hover:bg-gray-100 hover:text-gray-700"
+                  >
+                    <svg
+                      className="h-4 w-4"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                      aria-hidden="true"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M15 19l-7-7 7-7"
+                      />
+                    </svg>
+                  </button>
+                )
+              : onMaximizeAgenda && (
+                  <button
+                    type="button"
+                    onClick={onMaximizeAgenda}
+                    aria-label="Expand agenda"
+                    title="Expand agenda"
+                    className="inline-flex h-8 w-8 items-center justify-center rounded-md text-gray-500 hover:bg-gray-100 hover:text-gray-700"
+                  >
+                    <svg
+                      className="h-4 w-4"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                      aria-hidden="true"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"
+                      />
+                    </svg>
+                  </button>
+                )}
+          </div>
+        )}
       </div>
 
       <div

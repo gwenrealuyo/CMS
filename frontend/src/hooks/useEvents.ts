@@ -22,7 +22,15 @@ interface CalendarOccurrence {
   is_recurring: boolean;
 }
 
-export const useEvents = () => {
+type UseEventsOptions = {
+  /** When set (including empty = all for HQ), list requests include `branch`. */
+  branch?: string | number | null;
+  /** Skip the initial/list fetch until ready (e.g. branch preference hydrated). */
+  enabled?: boolean;
+};
+
+export const useEvents = (options: UseEventsOptions = {}) => {
+  const { branch = null, enabled = true } = options;
   const [events, setEvents] = useState<Event[]>([]);
   const [eventTypes, setEventTypes] = useState<EventTypeOption[]>([]);
   const [calendarEvents, setCalendarEvents] = useState<CalendarOccurrence[]>(
@@ -336,8 +344,15 @@ export const useEvents = () => {
   );
 
   useEffect(() => {
-    fetchEvents();
-  }, [fetchEvents]);
+    if (!enabled) {
+      return;
+    }
+    const params =
+      branch !== null && branch !== undefined && branch !== ""
+        ? { branch }
+        : undefined;
+    fetchEvents(params);
+  }, [fetchEvents, branch, enabled]);
 
   return {
     events,

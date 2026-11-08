@@ -20,6 +20,7 @@ type FormState = {
   capacity: string;
   notes: string;
   is_active: boolean;
+  is_last_minute_fallback: boolean;
   sort_order: number;
 };
 
@@ -28,6 +29,7 @@ const emptyForm = (): FormState => ({
   capacity: "",
   notes: "",
   is_active: true,
+  is_last_minute_fallback: false,
   sort_order: 10,
 });
 
@@ -123,6 +125,7 @@ export default function EventRoomsManager({
       capacity: room.capacity != null ? String(room.capacity) : "",
       notes: room.notes || "",
       is_active: room.is_active,
+      is_last_minute_fallback: room.is_last_minute_fallback ?? false,
       sort_order: room.sort_order,
     });
     setShowForm(true);
@@ -166,6 +169,7 @@ export default function EventRoomsManager({
         capacity,
         notes: form.notes.trim(),
         is_active: form.is_active,
+        is_last_minute_fallback: form.is_last_minute_fallback,
         sort_order: form.sort_order,
       };
       if (editingId) {
@@ -356,6 +360,28 @@ export default function EventRoomsManager({
                   />
                   Active (shown on event form)
                 </label>
+                <label className="sm:col-span-2 flex items-start gap-3 text-sm text-gray-700">
+                  <input
+                    type="checkbox"
+                    checked={form.is_last_minute_fallback}
+                    onChange={(e) =>
+                      setForm((prev) => ({
+                        ...prev,
+                        is_last_minute_fallback: e.target.checked,
+                      }))
+                    }
+                    className="mt-1 h-5 w-5 text-primary border-gray-300 rounded"
+                  />
+                  <span>
+                    <span className="block font-medium">
+                      Last-minute / walk-in room
+                    </span>
+                    <span className="block text-xs text-gray-500 mt-0.5">
+                      Only room available for room holds booked less than 24
+                      hours ahead. One active per branch.
+                    </span>
+                  </span>
+                </label>
               </div>
 
               <div className="flex flex-col-reverse sm:flex-row gap-2 sm:justify-end">
@@ -412,6 +438,9 @@ export default function EventRoomsManager({
                           {capacityLabel}
                           {" · "}
                           {room.is_active ? "Active" : "Inactive"}
+                          {room.is_last_minute_fallback
+                            ? " · Last-minute"
+                            : ""}
                         </div>
                         {room.notes ? (
                           <div className="text-xs text-gray-500 mt-1 line-clamp-2 break-words">
@@ -428,6 +457,7 @@ export default function EventRoomsManager({
                         }`}
                       >
                         {room.is_active ? "Active" : "Inactive"}
+                        {room.is_last_minute_fallback ? " · LM" : ""}
                       </span>
                       <div className="flex gap-2 w-full md:w-auto md:justify-end">
                         <Button

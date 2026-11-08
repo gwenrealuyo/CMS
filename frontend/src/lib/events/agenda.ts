@@ -206,6 +206,9 @@ function groupItemsByDay(
         };
         grouped.set(key, section);
       }
+      // Continues only when one occurrence spans midnight (overnight /
+      // continuous). Multi-day daily series emit one same-day occurrence
+      // per date from the API, so those rows stay normal cards.
       section.items.push({
         ...item,
         continues:

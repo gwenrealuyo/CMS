@@ -193,6 +193,33 @@ class EventRoomAPITests(APITestCase):
         self.assertEqual(response.status_code, 400)
         self.assertIn("name", response.data.get("details", {}))
 
+    def test_only_one_active_last_minute_fallback_per_branch(self):
+        self.client.force_authenticate(self.admin)
+        first = self.client.post(
+            "/api/event-rooms/",
+            {
+                "name": "Walk-in Room",
+                "branch": self.hq.id,
+                "is_last_minute_fallback": True,
+            },
+            format="json",
+        )
+        self.assertEqual(first.status_code, 201, first.data)
+        second = self.client.post(
+            "/api/event-rooms/",
+            {
+                "name": "Another Walk-in",
+                "branch": self.hq.id,
+                "is_last_minute_fallback": True,
+            },
+            format="json",
+        )
+        self.assertEqual(second.status_code, 400, second.data)
+        self.assertIn(
+            "is_last_minute_fallback",
+            second.data.get("details", {}),
+        )
+
     def test_same_name_other_branch_ok(self):
         self.client.force_authenticate(self.sat_coordinator)
         response = self.client.post(
@@ -282,3 +309,82 @@ class EventRoomAPITests(APITestCase):
         )
         self.assertEqual(response.status_code, 400)
         self.assertIn("room", response.data.get("details", {}))
+
+    def test_event_list_scoped_to_coordinator_branch(self):
+        start = make_aware_local(2026, 11, 1)
+        Event.objects.create(
+            title="HQ Service",
+            description="",
+            event_type=self.event_type,
+            start_date=start,
+            end_date=start + timedelta(hours=2),
+            location="HQ",
+            branch=self.hq,
+            booking_status=Event.BookingStatus.APPROVED,
+            created_by=self.admin,
+        )
+        Event.objects.create(
+            title="Satellite Service",
+            description="",
+            event_type=self.event_type,
+            start_date=start,
+            end_date=start + timedelta(hours=2),
+            location="Satellite",
+            branch=self.satellite,
+            booking_status=Event.BookingStatus.APPROVED,
+            created_by=self.admin,
+        )
+        self.client.force_authenticate(self.admin)
+        # Non-admins are branch-scoped; admin with ?branch= matches that view.
+        scoped = self.client.get("/api/events/", {"branch": self.satellite.id})
+        self.assertEqual(scoped.status_code, 200, scoped.data)
+        payload = scoped.data
+        if isinstance(payload, dict) and "results" in payload:
+            payload = payload["results"]
+        titles = {row["title"] for row in payload}
+        self.assertIn("Satellite Service", titles)
+        self.assertNotIn("HQ Service", titles)
+
+    def test_admin_can_filter_events_by_branch(self):
+        start = make_aware_local(2026, 11, 8)
+        Event.objects.create(
+            title="HQ Only",
+            description="",
+            event_type=self.event_type,
+            start_date=start,
+            end_date=start + timedelta(hours=2),
+            location="HQ",
+            branch=self.hq,
+            booking_status=Event.BookingStatus.APPROVED,
+            created_by=self.admin,
+        )
+        Event.objects.create(
+            title="Sat Only",
+            description="",
+            event_type=self.event_type,
+            start_date=start,
+            end_date=start + timedelta(hours=2),
+            location="Satellite",
+            branch=self.satellite,
+            booking_status=Event.BookingStatus.APPROVED,
+            created_by=self.admin,
+        )
+        self.client.force_authenticate(self.admin)
+        all_events = self.client.get("/api/events/")
+        self.assertEqual(all_events.status_code, 200)
+        all_payload = all_events.data
+        if isinstance(all_payload, dict) and "results" in all_payload:
+            all_payload = all_payload["results"]
+        all_titles = {row["title"] for row in all_payload}
+        self.assertIn("HQ Only", all_titles)
+        self.assertIn("Sat Only", all_titles)
+
+        filtered = self.client.get(
+            "/api/events/", {"branch": self.satellite.id}
+        )
+        self.assertEqual(filtered.status_code, 200)
+        filtered_payload = filtered.data
+        if isinstance(filtered_payload, dict) and "results" in filtered_payload:
+            filtered_payload = filtered_payload["results"]
+        filtered_titles = {row["title"] for row in filtered_payload}
+        self.assertEqual(filtered_titles, {"Sat Only"})

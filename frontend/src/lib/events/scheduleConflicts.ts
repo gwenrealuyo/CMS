@@ -41,10 +41,16 @@ function occurrenceDurationMs(
   let durationMs = end.getTime() - start.getTime();
   if (durationMs <= 0) return 0;
 
-  if (pattern?.frequency === "weekly" && pattern.through) {
+  if (
+    (pattern?.frequency === "weekly" || pattern?.frequency === "daily") &&
+    pattern.through
+  ) {
     const endDay = toDayKey(end);
     const spanDays = Math.floor(durationMs / (24 * 60 * 60 * 1000));
-    if (spanDays >= 7 && endDay >= pattern.through) {
+    const shouldCollapse =
+      (pattern.frequency === "weekly" && spanDays >= 7) ||
+      (pattern.frequency === "daily" && spanDays >= 1);
+    if (shouldCollapse && endDay >= pattern.through) {
       const sameDayEnd = new Date(start);
       sameDayEnd.setHours(
         end.getHours(),
@@ -82,8 +88,8 @@ function expandRecurringIntervals(
   }
 
   const intervals: Interval[] = [];
-  const intervalWeeks = Math.max(1, pattern.interval ?? 1);
   const cursor = new Date(start);
+  const stepDays = pattern.frequency === "daily" ? 1 : 7 * Math.max(1, pattern.interval ?? 1);
 
   while (cursor.getTime() <= through.getTime()) {
     const key = toDayKey(cursor);
@@ -93,7 +99,7 @@ function expandRecurringIntervals(
         end: new Date(cursor.getTime() + durationMs),
       });
     }
-    cursor.setDate(cursor.getDate() + 7 * intervalWeeks);
+    cursor.setDate(cursor.getDate() + stepDays);
   }
   return intervals;
 }

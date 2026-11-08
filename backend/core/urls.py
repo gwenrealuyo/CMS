@@ -13,6 +13,21 @@ urlpatterns = [
     path("api/event-types/", include(("apps.events.type_urls", "event_types"), namespace="event_types")),
     path("api/event-rooms/", include(("apps.events.room_urls", "event_rooms"), namespace="event_rooms")),
     path(
+        "api/equipment/",
+        include(("apps.events.equipment_urls", "equipment"), namespace="equipment"),
+    ),
+    path(
+        "api/vehicles/",
+        include(("apps.events.vehicle_urls", "vehicles"), namespace="vehicles"),
+    ),
+    path(
+        "api/vehicle-bookings/",
+        include(
+            ("apps.events.vehicle_booking_urls", "vehicle_bookings"),
+            namespace="vehicle_bookings",
+        ),
+    ),
+    path(
         "api/attendance-venues/",
         include(("apps.events.venue_urls", "attendance_venues"), namespace="attendance_venues"),
     ),

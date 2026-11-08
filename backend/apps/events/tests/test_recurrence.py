@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from types import SimpleNamespace
 
 from django.test import SimpleTestCase
@@ -11,7 +11,7 @@ from apps.events.services.recurrence import (
     clean_recurrence_pattern,
     generate_occurrences,
 )
-from apps.people.models import ModuleCoordinator, Person
+from apps.people.models import Branch, ModuleCoordinator, Person
 from core.datetime_utils import church_calendar_date
 
 
@@ -63,6 +63,21 @@ class RecurrencePatternCleaningTests(SimpleTestCase):
         start = make_aware_local(2026, 9, 6)
         with self.assertRaises(RecurrencePatternError):
             clean_recurrence_pattern({"frequency": "yearly"}, start)
+
+    def test_daily_frequency_is_accepted(self):
+        start = make_aware_local(2026, 11, 10, 8)
+        cleaned = clean_recurrence_pattern(
+            {
+                "frequency": "daily",
+                "through": "2026-11-12",
+                "excluded_dates": [],
+            },
+            start,
+        )
+        self.assertEqual(cleaned["frequency"], "daily")
+        self.assertEqual(cleaned["interval"], 1)
+        self.assertEqual(cleaned["through"], "2026-11-12")
+        self.assertNotIn("monthly_mode", cleaned)
 
 
 class RecurrenceGenerationTests(SimpleTestCase):
@@ -158,6 +173,60 @@ class RecurrenceGenerationTests(SimpleTestCase):
         self.assertEqual(payload["occurrence_date"], "2026-09-13")
         self.assertEqual(occs[1].as_dict()["occurrence_date"], "2026-09-20")
 
+    def test_daily_expands_each_calendar_day(self):
+        start = make_aware_local(2026, 11, 10, 8)
+        event = _event(start, hours=4)
+        pattern = {
+            "frequency": "daily",
+            "through": "2026-11-12",
+            "excluded_dates": [],
+        }
+        dates = occurrence_dates(event, pattern)
+        self.assertEqual(dates, ["2026-11-10", "2026-11-11", "2026-11-12"])
+        occs = generate_occurrences(event, pattern)
+        self.assertEqual(len(occs), 3)
+        for occ in occs:
+            self.assertEqual(occ.start.hour, 8)
+            self.assertEqual(occ.end.hour, 12)
+            self.assertEqual((occ.end - occ.start), timedelta(hours=4))
+
+    def test_daily_excluded_date_is_skipped(self):
+        start = make_aware_local(2026, 11, 10, 8)
+        dates = occurrence_dates(
+            _event(start, hours=4),
+            {
+                "frequency": "daily",
+                "through": "2026-11-12",
+                "excluded_dates": ["2026-11-11"],
+            },
+        )
+        self.assertEqual(dates, ["2026-11-10", "2026-11-12"])
+
+    def test_daily_collapses_duration_when_end_is_series_through(self):
+        start = make_aware_local(2026, 11, 10, 8)
+        # Mistakenly stored end_date as last day of series at noon.
+        event = SimpleNamespace(
+            id=1,
+            start_date=start,
+            end_date=make_aware_local(2026, 11, 12, 12),
+            is_recurring=True,
+        )
+        occs = generate_occurrences(
+            event,
+            {
+                "frequency": "daily",
+                "through": "2026-11-12",
+                "excluded_dates": [],
+            },
+        )
+        self.assertEqual(len(occs), 3)
+        for occ in occs:
+            self.assertEqual((occ.end - occ.start), timedelta(hours=4))
+            self.assertEqual(
+                church_calendar_date(occ.start),
+                church_calendar_date(occ.end),
+            )
+
 
 class RecurrenceAPITests(APITestCase):
     def setUp(self):
@@ -170,6 +239,14 @@ class RecurrenceAPITests(APITestCase):
                 "is_system": True,
             },
         )
+        self.hq, _ = Branch.objects.get_or_create(
+            code="HQ",
+            defaults={
+                "name": "Headquarters",
+                "is_headquarters": True,
+                "is_active": True,
+            },
+        )
         self.coordinator = Person.objects.create_user(
             username="recurcoord",
             password="pass12345",
@@ -177,6 +254,8 @@ class RecurrenceAPITests(APITestCase):
             last_name="Coord",
             role="MEMBER",
             status="ACTIVE",
+            branch=self.hq,
+            water_baptism_date=date(2020, 1, 1),
         )
         ModuleCoordinator.objects.create(
             person=self.coordinator,
@@ -192,6 +271,7 @@ class RecurrenceAPITests(APITestCase):
             "description": "",
             "type": "CLUSTERING",
             "location": "HQ",
+            "branch": self.hq.id,
             "start_date": self.start.isoformat(),
             "end_date": (self.start + timedelta(hours=2)).isoformat(),
             "is_recurring": True,
@@ -220,6 +300,58 @@ class RecurrenceAPITests(APITestCase):
         )
         self.assertEqual(response.status_code, 400, response.data)
         self.assertIn("recurrence_pattern", response.data.get("details", response.data))
+
+    def test_create_daily_expands_same_clock_times(self):
+        start = make_aware_local(2026, 11, 10, 8)
+        response = self.client.post(
+            "/api/events/",
+            self._payload(
+                title="Youth Revival",
+                start_date=start.isoformat(),
+                end_date=(start + timedelta(hours=4)).isoformat(),
+                recurrence_pattern={
+                    "frequency": "daily",
+                    "through": "2026-11-12",
+                    "excluded_dates": [],
+                },
+            ),
+            format="json",
+        )
+        self.assertEqual(response.status_code, 201, response.data)
+        self.assertEqual(response.data["recurrence_pattern"]["frequency"], "daily")
+        starts = [occ["start_date"][:10] for occ in response.data["occurrences"]]
+        self.assertEqual(starts, ["2026-11-10", "2026-11-11", "2026-11-12"])
+        for occ in response.data["occurrences"]:
+            self.assertEqual(occ["start_date"][11:16], "08:00")
+            self.assertEqual(occ["end_date"][11:16], "12:00")
+
+    def test_exclude_works_on_daily_series(self):
+        start = make_aware_local(2026, 11, 10, 8)
+        created = self.client.post(
+            "/api/events/",
+            self._payload(
+                title="Youth Revival",
+                start_date=start.isoformat(),
+                end_date=(start + timedelta(hours=4)).isoformat(),
+                recurrence_pattern={
+                    "frequency": "daily",
+                    "through": "2026-11-12",
+                    "excluded_dates": [],
+                },
+            ),
+            format="json",
+        )
+        self.assertEqual(created.status_code, 201, created.data)
+        event_id = created.data["id"]
+
+        excluded = self.client.post(
+            f"/api/events/{event_id}/exclude-occurrence/",
+            {"date": "2026-11-11"},
+            format="json",
+        )
+        self.assertEqual(excluded.status_code, 200, excluded.data)
+        starts = [occ["start_date"][:10] for occ in excluded.data["occurrences"]]
+        self.assertEqual(starts, ["2026-11-10", "2026-11-12"])
 
     def test_create_monthly_expands_clamped_dates(self):
         response = self.client.post("/api/events/", self._payload(), format="json")
@@ -269,6 +401,7 @@ class RecurrenceAPITests(APITestCase):
                 "description": "",
                 "type": "CLUSTERING",
                 "location": "Annex",
+                "branch": self.hq.id,
                 "start_date": split_start.isoformat(),
                 "end_date": (split_start + timedelta(hours=2)).isoformat(),
                 "is_recurring": False,

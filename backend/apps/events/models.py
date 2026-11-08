@@ -74,6 +74,13 @@ class EventRoom(models.Model):
     capacity = models.PositiveIntegerField(null=True, blank=True)
     notes = models.TextField(blank=True)
     is_active = models.BooleanField(default=True)
+    is_last_minute_fallback = models.BooleanField(
+        default=False,
+        help_text=(
+            "When set, this is the only room available for room holds "
+            "requested less than 24 hours before start."
+        ),
+    )
     sort_order = models.PositiveSmallIntegerField(default=0)
 
     class Meta:
@@ -181,6 +188,13 @@ class Event(models.Model):
             "Room booking / meeting-only mode: requires a room, allows "
             "door attendance, disables self-check-in, and never counts "
             "toward first activity attended."
+        ),
+    )
+    estimated_headcount = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+        help_text=(
+            "Optional planned guest count for room booking / approval context."
         ),
     )
     counts_toward_first_activity = models.BooleanField(
@@ -440,3 +454,314 @@ class EventSetting(models.Model):
     def __str__(self):
         status = "Enabled" if self.member_self_checkin_enabled else "Disabled"
         return f"Member self-check-in: {status}"
+
+
+class EquipmentType(models.Model):
+    branch = models.ForeignKey(
+        "people.Branch",
+        on_delete=models.CASCADE,
+        related_name="equipment_types",
+    )
+    name = models.CharField(max_length=200)
+    quantity_available = models.PositiveIntegerField(default=1)
+    notes = models.TextField(blank=True)
+    is_active = models.BooleanField(default=True)
+    sort_order = models.PositiveSmallIntegerField(default=0)
+
+    class Meta:
+        ordering = ["sort_order", "name"]
+        constraints = [
+            models.UniqueConstraint(
+                Lower("name"),
+                "branch",
+                name="events_equipmenttype_branch_lname_uniq",
+            ),
+        ]
+        indexes = [
+            models.Index(fields=["branch", "is_active"]),
+        ]
+
+    def __str__(self):
+        return f"{self.name} ({self.branch})"
+
+
+class EquipmentBooking(models.Model):
+    class BookingStatus(models.TextChoices):
+        PENDING = "pending", "Pending"
+        APPROVED = "approved", "Approved"
+        REJECTED = "rejected", "Rejected"
+
+    title = models.CharField(max_length=200)
+    event = models.ForeignKey(
+        "events.Event",
+        on_delete=models.CASCADE,
+        related_name="equipment_bookings",
+        help_text=(
+            "Equipment borrows must be tied to an event that uses a church room."
+        ),
+    )
+    branch = models.ForeignKey(
+        "people.Branch",
+        on_delete=models.CASCADE,
+        related_name="equipment_bookings",
+    )
+    start_date = models.DateTimeField()
+    end_date = models.DateTimeField()
+    notes = models.TextField(blank=True)
+    booking_status = models.CharField(
+        max_length=20,
+        choices=BookingStatus.choices,
+        default=BookingStatus.APPROVED,
+        db_index=True,
+    )
+    reviewed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="equipment_bookings_reviewed",
+    )
+    reviewed_at = models.DateTimeField(null=True, blank=True)
+    review_note = models.TextField(blank=True)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="equipment_bookings_created",
+    )
+    updated_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="equipment_bookings_updated",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-start_date"]
+        indexes = [
+            models.Index(fields=["branch", "booking_status", "start_date"]),
+        ]
+
+    def __str__(self):
+        return self.title
+
+
+class EquipmentBookingItem(models.Model):
+    class Condition(models.TextChoices):
+        OK = "ok", "OK"
+        DAMAGED = "damaged", "Damaged"
+        MISSING = "missing", "Missing"
+        OTHER = "other", "Other"
+
+    booking = models.ForeignKey(
+        EquipmentBooking,
+        on_delete=models.CASCADE,
+        related_name="items",
+    )
+    equipment_type = models.ForeignKey(
+        EquipmentType,
+        on_delete=models.PROTECT,
+        related_name="booking_items",
+    )
+    quantity = models.PositiveIntegerField(default=1)
+    requester_remarks = models.TextField(blank=True)
+    received_at = models.DateTimeField(null=True, blank=True)
+    received_condition = models.CharField(
+        max_length=20,
+        choices=Condition.choices,
+        blank=True,
+    )
+    received_notes = models.TextField(blank=True)
+    returned_at = models.DateTimeField(null=True, blank=True)
+    returned_condition = models.CharField(
+        max_length=20,
+        choices=Condition.choices,
+        blank=True,
+    )
+    returned_notes = models.TextField(blank=True)
+    handoff_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="equipment_handoffs",
+    )
+
+    class Meta:
+        ordering = ["id"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["booking", "equipment_type"],
+                name="events_equipitem_booking_type_uniq",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.equipment_type} x{self.quantity}"
+
+
+class Vehicle(models.Model):
+    branch = models.ForeignKey(
+        "people.Branch",
+        on_delete=models.CASCADE,
+        related_name="vehicles",
+    )
+    name = models.CharField(max_length=200)
+    is_active = models.BooleanField(default=True)
+    notes = models.TextField(blank=True)
+    last_odometer = models.PositiveIntegerField(null=True, blank=True)
+    last_rfid_balance = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        null=True,
+        blank=True,
+    )
+    sort_order = models.PositiveSmallIntegerField(default=0)
+
+    class Meta:
+        ordering = ["sort_order", "name"]
+        constraints = [
+            models.UniqueConstraint(
+                Lower("name"),
+                "branch",
+                name="events_vehicle_branch_lname_uniq",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.name} ({self.branch})"
+
+
+class VehicleDriver(models.Model):
+    vehicle = models.ForeignKey(
+        Vehicle,
+        on_delete=models.CASCADE,
+        related_name="drivers",
+    )
+    person = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="vehicle_driver_allowlist",
+    )
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["vehicle", "person"],
+                name="events_vehicledriver_vehicle_person_uniq",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.person} → {self.vehicle}"
+
+
+class VehicleBooking(models.Model):
+    class BookingStatus(models.TextChoices):
+        PENDING = "pending", "Pending"
+        APPROVED = "approved", "Approved"
+        REJECTED = "rejected", "Rejected"
+
+    title = models.CharField(max_length=200)
+    vehicle = models.ForeignKey(
+        Vehicle,
+        on_delete=models.PROTECT,
+        related_name="bookings",
+    )
+    start_date = models.DateTimeField()
+    end_date = models.DateTimeField()
+    notes = models.TextField(blank=True)
+    preferred_driver = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="vehicle_bookings_preferred",
+    )
+    assigned_driver = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="vehicle_bookings_assigned",
+    )
+    booking_status = models.CharField(
+        max_length=20,
+        choices=BookingStatus.choices,
+        default=BookingStatus.APPROVED,
+        db_index=True,
+    )
+    reviewed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="vehicle_bookings_reviewed",
+    )
+    reviewed_at = models.DateTimeField(null=True, blank=True)
+    review_note = models.TextField(blank=True)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="vehicle_bookings_created",
+    )
+    updated_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="vehicle_bookings_updated",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-start_date"]
+        indexes = [
+            models.Index(fields=["vehicle", "booking_status", "start_date"]),
+        ]
+
+    def __str__(self):
+        return self.title
+
+
+class VehicleTripLog(models.Model):
+    class Leg(models.TextChoices):
+        OUT = "out", "Out"
+        IN = "in", "In"
+
+    booking = models.ForeignKey(
+        VehicleBooking,
+        on_delete=models.CASCADE,
+        related_name="trip_logs",
+    )
+    leg = models.CharField(max_length=10, choices=Leg.choices)
+    odometer = models.PositiveIntegerField()
+    rfid_balance = models.DecimalField(max_digits=10, decimal_places=2)
+    recorded_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="vehicle_trip_logs",
+    )
+    recorded_at = models.DateTimeField(auto_now_add=True)
+    notes = models.TextField(blank=True)
+
+    class Meta:
+        ordering = ["recorded_at", "id"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["booking", "leg"],
+                name="events_vehicletriplog_booking_leg_uniq",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.booking_id} {self.leg}"

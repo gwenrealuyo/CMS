@@ -12,6 +12,7 @@ from .services.conflicts import (
     validate_room_booking,
     validate_sunday_service_uniqueness,
 )
+from .services.lead_time import validate_room_hold_lead_time
 from .services.recurrence import (
     RecurrencePatternError,
     clean_recurrence_pattern,
@@ -121,6 +122,7 @@ class EventRoomSerializer(serializers.ModelSerializer):
             "capacity",
             "notes",
             "is_active",
+            "is_last_minute_fallback",
             "sort_order",
             "event_count",
         ]
@@ -136,6 +138,14 @@ class EventRoomSerializer(serializers.ModelSerializer):
         name = attrs.get("name") or getattr(instance, "name", None)
         branch = attrs.get("branch") if "branch" in attrs else getattr(
             instance, "branch", None
+        )
+        is_fallback = attrs.get(
+            "is_last_minute_fallback",
+            getattr(instance, "is_last_minute_fallback", False),
+        )
+        is_active = attrs.get(
+            "is_active",
+            getattr(instance, "is_active", True),
         )
         request = self.context.get("request") if self.context else None
         user = getattr(request, "user", None) if request else None
@@ -163,6 +173,24 @@ class EventRoomSerializer(serializers.ModelSerializer):
             if qs.exists():
                 raise ValidationError(
                     {"name": "A room with this name already exists in this branch."}
+                )
+
+        if is_fallback and is_active:
+            qs = EventRoom.objects.filter(
+                branch=branch,
+                is_last_minute_fallback=True,
+                is_active=True,
+            )
+            if instance:
+                qs = qs.exclude(pk=instance.pk)
+            if qs.exists():
+                raise ValidationError(
+                    {
+                        "is_last_minute_fallback": (
+                            "Only one active last-minute / walk-in room is "
+                            "allowed per branch."
+                        )
+                    }
                 )
         return super().validate(attrs)
 
@@ -246,6 +274,7 @@ class EventSerializer(serializers.ModelSerializer):
             "allow_cross_branch_attendance",
             "tardy_grace_minutes",
             "is_room_hold",
+            "estimated_headcount",
             "counts_toward_first_activity",
             "self_checkin_enabled",
             "attendance_format",
@@ -549,11 +578,19 @@ class EventSerializer(serializers.ModelSerializer):
             branch=attrs.get("branch"),
             **conflict_kwargs,
         )
+        room_for_conflict = (
+            attrs.get("room")
+            if "room" in attrs
+            else getattr(instance, "room", None)
+        )
         validate_room_booking(
-            room=attrs.get("room") if "room" in attrs else getattr(
-                instance, "room", None
-            ),
+            room=room_for_conflict,
             **conflict_kwargs,
+        )
+        validate_room_hold_lead_time(
+            is_room_hold=is_room_hold,
+            start=start_date,
+            room=room_for_conflict,
         )
 
         return super().validate(attrs)

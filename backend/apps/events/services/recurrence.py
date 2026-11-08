@@ -11,7 +11,7 @@ from core.datetime_utils import church_calendar_date
 
 
 MAX_OCCURRENCE_DAYS = 366
-ALLOWED_FREQUENCIES = {"weekly", "monthly"}
+ALLOWED_FREQUENCIES = {"daily", "weekly", "monthly"}
 ALLOWED_MONTHLY_MODES = {"by_date", "by_weekday"}
 ALLOWED_WEEK_OF_MONTH = {1, 2, 3, 4, -1}
 
@@ -152,7 +152,9 @@ def clean_recurrence_pattern(pattern: Optional[Dict], start: datetime) -> Dict:
 
     frequency = str(pattern.get("frequency") or "weekly").strip().lower()
     if frequency not in ALLOWED_FREQUENCIES:
-        raise RecurrencePatternError("Frequency must be weekly or monthly.")
+        raise RecurrencePatternError(
+            "Frequency must be daily, weekly, or monthly."
+        )
 
     try:
         interval = int(pattern.get("interval") or 1)
@@ -174,6 +176,9 @@ def clean_recurrence_pattern(pattern: Optional[Dict], start: datetime) -> Dict:
         "through": through_candidate.isoformat(),
         "excluded_dates": [d.isoformat() for d in excluded_dates],
     }
+
+    if frequency == "daily":
+        return cleaned
 
     if frequency == "monthly":
         monthly_mode = str(pattern.get("monthly_mode") or "by_date").strip().lower()
@@ -231,6 +236,14 @@ def _build_occurrence(
         end=occurrence_end,
         is_base_occurrence=day == base_day,
     )
+
+
+def _daily_days(base_day: date, max_end_date: date) -> List[date]:
+    days: List[date] = []
+    total_days = (max_end_date - base_day).days
+    for offset in range(total_days + 1):
+        days.append(base_day + timedelta(days=offset))
+    return days
 
 
 def _weekly_days(
@@ -327,15 +340,18 @@ def generate_occurrences(
     if interval < 1:
         interval = 1
 
-    # If end_date was saved as the series through date, duration spans months
-    # and every weekly occurrence falsely covers mid-week days.
+    # If end_date was saved as the series through date, duration spans days
+    # and every occurrence falsely covers the whole remaining series.
     end_day = church_calendar_date(base_end)
     if (
-        frequency == "weekly"
+        frequency in {"weekly", "daily"}
         and end_day is not None
         and through is not None
         and end_day >= through
-        and duration.days >= 7
+        and (
+            (frequency == "weekly" and duration.days >= 7)
+            or (frequency == "daily" and duration.days >= 1)
+        )
     ):
         same_day_end = base_start.replace(
             hour=base_end.hour,
@@ -350,7 +366,9 @@ def generate_occurrences(
 
     weekdays = pattern.get("weekdays") or [base_day.weekday()]
 
-    if frequency == "monthly":
+    if frequency == "daily":
+        candidate_days = _daily_days(base_day, max_end_date)
+    elif frequency == "monthly":
         candidate_days = _monthly_days(base_day, max_end_date, pattern)
     else:
         candidate_days = _weekly_days(base_day, max_end_date, weekdays, interval)

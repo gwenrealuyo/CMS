@@ -2,12 +2,16 @@ from django.contrib import admin
 
 from .models import (
     AttendanceVenue,
+    EquipmentBooking,
+    EquipmentType,
     Event,
     EventRegistration,
     EventRegistrationPayment,
     EventRegistrationTier,
     EventRoom,
     EventType,
+    Vehicle,
+    VehicleBooking,
 )
 
 
@@ -49,6 +53,7 @@ class EventAdmin(admin.ModelAdmin):
         "start_date",
         "booking_status",
         "is_room_hold",
+        "estimated_headcount",
         "counts_toward_first_activity",
         "attendance_format",
         "self_checkin_enabled",
@@ -115,6 +120,54 @@ class EventRegistrationAdmin(admin.ModelAdmin):
         "event__title",
     ]
     inlines = [EventRegistrationPaymentInline]
+
+
+@admin.register(EquipmentType)
+class EquipmentTypeAdmin(admin.ModelAdmin):
+    list_display = [
+        "name",
+        "branch",
+        "quantity_available",
+        "is_active",
+        "sort_order",
+    ]
+    list_filter = ["branch", "is_active"]
+    search_fields = ["name", "notes"]
+
+
+@admin.register(EquipmentBooking)
+class EquipmentBookingAdmin(admin.ModelAdmin):
+    list_display = ["title", "event", "branch", "start_date", "booking_status"]
+    list_filter = ["booking_status", "branch"]
+    search_fields = ["title", "event__title"]
+    raw_id_fields = ["event"]
+
+
+@admin.register(Vehicle)
+class VehicleAdmin(admin.ModelAdmin):
+    list_display = [
+        "name",
+        "branch",
+        "is_active",
+        "last_odometer",
+        "last_rfid_balance",
+    ]
+    list_filter = ["branch", "is_active"]
+    search_fields = ["name"]
+
+
+@admin.register(VehicleBooking)
+class VehicleBookingAdmin(admin.ModelAdmin):
+    list_display = [
+        "title",
+        "vehicle",
+        "start_date",
+        "booking_status",
+        "preferred_driver",
+        "assigned_driver",
+    ]
+    list_filter = ["booking_status"]
+    search_fields = ["title"]
 
 
 @admin.register(EventRegistrationPayment)

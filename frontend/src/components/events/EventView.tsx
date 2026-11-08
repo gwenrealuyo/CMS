@@ -166,9 +166,47 @@ export default function EventView({
   const displayStart = selectedOccurrence?.start_date ?? event.start_date;
   const displayEnd = selectedOccurrence?.end_date ?? event.end_date;
 
+  const occurrenceOptions = useMemo(() => {
+    const fromApi = (event.occurrences ?? []).map((occurrence) => {
+      const key = occurrence.occurrence_date
+        ? occurrenceDateKey(occurrence.occurrence_date)
+        : occurrenceDateKey(occurrence.start_date);
+      return {
+        key,
+        start: occurrence.start_date,
+        end: occurrence.end_date,
+      };
+    });
+    if (fromApi.length > 0) return fromApi;
+    return [
+      {
+        key: eventDateKey,
+        start: event.start_date,
+        end: event.end_date,
+      },
+    ];
+  }, [event.occurrences, event.start_date, event.end_date, eventDateKey]);
+
+  const showOccurrencePicker = occurrenceOptions.length > 1;
+
   useEffect(() => {
     setSelectedOccurrenceDate(initialOccurrenceKey);
   }, [event.id, initialOccurrenceKey]);
+
+  useEffect(() => {
+    if (
+      selectedOccurrenceDate &&
+      occurrenceOptions.some((option) => option.key === selectedOccurrenceDate)
+    ) {
+      return;
+    }
+    const fallback =
+      occurrenceOptions.find((option) => option.key === initialOccurrenceKey)
+        ?.key || occurrenceOptions[0]?.key;
+    if (fallback) {
+      setSelectedOccurrenceDate(fallback);
+    }
+  }, [occurrenceOptions, selectedOccurrenceDate, initialOccurrenceKey]);
 
   const viewerAttendance = useMemo(
     () =>
@@ -287,13 +325,54 @@ export default function EventView({
                     d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
                   />
                 </svg>
-                <div>
-                  <div className="text-sm font-medium text-gray-900">
-                    {formatDateTime(displayStart)}
-                  </div>
-                  <div className="text-sm text-gray-500">
-                    to {formatTime(displayEnd)}
-                  </div>
+                <div className="min-w-0 flex-1">
+                  {showOccurrencePicker ? (
+                    <div className="space-y-2">
+                      <label className="block text-xs font-medium text-gray-600">
+                        {event.recurrence_pattern?.frequency === "daily"
+                          ? "Day of this event"
+                          : "Occurrence"}
+                      </label>
+                      <select
+                        value={selectedOccurrenceDate}
+                        onChange={(e) =>
+                          setSelectedOccurrenceDate(e.target.value)
+                        }
+                        className="w-full max-w-md px-3 py-2 min-h-[44px] border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent text-sm"
+                      >
+                        {occurrenceOptions.map((option) => (
+                          <option key={option.key} value={option.key}>
+                            {new Date(option.start).toLocaleDateString(
+                              "en-US",
+                              {
+                                weekday: "short",
+                                month: "short",
+                                day: "numeric",
+                                year: "numeric",
+                              },
+                            )}
+                            {" · "}
+                            {formatTime(option.start)}
+                            {" – "}
+                            {formatTime(option.end)}
+                          </option>
+                        ))}
+                      </select>
+                      <p className="text-xs text-gray-500">
+                        {occurrenceOptions.length} days in this schedule. Pick a
+                        day to view attendance and details for that date.
+                      </p>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="text-sm font-medium text-gray-900">
+                        {formatDateTime(displayStart)}
+                      </div>
+                      <div className="text-sm text-gray-500">
+                        to {formatTime(displayEnd)}
+                      </div>
+                    </>
+                  )}
                 </div>
               </div>
 
@@ -329,6 +408,32 @@ export default function EventView({
                 </div>
               )}
 
+              {event.estimated_headcount != null && (
+                <div className="flex items-start">
+                  <svg
+                    className="w-5 h-5 text-gray-400 mt-0.5 mr-3"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"
+                    />
+                  </svg>
+                  <div>
+                    <div className="text-sm font-medium text-gray-900">
+                      Estimated headcount
+                    </div>
+                    <div className="text-sm text-gray-500">
+                      {event.estimated_headcount}
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {event.is_recurring && event.recurrence_pattern && (
                 <div className="flex items-start">
                   <svg
@@ -346,7 +451,9 @@ export default function EventView({
                   </svg>
                   <div>
                     <div className="text-sm font-medium text-gray-900">
-                      Recurrence
+                      {event.recurrence_pattern.frequency === "daily"
+                        ? "Multi-day schedule"
+                        : "Recurrence"}
                     </div>
                     <div className="text-sm text-gray-500">
                       {formatRecurrenceSummary(event.recurrence_pattern)}

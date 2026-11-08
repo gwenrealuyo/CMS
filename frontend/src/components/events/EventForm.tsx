@@ -1,25 +1,29 @@
 "use client";
 
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo } from "react";
 import toast from "react-hot-toast";
-import {
-  Event,
-  EventRegistrationTier,
-  RecurrencePattern,
-} from "@/src/types/event";
+import { Event, RecurrencePattern } from "@/src/types/event";
 import { useAuth } from "@/src/contexts/AuthContext";
 import { useBranches } from "@/src/hooks/useBranches";
 import { useEventRooms } from "@/src/hooks/useEventRooms";
-import { eventRegistrationApi } from "@/src/lib/api";
-import { formatApiErrorMessage } from "@/src/lib/apiErrors";
+import { equipmentBookingsApi, equipmentTypesApi } from "@/src/lib/api";
+import { EquipmentType } from "@/src/types/facilities";
 import Button from "../ui/Button";
 import ConfirmationModal from "../ui/ConfirmationModal";
 import { findScheduleConflict } from "@/src/lib/events/scheduleConflicts";
 import {
+  LAST_MINUTE_ADMIN_NOTE,
+  isBeforeLastMinuteBuffer,
+  isWithinRoomHoldAdvanceWindow,
+} from "@/src/lib/events/roomHoldLeadTime";
+import {
   RepeatOption,
+  ScheduleKind,
+  buildDailyPattern,
   buildRecurrencePattern,
   formatRecurrenceSummary,
   getRepeatOption,
+  getScheduleKind,
   monthlyDateOptionLabel,
   monthlyWeekdayOptionLabel,
 } from "@/src/lib/events/recurrenceLabel";
@@ -125,6 +129,17 @@ const formatDateForInput = (date: Date) => {
   return `${year}-${month}-${day}T${hours}:${minutes}`;
 };
 
+const formatTimeOnly = (date: Date) => {
+  const hours = String(date.getHours()).padStart(2, "0");
+  const minutes = String(date.getMinutes()).padStart(2, "0");
+  return `${hours}:${minutes}`;
+};
+
+const combineDateAndTime = (dateValue: string, timeValue: string) => {
+  const time = timeValue || "09:00";
+  return `${dateValue}T${time}`;
+};
+
 const toDateTimeLocalValue = (value: string): string => {
   const date = parseLocalDateTime(value);
   if (!date) return "";
@@ -220,35 +235,10 @@ type FormDefaults = {
   track_expected_attendees: boolean;
   allow_cross_branch_attendance: boolean;
   tardy_grace_minutes: number;
-  is_room_hold: boolean;
+  estimated_headcount: number | "";
   counts_toward_first_activity: boolean;
   self_checkin_enabled: boolean;
   attendance_format: "hybrid" | "online_only" | "onsite_only";
-  registration_enabled: boolean;
-  onsite_registration_required: boolean;
-  online_registration_required: boolean;
-  onsite_capacity: number | "";
-  online_capacity: number | "";
-};
-
-type TierFormState = {
-  code: string;
-  label: string;
-  onsite_offered: boolean;
-  online_offered: boolean;
-  onsite_price: string;
-  online_price: string;
-  sort_order: number | "";
-};
-
-const EMPTY_TIER_FORM: TierFormState = {
-  code: "",
-  label: "",
-  onsite_offered: true,
-  online_offered: false,
-  onsite_price: "0.00",
-  online_price: "0.00",
-  sort_order: 0,
 };
 
 function withPlaceholders(
@@ -269,18 +259,12 @@ function withExpectedAttendeeDefaults(
     | "track_expected_attendees"
     | "allow_cross_branch_attendance"
     | "tardy_grace_minutes"
-    | "is_room_hold"
+    | "estimated_headcount"
     | "counts_toward_first_activity"
     | "self_checkin_enabled"
     | "attendance_format"
-    | "registration_enabled"
-    | "onsite_registration_required"
-    | "online_registration_required"
-    | "onsite_capacity"
-    | "online_capacity"
   >,
 ): Omit<FormDefaults, "branch" | "room"> {
-  const isMeetingType = defaults.type === "MEETING";
   return {
     ...defaults,
     expected_include_active: true,
@@ -290,15 +274,10 @@ function withExpectedAttendeeDefaults(
     track_expected_attendees: defaults.type === "SUNDAY_SERVICE",
     allow_cross_branch_attendance: false,
     tardy_grace_minutes: 0,
-    is_room_hold: isMeetingType,
+    estimated_headcount: "",
     counts_toward_first_activity: false,
-    self_checkin_enabled: !isMeetingType,
+    self_checkin_enabled: defaults.type === "SUNDAY_SERVICE",
     attendance_format: "hybrid",
-    registration_enabled: false,
-    onsite_registration_required: false,
-    online_registration_required: false,
-    onsite_capacity: "",
-    online_capacity: "",
   };
 }
 
@@ -437,25 +416,16 @@ export default function EventForm({
         allow_cross_branch_attendance:
           initialData.allow_cross_branch_attendance ?? false,
         tardy_grace_minutes: initialData.tardy_grace_minutes ?? 0,
-        is_room_hold:
-          initialData.is_room_hold ?? initialData.type === "MEETING",
+        estimated_headcount:
+          initialData.estimated_headcount != null
+            ? Number(initialData.estimated_headcount)
+            : "",
         counts_toward_first_activity:
           initialData.counts_toward_first_activity ?? false,
-        self_checkin_enabled: initialData.self_checkin_enabled ?? true,
+        self_checkin_enabled:
+          initialData.self_checkin_enabled ??
+          (initialData.type || "SUNDAY_SERVICE") === "SUNDAY_SERVICE",
         attendance_format: initialData.attendance_format ?? "hybrid",
-        registration_enabled: initialData.registration_enabled ?? false,
-        onsite_registration_required:
-          initialData.onsite_registration_required ?? false,
-        online_registration_required:
-          initialData.online_registration_required ?? false,
-        onsite_capacity:
-          initialData.onsite_capacity != null
-            ? Number(initialData.onsite_capacity)
-            : "",
-        online_capacity:
-          initialData.online_capacity != null
-            ? Number(initialData.online_capacity)
-            : "",
       };
     }
 
@@ -465,6 +435,11 @@ export default function EventForm({
     return { ...base, branch: defaultBranch };
   }, [initialData, presetDate, eventTypeOptions, userBranchId]);
   const [formData, setFormData] = useState(defaultFormData);
+  const [equipmentTypes, setEquipmentTypes] = useState<EquipmentType[]>([]);
+  const [equipmentSelected, setEquipmentSelected] = useState<
+    Record<number, { qty: number; remarks: string }>
+  >({});
+  const [equipmentSectionOpen, setEquipmentSectionOpen] = useState(false);
 
   const allowsChurchWide =
     formData.type === "AWTA" && canManageNational && !isEditingNationalLocked;
@@ -472,80 +447,122 @@ export default function EventForm({
 
   const selectedBranchId =
     formData.branch === "" ? null : Number(formData.branch);
+  const canBorrowEquipment =
+    !isChurchWide &&
+    formData.branch !== "" &&
+    formData.room !== "" &&
+    formData.room !== OFFSITE_ROOM;
   const { rooms } = useEventRooms({
     branchId: selectedBranchId,
     enabled: selectedBranchId != null,
   });
+
+  useEffect(() => {
+    if (!canBorrowEquipment || selectedBranchId == null) {
+      setEquipmentTypes([]);
+      return;
+    }
+    let cancelled = false;
+    equipmentTypesApi
+      .list({ branch: selectedBranchId, is_active: true })
+      .then((res) => {
+        if (!cancelled) {
+          setEquipmentTypes(res.data as EquipmentType[]);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setEquipmentTypes([]);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [canBorrowEquipment, selectedBranchId]);
+
+  useEffect(() => {
+    if (!canBorrowEquipment) {
+      setEquipmentSelected({});
+    }
+  }, [canBorrowEquipment]);
+  const selectedTypeOption = useMemo(
+    () =>
+      visibleTypeOptions.find((option) => option.value === formData.type) ||
+      eventTypeOptions.find((option) => option.value === formData.type),
+    [formData.type, visibleTypeOptions, eventTypeOptions],
+  );
+  const selectedTypeIsActivity =
+    selectedTypeOption?.counts_as_activity !== false;
+  const isRoomHold = useMemo(
+    () =>
+      formData.type === "MEETING" ||
+      Boolean(initialData?.is_room_hold) ||
+      selectedTypeOption?.counts_as_activity === false,
+    [formData.type, initialData?.is_room_hold, selectedTypeOption],
+  );
+  const showEstimatedHeadcount = isRoomHold || isBookingRequest;
+  const selectedRoomForCapacity = useMemo(() => {
+    if (formData.room === "" || formData.room === OFFSITE_ROOM) return null;
+    return rooms.find((room) => room.id === Number(formData.room)) ?? null;
+  }, [formData.room, rooms]);
+  const headcountOverCapacity = useMemo(() => {
+    if (
+      !showEstimatedHeadcount ||
+      formData.estimated_headcount === "" ||
+      selectedRoomForCapacity?.capacity == null
+    ) {
+      return false;
+    }
+    return Number(formData.estimated_headcount) > selectedRoomForCapacity.capacity;
+  }, [
+    showEstimatedHeadcount,
+    formData.estimated_headcount,
+    selectedRoomForCapacity,
+  ]);
+  const roomHoldNeedsLastMinute = useMemo(() => {
+    if (!isRoomHold) return false;
+    const start = parseLocalDateTime(formData.start_date);
+    if (!start) return false;
+    return isWithinRoomHoldAdvanceWindow(start);
+  }, [isRoomHold, formData.start_date]);
+  const lastMinuteFallbackRoom = useMemo(
+    () => rooms.find((room) => room.is_active && room.is_last_minute_fallback) ?? null,
+    [rooms],
+  );
   const roomChoices = useMemo(() => {
-    return rooms.filter(
+    const base = rooms.filter(
       (room) =>
         room.is_active ||
         (initialData?.room != null && Number(initialData.room) === room.id),
     );
-  }, [rooms, initialData?.room]);
-  const isRoomHold = formData.is_room_hold;
-  const selectedTypeIsActivity = useMemo(() => {
-    const option =
-      visibleTypeOptions.find((item) => item.value === formData.type) ||
-      eventTypeOptions.find((item) => item.value === formData.type);
-    return option?.counts_as_activity !== false && formData.type !== "MEETING";
-  }, [visibleTypeOptions, eventTypeOptions, formData.type]);
-  const isAdmin = user?.role === "ADMIN";
-  const showRegistrationSettings = isAdmin && !isRoomHold;
-
-  const [tiers, setTiers] = useState<EventRegistrationTier[]>([]);
-  const [tiersLoading, setTiersLoading] = useState(false);
-  const [tierSaving, setTierSaving] = useState(false);
-  const [editingTierId, setEditingTierId] = useState<number | null>(null);
-  const [tierForm, setTierForm] = useState<TierFormState>(EMPTY_TIER_FORM);
-
-  const loadTiers = useCallback(async () => {
-    if (!initialData?.id || !formData.registration_enabled) {
-      setTiers([]);
-      return;
+    if (!isRoomHold || !roomHoldNeedsLastMinute) {
+      return base;
     }
-    setTiersLoading(true);
-    try {
-      const response = await eventRegistrationApi.listTiers(initialData.id);
-      setTiers(response.data);
-    } catch (error) {
-      toast.error(
-        formatApiErrorMessage(error, "Failed to load registration tiers."),
-      );
-    } finally {
-      setTiersLoading(false);
+    if (lastMinuteFallbackRoom) {
+      return base.filter((room) => room.id === lastMinuteFallbackRoom.id);
     }
-  }, [initialData?.id, formData.registration_enabled]);
-
-  useEffect(() => {
-    if (
-      showRegistrationSettings &&
-      initialData?.id &&
-      formData.registration_enabled
-    ) {
-      void loadTiers();
-    } else {
-      setTiers([]);
-      setEditingTierId(null);
-      setTierForm(EMPTY_TIER_FORM);
-    }
+    return [];
   }, [
-    showRegistrationSettings,
-    initialData?.id,
-    formData.registration_enabled,
-    loadTiers,
+    rooms,
+    initialData?.room,
+    isRoomHold,
+    roomHoldNeedsLastMinute,
+    lastMinuteFallbackRoom,
   ]);
 
-  const initialRecurrence = useMemo<RecurrencePattern | null>(
-    () =>
-      initialData?.is_recurring
-        ? buildPattern(
-            initialData.start_date || defaultFormData.start_date,
-            initialData.recurrence_pattern || null,
-          )
-        : null,
-    [initialData, defaultFormData.start_date],
-  );
+  const initialRecurrence = useMemo<RecurrencePattern | null>(() => {
+    if (!initialData?.is_recurring) return null;
+    const start = initialData.start_date || defaultFormData.start_date;
+    const existing = initialData.recurrence_pattern || null;
+    if (existing?.frequency === "daily") {
+      const startDate = parseLocalDateTime(start) ?? new Date();
+      const through = existing.through
+        ? existing.through
+        : formatDateOnly(clampThroughDate(startDate, null));
+      return buildDailyPattern(through, existing);
+    }
+    return buildPattern(start, existing);
+  }, [initialData, defaultFormData.start_date]);
 
   const [recurrencePattern, setRecurrencePattern] =
     useState<RecurrencePattern | null>(initialRecurrence);
@@ -556,25 +573,17 @@ export default function EventForm({
     payload: Partial<Event> | null;
   }>({ isOpen: false, payload: null });
 
+  // Only re-seed when opening a different event/preset — not when async
+  // options refresh defaultFormData and would wipe Multi-day choices.
+  const formSeedKey = `${initialData?.id ?? "new"}:${
+    presetDate ? formatDateOnly(presetDate) : "none"
+  }:${userBranchId || ""}`;
   useEffect(() => {
     setFormData(defaultFormData);
-    if (initialData?.is_recurring) {
-      setRecurrencePattern(
-        buildPattern(
-          initialData.start_date || defaultFormData.start_date,
-          initialData.recurrence_pattern || null,
-        ),
-      );
-    } else {
-      setRecurrencePattern(null);
-    }
-  }, [defaultFormData, initialData]);
-
-  useEffect(() => {
-    if (!isChurchWide) return;
-    if (formData.room === OFFSITE_ROOM) return;
-    setFormData((prev) => ({ ...prev, room: OFFSITE_ROOM }));
-  }, [isChurchWide, formData.room]);
+    setRecurrencePattern(initialRecurrence);
+    // defaultFormData / initialRecurrence intentionally omitted — see formSeedKey.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [formSeedKey]);
 
   const handleChange = (
     e: React.ChangeEvent<
@@ -584,17 +593,50 @@ export default function EventForm({
     const { name, value, type } = e.target;
     const checked = (e.target as HTMLInputElement).checked;
 
-    if (name === "is_recurring") {
-      const nextIsRecurring = type === "checkbox" ? checked : value === "true";
-      setFormData((prev) => ({ ...prev, is_recurring: nextIsRecurring }));
+    if (name === "schedule_kind") {
+      const nextKind = value as ScheduleKind;
+      const sourceStart = formData.start_date || defaultFormData.start_date;
+      const startDate = parseLocalDateTime(sourceStart) ?? getNextSundayAt9AM();
+      const endDate =
+        parseLocalDateTime(formData.end_date || defaultFormData.end_date) ??
+        getNextSundayAt11AM();
 
-      if (nextIsRecurring) {
-        const sourceStart = formData.start_date || defaultFormData.start_date;
-        setRecurrencePattern((current) => buildPattern(sourceStart, current));
-      } else {
+      if (nextKind === "single") {
+        setFormData((prev) => ({ ...prev, is_recurring: false }));
         setRecurrencePattern(null);
+        return;
       }
 
+      if (nextKind === "multi_day") {
+        const sameDayEnd = new Date(startDate);
+        sameDayEnd.setHours(endDate.getHours(), endDate.getMinutes(), 0, 0);
+        if (sameDayEnd <= startDate) {
+          sameDayEnd.setTime(
+            startDate.getTime() + DEFAULT_EVENT_DURATION_HOURS * 60 * 60 * 1000,
+          );
+        }
+        const defaultThrough = new Date(startDate);
+        defaultThrough.setDate(defaultThrough.getDate() + 2);
+        const through = clampThroughDate(startDate, defaultThrough);
+        setFormData((prev) => ({
+          ...prev,
+          is_recurring: true,
+          start_date: formatDateForInput(startDate),
+          end_date: formatDateForInput(sameDayEnd),
+        }));
+        setRecurrencePattern(
+          buildDailyPattern(formatDateOnly(through), recurrencePattern),
+        );
+        return;
+      }
+
+      setFormData((prev) => ({ ...prev, is_recurring: true }));
+      setRecurrencePattern((current) =>
+        buildPattern(sourceStart, current, {
+          frequency: "weekly",
+          interval: 1,
+        }),
+      );
       return;
     }
 
@@ -636,15 +678,17 @@ export default function EventForm({
       return;
     }
 
-    if (name === "onsite_capacity" || name === "online_capacity") {
+    if (name === "estimated_headcount") {
       if (value === "") {
-        setFormData((prev) => ({ ...prev, [name]: "" }));
+        setFormData((prev) => ({ ...prev, estimated_headcount: "" }));
         return;
       }
       const parsed = Number.parseInt(value, 10);
-      if (Number.isFinite(parsed) && parsed >= 0) {
-        setFormData((prev) => ({ ...prev, [name]: parsed }));
-      }
+      setFormData((prev) => ({
+        ...prev,
+        estimated_headcount:
+          Number.isFinite(parsed) && parsed >= 1 ? parsed : "",
+      }));
       return;
     }
 
@@ -675,18 +719,12 @@ export default function EventForm({
           eventTypeOptions.find((option) => option.value === value)?.label ||
           value;
         nextState.title = optionLabel;
-        const nextIsRoomHold = value === "MEETING" ? true : prev.is_room_hold;
-        nextState.is_room_hold = nextIsRoomHold;
-        if (nextIsRoomHold) {
-          nextState.counts_toward_first_activity = false;
-        } else if (
+        const nextIsRoomHold =
+          value === "MEETING" ||
           (
             visibleTypeOptions.find((option) => option.value === value) ||
             eventTypeOptions.find((option) => option.value === value)
-          )?.counts_as_activity === false
-        ) {
-          nextState.counts_toward_first_activity = false;
-        }
+          )?.counts_as_activity === false;
         if (nextIsRoomHold && prev.room === OFFSITE_ROOM) {
           nextState.room = "";
           nextState.location = "";
@@ -694,20 +732,15 @@ export default function EventForm({
         if (nextIsRoomHold) {
           nextState.self_checkin_enabled = false;
           nextState.attendance_format = "hybrid";
-          nextState.registration_enabled = false;
-          nextState.onsite_registration_required = false;
-          nextState.online_registration_required = false;
-          nextState.onsite_capacity = "";
-          nextState.online_capacity = "";
-        } else {
-          // Room holds can't self-check-in; restore the default when leaving them.
-          if (prev.is_room_hold) {
-            nextState.self_checkin_enabled =
-              nextState.attendance_format !== "onsite_only";
-          }
-          if (value === "SUNDAY_SERVICE") {
-            nextState.attendance_format = "hybrid";
-          }
+          nextState.counts_toward_first_activity = false;
+        } else if (value === "SUNDAY_SERVICE") {
+          nextState.self_checkin_enabled = true;
+          nextState.attendance_format = "hybrid";
+        } else if (prev.type === "SUNDAY_SERVICE") {
+          nextState.self_checkin_enabled = false;
+        }
+        if (!nextIsRoomHold && !isBookingRequest) {
+          nextState.estimated_headcount = "";
         }
         if (!initialData) {
           nextState.track_expected_attendees = value === "SUNDAY_SERVICE";
@@ -719,45 +752,11 @@ export default function EventForm({
         }
       }
 
-      if (name === "is_room_hold") {
-        const checkedHold = Boolean(
-          type === "checkbox" ? checked : nextState.is_room_hold,
-        );
-        // MEETING type always implies a room hold.
-        nextState.is_room_hold =
-          prev.type === "MEETING" ? true : checkedHold;
-        if (nextState.is_room_hold) {
-          nextState.counts_toward_first_activity = false;
-          nextState.self_checkin_enabled = false;
-          nextState.attendance_format = "hybrid";
-          nextState.registration_enabled = false;
-          nextState.onsite_registration_required = false;
-          nextState.online_registration_required = false;
-          nextState.onsite_capacity = "";
-          nextState.online_capacity = "";
-          if (prev.room === OFFSITE_ROOM) {
-            nextState.room = "";
-            nextState.location = "";
-          }
-        } else if (prev.is_room_hold) {
-          nextState.self_checkin_enabled =
-            nextState.attendance_format !== "onsite_only";
-        }
-      }
-
-      if (name === "counts_toward_first_activity" && nextState.is_room_hold) {
-        nextState.counts_toward_first_activity = false;
-      }
-
       if (name === "attendance_format") {
         if (value === "onsite_only") {
           nextState.self_checkin_enabled = false;
-          nextState.online_registration_required = false;
         } else if (value === "online_only") {
           nextState.self_checkin_enabled = true;
-          nextState.onsite_registration_required = false;
-          nextState.room = OFFSITE_ROOM;
-          nextState.location = "Zoom";
         }
       }
 
@@ -771,16 +770,81 @@ export default function EventForm({
       (formData.is_recurring || recurrencePattern) &&
       nextStartDate
     ) {
-      setRecurrencePattern((current) =>
-        buildPattern(nextStartDate as string, current),
+      setRecurrencePattern((current) => {
+        if (current?.frequency === "daily") {
+          return buildDailyPattern(
+            current.through ||
+              formatDateOnly(
+                clampThroughDate(
+                  parseLocalDateTime(nextStartDate as string) ?? new Date(),
+                  null,
+                ),
+              ),
+            current,
+          );
+        }
+        return buildPattern(nextStartDate as string, current);
+      });
+    }
+  };
+
+  const submitEquipmentForEvent = async (saved: Event) => {
+    const items_write = Object.entries(equipmentSelected)
+      .filter(([, v]) => v.qty > 0)
+      .map(([id, v]) => ({
+        equipment_type: Number(id),
+        quantity: v.qty,
+        requester_remarks: v.remarks,
+      }));
+    if (items_write.length === 0) return;
+    if (saved.room == null) return;
+    try {
+      await equipmentBookingsApi.create({
+        title: `Equipment for ${saved.title}`,
+        event: Number(saved.id),
+        start_date: saved.start_date,
+        end_date: saved.end_date,
+        items_write,
+      });
+      toast.success(
+        saved.booking_status === "pending"
+          ? "Equipment borrow submitted for approval."
+          : "Equipment borrow created.",
       );
+      setEquipmentSelected({});
+    } catch (error: unknown) {
+      const details = (
+        error as {
+          response?: {
+            data?: {
+              message?: string;
+              details?: {
+                items?: string[];
+                event?: string[];
+                start_date?: string[];
+              };
+            };
+          };
+        }
+      )?.response?.data?.details;
+      const message =
+        details?.event?.[0] ||
+        details?.start_date?.[0] ||
+        details?.items?.[0] ||
+        (error as { response?: { data?: { message?: string } } })?.response
+          ?.data?.message ||
+        "Event saved, but equipment borrow failed.";
+      toast.error(String(message));
     }
   };
 
   const submitPayload = async (payload: Partial<Event>) => {
     try {
       setLoading(true);
-      await onSubmit(payload);
+      const result = await onSubmit(payload);
+      if (result && typeof result === "object" && "id" in result) {
+        await submitEquipmentForEvent(result as Event);
+      }
     } finally {
       setLoading(false);
     }
@@ -789,10 +853,21 @@ export default function EventForm({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     let patternToSend = recurrencePattern;
+    const scheduleKind = getScheduleKind(
+      formData.is_recurring,
+      recurrencePattern,
+    );
 
     if (formData.is_recurring) {
       const baseStart = formData.start_date || defaultFormData.start_date;
-      if (!patternToSend) {
+      if (scheduleKind === "multi_day") {
+        const startDate = parseLocalDateTime(baseStart) ?? new Date();
+        const through =
+          patternToSend?.through ||
+          formatDateOnly(clampThroughDate(startDate, null));
+        patternToSend = buildDailyPattern(through, patternToSend);
+        setRecurrencePattern(patternToSend);
+      } else if (!patternToSend) {
         patternToSend = buildPattern(baseStart, null);
         setRecurrencePattern(patternToSend);
       } else {
@@ -804,20 +879,36 @@ export default function EventForm({
     const startSource = formData.start_date || defaultFormData.start_date;
     const endSource = formData.end_date || defaultFormData.end_date;
 
+    if (scheduleKind === "multi_day") {
+      const startDate = parseLocalDateTime(startSource);
+      const endDate = parseLocalDateTime(endSource);
+      if (startDate && endDate) {
+        const sameDay =
+          startDate.getFullYear() === endDate.getFullYear() &&
+          startDate.getMonth() === endDate.getMonth() &&
+          startDate.getDate() === endDate.getDate();
+        if (!sameDay || endDate <= startDate) {
+          const message =
+            "Multi-day events need a daily end time after the daily start time on the first day.";
+          setConflictError(message);
+          return;
+        }
+        const through = patternToSend?.through;
+        if (!through || through < formatDateOnly(startDate)) {
+          const message = "Last date must be on or after the first date.";
+          setConflictError(message);
+          return;
+        }
+      }
+    }
+
     const startIso = toUtcISOString(startSource) ?? startSource;
     const endIso = toUtcISOString(endSource) ?? endSource;
     if (formData.room === "") {
-      const message =
-        formData.branch === "" && !allowsChurchWide
-          ? "Select a branch and room before creating the event."
-          : "Room is required.";
-      setConflictError(message);
-      toast.error(message);
       return;
     }
     if (!allowsChurchWide && formData.branch === "") {
       setConflictError("Branch is required.");
-      toast.error("Branch is required.");
       return;
     }
     const isOffsite = formData.room === OFFSITE_ROOM;
@@ -829,9 +920,32 @@ export default function EventForm({
     }
     if (isRoomHold && isOffsite) {
       setConflictError(
-        "Room holds must use a room in the church building.",
+        "Meeting events must use a room in the church building.",
       );
       return;
+    }
+    if (isRoomHold) {
+      const startLocal = parseLocalDateTime(formData.start_date);
+      if (startLocal && isWithinRoomHoldAdvanceWindow(startLocal)) {
+        if (isBeforeLastMinuteBuffer(startLocal)) {
+          setConflictError(
+            "Last-minute room holds must start at least 15 minutes from now. Contact church building administrators if you still need a room.",
+          );
+          return;
+        }
+        if (!lastMinuteFallbackRoom) {
+          setConflictError(
+            "Room holds must be booked at least 24 hours ahead. No last-minute room is configured. Contact church building administrators if you still need a room.",
+          );
+          return;
+        }
+        if (Number(formData.room) !== lastMinuteFallbackRoom.id) {
+          setConflictError(
+            `Room holds within 24 hours may only use the last-minute room ("${lastMinuteFallbackRoom.name}").`,
+          );
+          return;
+        }
+      }
     }
     const selectedRoom = roomChoices.find(
       (room) => room.id === Number(formData.room),
@@ -864,6 +978,11 @@ export default function EventForm({
           : formData.allow_cross_branch_attendance,
       tardy_grace_minutes: formData.tardy_grace_minutes,
       is_room_hold: isRoomHold || formData.type === "MEETING",
+      estimated_headcount: showEstimatedHeadcount
+        ? formData.estimated_headcount === ""
+          ? null
+          : Number(formData.estimated_headcount)
+        : null,
       counts_toward_first_activity:
         isRoomHold || formData.type === "MEETING"
           ? false
@@ -876,26 +995,6 @@ export default function EventForm({
       attendance_format: isRoomHold ? "hybrid" : formData.attendance_format,
     };
 
-    if (isAdmin && !isRoomHold) {
-      payload.registration_enabled = formData.registration_enabled;
-      payload.onsite_registration_required =
-        formData.attendance_format === "online_only"
-          ? false
-          : formData.onsite_registration_required;
-      payload.online_registration_required =
-        formData.attendance_format === "onsite_only"
-          ? false
-          : formData.online_registration_required;
-      payload.onsite_capacity =
-        formData.onsite_capacity === ""
-          ? null
-          : Number(formData.onsite_capacity);
-      payload.online_capacity =
-        formData.online_capacity === ""
-          ? null
-          : Number(formData.online_capacity);
-    }
-
     const conflict = findScheduleConflict({
       payload,
       events: existingEvents,
@@ -905,7 +1004,6 @@ export default function EventForm({
     });
     if (conflict) {
       setConflictError(conflict.message);
-      toast.error(conflict.message);
       return;
     }
     setConflictError(null);
@@ -922,109 +1020,6 @@ export default function EventForm({
     }
 
     await submitPayload(payload);
-  };
-
-  const resetTierForm = () => {
-    setEditingTierId(null);
-    setTierForm(EMPTY_TIER_FORM);
-  };
-
-  const startEditTier = (tier: EventRegistrationTier) => {
-    setEditingTierId(tier.id);
-    setTierForm({
-      code: tier.code,
-      label: tier.label,
-      onsite_offered: tier.onsite_offered,
-      online_offered: tier.online_offered,
-      onsite_price: tier.onsite_price,
-      online_price: tier.online_price,
-      sort_order: tier.sort_order,
-    });
-  };
-
-  const handleTierFormChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value, type } = e.target;
-    const checked = e.target.checked;
-    if (name === "sort_order") {
-      if (value === "") {
-        setTierForm((prev) => ({ ...prev, sort_order: "" }));
-        return;
-      }
-      const parsed = Number.parseInt(value, 10);
-      if (Number.isFinite(parsed)) {
-        setTierForm((prev) => ({ ...prev, sort_order: parsed }));
-      }
-      return;
-    }
-    setTierForm((prev) => ({
-      ...prev,
-      [name]: type === "checkbox" ? checked : value,
-    }));
-  };
-
-  const handleSaveTier = async () => {
-    if (!initialData?.id) return;
-    const code = tierForm.code.trim();
-    const label = tierForm.label.trim();
-    if (!code || !label) {
-      toast.error("Tier code and label are required.");
-      return;
-    }
-    if (!tierForm.onsite_offered && !tierForm.online_offered) {
-      toast.error("Offer at least one mode (onsite or online).");
-      return;
-    }
-    setTierSaving(true);
-    try {
-      const payload = {
-        code,
-        label,
-        onsite_offered: tierForm.onsite_offered,
-        online_offered: tierForm.online_offered,
-        onsite_price: tierForm.onsite_offered
-          ? tierForm.onsite_price || "0.00"
-          : "0.00",
-        online_price: tierForm.online_offered
-          ? tierForm.online_price || "0.00"
-          : "0.00",
-        sort_order:
-          tierForm.sort_order === "" ? 0 : Number(tierForm.sort_order),
-        is_active: true,
-      };
-      if (editingTierId != null) {
-        await eventRegistrationApi.updateTier(
-          initialData.id,
-          editingTierId,
-          payload,
-        );
-        toast.success("Tier updated.");
-      } else {
-        await eventRegistrationApi.createTier(initialData.id, payload);
-        toast.success("Tier created.");
-      }
-      resetTierForm();
-      await loadTiers();
-    } catch (error) {
-      toast.error(formatApiErrorMessage(error, "Failed to save tier."));
-    } finally {
-      setTierSaving(false);
-    }
-  };
-
-  const handleDeleteTier = async (tierId: number) => {
-    if (!initialData?.id) return;
-    if (!window.confirm("Delete this pricing tier?")) return;
-    setTierSaving(true);
-    try {
-      await eventRegistrationApi.deleteTier(initialData.id, tierId);
-      toast.success("Tier deleted.");
-      if (editingTierId === tierId) resetTierForm();
-      await loadTiers();
-    } catch (error) {
-      toast.error(formatApiErrorMessage(error, "Failed to delete tier."));
-    } finally {
-      setTierSaving(false);
-    }
   };
 
   const activeStartDate = formData.start_date || defaultFormData.start_date;
@@ -1050,13 +1045,56 @@ export default function EventForm({
   const recurrenceThroughValue = formatDateOnly(clampedThroughDate);
   const recurrenceMinThroughValue = formatDateOnly(activeStartDateObj);
   const recurrenceMaxThroughValue = formatDateOnly(recurrenceMaxThroughDate);
+  const scheduleKind = getScheduleKind(
+    formData.is_recurring,
+    recurrencePattern,
+  );
   const liveRecurrencePattern = formData.is_recurring
-    ? buildPattern(activeStartDate, {
-        ...(recurrencePattern ?? {}),
-        through: recurrenceThroughValue,
-      } as RecurrencePattern)
+    ? scheduleKind === "multi_day"
+      ? buildDailyPattern(recurrenceThroughValue, recurrencePattern)
+      : buildPattern(activeStartDate, {
+          ...(recurrencePattern ?? {}),
+          through: recurrenceThroughValue,
+        } as RecurrencePattern)
     : recurrencePattern;
   const repeatOption = getRepeatOption(liveRecurrencePattern);
+  const multiDayStartDate = formatDateOnly(activeStartDateObj);
+  const multiDayStartTime = formatTimeOnly(activeStartDateObj);
+  const activeEndDate =
+    parseLocalDateTime(formData.end_date || defaultFormData.end_date) ??
+    activeStartDateObj;
+  const multiDayEndTime = formatTimeOnly(activeEndDate);
+
+  const applyMultiDayDateTimes = (
+    nextStartDate: string,
+    nextEndDate: string,
+    nextStartTime: string,
+    nextEndTime: string,
+  ) => {
+    const startLocal = combineDateAndTime(nextStartDate, nextStartTime);
+    let endLocal = combineDateAndTime(nextStartDate, nextEndTime);
+    const startParsed = parseLocalDateTime(startLocal);
+    const endParsed = parseLocalDateTime(endLocal);
+    if (startParsed && endParsed && endParsed <= startParsed) {
+      endLocal = endDateFromStart(startLocal);
+    }
+    const throughCandidate =
+      parseLocalDateTime(`${nextEndDate}T00:00:00`) ??
+      parseLocalDateTime(`${nextStartDate}T00:00:00`);
+    const clamped = clampThroughDate(
+      startParsed ?? activeStartDateObj,
+      throughCandidate,
+    );
+    setFormData((prev) => ({
+      ...prev,
+      is_recurring: true,
+      start_date: startLocal,
+      end_date: endLocal,
+    }));
+    setRecurrencePattern((current) =>
+      buildDailyPattern(formatDateOnly(clamped), current),
+    );
+  };
 
   const handleRecurrenceThroughChange = (value: string) => {
     if (!value) return;
@@ -1216,25 +1254,19 @@ export default function EventForm({
                     </label>
                     <select
                       name="room"
-                      required={
-                        !(
-                          (formData.branch === "" && !allowsChurchWide) ||
-                          isEditingNationalLocked
-                        )
-                      }
-                      value={isChurchWide ? OFFSITE_ROOM : formData.room}
+                      required
+                      value={formData.room}
                       onChange={handleChange}
                       disabled={
+                        isChurchWide ||
                         (formData.branch === "" && !allowsChurchWide) ||
                         isEditingNationalLocked
                       }
                       className="w-full px-3 py-2 min-h-[44px] border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent disabled:bg-gray-100"
                     >
-                      {formData.room === "" && !isChurchWide && (
+                      {formData.room === "" && (
                         <option value="" disabled>
-                          {formData.branch === "" && !allowsChurchWide
-                            ? "Select a branch first"
-                            : "Select room"}
+                          Select room
                         </option>
                       )}
                       {!isChurchWide &&
@@ -1245,11 +1277,7 @@ export default function EventForm({
                           </option>
                         ))}
                       {!isRoomHold && (
-                        <option value={OFFSITE_ROOM}>
-                          {isChurchWide
-                            ? "Other / off-site (required for church-wide)"
-                            : "Other / off-site"}
-                        </option>
+                        <option value={OFFSITE_ROOM}>Other / off-site</option>
                       )}
                     </select>
                   </div>
@@ -1268,7 +1296,7 @@ export default function EventForm({
                         className="w-full px-3 py-2 min-h-[44px] border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent disabled:bg-gray-100"
                         placeholder={
                           isChurchWide
-                            ? "e.g., Calamba Tent"
+                            ? "e.g., SMX Convention Center"
                             : "e.g., Retreat center, park"
                         }
                       />
@@ -1288,56 +1316,203 @@ export default function EventForm({
                     church-wide event details.
                   </p>
                 )}
-                <div className="space-y-3 rounded-lg border border-gray-200 bg-gray-50 p-4">
-                  <label className="flex items-start gap-3 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      name="is_room_hold"
-                      checked={formData.is_room_hold}
-                      disabled={formData.type === "MEETING"}
-                      onChange={handleChange}
-                      className="mt-1 h-4 w-4 rounded border-gray-300 text-primary focus:ring-ring"
-                    />
-                    <span>
-                      <span className="block text-sm font-medium text-gray-800">
-                        Room booking / meeting only
-                      </span>
-                      <span className="mt-0.5 block text-xs text-gray-500">
-                        Requires a room in the church building. Door attendance
-                        is allowed; self-check-in and first activity credit are
-                        off. Keep the event type to show which activity this is
-                        about.
-                      </span>
-                    </span>
-                  </label>
-                  {!isRoomHold && selectedTypeIsActivity && (
-                    <label className="flex items-start gap-3 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        name="counts_toward_first_activity"
-                        checked={formData.counts_toward_first_activity}
-                        onChange={handleChange}
-                        className="mt-1 h-4 w-4 rounded border-gray-300 text-primary focus:ring-ring"
-                      />
-                      <span>
-                        <span className="block text-sm font-medium text-gray-800">
-                          Counts toward first activity attended
+                {((!isRoomHold && selectedTypeIsActivity) || isRoomHold) && (
+                  <div className="space-y-3 rounded-lg border border-gray-200 bg-gray-50 p-4">
+                    {!isRoomHold && selectedTypeIsActivity && (
+                      <label className="flex items-start gap-3 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          name="counts_toward_first_activity"
+                          checked={formData.counts_toward_first_activity}
+                          onChange={handleChange}
+                          className="mt-1 h-4 w-4 rounded border-gray-300 text-primary focus:ring-ring"
+                        />
+                        <span>
+                          <span className="block text-sm font-medium text-gray-800">
+                            Counts toward first activity attended
+                          </span>
+                          <span className="mt-0.5 block text-xs text-gray-500">
+                            Only for real first-encounter sessions (not
+                            practices or planning). Guest check-in may set first
+                            activity to this event type.
+                          </span>
                         </span>
-                        <span className="mt-0.5 block text-xs text-gray-500">
-                          Only for real first-encounter sessions (not practices
-                          or planning). Guest check-in may set first activity to
-                          this event type.
-                        </span>
-                      </span>
+                      </label>
+                    )}
+                    {isRoomHold && (
+                      <p className="text-xs text-gray-600">
+                        This books a room in the church building. It is not
+                        recorded as a person&apos;s first activity attended.
+                      </p>
+                    )}
+                  </div>
+                )}
+                {isRoomHold && roomHoldNeedsLastMinute && (
+                  <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                    {LAST_MINUTE_ADMIN_NOTE}
+                    {lastMinuteFallbackRoom
+                      ? ` Available now: ${lastMinuteFallbackRoom.name}.`
+                      : " No last-minute room is configured for this branch."}
+                  </p>
+                )}
+
+                {showEstimatedHeadcount && (
+                  <div>
+                    <label
+                      htmlFor="event-estimated-headcount"
+                      className="block text-sm font-medium text-gray-700 mb-2"
+                    >
+                      Estimated headcount
                     </label>
-                  )}
-                  {isRoomHold && (
-                    <p className="text-xs text-gray-600">
-                      This books a room in the church building. It is not
-                      recorded as a person&apos;s first activity attended.
+                    <input
+                      id="event-estimated-headcount"
+                      type="number"
+                      name="estimated_headcount"
+                      min={1}
+                      step={1}
+                      value={formData.estimated_headcount}
+                      onChange={handleChange}
+                      className="w-full px-3 py-2 min-h-[44px] border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent"
+                      placeholder="Optional"
+                    />
+                    <p className="mt-1 text-xs text-gray-500">
+                      Helps approvers check room fit. Not used for attendance
+                      tracking.
                     </p>
-                  )}
-                </div>
+                    {headcountOverCapacity && (
+                      <p className="mt-2 text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                        Estimated headcount (
+                        {formData.estimated_headcount}) is above{" "}
+                        {selectedRoomForCapacity?.name} capacity (
+                        {selectedRoomForCapacity?.capacity}). You can still
+                        submit.
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                {canBorrowEquipment && (
+                  <div className="rounded-lg border border-gray-200 bg-gray-50">
+                    <button
+                      type="button"
+                      className="w-full flex items-start justify-between gap-3 p-4 text-left min-h-[44px]"
+                      aria-expanded={equipmentSectionOpen}
+                      onClick={() =>
+                        setEquipmentSectionOpen((open) => !open)
+                      }
+                    >
+                      <div className="min-w-0">
+                        <h4 className="text-sm font-semibold text-gray-800">
+                          Borrow equipment
+                          {Object.keys(equipmentSelected).length > 0 ? (
+                            <span className="ml-2 font-normal text-gray-500">
+                              ({Object.keys(equipmentSelected).length} selected)
+                            </span>
+                          ) : (
+                            <span className="ml-2 font-normal text-gray-400">
+                              Optional
+                            </span>
+                          )}
+                        </h4>
+                        {!equipmentSectionOpen && (
+                          <p className="mt-1 text-xs text-gray-500">
+                            Expand to borrow building equipment for this event.
+                          </p>
+                        )}
+                      </div>
+                      <span
+                        className="shrink-0 text-gray-500 text-sm leading-5"
+                        aria-hidden
+                      >
+                        {equipmentSectionOpen ? "▾" : "▸"}
+                      </span>
+                    </button>
+                    {equipmentSectionOpen && (
+                      <div className="px-4 pb-4 space-y-3">
+                        <p className="text-xs text-gray-500">
+                          Borrow window matches this event&apos;s schedule. Only
+                          available for rooms in the church building.
+                        </p>
+                        {equipmentTypes.length === 0 ? (
+                          <p className="text-xs text-gray-500">
+                            No equipment catalog for this branch yet.
+                          </p>
+                        ) : (
+                          <div className="space-y-2">
+                            {equipmentTypes.map((type) => {
+                              const selected = equipmentSelected[type.id];
+                              return (
+                                <div
+                                  key={type.id}
+                                  className="rounded border border-gray-200 bg-white p-3 space-y-2"
+                                >
+                                  <label className="flex items-center gap-2 text-sm text-gray-700">
+                                    <input
+                                      type="checkbox"
+                                      checked={Boolean(selected)}
+                                      onChange={(e) => {
+                                        setEquipmentSelected((prev) => {
+                                          const next = { ...prev };
+                                          if (e.target.checked) {
+                                            next[type.id] = {
+                                              qty: 1,
+                                              remarks: "",
+                                            };
+                                          } else {
+                                            delete next[type.id];
+                                          }
+                                          return next;
+                                        });
+                                      }}
+                                      className="h-4 w-4 text-primary focus:ring-ring border-gray-300 rounded"
+                                    />
+                                    {type.name} (available:{" "}
+                                    {type.quantity_available})
+                                  </label>
+                                  {selected && (
+                                    <>
+                                      <input
+                                        type="number"
+                                        min={1}
+                                        max={type.quantity_available}
+                                        value={selected.qty}
+                                        onChange={(e) =>
+                                          setEquipmentSelected((prev) => ({
+                                            ...prev,
+                                            [type.id]: {
+                                              ...prev[type.id],
+                                              qty: Number(e.target.value) || 1,
+                                            },
+                                          }))
+                                        }
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg min-h-[44px]"
+                                        aria-label={`${type.name} quantity`}
+                                      />
+                                      <input
+                                        placeholder="Optional remarks"
+                                        value={selected.remarks}
+                                        onChange={(e) =>
+                                          setEquipmentSelected((prev) => ({
+                                            ...prev,
+                                            [type.id]: {
+                                              ...prev[type.id],
+                                              remarks: e.target.value,
+                                            },
+                                          }))
+                                        }
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg min-h-[44px]"
+                                      />
+                                    </>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 {/* Description */}
                 <div>
@@ -1357,16 +1532,347 @@ export default function EventForm({
             </div>
           </div>
 
-          {!isRoomHold && (
-            <div>
-              <div className="p-0">
-                <h3 className="text-sm font-semibold text-gray-900 mb-2">
-                  Attendance
-                </h3>
-                <p className="text-xs text-gray-500 mb-4">
-                  How people check in, and related registration options.
-                </p>
-                <div className="space-y-4">
+          {/* Schedule Section */}
+          <div>
+            <div className="p-0">
+              <h3 className="text-sm font-semibold text-gray-900 mb-2">
+                Schedule
+              </h3>
+              <p className="text-xs text-gray-500 mb-4">
+                When the event will take place.
+              </p>
+              <div className="space-y-4">
+                <fieldset disabled={lockRecurrence} className="space-y-2">
+                  <legend className="block text-sm font-medium text-gray-700 mb-2">
+                    Schedule type
+                  </legend>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                    {(
+                      [
+                        [
+                          "single",
+                          "Single-day",
+                          "One date (or overnight span)",
+                        ],
+                        [
+                          "multi_day",
+                          "Multi-day",
+                          "Same hours each day, e.g. AWTA",
+                        ],
+                        ["recurring", "Recurring", "Weekly / monthly pattern"],
+                      ] as const
+                    ).map(([value, label, hint]) => {
+                      const selected = scheduleKind === value;
+                      return (
+                        <label
+                          key={value}
+                          className={[
+                            "flex flex-col gap-0.5 rounded-lg border px-3 py-2.5 min-h-[44px] cursor-pointer transition-colors",
+                            selected
+                              ? "border-primary bg-primary/10 text-primary"
+                              : "border-gray-200 bg-white text-gray-700 hover:border-gray-300",
+                          ].join(" ")}
+                        >
+                          <span className="inline-flex items-center gap-2 text-sm font-medium">
+                            <input
+                              type="radio"
+                              name="schedule_kind"
+                              value={value}
+                              checked={selected}
+                              onChange={handleChange}
+                              className="h-4 w-4 text-primary focus:ring-ring border-gray-300"
+                            />
+                            {label}
+                          </span>
+                          <span
+                            className={[
+                              "text-[11px] pl-6",
+                              selected ? "text-primary/80" : "text-gray-500",
+                            ].join(" ")}
+                          >
+                            {hint}
+                          </span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                </fieldset>
+
+                {scheduleKind === "multi_day" ? (
+                  <div className="space-y-4">
+                    <p className="text-xs text-gray-500">
+                      Same daily start and end time on every date from the first
+                      day through the last day.
+                    </p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          First date *
+                        </label>
+                        <input
+                          type="date"
+                          required
+                          value={multiDayStartDate}
+                          disabled={lockRecurrence}
+                          onChange={(e) =>
+                            applyMultiDayDateTimes(
+                              e.target.value,
+                              recurrenceThroughValue,
+                              multiDayStartTime,
+                              multiDayEndTime,
+                            )
+                          }
+                          className="w-full px-3 py-2 min-h-[44px] border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Last date *
+                        </label>
+                        <input
+                          type="date"
+                          required
+                          value={recurrenceThroughValue}
+                          min={recurrenceMinThroughValue}
+                          max={recurrenceMaxThroughValue}
+                          disabled={lockRecurrence}
+                          onChange={(e) =>
+                            applyMultiDayDateTimes(
+                              multiDayStartDate,
+                              e.target.value,
+                              multiDayStartTime,
+                              multiDayEndTime,
+                            )
+                          }
+                          className="w-full px-3 py-2 min-h-[44px] border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Daily start time *
+                        </label>
+                        <input
+                          type="time"
+                          required
+                          value={multiDayStartTime}
+                          disabled={lockRecurrence}
+                          onChange={(e) =>
+                            applyMultiDayDateTimes(
+                              multiDayStartDate,
+                              recurrenceThroughValue,
+                              e.target.value,
+                              multiDayEndTime,
+                            )
+                          }
+                          className="w-full px-3 py-2 min-h-[44px] border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Daily end time *
+                        </label>
+                        <input
+                          type="time"
+                          required
+                          value={multiDayEndTime}
+                          disabled={lockRecurrence}
+                          onChange={(e) =>
+                            applyMultiDayDateTimes(
+                              multiDayStartDate,
+                              recurrenceThroughValue,
+                              multiDayStartTime,
+                              e.target.value,
+                            )
+                          }
+                          className="w-full px-3 py-2 min-h-[44px] border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent"
+                        />
+                      </div>
+                    </div>
+                    <p className="text-xs text-gray-500">
+                      {formatRecurrenceSummary(liveRecurrencePattern)}
+                    </p>
+                  </div>
+                ) : (
+                  <>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Start Date & Time *
+                        </label>
+                        <input
+                          type="datetime-local"
+                          name="start_date"
+                          required
+                          value={formatDateTimeLocal(formData.start_date)}
+                          onChange={(e) => {
+                            const value = e.target.value;
+                            const nextEnd = endDateFromStart(value);
+                            setFormData((prev) => {
+                              const next = {
+                                ...prev,
+                                start_date: value,
+                                end_date: nextEnd || prev.end_date,
+                              };
+                              if (prev.is_recurring) {
+                                setRecurrencePattern((current) =>
+                                  buildPattern(value, current),
+                                );
+                              }
+                              return next;
+                            });
+                          }}
+                          className="w-full px-3 py-2 min-h-[44px] border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          End Date & Time *
+                        </label>
+                        <input
+                          type="datetime-local"
+                          name="end_date"
+                          required
+                          value={formatDateTimeLocal(formData.end_date)}
+                          onChange={(e) => {
+                            const value = e.target.value;
+                            setFormData((prev) => ({
+                              ...prev,
+                              end_date: value,
+                            }));
+                          }}
+                          className="w-full px-3 py-2 min-h-[44px] border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent"
+                        />
+                      </div>
+                    </div>
+
+                    {scheduleKind === "recurring" && (
+                      <div className="ml-0 mt-1 space-y-3 border-l border-gray-200 pl-4">
+                        <p className="text-xs text-gray-500">
+                          {formatRecurrenceSummary(
+                            liveRecurrencePattern,
+                            activeStartDateObj.toLocaleDateString("en-US", {
+                              weekday: "long",
+                            }),
+                          )}
+                        </p>
+
+                        <div>
+                          <label
+                            htmlFor="recurrence_repeat"
+                            className="block text-xs font-medium text-gray-600 mb-1"
+                          >
+                            Repeat
+                          </label>
+                          <select
+                            id="recurrence_repeat"
+                            value={repeatOption}
+                            disabled={lockRecurrence}
+                            onChange={(e) =>
+                              handleRepeatOptionChange(
+                                e.target.value as RepeatOption,
+                              )
+                            }
+                            className="w-full md:w-64 px-3 py-2 min-h-[44px] border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent text-sm disabled:opacity-50"
+                          >
+                            <option value="weekly">Weekly</option>
+                            <option value="every_2_weeks">Every 2 weeks</option>
+                            <option value="monthly">Monthly</option>
+                          </select>
+                        </div>
+
+                        {repeatOption === "monthly" && (
+                          <fieldset
+                            className="space-y-2"
+                            disabled={lockRecurrence}
+                          >
+                            <legend className="text-xs font-medium text-gray-600">
+                              Monthly on
+                            </legend>
+                            <label className="flex items-center gap-2 text-sm text-gray-700">
+                              <input
+                                type="radio"
+                                name="monthly_mode"
+                                checked={
+                                  liveRecurrencePattern?.monthly_mode !==
+                                  "by_weekday"
+                                }
+                                onChange={() =>
+                                  handleMonthlyModeChange("by_date")
+                                }
+                                className="h-4 w-4 text-primary focus:ring-ring border-gray-300"
+                              />
+                              {monthlyDateOptionLabel(activeStartDateObj)}
+                            </label>
+                            <label className="flex items-center gap-2 text-sm text-gray-700">
+                              <input
+                                type="radio"
+                                name="monthly_mode"
+                                checked={
+                                  liveRecurrencePattern?.monthly_mode ===
+                                  "by_weekday"
+                                }
+                                onChange={() =>
+                                  handleMonthlyModeChange("by_weekday")
+                                }
+                                className="h-4 w-4 text-primary focus:ring-ring border-gray-300"
+                              />
+                              {monthlyWeekdayOptionLabel(activeStartDateObj)}
+                            </label>
+                          </fieldset>
+                        )}
+
+                        <div>
+                          <label className="block text-xs font-medium text-gray-600 mb-1">
+                            Repeat until
+                          </label>
+                          <input
+                            type="date"
+                            value={recurrenceThroughValue}
+                            min={recurrenceMinThroughValue}
+                            max={recurrenceMaxThroughValue}
+                            onChange={(e) =>
+                              handleRecurrenceThroughChange(e.target.value)
+                            }
+                            className="w-full md:w-64 px-3 py-2 min-h-[44px] border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent text-sm"
+                          />
+                          <p className="text-[11px] text-gray-400 mt-1">
+                            Schedule can be adjusted anytime. You can skip an
+                            individual date later without removing the series.
+                          </p>
+                        </div>
+                      </div>
+                    )}
+                  </>
+                )}
+
+                <div className="rounded-lg border border-gray-200 bg-gray-50 p-4 space-y-2">
+                  <div>
+                    <h4 className="text-sm font-semibold text-gray-800">
+                      Tardy grace period
+                    </h4>
+                    <p className="mt-1 text-xs text-gray-500">
+                      Minutes after the event start before a check-in counts as
+                      tardy. Use 0 for no grace (default for Sunday Service).
+                    </p>
+                  </div>
+                  <label className="block text-sm text-gray-700">
+                    <span className="sr-only">Tardy grace minutes</span>
+                    <input
+                      type="number"
+                      name="tardy_grace_minutes"
+                      min={0}
+                      step={1}
+                      value={formData.tardy_grace_minutes}
+                      onChange={handleChange}
+                      className="w-full md:w-40 px-3 py-2 min-h-[44px] border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent text-sm"
+                    />
+                    <span className="mt-1 block text-xs text-gray-500">
+                      minutes
+                    </span>
+                  </label>
+                </div>
+
+                {!isRoomHold && (
                   <div className="rounded-lg border border-gray-200 bg-gray-50 p-4 space-y-3">
                     <div>
                       <h4 className="text-sm font-semibold text-gray-800">
@@ -1403,8 +1909,10 @@ export default function EventForm({
                       ))}
                     </div>
                   </div>
+                )}
 
-                  {formData.attendance_format !== "onsite_only" && (
+                {!isRoomHold &&
+                  formData.attendance_format !== "onsite_only" && (
                     <div className="rounded-lg border border-gray-200 bg-gray-50 p-4 space-y-2">
                       <div>
                         <h4 className="text-sm font-semibold text-gray-800">
@@ -1429,270 +1937,7 @@ export default function EventForm({
                     </div>
                   )}
 
-                  {showRegistrationSettings && (
-                  <div className="rounded-lg border border-gray-200 bg-gray-50 p-4 space-y-3">
-                    <div>
-                      <h4 className="text-sm font-semibold text-gray-800">
-                        Paid registration (Admin)
-                      </h4>
-                      <p className="mt-1 text-xs text-gray-500">
-                        Enable paid registration, require confirmation before
-                        check-in, and set capacity limits per mode.
-                      </p>
-                    </div>
-                    <label className="flex items-center gap-2 text-sm text-gray-700">
-                      <input
-                        type="checkbox"
-                        name="registration_enabled"
-                        checked={formData.registration_enabled}
-                        onChange={handleChange}
-                        className="h-4 w-4 text-primary focus:ring-ring border-gray-300 rounded"
-                      />
-                      Enable paid registration
-                    </label>
-                    {formData.attendance_format !== "online_only" && (
-                      <label className="flex items-center gap-2 text-sm text-gray-700">
-                        <input
-                          type="checkbox"
-                          name="onsite_registration_required"
-                          checked={formData.onsite_registration_required}
-                          onChange={handleChange}
-                          className="h-4 w-4 text-primary focus:ring-ring border-gray-300 rounded"
-                        />
-                        Require registration for onsite check-in
-                      </label>
-                    )}
-                    {formData.attendance_format !== "onsite_only" && (
-                      <label className="flex items-center gap-2 text-sm text-gray-700">
-                        <input
-                          type="checkbox"
-                          name="online_registration_required"
-                          checked={formData.online_registration_required}
-                          onChange={handleChange}
-                          className="h-4 w-4 text-primary focus:ring-ring border-gray-300 rounded"
-                        />
-                        Require registration for online check-in
-                      </label>
-                    )}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      {formData.attendance_format !== "online_only" && (
-                        <label className="block text-sm text-gray-700">
-                          <span className="mb-1 block text-xs font-medium text-gray-600">
-                            Onsite capacity
-                          </span>
-                          <input
-                            type="number"
-                            name="onsite_capacity"
-                            min={0}
-                            step={1}
-                            value={formData.onsite_capacity}
-                            onChange={handleChange}
-                            placeholder="Unlimited"
-                            className="input-field text-sm"
-                          />
-                        </label>
-                      )}
-                      {formData.attendance_format !== "onsite_only" && (
-                        <label className="block text-sm text-gray-700">
-                          <span className="mb-1 block text-xs font-medium text-gray-600">
-                            Online capacity
-                          </span>
-                          <input
-                            type="number"
-                            name="online_capacity"
-                            min={0}
-                            step={1}
-                            value={formData.online_capacity}
-                            onChange={handleChange}
-                            placeholder="Unlimited"
-                            className="input-field text-sm"
-                          />
-                        </label>
-                      )}
-                    </div>
-
-                    {formData.registration_enabled && !initialData?.id && (
-                      <p className="text-xs text-amber-800 bg-amber-50 border border-amber-100 rounded-md px-3 py-2">
-                        Save the event first to add pricing tiers.
-                      </p>
-                    )}
-
-                    {formData.registration_enabled && initialData?.id ? (
-                      <div className="space-y-3 border-t border-gray-200 pt-3">
-                        <div className="flex items-center justify-between gap-2">
-                          <h5 className="text-sm font-semibold text-gray-800">
-                            Pricing tiers
-                          </h5>
-                          {tiersLoading ? (
-                            <span className="text-xs text-gray-500">
-                              Loading…
-                            </span>
-                          ) : null}
-                        </div>
-                        {tiers.length > 0 ? (
-                          <ul className="space-y-2">
-                            {tiers.map((tier) => (
-                              <li
-                                key={tier.id}
-                                className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 rounded-md border border-gray-200 bg-white px-3 py-2 text-sm"
-                              >
-                                <div>
-                                  <div className="font-medium text-gray-900">
-                                    {tier.label}{" "}
-                                    <span className="text-xs font-normal text-gray-500">
-                                      ({tier.code})
-                                    </span>
-                                  </div>
-                                  <div className="text-xs text-gray-500">
-                                    {tier.onsite_offered
-                                      ? `Onsite ₱${tier.onsite_price}`
-                                      : "Onsite off"}
-                                    {" · "}
-                                    {tier.online_offered
-                                      ? `Online ₱${tier.online_price}`
-                                      : "Online off"}
-                                    {" · sort "}
-                                    {tier.sort_order}
-                                  </div>
-                                </div>
-                                <div className="flex gap-2">
-                                  <Button
-                                    type="button"
-                                    variant="tertiary"
-                                    className="!px-2 !py-1 text-xs min-h-0"
-                                    onClick={() => startEditTier(tier)}
-                                    disabled={tierSaving}
-                                  >
-                                    Edit
-                                  </Button>
-                                  <Button
-                                    type="button"
-                                    variant="tertiary"
-                                    className="!px-2 !py-1 text-xs min-h-0 !text-red-600"
-                                    onClick={() =>
-                                      void handleDeleteTier(tier.id)
-                                    }
-                                    disabled={tierSaving}
-                                  >
-                                    Delete
-                                  </Button>
-                                </div>
-                              </li>
-                            ))}
-                          </ul>
-                        ) : !tiersLoading ? (
-                          <p className="text-xs text-gray-500">
-                            No tiers yet. Add one below.
-                          </p>
-                        ) : null}
-
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                          <label className="block text-xs text-gray-600">
-                            Code
-                            <input
-                              name="code"
-                              value={tierForm.code}
-                              onChange={handleTierFormChange}
-                              className="input-field mt-1 text-sm"
-                              placeholder="EARLY"
-                            />
-                          </label>
-                          <label className="block text-xs text-gray-600">
-                            Label
-                            <input
-                              name="label"
-                              value={tierForm.label}
-                              onChange={handleTierFormChange}
-                              className="input-field mt-1 text-sm"
-                              placeholder="Early bird"
-                            />
-                          </label>
-                          <label className="flex items-center gap-2 text-sm text-gray-700 sm:col-span-2">
-                            <input
-                              type="checkbox"
-                              name="onsite_offered"
-                              checked={tierForm.onsite_offered}
-                              onChange={handleTierFormChange}
-                              className="h-4 w-4 text-primary focus:ring-ring border-gray-300 rounded"
-                            />
-                            Onsite offered
-                          </label>
-                          {tierForm.onsite_offered && (
-                            <label className="block text-xs text-gray-600">
-                              Onsite price
-                              <input
-                                name="onsite_price"
-                                value={tierForm.onsite_price}
-                                onChange={handleTierFormChange}
-                                className="input-field mt-1 text-sm"
-                                inputMode="decimal"
-                              />
-                            </label>
-                          )}
-                          <label className="flex items-center gap-2 text-sm text-gray-700 sm:col-span-2">
-                            <input
-                              type="checkbox"
-                              name="online_offered"
-                              checked={tierForm.online_offered}
-                              onChange={handleTierFormChange}
-                              className="h-4 w-4 text-primary focus:ring-ring border-gray-300 rounded"
-                            />
-                            Online offered
-                          </label>
-                          {tierForm.online_offered && (
-                            <label className="block text-xs text-gray-600">
-                              Online price
-                              <input
-                                name="online_price"
-                                value={tierForm.online_price}
-                                onChange={handleTierFormChange}
-                                className="input-field mt-1 text-sm"
-                                inputMode="decimal"
-                              />
-                            </label>
-                          )}
-                          <label className="block text-xs text-gray-600">
-                            Sort order
-                            <input
-                              type="number"
-                              name="sort_order"
-                              value={tierForm.sort_order}
-                              onChange={handleTierFormChange}
-                              className="input-field mt-1 text-sm"
-                            />
-                          </label>
-                        </div>
-                        <div className="flex flex-wrap gap-2">
-                          <Button
-                            type="button"
-                            className="min-h-[40px] text-sm"
-                            onClick={() => void handleSaveTier()}
-                            disabled={tierSaving}
-                          >
-                            {tierSaving
-                              ? "Saving…"
-                              : editingTierId != null
-                                ? "Update tier"
-                                : "Add tier"}
-                          </Button>
-                          {editingTierId != null && (
-                            <Button
-                              type="button"
-                              variant="tertiary"
-                              className="min-h-[40px] text-sm"
-                              onClick={resetTierForm}
-                              disabled={tierSaving}
-                            >
-                              Cancel edit
-                            </Button>
-                          )}
-                        </div>
-                      </div>
-                    ) : null}
-                  </div>
-                )}
-
-                  {!isBookingRequest && formData.branch !== "" && (
+                {!isRoomHold && !isBookingRequest && formData.branch !== "" && (
                   <div className="rounded-lg border border-gray-200 bg-gray-50 p-4 space-y-3">
                     <div>
                       <h4 className="text-sm font-semibold text-gray-800">
@@ -1718,7 +1963,7 @@ export default function EventForm({
                   </div>
                 )}
 
-                  {!isBookingRequest && (
+                {!isRoomHold && !isBookingRequest && (
                   <div className="rounded-lg border border-gray-200 bg-gray-50 p-4 space-y-3">
                     <div>
                       <h4 className="text-sm font-semibold text-gray-800">
@@ -1787,209 +2032,6 @@ export default function EventForm({
                     ) : null}
                   </div>
                 )}
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Schedule Section */}
-          <div>
-            <div className="p-0">
-              <h3 className="text-sm font-semibold text-gray-900 mb-2">
-                Schedule
-              </h3>
-              <p className="text-xs text-gray-500 mb-4">
-                When the event will take place.
-              </p>
-              <div className="space-y-4">
-                {/* Date and Time */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Start Date & Time *
-                    </label>
-                    <input
-                      type="datetime-local"
-                      name="start_date"
-                      required
-                      value={formatDateTimeLocal(formData.start_date)}
-                      onChange={(e) => {
-                        const value = e.target.value;
-                        const nextEnd = endDateFromStart(value);
-                        setFormData((prev) => {
-                          const next = {
-                            ...prev,
-                            start_date: value,
-                            end_date: nextEnd || prev.end_date,
-                          };
-                          if (prev.is_recurring) {
-                            setRecurrencePattern((current) =>
-                              buildPattern(value, current),
-                            );
-                          }
-                          return next;
-                        });
-                      }}
-                      className="w-full px-3 py-2 min-h-[44px] border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      End Date & Time *
-                    </label>
-                    <input
-                      type="datetime-local"
-                      name="end_date"
-                      required
-                      value={formatDateTimeLocal(formData.end_date)}
-                      onChange={(e) => {
-                        const value = e.target.value;
-                        setFormData((prev) => ({ ...prev, end_date: value }));
-                      }}
-                      className="w-full px-3 py-2 min-h-[44px] border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent"
-                    />
-                  </div>
-                </div>
-
-                {/* Recurring Event */}
-                <div className="flex items-center">
-                  <input
-                    id="is_recurring"
-                    type="checkbox"
-                    name="is_recurring"
-                    checked={formData.is_recurring}
-                    onChange={handleChange}
-                    disabled={lockRecurrence}
-                    className="h-4 w-4 text-primary focus:ring-ring border-gray-300 rounded disabled:opacity-50"
-                  />
-                  <label
-                    htmlFor="is_recurring"
-                    className="ml-2 block text-sm text-gray-700"
-                  >
-                    This is a recurring event
-                  </label>
-                </div>
-
-                {formData.is_recurring && (
-                  <div className="ml-6 mt-3 space-y-3 border-l border-gray-200 pl-4">
-                    <p className="text-xs text-gray-500">
-                      {formatRecurrenceSummary(
-                        liveRecurrencePattern,
-                        activeStartDateObj.toLocaleDateString("en-US", {
-                          weekday: "long",
-                        }),
-                      )}
-                    </p>
-
-                    <div>
-                      <label
-                        htmlFor="recurrence_repeat"
-                        className="block text-xs font-medium text-gray-600 mb-1"
-                      >
-                        Repeat
-                      </label>
-                      <select
-                        id="recurrence_repeat"
-                        value={repeatOption}
-                        disabled={lockRecurrence}
-                        onChange={(e) =>
-                          handleRepeatOptionChange(
-                            e.target.value as RepeatOption,
-                          )
-                        }
-                        className="w-full md:w-64 px-3 py-2 min-h-[44px] border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent text-sm disabled:opacity-50"
-                      >
-                        <option value="weekly">Weekly</option>
-                        <option value="every_2_weeks">Every 2 weeks</option>
-                        <option value="monthly">Monthly</option>
-                      </select>
-                    </div>
-
-                    {repeatOption === "monthly" && (
-                      <fieldset className="space-y-2" disabled={lockRecurrence}>
-                        <legend className="text-xs font-medium text-gray-600">
-                          Monthly on
-                        </legend>
-                        <label className="flex items-center gap-2 text-sm text-gray-700">
-                          <input
-                            type="radio"
-                            name="monthly_mode"
-                            checked={
-                              liveRecurrencePattern?.monthly_mode !==
-                              "by_weekday"
-                            }
-                            onChange={() => handleMonthlyModeChange("by_date")}
-                            className="h-4 w-4 text-primary focus:ring-ring border-gray-300"
-                          />
-                          {monthlyDateOptionLabel(activeStartDateObj)}
-                        </label>
-                        <label className="flex items-center gap-2 text-sm text-gray-700">
-                          <input
-                            type="radio"
-                            name="monthly_mode"
-                            checked={
-                              liveRecurrencePattern?.monthly_mode ===
-                              "by_weekday"
-                            }
-                            onChange={() =>
-                              handleMonthlyModeChange("by_weekday")
-                            }
-                            className="h-4 w-4 text-primary focus:ring-ring border-gray-300"
-                          />
-                          {monthlyWeekdayOptionLabel(activeStartDateObj)}
-                        </label>
-                      </fieldset>
-                    )}
-
-                    <div>
-                      <label className="block text-xs font-medium text-gray-600 mb-1">
-                        Repeat until
-                      </label>
-                      <input
-                        type="date"
-                        value={recurrenceThroughValue}
-                        min={recurrenceMinThroughValue}
-                        max={recurrenceMaxThroughValue}
-                        onChange={(e) =>
-                          handleRecurrenceThroughChange(e.target.value)
-                        }
-                        className="w-full md:w-64 px-3 py-2 min-h-[44px] border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent text-sm"
-                      />
-                      <p className="text-[11px] text-gray-400 mt-1">
-                        Schedule can be adjusted anytime. You can skip an
-                        individual date later without removing the series.
-                      </p>
-                    </div>
-                  </div>
-                )}
-
-                <div className="rounded-lg border border-gray-200 bg-gray-50 p-4 space-y-2">
-                  <div>
-                    <h4 className="text-sm font-semibold text-gray-800">
-                      Tardy grace period
-                    </h4>
-                    <p className="mt-1 text-xs text-gray-500">
-                      Minutes after the event start before an onsite check-in
-                      counts as tardy. Online check-ins are not marked tardy.
-                      Use 0 for no grace (default for Sunday Service).
-                    </p>
-                  </div>
-                  <label className="block text-sm text-gray-700">
-                    <span className="sr-only">Tardy grace minutes</span>
-                    <input
-                      type="number"
-                      name="tardy_grace_minutes"
-                      min={0}
-                      step={1}
-                      value={formData.tardy_grace_minutes}
-                      onChange={handleChange}
-                      className="w-full md:w-40 px-3 py-2 min-h-[44px] border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent text-sm"
-                    />
-                    <span className="mt-1 block text-xs text-gray-500">
-                      minutes
-                    </span>
-                  </label>
-                </div>
               </div>
             </div>
           </div>

@@ -57,6 +57,17 @@ export function weekOfMonthLabel(weekOfMonth: number, weekday: string): string {
   return `${ordinal(weekOfMonth)} ${weekday}`;
 }
 
+export type ScheduleKind = "single" | "multi_day" | "recurring";
+
+export function getScheduleKind(
+  isRecurring?: boolean,
+  pattern?: RecurrencePattern | null
+): ScheduleKind {
+  if (!isRecurring) return "single";
+  if (pattern?.frequency === "daily") return "multi_day";
+  return "recurring";
+}
+
 export function getRepeatOption(
   pattern?: RecurrencePattern | null
 ): RepeatOption {
@@ -84,6 +95,10 @@ export function formatRecurrenceSummary(
       ? weekdayName(pattern?.weekdays?.[0])
       : fallbackWeekday || "the selected day";
 
+  if (pattern?.frequency === "daily") {
+    return `Multi-day: same daily hours every day through ${through}. Each day appears as its own card on the agenda.`;
+  }
+
   if (pattern?.frequency === "monthly") {
     if (pattern.monthly_mode === "by_weekday") {
       const weekLabel = weekOfMonthLabel(
@@ -106,6 +121,7 @@ export function formatRecurrenceSummary(
 export function recurrenceChipLabel(
   pattern?: RecurrencePattern | null
 ): string {
+  if (pattern?.frequency === "daily") return "multi-day";
   if (pattern?.frequency === "monthly") return "monthly";
   if ((pattern?.interval ?? 1) === 2) return "every 2 weeks";
   return "weekly";
@@ -132,7 +148,11 @@ export function buildRecurrencePattern(
   };
 
   const frequency: RecurrencePattern["frequency"] =
-    merged.frequency === "monthly" ? "monthly" : "weekly";
+    merged.frequency === "daily"
+      ? "daily"
+      : merged.frequency === "monthly"
+        ? "monthly"
+        : "weekly";
   const interval = frequency === "weekly" && merged.interval === 2 ? 2 : 1;
   const monthlyMode: MonthlyRecurrenceMode =
     merged.monthly_mode === "by_weekday" ? "by_weekday" : "by_date";
@@ -152,4 +172,19 @@ export function buildRecurrencePattern(
   }
 
   return pattern;
+}
+
+export function buildDailyPattern(
+  through: string,
+  existing?: RecurrencePattern | null
+): RecurrencePattern {
+  return {
+    frequency: "daily",
+    interval: 1,
+    weekdays: existing?.weekdays?.length
+      ? existing.weekdays
+      : [toPythonWeekday(new Date().getDay())],
+    through,
+    excluded_dates: existing?.excluded_dates ?? [],
+  };
 }

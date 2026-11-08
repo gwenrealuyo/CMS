@@ -25,7 +25,7 @@ from apps.notifications.scoping import (
 )
 from apps.people.models import ModuleCoordinator
 
-from apps.events.models import Event
+from apps.events.models import EquipmentBooking, Event, VehicleBooking
 from apps.events.permissions import can_approve_event_booking
 
 ACTIVITY_WINDOW_DAYS = 7
@@ -72,6 +72,8 @@ def build_notification_feed(user) -> List[NotificationItem]:
     items: List[NotificationItem] = []
     items.extend(_build_admin_alerts(user))
     items.extend(_build_event_booking_pending(user))
+    items.extend(_build_equipment_booking_pending(user))
+    items.extend(_build_vehicle_booking_pending(user))
     items.extend(_build_evangelism_group_pending(user))
     items.extend(_build_lesson_assignment_pending(user))
     items.extend(_build_cluster_report_due(user))
@@ -167,6 +169,8 @@ def _build_event_booking_pending(user) -> List[NotificationItem]:
             body = f"{event.title} — requested by {requester}"
         if room_label:
             body = f"{body} ({room_label})"
+        if event.estimated_headcount is not None:
+            body = f"{body} · {event.estimated_headcount} expected"
         items.append(
             NotificationItem(
                 key=f"event_booking_pending:{event.id}",
@@ -177,6 +181,84 @@ def _build_event_booking_pending(user) -> List[NotificationItem]:
                 body=body,
                 href="/events?booking=pending",
                 occurred_at=_aware_dt(event.created_at),
+            )
+        )
+        return items
+
+
+def _build_equipment_booking_pending(user) -> List[NotificationItem]:
+    if not can_approve_event_booking(user):
+        return []
+    if not is_module_enabled(ModuleCoordinator.ModuleType.EVENTS):
+        return []
+
+    items: List[NotificationItem] = []
+    pending = (
+        EquipmentBooking.objects.filter(
+            booking_status=EquipmentBooking.BookingStatus.PENDING
+        )
+        .select_related("created_by", "branch")
+        .order_by("-created_at")[:10]
+    )
+    for booking in pending:
+        requester = ""
+        if booking.created_by:
+            requester = (
+                booking.created_by.get_full_name() or booking.created_by.username
+            )
+        body = booking.title
+        if requester:
+            body = f"{booking.title} — requested by {requester}"
+        items.append(
+            NotificationItem(
+                key=f"equipment_booking_pending:{booking.id}",
+                category="alert",
+                type="equipment_booking_pending",
+                severity="warning",
+                title="Equipment booking pending",
+                body=body,
+                href="/events?resource=equipment&booking=pending",
+                occurred_at=_aware_dt(booking.created_at),
+            )
+        )
+    return items
+
+
+def _build_vehicle_booking_pending(user) -> List[NotificationItem]:
+    if not can_approve_event_booking(user):
+        return []
+    if not is_module_enabled(ModuleCoordinator.ModuleType.EVENTS):
+        return []
+
+    items: List[NotificationItem] = []
+    pending = (
+        VehicleBooking.objects.filter(
+            booking_status=VehicleBooking.BookingStatus.PENDING
+        )
+        .select_related("created_by", "vehicle")
+        .order_by("-created_at")[:10]
+    )
+    for booking in pending:
+        requester = ""
+        if booking.created_by:
+            requester = (
+                booking.created_by.get_full_name() or booking.created_by.username
+            )
+        body = booking.title
+        if requester:
+            body = f"{booking.title} — requested by {requester}"
+        if booking.vehicle_id:
+            body = f"{body} ({booking.vehicle.name})"
+        items.append(
+            NotificationItem(
+                key=f"vehicle_booking_pending:{booking.id}",
+                category="alert",
+                type="vehicle_booking_pending",
+                severity="warning",
+                title="Vehicle booking pending",
+                body=body,
+                href="/events?resource=vehicle&booking=pending",
+                occurred_at=_aware_dt(booking.created_at),
             )
         )
     return items

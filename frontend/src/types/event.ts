@@ -9,7 +9,7 @@ export interface EventOccurrence {
   is_base_occurrence: boolean;
 }
 
-export type RecurrenceFrequency = "weekly" | "monthly";
+export type RecurrenceFrequency = "daily" | "weekly" | "monthly";
 export type MonthlyRecurrenceMode = "by_date" | "by_weekday";
 
 export interface RecurrencePattern {
@@ -92,6 +92,7 @@ export interface EventRoom {
   capacity?: number | null;
   notes?: string;
   is_active: boolean;
+  is_last_minute_fallback?: boolean;
   sort_order: number;
   event_count?: number;
 }
@@ -129,6 +130,7 @@ export interface Event {
   online_capacity?: number | null;
   tardy_grace_minutes?: number;
   is_room_hold?: boolean;
+  estimated_headcount?: number | null;
   counts_toward_first_activity?: boolean;
   self_checkin_enabled?: boolean;
   attendance_format?: "hybrid" | "online_only" | "onsite_only";

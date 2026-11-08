@@ -20,9 +20,40 @@
 - Self-check-in is always **Online**. Hybrid requires `attendance_venue` on every POST; online-only omits venue. Session payloads include `requires_online_venue` and `attendance_venues` (empty when not required).
 - Manage venues in **Admin Settings → Events → Manage venues**.
 
+## Schedule Types
+
+Events use one of three schedule kinds in the form (mutually exclusive):
+
+| Kind | Storage | Occurrences |
+|------|---------|-------------|
+| **Single-day** | `is_recurring: false`, one `start_date` / `end_date` | One occurrence. End may fall on the next calendar day for overnight sessions; the agenda shows **Continues** on follow-on days of that continuous span. |
+| **Multi-day** | `is_recurring: true`, `recurrence_pattern.frequency: "daily"`, `through` = last date | One occurrence per calendar day from the first date through `through`, each using the same daily start/end times (e.g. Youth Revival Nov 10–12, 8:00 AM–12:00 PM each day). Agenda cards are normal (no Continues). |
+| **Recurring** | `is_recurring: true`, weekly / every-2-weeks / monthly pattern | Existing series expansion. |
+
+Multi-day reuses exclude / end-series / split-edit the same way as weekly/monthly. Existing one-off events with a long wall-clock `start`→`end` span are not migrated; they remain one continuous occurrence.
+
+### Multi-day payload example
+
+```json
+{
+  "is_recurring": true,
+  "start_date": "2026-11-10T08:00:00+08:00",
+  "end_date": "2026-11-10T12:00:00+08:00",
+  "recurrence_pattern": {
+    "frequency": "daily",
+    "interval": 1,
+    "weekdays": [1],
+    "through": "2026-11-12",
+    "excluded_dates": []
+  }
+}
+```
+
+`start_date` / `end_date` define the **first day’s** session times (same calendar day). `through` is the last occurrence date.
+
 ## Recurrence Pattern Format
 
-Recurring events store a JSON payload in `Event.recurrence_pattern`:
+Recurring and multi-day events store a JSON payload in `Event.recurrence_pattern`:
 
 ```json
 {
@@ -37,9 +68,9 @@ Recurring events store a JSON payload in `Event.recurrence_pattern`:
 }
 ```
 
-- `frequency`: `"weekly"` or `"monthly"`. Missing values default to `"weekly"`; unknown values are rejected on write.
-- `interval`: `1` (every week) or `2` (every 2 weeks). Only used for weekly series; monthly is always `1`. Older records without `interval` are treated as weekly.
-- `weekdays`: Python weekday integers (Monday = 0, … Sunday = 6). The frontend converts JavaScript’s Sunday=0 to this format before submit. Used for weekly series and monthly-by-weekday.
+- `frequency`: `"daily"`, `"weekly"`, or `"monthly"`. Missing values default to `"weekly"`; unknown values are rejected on write. `"daily"` is the Multi-day schedule kind (every calendar day from the base start through `through`).
+- `interval`: `1` (every week) or `2` (every 2 weeks). Only used for weekly series; daily and monthly are always `1`. Older records without `interval` are treated as weekly.
+- `weekdays`: Python weekday integers (Monday = 0, … Sunday = 6). The frontend converts JavaScript’s Sunday=0 to this format before submit. Used for weekly series and monthly-by-weekday; ignored for daily expansion.
 - `monthly_mode`: `"by_date"` (same calendar day) or `"by_weekday"` (nth or last weekday). Monthly only.
 - `month_day`: 1–31 for monthly by date. If that day does not exist in a month (Jan 31 → February), the last day of the month is used.
 - `week_of_month`: `1`–`4` or `-1` (last that weekday in the month). Monthly by weekday only.
@@ -63,14 +94,16 @@ Room booking / meeting-only mode is driven by **`Event.is_room_hold`** (not sole
 - **`event_type`** still shows what the booking is about (affiliation). Admins can tag a room meeting as Mini Worship, Camping, etc.
 - **`MEETING`** (label **Room hold**, `counts_as_activity=false`) is the unaffiliated hold type. Selecting it forces `is_room_hold=true`. It never appears as First Activity Attended on person forms; `PersonSerializer` rejects that code.
 - Room holds require a real `EventRoom` on the selected branch. Other / off-site is not allowed.
+- **Lead time:** future room holds must start **≥ 24 hours** ahead (church timezone). Within 24 hours, only the branch’s **last-minute / walk-in** room (`EventRoom.is_last_minute_fallback`, one active per branch) may be used, and start must be **≥ 15 minutes** from now. The form shows a note to contact church building administrators if those rules cannot be met. Past/already-started holds skip this check.
 - **Door attendance / check-in is allowed** (building in/out). Self-check-in cannot be enabled. Registration and expected-attendee mode stay off.
+- **`estimated_headcount`** (optional) is planning metadata for approvers and facilities — not attendance Remaining/Surprises and not registration capacity. The form shows it for room holds and booking requests; exceeding room capacity is a soft warning only (API still accepts).
 - **`counts_toward_first_activity`** (default off) controls whether guest check-in may set `first_activity_attended` to the event type. Forced off for room holds. Practices and planning leave it off even when the type is a ministry activity.
 - Follows the same publish-vs-pending booking rules and room overlap checks as other events. Sunday Service uniqueness does **not** apply, so a room hold can run at the same time as Sunday Service in a different room.
 - Shown on the Events agenda/calendar (and **Manage Pending** when pending) so the room looks booked.
 
 ## Frontend Behavior
 
-- `EventForm` (React) defaults new events to Sunday 9–11 AM Manila time, converts local picks to UTC before posting, and manages recurrence (weekly, every 2 weeks, or monthly by date / weekday).
+- `EventForm` (React) defaults new events to Sunday 9–11 AM Manila time, converts local picks to UTC before posting, and offers three schedule types: single-day, multi-day (same daily times across a date range), or recurring (weekly, every 2 weeks, or monthly by date / weekday).
 - `EventCard`, `EventView`, and `EventCalendar` render dates in the viewer’s locale via `toLocaleDateString` / `toLocaleTimeString`.
 - The Events page filters support search, type, year, and month. Approvers also get a **Manage Pending** button (count of pending bookings, `?booking=pending`). While that queue is open, month is set to All Months so requests are not hidden by the calendar. Month defaults to the calendar’s current view and includes an “All Months” option; “All Months” requires a specific year (Year cannot be “All”).
 - Deleting or editing a recurring event from the detail view asks what to apply:
@@ -254,8 +287,8 @@ Recurring series use `generate_occurrences` (including `excluded_dates`). Split-
 ### Who publishes vs who requests
 
 - **Publish immediately** (`booking_status=approved`): Admin, Pastor, Events Coordinator, Events Senior Coordinator.
-- **Submit for approval** (`pending`): Coordinator or Senior Coordinator of a **non-Events** module (Cluster, Evangelism, Sunday School, Lessons, Ministries, Finance). Toast copy: booking submitted for Events Coordinator approval.
-- **Approve / reject**: same people who publish immediately. `POST /api/events/{id}/approve/` re-runs conflict checks; `POST /api/events/{id}/reject/` frees the slot. Optional `review_note`.
+- **Submit for approval** (`pending`): Coordinator or Senior Coordinator of a **non-Events** module (Cluster, Evangelism, Sunday School, Lessons, Ministries, Finance). Toast copy: booking submitted for Events Coordinator approval. Requesters can set optional **Estimated headcount**; pending alerts include it when set (e.g. `· 18 expected`).
+- **Approve / reject**: same people who publish immediately. `POST /api/events/{id}/approve/` re-runs conflict checks; `POST /api/events/{id}/reject/` frees the slot. Optional `review_note`. Approvers see estimated headcount on the event detail and agenda when provided.
 
 If someone has **both** Events Coordinator/Senior **and** another module, Events leadership wins: they publish immediately and can approve.
 
@@ -270,9 +303,18 @@ Pending events:
 
 Existing rows migrated as `approved`. Duplicate historical Sunday Services are not auto-merged.
 
+## Equipment and vehicle bookings
+
+Same pending/approve roles as room holds:
+
+- **Equipment:** Borrow from the **event booking form** (`EventForm`) when the event uses a church room (not off-site). APIs: `/api/equipment/types/` (catalog with `quantity_available`) and `/api/equipment/bookings/` with nested `items_write`. Each booking **must** link to that event; borrow window defaults to the event schedule; branch is taken from the event. Overlapping pending/approved bookings consume quantity. The Equipment tab lists bookings for review/approval; Events admin records Received/Returned condition per line via `.../items/{id}/handoff/`.
+- **Vehicles:** Separate flow via the Vehicles tab. `/api/vehicles/` (driver allowlist via `driver_ids`) and `/api/vehicle-bookings/`. Requester may set optional `preferred_driver`; Events admin sets `assigned_driver` and records Out/In trip logs (`odometer`, `rfid_balance`) which update the vehicle’s last-known values.
+- HQ seed: Electric fan, Projector, Isuzu Travis.
+- Events page tabs: Events / rooms, Equipment (list/approve/handoff), Vehicles. Manage Equipment / Manage Vehicles for catalog and allowlists.
+
 ## Testing
 
-Recurring frequencies, skip/end/split, and series `DELETE` are covered by `apps.events.tests.test_recurrence` and `apps.events.tests.test_recurrence_delete`. Self check-in is covered by `apps.events.tests.test_self_checkin`. Attendance mode/venues are covered by `apps.events.tests.test_attendance_mode_venues`. Sunday Service uniqueness is covered by `apps.events.tests.test_sunday_service_uniqueness`. Room booking, requester permissions, and approve/reject are covered by `apps.events.tests.test_room_booking`. Room holds, attendance on holds, and First Activity exclusion are covered by `apps.events.tests.test_meeting_type`. AWTA church-wide / HQ national permissions are covered by `apps.events.tests.test_national_awta`. Paid registration (tiers, payments, check-in gate) is covered by `apps.events.tests.test_registration`.
+Recurring frequencies, skip/end/split, and series `DELETE` are covered by `apps.events.tests.test_recurrence` and `apps.events.tests.test_recurrence_delete`. Self check-in is covered by `apps.events.tests.test_self_checkin`. Attendance mode/venues are covered by `apps.events.tests.test_attendance_mode_venues`. Sunday Service uniqueness is covered by `apps.events.tests.test_sunday_service_uniqueness`. Room booking, requester permissions, and approve/reject are covered by `apps.events.tests.test_room_booking`. Room holds, lead-time rules, attendance on holds, and First Activity exclusion are covered by `apps.events.tests.test_meeting_type`. Equipment/vehicle bookings are covered by `apps.events.tests.test_facilities`. AWTA church-wide / HQ national permissions are covered by `apps.events.tests.test_national_awta`. Paid registration (tiers, payments, check-in gate) is covered by `apps.events.tests.test_registration`.
 
 Run them (uses SQLite to avoid Postgres permissions):
 

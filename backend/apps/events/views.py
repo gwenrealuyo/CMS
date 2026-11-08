@@ -244,6 +244,11 @@ class EventViewSet(viewsets.ModelViewSet):
         else:
             queryset = queryset.none()
 
+        branch_param = (
+            self.request.query_params.get("branch") if self.request else None
+        )
+        queryset = apply_event_room_branch_scope(queryset, user, branch_param)
+
         start_param = self.request.query_params.get("start") if self.request else None
         end_param = self.request.query_params.get("end") if self.request else None
 

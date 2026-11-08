@@ -16,8 +16,11 @@ export default function EventRecurringChip({
   const chipClass = size === "sm" ? "chip-primary-sm gap-1" : "chip-primary gap-1.5";
   const iconClass = size === "sm" ? "w-2.5 h-2.5" : "w-3.5 h-3.5";
 
+  const isMultiDay = pattern?.frequency === "daily";
+  const title = isMultiDay ? "Multi-day event" : `Repeats ${label}`;
+
   return (
-    <span className={chipClass} title={`Repeats ${label}`}>
+    <span className={chipClass} title={title}>
       <svg
         className={iconClass}
         fill="none"

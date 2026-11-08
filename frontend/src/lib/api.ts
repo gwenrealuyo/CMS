@@ -1023,6 +1023,7 @@ export const eventsApi = {
     type?: string;
     search?: string;
     booking_status?: "pending" | "approved";
+    branch?: number | string;
     page?: number;
     page_size?: number;
   }) =>
@@ -1356,6 +1357,7 @@ export type EventRoomWrite = {
   capacity?: number | null;
   notes?: string;
   is_active?: boolean;
+  is_last_minute_fallback?: boolean;
   sort_order?: number;
 };
 
@@ -1367,6 +1369,66 @@ export const eventRoomsApi = {
   update: (id: number | string, data: Partial<EventRoomWrite>) =>
     api.patch<EventRoom>(`/event-rooms/${id}/`, data),
   delete: (id: number | string) => api.delete(`/event-rooms/${id}/`),
+};
+
+export const equipmentTypesApi = {
+  list: (params?: { branch?: number | string; is_active?: boolean }) =>
+    api.get("/equipment/types/", { params }),
+  create: (data: Record<string, unknown>) =>
+    api.post("/equipment/types/", data),
+  update: (id: number | string, data: Record<string, unknown>) =>
+    api.patch(`/equipment/types/${id}/`, data),
+  delete: (id: number | string) => api.delete(`/equipment/types/${id}/`),
+};
+
+export const equipmentBookingsApi = {
+  list: (params?: {
+    branch?: number | string;
+    booking_status?: string;
+  }) => api.get("/equipment/bookings/", { params }),
+  create: (data: Record<string, unknown>) =>
+    api.post("/equipment/bookings/", data),
+  approve: (id: number | string, data?: { review_note?: string }) =>
+    api.post(`/equipment/bookings/${id}/approve/`, data || {}),
+  reject: (id: number | string, data?: { review_note?: string }) =>
+    api.post(`/equipment/bookings/${id}/reject/`, data || {}),
+  handoff: (
+    bookingId: number | string,
+    itemId: number | string,
+    data: Record<string, unknown>,
+  ) =>
+    api.post(
+      `/equipment/bookings/${bookingId}/items/${itemId}/handoff/`,
+      data,
+    ),
+};
+
+export const vehiclesApi = {
+  list: (params?: { branch?: number | string; is_active?: boolean }) =>
+    api.get("/vehicles/", { params }),
+  create: (data: Record<string, unknown>) => api.post("/vehicles/", data),
+  update: (id: number | string, data: Record<string, unknown>) =>
+    api.patch(`/vehicles/${id}/`, data),
+  delete: (id: number | string) => api.delete(`/vehicles/${id}/`),
+};
+
+export const vehicleBookingsApi = {
+  list: (params?: {
+    branch?: number | string;
+    booking_status?: string;
+  }) => api.get("/vehicle-bookings/", { params }),
+  create: (data: Record<string, unknown>) =>
+    api.post("/vehicle-bookings/", data),
+  approve: (id: number | string, data?: { review_note?: string }) =>
+    api.post(`/vehicle-bookings/${id}/approve/`, data || {}),
+  reject: (id: number | string, data?: { review_note?: string }) =>
+    api.post(`/vehicle-bookings/${id}/reject/`, data || {}),
+  assignDriver: (
+    id: number | string,
+    data: { assigned_driver?: number | null },
+  ) => api.post(`/vehicle-bookings/${id}/assign-driver/`, data),
+  createTripLog: (id: number | string, data: Record<string, unknown>) =>
+    api.post(`/vehicle-bookings/${id}/trip-logs/`, data),
 };
 
 export const attendanceApi = {

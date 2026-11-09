@@ -2417,7 +2417,7 @@ export const evangelismApi = {
   getTally: (params?: {
     cluster?: number | string;
     year?: number;
-    week_number?: number;
+    week_number?: number | string;
   }) =>
     api.get<EvangelismTallyRow[]>("/evangelism/weekly-reports/tally/", {
       params,

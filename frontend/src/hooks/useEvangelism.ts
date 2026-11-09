@@ -801,7 +801,7 @@ export const useMonthlyStatistics = (params?: {
 export const useEvangelismTally = (params?: {
   cluster?: number | string;
   year?: number;
-  week_number?: number;
+  week_number?: number | string;
 }) => {
   const [rows, setRows] = useState<EvangelismTallyRow[]>([]);
   const [loading, setLoading] = useState(false);

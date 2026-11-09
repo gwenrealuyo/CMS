@@ -6,7 +6,12 @@ nullable column (e.g. intended_cord, updated_by) is on the model but its
 migration has not run yet, SELECTs fail. Defer those fields so seeds can run safely.
 """
 
-PERSON_FIELDS_DEFER_IF_PENDING = ("intended_cord", "updated_at", "updated_by")
+PERSON_FIELDS_DEFER_IF_PENDING = (
+    "intended_cord",
+    "updated_at",
+    "updated_by",
+    "primary_cluster",
+)
 
 
 def defer_pending_person_fields(queryset):

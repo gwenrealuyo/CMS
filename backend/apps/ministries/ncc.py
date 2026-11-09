@@ -384,8 +384,10 @@ def backfill_ncc_roster_from_lessons_teachers() -> int:
             "student__intended_cord",
             "teacher__updated_at",
             "teacher__updated_by",
+            "teacher__primary_cluster",
             "student__updated_at",
             "student__updated_by",
+            "student__primary_cluster",
         )
         .iterator()
     )

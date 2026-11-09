@@ -68,6 +68,7 @@ export interface ClusterStatusTallyDetailRow {
   username?: string | null;
   role?: string | null;
   status: string;
+  family_names?: string[];
   from_status?: string | null;
   to_status?: string | null;
   changed_at?: string | null;

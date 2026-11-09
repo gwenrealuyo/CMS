@@ -450,8 +450,10 @@ class ClusterViewSet(viewsets.ModelViewSet):
             uncorded=uncorded,
             status=status_param,
         )
-        people = Person.objects.filter(id__in=person_ids).order_by(
-            "first_name", "last_name", "id"
+        people = (
+            Person.objects.filter(id__in=person_ids)
+            .prefetch_related("families")
+            .order_by("first_name", "last_name", "id")
         )
         rows = []
         for person in people:
@@ -470,6 +472,9 @@ class ClusterViewSet(viewsets.ModelViewSet):
                     "username": person.username,
                     "role": person.role,
                     "status": snapshot.get("status") or person.status,
+                    "family_names": [
+                        family.name for family in person.families.all() if family.name
+                    ],
                     "from_status": snapshot.get("from_status"),
                     "to_status": snapshot.get("to_status"),
                     "changed_at": changed_at,

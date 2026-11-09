@@ -1374,6 +1374,11 @@ class EvangelismTallyDrilldownSerializer(serializers.Serializer):
         required=False,
         allow_empty=True,
     )
+    family_names = serializers.ListField(
+        child=serializers.CharField(),
+        required=False,
+        allow_empty=True,
+    )
     cord_id = serializers.IntegerField(required=False, allow_null=True)
     cord_name = serializers.CharField(
         required=False, allow_blank=True, allow_null=True

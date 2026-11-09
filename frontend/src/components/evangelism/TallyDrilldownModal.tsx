@@ -9,7 +9,9 @@ import { formatLocaleDate } from "@/src/lib/date";
 import { formatPersonName } from "@/src/lib/name";
 import {
   formatPersonClusterLabel,
+  formatPersonFamilyLabel,
   getPersonClusterChipClass,
+  getPersonFamilyChipClass,
 } from "@/src/lib/personStatus";
 import { getIsoWeekPartsFromDateString } from "@/src/lib/isoWeek";
 import { EvangelismTallyDrilldownRow } from "@/src/types/evangelism";
@@ -162,8 +164,13 @@ export default function TallyDrilldownModal({
   }, [isOpen, requestKey, loadPage]);
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title={title}>
-      <div className="space-y-3">
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title={title}
+      contentClassName="flex min-h-0 flex-col overflow-hidden p-4 md:p-6"
+    >
+      <div className="flex min-h-0 flex-1 flex-col gap-3">
         {error && <ErrorMessage message={error} />}
         {loading ? (
           <div className="py-8 text-center text-sm text-gray-500">
@@ -175,148 +182,156 @@ export default function TallyDrilldownModal({
           </div>
         ) : (
           <>
-            <div className="text-xs text-gray-500">
+            <div className="shrink-0 text-xs text-gray-500">
               Showing {rows.length} of {count} records
             </div>
-            <div className="max-h-[50vh] space-y-2 overflow-y-auto pr-1">
-              {rows.map((row) => (
-                <div
-                  key={`${row.entity_type}-${row.id}`}
-                  className="rounded-md border border-gray-200 p-3"
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <div>
-                      <div className="flex flex-wrap items-center gap-2">
-                        <p className="text-sm font-medium text-gray-900">
-                          {buildDisplayName(row)}
-                        </p>
-                        {row.role && (
-                          <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary">
-                            {row.role}
-                          </span>
+            <div className="min-h-0 flex-1 space-y-2 overflow-y-auto overscroll-contain pr-0.5 md:max-h-[min(50vh,28rem)]">
+              {rows.map((row) => {
+                const familyLabel = formatPersonFamilyLabel(row.family_names);
+                const hasFamily = (row.family_names?.length ?? 0) > 0;
+                return (
+                  <div
+                    key={`${row.entity_type}-${row.id}`}
+                    className="rounded-md border border-gray-200 p-3"
+                  >
+                    <div className="flex min-w-0 flex-col gap-1.5 sm:flex-row sm:items-start sm:justify-between sm:gap-2">
+                      <p className="min-w-0 break-words text-sm font-medium text-gray-900">
+                        {buildDisplayName(row)}
+                      </p>
+                      <span className="chip-gray-sm w-fit shrink-0 text-[11px] uppercase tracking-wide">
+                        {row.member_id?.trim() || "No Member ID"}
+                      </span>
+                    </div>
+                    <div className="mt-2 flex flex-wrap items-center gap-1.5 sm:gap-2">
+                      {row.role && (
+                        <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary">
+                          {row.role}
+                        </span>
+                      )}
+                      {row.status && (
+                        <span className="rounded-full bg-green-50 px-2 py-0.5 text-[11px] font-medium text-green-700">
+                          {row.status}
+                        </span>
+                      )}
+                      <span
+                        className={getPersonClusterChipClass(
+                          (row.cluster_codes?.length ?? 0) > 0,
                         )}
-                        {row.status && (
-                          <span className="rounded-full bg-green-50 px-2 py-0.5 text-[11px] font-medium text-green-700">
-                            {row.status}
-                          </span>
-                        )}
+                      >
+                        {formatPersonClusterLabel(row.cluster_codes)}
+                      </span>
+                      <span
+                        className={getPersonFamilyChipClass(hasFamily)}
+                        title={familyLabel}
+                      >
+                        {familyLabel}
+                      </span>
+                      {row.cord_name && (
+                        <span className="inline-flex max-w-full items-center rounded-full border border-slate-300 bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-800 break-words">
+                          {row.cord_name}
+                        </span>
+                      )}
+                    </div>
+                    <div className="mt-2 flex flex-wrap gap-1.5 sm:gap-2">
+                      {row.pipeline_stage && (
+                        <span className="rounded-full bg-purple-50 px-2 py-0.5 text-[11px] font-medium text-purple-700">
+                          {row.pipeline_stage}
+                        </span>
+                      )}
+                      {formatDate(row.date_first_invited) && (
                         <span
-                          className={getPersonClusterChipClass(
-                            (row.cluster_codes?.length ?? 0) > 0,
+                          className={chipClassName(
+                            "rounded-full bg-slate-50 px-2 py-0.5 text-[11px] font-medium text-slate-700",
+                            row.date_first_invited,
                           )}
                         >
-                          {formatPersonClusterLabel(row.cluster_codes)}
+                          Invited {formatDate(row.date_first_invited)}
                         </span>
-                        {row.cord_name && (
-                          <span className="inline-flex items-center rounded-full border border-slate-300 bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-800">
-                            {row.cord_name}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                    <span className="chip-gray-sm text-[11px] uppercase tracking-wide">
-                      {row.member_id?.trim() || "No Member ID"}
-                    </span>
-                  </div>
-                  <div className="mt-2 flex flex-wrap gap-2">
-                    {row.pipeline_stage && (
-                      <span className="rounded-full bg-purple-50 px-2 py-0.5 text-[11px] font-medium text-purple-700">
-                        {row.pipeline_stage}
-                      </span>
-                    )}
-                    {formatDate(row.date_first_invited) && (
-                      <span
-                        className={chipClassName(
-                          "rounded-full bg-slate-50 px-2 py-0.5 text-[11px] font-medium text-slate-700",
-                          row.date_first_invited,
-                        )}
-                      >
-                        Invited {formatDate(row.date_first_invited)}
-                      </span>
-                    )}
-                    {formatDate(row.date_first_attended) && (
-                      <span
-                        className={chipClassName(
-                          "rounded-full bg-cyan-50 px-2 py-0.5 text-[11px] font-medium text-cyan-700",
-                          row.date_first_attended,
-                        )}
-                      >
-                        Attended {formatDate(row.date_first_attended)}
-                      </span>
-                    )}
-                    {formatDate(row.lessons_started_at) && (
-                      <span
-                        className={chipClassName(
-                          "rounded-full bg-orange-50 px-2 py-0.5 text-[11px] font-medium text-orange-800",
-                          row.lessons_started_at,
-                        )}
-                      >
-                        NCC {formatDate(row.lessons_started_at)}
-                      </span>
-                    )}
-                    {(formatDate(row.lessons_finished_at) ||
-                      row.has_finished_lessons) && (
-                      <span
-                        className={chipClassName(
-                          "rounded-full bg-indigo-50 px-2 py-0.5 text-[11px] font-medium text-indigo-700",
-                          row.lessons_finished_at,
-                        )}
-                      >
-                        {formatDate(row.lessons_finished_at)
-                          ? `Lessons Finished ${formatDate(row.lessons_finished_at)}`
-                          : "Lessons Finished (date unknown)"}
-                      </span>
-                    )}
-                    {formatDate(row.water_baptism_date) && (
-                      <span
-                        className={chipClassName(
-                          "rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-700",
-                          row.water_baptism_date,
-                        )}
-                      >
-                        Baptism {formatDate(row.water_baptism_date)}
-                      </span>
-                    )}
-                    {formatDate(row.spirit_baptism_date) && (
-                      <span
-                        className={chipClassName(
-                          "rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-medium text-emerald-700",
-                          row.spirit_baptism_date,
-                        )}
-                      >
-                        Holy Ghost {formatDate(row.spirit_baptism_date)}
-                      </span>
-                    )}
-                    {formatDate(row.reached_date) && (
-                      <span
-                        className={chipClassName(
-                          "rounded-full bg-violet-50 px-2 py-0.5 text-[11px] font-medium text-violet-700",
-                          row.reached_date,
-                        )}
-                      >
-                        Reached {formatDate(row.reached_date)}
-                      </span>
-                    )}
-                    {formatDate(row.event_date) &&
-                      shouldShowEventDateChip(row.metric) && (
+                      )}
+                      {formatDate(row.date_first_attended) && (
+                        <span
+                          className={chipClassName(
+                            "rounded-full bg-cyan-50 px-2 py-0.5 text-[11px] font-medium text-cyan-700",
+                            row.date_first_attended,
+                          )}
+                        >
+                          Attended {formatDate(row.date_first_attended)}
+                        </span>
+                      )}
+                      {formatDate(row.lessons_started_at) && (
+                        <span
+                          className={chipClassName(
+                            "rounded-full bg-orange-50 px-2 py-0.5 text-[11px] font-medium text-orange-800",
+                            row.lessons_started_at,
+                          )}
+                        >
+                          NCC {formatDate(row.lessons_started_at)}
+                        </span>
+                      )}
+                      {(formatDate(row.lessons_finished_at) ||
+                        row.has_finished_lessons) && (
+                        <span
+                          className={chipClassName(
+                            "rounded-full bg-indigo-50 px-2 py-0.5 text-[11px] font-medium text-indigo-700",
+                            row.lessons_finished_at,
+                          )}
+                        >
+                          {formatDate(row.lessons_finished_at)
+                            ? `Lessons Finished ${formatDate(row.lessons_finished_at)}`
+                            : "Lessons Finished (date unknown)"}
+                        </span>
+                      )}
+                      {formatDate(row.water_baptism_date) && (
                         <span
                           className={chipClassName(
                             "rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-700",
-                            row.event_date,
+                            row.water_baptism_date,
                           )}
                         >
-                          {getEventDateLabel(row.metric)}{" "}
-                          {formatDate(row.event_date)}
+                          Baptism {formatDate(row.water_baptism_date)}
                         </span>
                       )}
+                      {formatDate(row.spirit_baptism_date) && (
+                        <span
+                          className={chipClassName(
+                            "rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-medium text-emerald-700",
+                            row.spirit_baptism_date,
+                          )}
+                        >
+                          Holy Ghost {formatDate(row.spirit_baptism_date)}
+                        </span>
+                      )}
+                      {formatDate(row.reached_date) && (
+                        <span
+                          className={chipClassName(
+                            "rounded-full bg-violet-50 px-2 py-0.5 text-[11px] font-medium text-violet-700",
+                            row.reached_date,
+                          )}
+                        >
+                          Reached {formatDate(row.reached_date)}
+                        </span>
+                      )}
+                      {formatDate(row.event_date) &&
+                        shouldShowEventDateChip(row.metric) && (
+                          <span
+                            className={chipClassName(
+                              "rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-700",
+                              row.event_date,
+                            )}
+                          >
+                            {getEventDateLabel(row.metric)}{" "}
+                            {formatDate(row.event_date)}
+                          </span>
+                        )}
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
-            <div className="flex items-center justify-end gap-2 pt-2">
+            <div className="flex shrink-0 items-center justify-end gap-2 border-t border-gray-100 pt-3">
               <Button
                 variant="tertiary"
-                className="min-h-[36px] px-3 py-1.5 text-xs"
+                className="min-h-[40px] px-3 py-1.5 text-xs sm:min-h-[36px]"
                 disabled={!hasPrevious}
                 onClick={() => loadPage(page - 1)}
               >
@@ -324,7 +339,7 @@ export default function TallyDrilldownModal({
               </Button>
               <Button
                 variant="tertiary"
-                className="min-h-[36px] px-3 py-1.5 text-xs"
+                className="min-h-[40px] px-3 py-1.5 text-xs sm:min-h-[36px]"
                 disabled={!hasNext}
                 onClick={() => loadPage(page + 1)}
               >

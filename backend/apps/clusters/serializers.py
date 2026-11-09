@@ -1576,6 +1576,11 @@ class ClusterStatusTallyDetailSerializer(serializers.Serializer):
     username = serializers.CharField(required=False, allow_blank=True, allow_null=True)
     role = serializers.CharField(required=False, allow_blank=True, allow_null=True)
     status = serializers.CharField()
+    family_names = serializers.ListField(
+        child=serializers.CharField(),
+        required=False,
+        allow_empty=True,
+    )
     from_status = serializers.CharField(required=False, allow_blank=True, allow_null=True)
     to_status = serializers.CharField(required=False, allow_blank=True, allow_null=True)
     changed_at = serializers.DateTimeField(required=False, allow_null=True)

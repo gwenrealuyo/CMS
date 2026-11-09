@@ -236,6 +236,7 @@ export interface EvangelismTallyDrilldownRow {
   pipeline_stage?: string | null;
   person_id?: number | null;
   cluster_codes?: string[];
+  family_names?: string[];
   cord_id?: number | null;
   cord_name?: string | null;
   event_date?: string | null;

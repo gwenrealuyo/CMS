@@ -1274,7 +1274,7 @@ class EvangelismWeeklyReportViewSet(viewsets.ModelViewSet):
                 return max(person.water_baptism_date, person.spirit_baptism_date)
             return None
 
-        people = list(people_qs.prefetch_related("clusters"))
+        people = list(people_qs.prefetch_related("clusters", "families"))
         cord_map = active_cord_map_for_people(
             [p.id for p in people], cluster_id=cord_cluster_id
         )
@@ -1304,6 +1304,9 @@ class EvangelismWeeklyReportViewSet(viewsets.ModelViewSet):
                     "person_id": person.id,
                     "cluster_codes": [
                         c.code for c in person.clusters.all() if c.code
+                    ],
+                    "family_names": [
+                        f.name for f in person.families.all() if f.name
                     ],
                     "cord_id": membership.cord_id if membership else None,
                     "cord_name": membership.cord.name if membership else None,
@@ -1336,7 +1339,9 @@ class EvangelismWeeklyReportViewSet(viewsets.ModelViewSet):
             return None
 
         prospects = list(
-            prospects_qs.select_related("person").prefetch_related("person__clusters")
+            prospects_qs.select_related("person").prefetch_related(
+                "person__clusters", "person__families"
+            )
         )
         person_ids = [
             p.person_id for p in prospects if getattr(p, "person_id", None)
@@ -1367,6 +1372,11 @@ class EvangelismWeeklyReportViewSet(viewsets.ModelViewSet):
                 "person_id": prospect.person.id if prospect.person else None,
                 "cluster_codes": (
                     [c.code for c in prospect.person.clusters.all() if c.code]
+                    if prospect.person
+                    else []
+                ),
+                "family_names": (
+                    [f.name for f in prospect.person.families.all() if f.name]
                     if prospect.person
                     else []
                 ),
@@ -1623,17 +1633,44 @@ class EvangelismWeeklyReportViewSet(viewsets.ModelViewSet):
         """Unified weekly tally for evangelism + cluster reports."""
         cluster_id = request.query_params.get("cluster")
         year = request.query_params.get("year")
-        week_number = request.query_params.get("week_number")
 
         evangelism_qs = EvangelismWeeklyReport.objects.filter(cancelled=False)
         cluster_qs = ClusterWeeklyReport.objects.filter(cancelled=False)
 
-        if year:
-            evangelism_qs = evangelism_qs.filter(year=year)
-            cluster_qs = cluster_qs.filter(year=year)
-        if week_number:
-            evangelism_qs = evangelism_qs.filter(week_number=week_number)
-            cluster_qs = cluster_qs.filter(week_number=week_number)
+        year_int = None
+        if year not in (None, ""):
+            try:
+                year_int = int(year)
+            except (TypeError, ValueError) as exc:
+                raise ValidationError({"year": "year must be an integer."}) from exc
+            evangelism_qs = evangelism_qs.filter(year=year_int)
+            cluster_qs = cluster_qs.filter(year=year_int)
+
+        week_values = []
+        for value in request.query_params.getlist("week_number"):
+            week_values.extend(
+                part.strip() for part in str(value).split(",") if part.strip()
+            )
+        if week_values:
+            try:
+                week_numbers = [int(value) for value in week_values]
+                if year_int is not None:
+                    selected = parse_iso_weeks(year_int, week_numbers)
+                    week_numbers = [week for _year, week in selected]
+                else:
+                    for week in week_numbers:
+                        if not (1 <= week <= 53):
+                            raise ValueError(
+                                "week_number must be between 1 and 53."
+                            )
+            except ValueError as exc:
+                raise ValidationError({"week_number": str(exc)}) from exc
+            if not week_numbers:
+                raise ValidationError(
+                    {"week_number": "Select at least one week."}
+                )
+            evangelism_qs = evangelism_qs.filter(week_number__in=week_numbers)
+            cluster_qs = cluster_qs.filter(week_number__in=week_numbers)
 
         cluster = None
         if cluster_id:

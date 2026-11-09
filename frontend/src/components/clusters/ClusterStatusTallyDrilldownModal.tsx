@@ -8,7 +8,9 @@ import { PaginatedResponse } from "@/src/lib/api";
 import { formatLocaleDate } from "@/src/lib/date";
 import { formatPersonName } from "@/src/lib/name";
 import {
+  formatPersonFamilyLabel,
   formatPersonStatusLabel,
+  getPersonFamilyChipClass,
   getPersonStatusColor,
 } from "@/src/lib/personStatus";
 import { ClusterStatusTallyDetailRow } from "@/src/types/cluster";
@@ -100,8 +102,13 @@ export default function ClusterStatusTallyDrilldownModal({
   }, [isOpen, requestKey, loadPage]);
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title={title}>
-      <div className="space-y-3">
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title={title}
+      contentClassName="flex min-h-0 flex-col overflow-hidden p-4 md:p-6"
+    >
+      <div className="flex min-h-0 flex-1 flex-col gap-3">
         {error && <ErrorMessage message={error} />}
         {loading ? (
           <div className="py-8 text-center text-sm text-gray-500">
@@ -113,10 +120,10 @@ export default function ClusterStatusTallyDrilldownModal({
           </div>
         ) : (
           <>
-            <div className="text-xs text-gray-500">
+            <div className="shrink-0 text-xs text-gray-500">
               Showing {rows.length} of {count} records
             </div>
-            <div className="max-h-[50vh] space-y-2 overflow-y-auto pr-1">
+            <div className="min-h-0 flex-1 space-y-2 overflow-y-auto overscroll-contain pr-0.5 md:max-h-[min(50vh,28rem)]">
               {rows.map((row) => {
                 const fromLabel = row.from_status
                   ? formatPersonStatusLabel(row.from_status)
@@ -126,6 +133,8 @@ export default function ClusterStatusTallyDrilldownModal({
                 );
                 const dateLabel = formatLocaleDate(row.changed_at);
                 const sourceLabel = formatStatusChangeSource(row.source);
+                const familyLabel = formatPersonFamilyLabel(row.family_names);
+                const hasFamily = (row.family_names?.length ?? 0) > 0;
                 const transitionClass = row.in_window
                   ? "rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-800 ring-2 ring-offset-1 ring-gray-700"
                   : "rounded-full bg-slate-50 px-2 py-0.5 text-[11px] font-medium text-slate-700";
@@ -134,10 +143,10 @@ export default function ClusterStatusTallyDrilldownModal({
                     key={row.id}
                     className="rounded-md border border-gray-200 p-3"
                   >
-                    <div className="flex flex-wrap items-center gap-2">
-                      <p className="text-sm font-medium text-gray-900">
-                        {buildDisplayName(row)}
-                      </p>
+                    <p className="min-w-0 break-words text-sm font-medium text-gray-900">
+                      {buildDisplayName(row)}
+                    </p>
+                    <div className="mt-2 flex flex-wrap items-center gap-1.5 sm:gap-2">
                       {row.role && (
                         <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary">
                           {row.role}
@@ -150,9 +159,15 @@ export default function ClusterStatusTallyDrilldownModal({
                       >
                         {formatPersonStatusLabel(row.status)}
                       </span>
+                      <span
+                        className={getPersonFamilyChipClass(hasFamily)}
+                        title={familyLabel}
+                      >
+                        {familyLabel}
+                      </span>
                     </div>
-                    <div className="mt-2 flex flex-wrap items-center gap-2">
-                      <span className={transitionClass}>
+                    <div className="mt-2 flex flex-wrap items-center gap-1.5 sm:gap-2">
+                      <span className={`${transitionClass} max-w-full break-words`}>
                         {fromLabel ? `${fromLabel} → ${toLabel}` : toLabel}
                         {dateLabel ? ` · ${dateLabel}` : ""}
                       </span>
@@ -166,10 +181,10 @@ export default function ClusterStatusTallyDrilldownModal({
                 );
               })}
             </div>
-            <div className="flex items-center justify-end gap-2 pt-2">
+            <div className="flex shrink-0 items-center justify-end gap-2 border-t border-gray-100 pt-3">
               <Button
                 variant="tertiary"
-                className="min-h-[36px] px-3 py-1.5 text-xs"
+                className="min-h-[40px] px-3 py-1.5 text-xs sm:min-h-[36px]"
                 disabled={!hasPrevious}
                 onClick={() => loadPage(page - 1)}
               >
@@ -177,7 +192,7 @@ export default function ClusterStatusTallyDrilldownModal({
               </Button>
               <Button
                 variant="tertiary"
-                className="min-h-[36px] px-3 py-1.5 text-xs"
+                className="min-h-[40px] px-3 py-1.5 text-xs sm:min-h-[36px]"
                 disabled={!hasNext}
                 onClick={() => loadPage(page + 1)}
               >

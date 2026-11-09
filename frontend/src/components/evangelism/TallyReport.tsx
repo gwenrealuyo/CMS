@@ -1,12 +1,14 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ChevronDownIcon,
   ChevronUpIcon,
 } from "@heroicons/react/24/outline";
 import Table from "@/src/components/ui/Table";
 import Modal from "@/src/components/ui/Modal";
+import Button from "@/src/components/ui/Button";
+import Pagination from "@/src/components/ui/Pagination";
 import ViewModeToggle from "@/src/components/ui/ViewModeToggle";
 import ClusterView from "@/src/components/clusters/ClusterView";
 import {
@@ -23,6 +25,13 @@ import {
   resolveClusterRosterPeople,
 } from "@/src/lib/clusterRoster";
 import TallyDrilldownModal from "@/src/components/evangelism/TallyDrilldownModal";
+import TallyMonthFilter from "@/src/components/evangelism/TallyMonthFilter";
+import TallyWeekFilter, {
+  TALLY_ALL_WEEKS,
+  pruneSelectedWeeks,
+  weeksOverlappingMonths,
+  weeksQueryParam,
+} from "@/src/components/evangelism/TallyWeekFilter";
 import { getInitialListViewMode, useIsMdUp } from "@/src/lib/listViewMode";
 import {
   DEFAULT_TALLY_CLUSTER_SORT_DIR,
@@ -34,22 +43,46 @@ import {
   compareClusterRows,
   nextClusterSort,
 } from "@/src/lib/tallyClusterSort";
+import { currentMonthMonths } from "@/src/lib/tallyMonthWindow";
+
+const DEFAULT_ITEMS_PER_PAGE = 25;
 
 interface TallyReportProps {
   year?: number;
+  onYearChange?: (year: number) => void;
   clusterId?: number | string;
   allowedClusterIds?: number[];
 }
 
 export default function TallyReport({
   year,
+  onYearChange,
   clusterId,
   allowedClusterIds,
 }: TallyReportProps) {
   const selectedYear = year || new Date().getFullYear();
+  const [months, setMonths] = useState<number[]>(() =>
+    currentMonthMonths(selectedYear),
+  );
+  const [selectedWeeks, setSelectedWeeks] = useState<string[]>([
+    TALLY_ALL_WEEKS,
+  ]);
+  const [searchInput, setSearchInput] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(DEFAULT_ITEMS_PER_PAGE);
+  const [yearOptions, setYearOptions] = useState<number[]>([selectedYear]);
+  const [yearsLoading, setYearsLoading] = useState(false);
+
+  const weekParam = useMemo(
+    () => weeksQueryParam(selectedWeeks),
+    [selectedWeeks],
+  );
+
   const { rows, loading, error } = useEvangelismTally({
     year: selectedYear,
     cluster: clusterId,
+    week_number: weekParam,
   });
   const [clusterSortKey, setClusterSortKey] = useState<TallyClusterSortKey>(
     DEFAULT_TALLY_CLUSTER_SORT_KEY,
@@ -57,29 +90,6 @@ export default function TallyReport({
   const [clusterSortDir, setClusterSortDir] = useState<TallyClusterSortDir>(
     DEFAULT_TALLY_CLUSTER_SORT_DIR,
   );
-  const visibleRows = useMemo(() => {
-    const filtered =
-      allowedClusterIds == null
-        ? rows
-        : (() => {
-            const allowed = new Set(allowedClusterIds.map(Number));
-            return rows.filter(
-              (row) =>
-                row.cluster_id != null && allowed.has(Number(row.cluster_id)),
-            );
-          })();
-    return [...filtered].sort((left, right) => {
-      const clusterCmp = compareClusterRows(
-        left,
-        right,
-        clusterSortKey,
-        clusterSortDir,
-      );
-      if (clusterCmp !== 0) return clusterCmp;
-      if (left.year !== right.year) return right.year - left.year;
-      return right.week_number - left.week_number;
-    });
-  }, [allowedClusterIds, clusterSortDir, clusterSortKey, rows]);
   const [drilldown, setDrilldown] = useState<{
     year: number;
     weekNumber: number;
@@ -96,10 +106,157 @@ export default function TallyReport({
   const isMdUp = useIsMdUp();
   const effectiveViewMode: "table" | "cards" = isMdUp ? "table" : viewMode;
 
+  useEffect(() => {
+    setMonths(currentMonthMonths(selectedYear));
+  }, [selectedYear]);
+
+  useEffect(() => {
+    setSelectedWeeks((current) =>
+      pruneSelectedWeeks(current, selectedYear, months),
+    );
+  }, [months, selectedYear]);
+
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      setDebouncedSearch(searchInput.trim());
+    }, 300);
+    return () => clearTimeout(timeoutId);
+  }, [searchInput]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const fetchYears = async () => {
+      try {
+        setYearsLoading(true);
+        const response = await evangelismApi.getPeopleTallyYears();
+        if (cancelled) return;
+        const years = response.data.years || [];
+        const fallbackYear =
+          response.data.default_year || new Date().getFullYear();
+        const nextYears = years.length > 0 ? years : [fallbackYear];
+        setYearOptions(nextYears);
+      } catch (err) {
+        console.error(err);
+        if (!cancelled) {
+          setYearOptions([new Date().getFullYear()]);
+        }
+      } finally {
+        if (!cancelled) {
+          setYearsLoading(false);
+        }
+      }
+    };
+    void fetchYears();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    setYearOptions((current) => {
+      if (current.includes(selectedYear)) {
+        return current;
+      }
+      return [...current, selectedYear].sort((a, b) => b - a);
+    });
+  }, [selectedYear]);
+
+  useEffect(() => {
+    if (!onYearChange || yearOptions.length === 0) {
+      return;
+    }
+    if (!yearOptions.includes(selectedYear)) {
+      onYearChange(yearOptions[0]);
+    }
+  }, [onYearChange, selectedYear, yearOptions]);
+
+  const monthWeekSet = useMemo(
+    () => new Set(weeksOverlappingMonths(selectedYear, months)),
+    [months, selectedYear],
+  );
+
+  const visibleRows = useMemo(() => {
+    const query = debouncedSearch.toLowerCase();
+    const filtered = rows.filter((row) => {
+      if (allowedClusterIds != null) {
+        const allowed = new Set(allowedClusterIds.map(Number));
+        if (row.cluster_id == null || !allowed.has(Number(row.cluster_id))) {
+          return false;
+        }
+      }
+      if (!weekParam && !monthWeekSet.has(row.week_number)) {
+        return false;
+      }
+      if (query) {
+        const code = (row.cluster_code || "").toLowerCase();
+        const name = (row.cluster_name || "").toLowerCase();
+        if (!code.includes(query) && !name.includes(query)) {
+          return false;
+        }
+      }
+      return true;
+    });
+    return [...filtered].sort((left, right) => {
+      const clusterCmp = compareClusterRows(
+        left,
+        right,
+        clusterSortKey,
+        clusterSortDir,
+      );
+      if (clusterCmp !== 0) return clusterCmp;
+      if (left.year !== right.year) return right.year - left.year;
+      return right.week_number - left.week_number;
+    });
+  }, [
+    allowedClusterIds,
+    clusterSortDir,
+    clusterSortKey,
+    debouncedSearch,
+    monthWeekSet,
+    rows,
+    weekParam,
+  ]);
+
+  const totalPages = Math.ceil(visibleRows.length / itemsPerPage) || 1;
+  const page = Math.min(currentPage, totalPages);
+  const paginatedRows = visibleRows.slice(
+    (page - 1) * itemsPerPage,
+    page * itemsPerPage,
+  );
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [
+    debouncedSearch,
+    itemsPerPage,
+    months,
+    selectedWeeks,
+    selectedYear,
+    clusterSortKey,
+    clusterSortDir,
+  ]);
+
   const handleClusterHeaderClick = () => {
     const next = nextClusterSort(clusterSortKey, clusterSortDir);
     setClusterSortKey(next.key);
     setClusterSortDir(next.dir);
+  };
+
+  const handleResetFilters = () => {
+    const nextYear = yearOptions.includes(new Date().getFullYear())
+      ? new Date().getFullYear()
+      : yearOptions[0] || selectedYear;
+    if (onYearChange) {
+      onYearChange(nextYear);
+    }
+    setMonths(currentMonthMonths(nextYear));
+    setSelectedWeeks([TALLY_ALL_WEEKS]);
+    setSearchInput("");
+    setDebouncedSearch("");
+    setClusterSortKey(DEFAULT_TALLY_CLUSTER_SORT_KEY);
+    setClusterSortDir(DEFAULT_TALLY_CLUSTER_SORT_DIR);
+    setCurrentPage(1);
+    setItemsPerPage(DEFAULT_ITEMS_PER_PAGE);
   };
 
   const openWeeklyDrilldown = (
@@ -218,7 +375,7 @@ export default function TallyReport({
   }, [drilldown]);
 
   const fetchDrilldownPage = useCallback(
-    async (page: number) => {
+    async (pageNumber: number) => {
       if (!drilldown) {
         return { count: 0, next: null, previous: null, results: [] };
       }
@@ -227,7 +384,7 @@ export default function TallyReport({
         week_number: drilldown.weekNumber,
         cluster_id: drilldown.clusterId ?? "unassigned",
         metric: drilldown.metric,
-        page,
+        page: pageNumber,
         page_size: 20,
       });
       return response.data;
@@ -237,6 +394,57 @@ export default function TallyReport({
 
   return (
     <>
+      <div className="mb-4 grid grid-cols-1 gap-2 md:grid-cols-[minmax(0,6.75rem)_minmax(0,1.25fr)_minmax(0,1.5fr)_minmax(0,1fr)_auto] md:items-center">
+        {onYearChange ? (
+          <select
+            value={selectedYear}
+            onChange={(e) => onYearChange(Number(e.target.value))}
+            className="h-11 min-h-[44px] w-full rounded-md border border-gray-200 bg-white px-3 py-0 text-sm"
+            aria-label="Filter by year"
+            disabled={yearsLoading}
+          >
+            {yearOptions.map((optionYear) => (
+              <option key={optionYear} value={optionYear}>
+                {optionYear}
+              </option>
+            ))}
+          </select>
+        ) : (
+          <div
+            className="flex h-11 min-h-[44px] items-center rounded-md border border-gray-200 bg-gray-50 px-3 text-sm text-gray-700"
+            aria-label="Year"
+          >
+            {selectedYear}
+          </div>
+        )}
+        <TallyMonthFilter
+          year={selectedYear}
+          months={months}
+          onChange={setMonths}
+        />
+        <TallyWeekFilter
+          year={selectedYear}
+          months={months}
+          weeks={selectedWeeks}
+          onChange={setSelectedWeeks}
+        />
+        <input
+          type="search"
+          value={searchInput}
+          onChange={(e) => setSearchInput(e.target.value)}
+          placeholder="Search cluster..."
+          aria-label="Search cluster"
+          className="h-11 min-h-[44px] w-full rounded-md border border-gray-200 bg-white px-3 text-sm"
+        />
+        <Button
+          variant="tertiary"
+          type="button"
+          onClick={handleResetFilters}
+          className="h-11 min-h-[44px] w-full md:w-auto"
+        >
+          Reset
+        </Button>
+      </div>
       {loading ? (
         <div className="text-center py-8 text-gray-500">Loading tally...</div>
       ) : error ? (
@@ -341,7 +549,17 @@ export default function TallyReport({
                 ),
               },
             ]}
-            data={visibleRows}
+            data={paginatedRows}
+          />
+          <Pagination
+            currentPage={page}
+            totalPages={totalPages}
+            totalItems={visibleRows.length}
+            itemsPerPage={itemsPerPage}
+            onPageChange={setCurrentPage}
+            onItemsPerPageChange={setItemsPerPage}
+            showItemsPerPage
+            className="mt-4"
           />
         </>
       )}

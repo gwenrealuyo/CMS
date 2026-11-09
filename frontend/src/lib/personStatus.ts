@@ -54,9 +54,11 @@ export function formatPersonStatusLabel(
 }
 
 export function getPersonClusterChipClass(hasCluster: boolean): string {
+  const base =
+    "inline-flex max-w-full items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold break-words";
   return hasCluster
-    ? "inline-flex items-center rounded-full border border-blue-300 bg-blue-100 px-2 py-0.5 text-[10px] font-semibold text-blue-800"
-    : "inline-flex items-center rounded-full border border-red-300 bg-red-100 px-2 py-0.5 text-[10px] font-semibold text-red-700";
+    ? `${base} border-blue-300 bg-blue-100 text-blue-800`
+    : `${base} border-red-300 bg-red-100 text-red-700`;
 }
 
 export function formatPersonClusterLabel(clusterCodes?: string[] | null): string {
@@ -65,6 +67,22 @@ export function formatPersonClusterLabel(clusterCodes?: string[] | null): string
     return "No cluster";
   }
   return codes.join(", ");
+}
+
+export function getPersonFamilyChipClass(hasFamily: boolean): string {
+  const base =
+    "inline-flex max-w-full items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold break-words";
+  return hasFamily
+    ? `${base} border-emerald-300 bg-emerald-100 text-emerald-800`
+    : `${base} border-red-300 bg-red-100 text-red-700`;
+}
+
+export function formatPersonFamilyLabel(familyNames?: string[] | null): string {
+  const names = (familyNames ?? []).map((name) => name.trim()).filter(Boolean);
+  if (names.length === 0) {
+    return "No family";
+  }
+  return names.join(", ");
 }
 
 const STATUSES_REQUIRING_CHANGE_REASON = new Set<string>([

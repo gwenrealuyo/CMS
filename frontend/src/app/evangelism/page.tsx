@@ -2397,7 +2397,8 @@ export default function EvangelismPage() {
                 cluster reports). Click a cell for attendance drill-down.
               </p>
               <TallyReport
-                year={new Date().getFullYear()}
+                year={tallyYear}
+                onYearChange={setTallyYear}
                 allowedClusterIds={
                   isNonSeniorEvangelismCoordinator
                     ? reportableClusterIds

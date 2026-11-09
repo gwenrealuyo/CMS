@@ -99,6 +99,7 @@ class PersonViewSet(viewsets.ModelViewSet):
         "lesson_enrollment",
         "inviter",
         "intended_cord",
+        "primary_cluster",
         "updated_by",
     ).prefetch_related("clusters", "families")
     serializer_class = PersonSerializer

@@ -635,12 +635,16 @@ class EventSerializer(serializers.ModelSerializer):
         badges = []
         for record in queryset.select_related("person"):
             person = record.person
-            cluster_code = (
-                person.clusters.values_list("code", flat=True)
-                .exclude(code__isnull=True)
-                .exclude(code__exact="")
-                .first()
-            )
+            primary = person.primary_cluster
+            if primary and primary.code:
+                cluster_code = primary.code
+            else:
+                cluster_code = (
+                    person.clusters.values_list("code", flat=True)
+                    .exclude(code__isnull=True)
+                    .exclude(code__exact="")
+                    .first()
+                )
             family_name = person.families.values_list("name", flat=True).first()
             badges.append(
                 {

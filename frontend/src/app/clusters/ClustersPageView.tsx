@@ -8,6 +8,7 @@ import ClusterContentTabs, {
 import ClusterComplianceTab from "@/src/components/clusters/ClusterComplianceTab";
 import ClusterCareRoster from "@/src/components/clusters/ClusterCareRoster";
 import ClusterStatusTallyReport from "@/src/components/clusters/ClusterStatusTallyReport";
+import ClusterTransfersPanel from "@/src/components/clusters/ClusterTransfersPanel";
 import CareCaseForm from "@/src/components/clusters/CareCaseForm";
 import ClusterCard from "@/src/components/clusters/ClusterCard";
 import ClusterView from "@/src/components/clusters/ClusterView";
@@ -132,6 +133,7 @@ interface ClustersPageViewProps {
   isClusterModalOpen: boolean;
   onCloseClusterModal: () => void;
   onExpandClusterFromPanel: () => void;
+  onExpandPersonFromPanel?: () => void;
   onCancelClusterEdit: () => void;
   isDesktop: boolean;
   panelOpen: boolean;
@@ -300,6 +302,7 @@ export default function ClustersPageView({
   isClusterModalOpen,
   onCloseClusterModal,
   onExpandClusterFromPanel,
+  onExpandPersonFromPanel,
   onCancelClusterEdit,
   isDesktop,
   panelOpen,
@@ -515,10 +518,18 @@ export default function ClustersPageView({
   const totalMembers = summaryMemberCount;
   const unassignedMembers = summaryUnassignedCount;
 
-  const showDesktopPanel = isDesktop && panelOpen && !isClusterModalOpen;
+  const showDesktopPanel =
+    isDesktop && panelOpen && !isClusterModalOpen && !showPersonOverCluster;
   const useStackedToolbar = showDesktopPanel;
   const canExpandClusterPanel =
     panelEntity === "cluster" && panelMode !== "create" && !!panelCluster;
+  const canExpandPersonPanel =
+    panelEntity === "person" && !!panelPerson && !!onExpandPersonFromPanel;
+  const panelExpandHandler = canExpandPersonPanel
+    ? onExpandPersonFromPanel
+    : canExpandClusterPanel
+      ? onExpandClusterFromPanel
+      : undefined;
 
   const clusterBranchSelectInteractive =
     clusterBranchCanChangeFilter && !clusterBranchesLoading;
@@ -670,6 +681,12 @@ export default function ClustersPageView({
           }
         />
       );
+    }
+
+    // Avoid flashing the create form when the panel is open in view mode
+    // without a cluster payload yet (can happen across panel open/close).
+    if (isPanel && isViewMode && !currentViewCluster) {
+      return null;
     }
 
     return (
@@ -824,8 +841,45 @@ export default function ClustersPageView({
           showComplianceTab={canAccessCompliance}
           showReportsTab={canAccessClusterReports}
           showCareTab={canAccessMemberCare}
+          showTransfersTab
           branchFilter={renderClusterBranchSelect()}
         />
+
+        {activeTab === "transfers" && (
+          <div
+            className={
+              showDesktopPanel
+                ? "grid gap-6 lg:grid-cols-[minmax(0,1fr)_500px]"
+                : ""
+            }
+          >
+            <div className="min-w-0">
+              <ClusterTransfersPanel
+                canReview={
+                  user?.role === "ADMIN" ||
+                  user?.role === "PASTOR" ||
+                  isSeniorCoordinator("CLUSTER") ||
+                  user?.cluster_committee_role === "PRIMARY" ||
+                  user?.cluster_committee_role === "SUPPORT"
+                }
+                onViewPerson={onViewPerson}
+              />
+            </div>
+            {showDesktopPanel && (
+              <PersonDetailPanel
+                isOpen={panelOpen}
+                title={getPanelTitle()}
+                onClose={onCloseClusterPanel}
+                onExpand={panelExpandHandler}
+              >
+                {panelEntity === "cluster" && renderClusterFlow(true)}
+                {panelEntity === "person" && renderPersonFlow(true)}
+                {panelEntity === "family" && renderFamilyFlow(true)}
+                {panelEntity === "care" && renderCareFlow()}
+              </PersonDetailPanel>
+            )}
+          </div>
+        )}
 
         {activeTab === "tally" && (
           <ClusterStatusTallyReport
@@ -1706,9 +1760,7 @@ export default function ClustersPageView({
                 isOpen={panelOpen}
                 title={getPanelTitle()}
                 onClose={onBackClusterPanel}
-                onExpand={
-                  canExpandClusterPanel ? onExpandClusterFromPanel : undefined
-                }
+                onExpand={panelExpandHandler}
               >
                 {panelEntity === "cluster" && renderClusterFlow(true)}
                 {panelEntity === "person" && renderPersonFlow(true)}
@@ -1746,9 +1798,7 @@ export default function ClustersPageView({
                 isOpen={panelOpen}
                 title={getPanelTitle()}
                 onClose={onBackClusterPanel}
-                onExpand={
-                  canExpandClusterPanel ? onExpandClusterFromPanel : undefined
-                }
+                onExpand={panelExpandHandler}
               >
                 {panelEntity === "cluster" && renderClusterFlow(true)}
                 {panelEntity === "person" && renderPersonFlow(true)}
@@ -2030,8 +2080,8 @@ export default function ClustersPageView({
           </Modal>
         )}
 
-        {/* Person Profile Modal (overlays View Cluster modal) */}
-        {!isDesktop && showPersonOverCluster && personOverCluster && (
+        {/* Person Profile Modal (mobile open, or desktop expand from side panel) */}
+        {showPersonOverCluster && personOverCluster && (
           <Modal
             isOpen={showPersonOverCluster}
             onClose={onClosePersonOverCluster}

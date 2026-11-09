@@ -85,7 +85,7 @@ class ClusterMembershipAddTransferAPITests(APITestCase):
         self.assertEqual(journey.description, "Added to this cluster.")
         self.assertNotIn("Transferred", journey.description)
 
-    def test_transfer_removes_from_other_active_clusters(self):
+    def test_immediate_transfer_member_ids_rejected(self):
         member = self._person("xfermember", first_name="Xfer")
         self.east.members.add(member)
 
@@ -94,19 +94,13 @@ class ClusterMembershipAddTransferAPITests(APITestCase):
             member_ids=[member.id],
             transfer_member_ids=[member.id],
         )
-        self.assertEqual(response.status_code, 200, response.data)
+        self.assertEqual(response.status_code, 400, response.data)
+        details = response.data.get("details") or response.data
+        self.assertIn("transfer_member_ids", details)
 
         member.refresh_from_db()
         cluster_ids = set(member.clusters.values_list("id", flat=True))
-        self.assertEqual(cluster_ids, {self.west.id})
-        self.assertFalse(self.east.members.filter(id=member.id).exists())
-
-        journey = Journey.objects.filter(
-            user=member, type="CLUSTER"
-        ).order_by("-id").first()
-        self.assertIsNotNone(journey)
-        self.assertIn("Transferred from", journey.description)
-        self.assertIn("XFER-EAST", journey.description)
+        self.assertEqual(cluster_ids, {self.east.id})
 
     def test_family_auto_add_skips_other_cluster_members(self):
         in_east = self._person("familyeast", first_name="InEast")

@@ -16,7 +16,7 @@
 - Role: `role` (MEMBER|VISITOR|PASTOR|ADMIN) — coordinator capability is granted via `ModuleCoordinator` assignments, not a base role
   - If `water_baptism_date` is set and role is `VISITOR`, the person is promoted to `MEMBER` with status `ACTIVE` (including existing baptized visitors). Visitor is not a valid role while the date is set. Conversely, `MEMBER` requires a water baptism date: assigning or creating `MEMBER` without one coerces to `VISITOR` (Ongoing if `date_first_attended` is set, otherwise No Response; Deceased is preserved). Clearing the baptism date demotes a `MEMBER` the same way. `PASTOR` / `ADMIN` are unchanged.
 - Church-specific: `date_first_attended?`, `member_id?`, `status?` (ACTIVE|SEMIACTIVE|INACTIVE|DORMANT|FALLAWAY|DECEASED|ONGOING|NO_RESPONSE)
-- Relations: `inviter` → Person (nullable), `branch` → Branch (nullable), standard `groups` and `user_permissions` with custom related_names
+- Relations: `inviter` → Person (nullable), `branch` → Branch (nullable), `primary_cluster` → Cluster (nullable; required whenever the person has ≥1 cluster membership; sole membership is always that cluster), `intended_cord` → ClusterCord (nullable), standard `groups` and `user_permissions` with custom related_names
 - Media: `photo` (ImageField → `profiles/`)
 - Methods: `can_see_all_branches()` - Returns True for ADMIN users or PASTOR users from headquarters branch
 
@@ -57,6 +57,12 @@ Notes
 
 - Fields: `code` (unique, nullable), `name?`, `coordinator` → Person (nullable), `families` → ManyToMany(Family), `members` → ManyToMany(Person), `branch` → Branch (nullable), `location?`, `meeting_schedule?`, `description?`, `created_at`
 
+### ClusterTransferRequest
+
+- Fields: `person` → Person, `from_cluster` → Cluster, `to_cluster` → Cluster, `requested_by` → Person (nullable), `status` (pending|approved|rejected), `reason?`, `reviewed_by` → Person (nullable), `reviewed_at?`, `review_note?`, `created_at`, `updated_at`
+- Constraint: at most one **pending** request per person
+- On approve: leave `from_cluster`, join `to_cluster`, set `person.primary_cluster` to destination, write CLUSTER journey `"Transferred from {code}."`
+
 ### ClusterComplianceNote
 
 - Fields: `cluster` → Cluster, `created_by` → Person (nullable), `note` (TextField), `period_start` (DateField), `period_end` (DateField), `created_at`, `updated_at`
@@ -71,7 +77,7 @@ Notes
   - `BRANCH_TRANSFER` type is automatically created when a Person's branch changes
   - `CLUSTER` type journeys are automatically created when:
     - People attend cluster meetings (via ClusterWeeklyReport) - title: "Attended Cluster Meeting - {Cluster Code}"
-    - People are added to or transferred between clusters - title: "Joined Cluster - {Cluster Code}" or "Transferred to Cluster - {Cluster Code}"
+    - People are added to clusters (dual add) or an approved `ClusterTransferRequest` applies - title: "Added to cluster: {Cluster Code}" (transfer description: "Transferred from {Old Code}.")
   - `NOTE` type journeys are automatically created when a Person's status changes — title: "Status Update: {OLD_STATUS} → {NEW_STATUS}". Only created when status changes from one value to another (not for first assignment). Auto attendance coalesces to one journey entry per day; manual changes always create a new note with the pastor's reason. Manual statuses (DORMANT, FALLAWAY, DECEASED) are not overwritten by attendance auto-updates.
 
 ### PersonStatusChange

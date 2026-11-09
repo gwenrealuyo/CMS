@@ -76,6 +76,7 @@ def build_notification_feed(user) -> List[NotificationItem]:
     items.extend(_build_vehicle_booking_pending(user))
     items.extend(_build_evangelism_group_pending(user))
     items.extend(_build_lesson_assignment_pending(user))
+    items.extend(_build_cluster_transfer_pending(user))
     items.extend(_build_cluster_report_due(user))
     items.extend(_build_evangelism_report_due(user))
     items.extend(_build_cluster_report_overdue_oversight(user))
@@ -305,6 +306,62 @@ def _build_lesson_assignment_pending(user) -> List[NotificationItem]:
                 body=body,
                 href="/lessons?tab=teachers&approval=pending",
                 occurred_at=_aware_dt(assignment_request.created_at),
+            )
+        )
+    return items
+
+
+def _build_cluster_transfer_pending(user) -> List[NotificationItem]:
+    from apps.clusters.models import ClusterTransferRequest
+    from apps.clusters.transfer import can_review_cluster_transfer
+
+    if not can_review_cluster_transfer(user):
+        return []
+    if not is_module_enabled(ModuleCoordinator.ModuleType.CLUSTER):
+        return []
+
+    pending = ClusterTransferRequest.objects.filter(
+        status=ClusterTransferRequest.Status.PENDING
+    ).select_related("person", "from_cluster", "to_cluster", "requested_by")
+    if not user.can_see_all_branches():
+        from apps.clusters.permissions import can_pick_cluster_branch
+
+        if not can_pick_cluster_branch(user):
+            branch_id = getattr(user, "branch_id", None)
+            if branch_id:
+                pending = pending.filter(
+                    Q(from_cluster__branch_id=branch_id)
+                    | Q(to_cluster__branch_id=branch_id)
+                    | Q(person__branch_id=branch_id)
+                )
+            else:
+                pending = pending.none()
+    pending = pending.order_by("-created_at")[:10]
+
+    items: List[NotificationItem] = []
+    for transfer in pending:
+        person = transfer.person
+        person_name = person.get_full_name() or person.username
+        from_label = (
+            transfer.from_cluster.code
+            or transfer.from_cluster.name
+            or str(transfer.from_cluster_id)
+        )
+        to_label = (
+            transfer.to_cluster.code
+            or transfer.to_cluster.name
+            or str(transfer.to_cluster_id)
+        )
+        items.append(
+            NotificationItem(
+                key=f"cluster_transfer_pending:{transfer.id}",
+                category="alert",
+                type="cluster_transfer_pending",
+                severity="warning",
+                title="Cluster transfer pending",
+                body=f"{person_name}: {from_label} → {to_label}",
+                href="/clusters?tab=transfers&status=pending",
+                occurred_at=_aware_dt(transfer.created_at),
             )
         )
     return items

@@ -110,6 +110,16 @@ class Person(AbstractUser):
         on_delete=models.SET_NULL,
         related_name="intended_people",
     )
+    # Home cluster when the person has memberships. Null only with zero clusters;
+    # sole membership is always this cluster; multi requires an explicit choice.
+    primary_cluster = models.ForeignKey(
+        "clusters.Cluster",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="primary_members",
+        help_text="Primary cluster membership for this person",
+    )
     branch = models.ForeignKey(
         Branch,
         on_delete=models.SET_NULL,

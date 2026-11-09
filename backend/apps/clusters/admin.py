@@ -4,6 +4,7 @@ from .models import (
     Cluster,
     ClusterCord,
     ClusterCordMembership,
+    ClusterTransferRequest,
     ClusterWeeklyReport,
     ClusterComplianceNote,
 )
@@ -170,3 +171,33 @@ class ClusterComplianceNoteAdmin(admin.ModelAdmin):
             },
         ),
     )
+
+
+@admin.register(ClusterTransferRequest)
+class ClusterTransferRequestAdmin(admin.ModelAdmin):
+    list_display = (
+        "id",
+        "person",
+        "from_cluster",
+        "to_cluster",
+        "status",
+        "requested_by",
+        "reviewed_by",
+        "created_at",
+    )
+    list_filter = ("status", "created_at")
+    search_fields = (
+        "person__first_name",
+        "person__last_name",
+        "person__username",
+        "from_cluster__code",
+        "to_cluster__code",
+    )
+    autocomplete_fields = (
+        "person",
+        "from_cluster",
+        "to_cluster",
+        "requested_by",
+        "reviewed_by",
+    )
+    ordering = ("-created_at",)

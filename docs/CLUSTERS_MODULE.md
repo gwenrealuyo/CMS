@@ -70,7 +70,8 @@ Permissions match cluster mutation (cluster coordinator, senior CLUSTER, pastor,
 
 - **Automatic Member Addition (Backend)**: On create/update, `merge_cluster_member_ids()` unions submitted members with family members who are not already in another cluster.
 - **Other-cluster priority**: If a person is already in a different cluster, family assignment does not move them; they stay in their current cluster.
-- **Manual Add vs Transfer**: When a manager explicitly adds someone who already belongs to **exactly one** other active cluster, the UI asks whether to **Add** (keep dual membership) or **Transfer** (leave that cluster and join this one). If they already belong to **multiple** other clusters, only **Add** is offered (transfer those cases offline by removing them from the other clusters first). Both choices apply immediately (no senior approval). The API accepts write-only `transfer_member_ids` alongside `members` to perform transfers.
+- **Primary cluster**: Each person with cluster memberships has exactly one `Person.primary_cluster` (null only when they have none). A sole membership is always primary. On **create**, multi-membership requires explicit `primary_cluster_id`. On **person edit**, primary cannot be changed or dropped via save — use a transfer request; dual add/remove of **secondary** memberships is still allowed while primary stays the same.
+- **Manual Add vs Transfer**: Dual **Add** (keep membership in other clusters) still applies immediately from cluster assign/edit. **Immediate Transfer is removed** — real moves (including changing primary) use an approved **cluster transfer request** (`POST /api/clusters/transfer-requests/`). Reviewers (Cluster Senior, Pastor, Admin, Cluster Committee primary/support) approve or reject. On approve, the person leaves the source cluster, joins the destination, and primary becomes the destination.
 - **Real-Time UI Updates (Frontend)**: Adding a family in the form still adds members to the members field for immediate feedback; the backend re-merges eligible family members on save.
 - **Family Removal**: Removing a family in the form removes its members from the members list in the UI; save persists the updated families/members payload.
 - **Empty members + families**: Saving with families selected but no individual members still adds all eligible family members (see `docs/cluster-family-member-relationship-rules.md`).
@@ -147,17 +148,17 @@ When a `ClusterWeeklyReport` is created or updated with attendance data:
 
 When cluster memberships are created or updated:
 
-- **Trigger**: People are added via the `Cluster.members` ManyToMany field (and optional `transfer_member_ids`)
+- **Trigger**: People are added via the `Cluster.members` ManyToMany field, or via an approved cluster transfer request
 - **Journey Details**:
   - **Type**: `CLUSTER`
   - **Title**: Always `"Added to cluster: {Cluster Code|Name|id}"`
   - **Date**: Current church date (when the change happens)
   - **Description**:
-    - New member (or dual add without transfer): `"Added to this cluster."`
-    - Explicit transfer (`transfer_member_ids`): `"Transferred from {Old Cluster Code}."`
+    - New member / dual add: `"Added to this cluster."`
+    - Approved transfer request: `"Transferred from {Old Cluster Code}."`
   - **Verified By**: The person who made the change (from request context)
   - **User**: The person being added/transferred
-- **Transfer**: Only when `transfer_member_ids` includes the person — they are removed from other **active** clusters before the journey is written. Dual membership (add without transfer) does **not** use a Transferred description.
+- **Transfer**: Membership moves require `ClusterTransferRequest` approval. Dual membership (add without transfer) does **not** use a Transferred description. Writing non-empty `transfer_member_ids` on cluster create/update is rejected.
 - Journeys are not de-duplicated by title+date (re-joining the same day still creates a new row)
 
 #### Historical Backfill
@@ -305,7 +306,7 @@ Serializers (`apps.clusters.serializers`) expose:
   - `coordinator_id` – write-only field for setting coordinator
   - `families` – list of family IDs (when families are assigned, all family members are automatically added to members)
   - `members` – list of person IDs (automatically includes all family members when families are assigned)
-  - `transfer_member_ids` – write-only list of person IDs among `members` who should leave other active clusters (real transfer). Omitted IDs keep dual membership when already elsewhere.
+  - `transfer_member_ids` – deprecated; non-empty values are rejected. Use `/api/clusters/transfer-requests/` for approved moves.
   - `members_details` – read-only privacy-safe roster (`id`, `first_name`, `nickname`, `middle_name`, `suffix`, `last_name`, `role`, `status`, `photo`); includes visitors (role distinguishes them). No email/phone/address. Used so Members can see names on every branch cluster without expanding People list access.
   - `families_details` – read-only privacy-safe family roster (`id`, `name`, `member_count`); `member_count` is MEMBER + PASTOR only (visitors and admins excluded). No address or nested member PII.
   - **Automatic Member Addition**: The serializer's `create()` and `update()` methods automatically add all members from assigned families to the cluster's members list. Users can manually remove individual members if needed.

@@ -307,6 +307,12 @@ def prune_cord_memberships_for_removed_cluster_members(cluster: Cluster) -> int:
     if removed:
         stale.delete()
 
+    # Drop stale intended_cord pointing at this cluster for non-members
+    # (e.g. after transfer) so profile/edit stay consistent.
+    Person.objects.filter(intended_cord__cluster=cluster).exclude(
+        id__in=roster_ids
+    ).update(intended_cord=None)
+
     for cord in cluster.cords.filter(is_active=True, sub_coordinator_id__isnull=False):
         if cord.sub_coordinator_id not in roster_ids:
             cord.sub_coordinator = None

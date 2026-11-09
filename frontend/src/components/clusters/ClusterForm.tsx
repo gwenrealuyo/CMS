@@ -12,9 +12,7 @@ import Button from "@/src/components/ui/Button";
 import ErrorMessage from "@/src/components/ui/ErrorMessage";
 import SearchableSelect from "@/src/components/ui/SearchableSelect";
 import ConfirmationModal from "@/src/components/ui/ConfirmationModal";
-import ClusterMembershipChoiceModal, {
-  type ClusterMembershipChoice,
-} from "@/src/components/clusters/ClusterMembershipChoiceModal";
+import ClusterMembershipChoiceModal from "@/src/components/clusters/ClusterMembershipChoiceModal";
 import toast from "react-hot-toast";
 import {
   CLUSTER_MEETING_DAY_OPTIONS,
@@ -103,7 +101,6 @@ export default function ClusterForm({
   const [memberIds, setMemberIds] = useState<string[]>(
     getInitialFormData().memberIds,
   );
-  const [transferMemberIds, setTransferMemberIds] = useState<string[]>([]);
   const [membershipChoice, setMembershipChoice] = useState<{
     isOpen: boolean;
     person: Person | PersonUI | null;
@@ -183,7 +180,6 @@ export default function ClusterForm({
       setCoordinatorId(next.coordinatorId);
       setFamilyIds(next.familyIds);
       setMemberIds(next.memberIds);
-      setTransferMemberIds([]);
       setMembershipChoice({ isOpen: false, person: null });
       setReporterIds(next.reporterIds);
       setAssistantIds(next.assistantIds);
@@ -214,7 +210,6 @@ export default function ClusterForm({
     setCoordinatorId(next.coordinatorId);
     setFamilyIds(next.familyIds);
     setMemberIds(next.memberIds);
-    setTransferMemberIds([]);
     setMembershipChoice({ isOpen: false, person: null });
     setReporterIds(next.reporterIds);
     setAssistantIds(next.assistantIds);
@@ -257,7 +252,6 @@ export default function ClusterForm({
         name: name || undefined,
         families: familyIds.map(Number),
         members: memberIds.map(Number),
-        transfer_member_ids: transferMemberIds.map(Number),
         branch: branchId ? Number(branchId) : undefined,
         location: location || undefined,
         meeting_schedule: composeMeetingSchedule(meetingDay, meetingTime),
@@ -282,7 +276,6 @@ export default function ClusterForm({
       coordinatorId,
       familyIds,
       memberIds,
-      transferMemberIds,
       reporterIds,
       assistantIds,
       canEditLeadership,
@@ -538,18 +531,10 @@ export default function ClusterForm({
     );
   }, [people, memberSearch]);
 
-  const commitAddMember = (
-    member: Person | PersonUI,
-    choice: ClusterMembershipChoice | null,
-  ) => {
+  const commitAddMember = (member: Person | PersonUI) => {
     const memberIdStr = member.id.toString();
     if (!memberIds.includes(memberIdStr)) {
       setMemberIds([memberIdStr, ...memberIds]);
-    }
-    if (choice === "transfer") {
-      setTransferMemberIds((prev) =>
-        prev.includes(memberIdStr) ? prev : [memberIdStr, ...prev],
-      );
     }
     setMemberSearch("");
     setShowMemberDropdown(false);
@@ -570,12 +555,11 @@ export default function ClusterForm({
       setMembershipChoice({ isOpen: true, person: member });
       return;
     }
-    commitAddMember(member, null);
+    commitAddMember(member);
   };
 
   const removeMember = (memberId: string) => {
     setMemberIds(memberIds.filter((id) => id !== memberId));
-    setTransferMemberIds((prev) => prev.filter((id) => id !== memberId));
   };
 
   const getStatusColor = (status: string) => {
@@ -1358,16 +1342,10 @@ export default function ClusterForm({
               ) || "another cluster"
             : "another cluster"
         }
-        allowTransfer={
-          membershipChoice.person
-            ? otherClusterIdsForPerson(membershipChoice.person, initialData?.id)
-                .length === 1
-            : false
-        }
         onClose={() => setMembershipChoice({ isOpen: false, person: null })}
-        onChoose={(choice) => {
+        onChoose={() => {
           if (membershipChoice.person) {
-            commitAddMember(membershipChoice.person, choice);
+            commitAddMember(membershipChoice.person);
           }
         }}
         zIndex={80}

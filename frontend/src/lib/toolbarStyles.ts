@@ -15,11 +15,11 @@ export const TOOLBAR_BRANCH_HEADER_SELECT_LOCKED_CLASS = `${TOOLBAR_BRANCH_HEADE
 
 /** Outer slot for the page-header branch menu under tabs. */
 export const TOOLBAR_BRANCH_HEADER_SLOT_CLASS =
-  "flex w-full min-w-0 shrink-0 items-center md:w-auto";
+  "flex w-full min-w-0 shrink-0 items-center lg:w-auto";
 
 /** LockedControlTooltip wrapper around BranchFilterFrame in the page header. */
 export const TOOLBAR_BRANCH_HEADER_LOCKED_WRAPPER_CLASS =
-  "block w-full min-w-0 cursor-default md:w-52";
+  "block w-full min-w-0 cursor-default lg:w-52";
 
 export const TOOLBAR_CARD_CLASS =
   "rounded-xl border border-gray-200 bg-white p-4 md:p-6 shadow-sm";

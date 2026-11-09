@@ -17,6 +17,7 @@ from .models import (
     Cluster,
     ClusterComplianceNote,
     ClusterCord,
+    ClusterTransferRequest,
     ClusterWeeklyReport,
     member_attendance_rate_q,
 )
@@ -100,6 +101,7 @@ from apps.clusters.permissions import (
     ensure_user_can_operate_cluster_or_privileged,
     filter_clusters_for_read,
     filter_weekly_reports_for_user,
+    managed_cluster_ids_for_operator,
 )
 
 
@@ -1677,4 +1679,120 @@ class ClusterWeeklyReportViewSet(viewsets.ModelViewSet):
             {"error": "PDF export not yet implemented. Use CSV export instead."},
             status=status.HTTP_501_NOT_IMPLEMENTED
         )
+
+
+class ClusterTransferRequestViewSet(viewsets.ModelViewSet):
+    """List/create cluster transfer requests; approve/reject pending ones."""
+
+    http_method_names = ["get", "post", "head", "options"]
+    pagination_class = PersonPagination
+    queryset = ClusterTransferRequest.objects.all()
+
+    def get_serializer_class(self):
+        from .transfer_serializers import ClusterTransferRequestSerializer
+
+        return ClusterTransferRequestSerializer
+
+    def get_permissions(self):
+        if self.action in ("list", "retrieve"):
+            return [
+                IsAuthenticatedAndNotVisitor(),
+                HasModuleAccess("CLUSTER", "read"),
+            ]
+        if self.action == "create":
+            return [
+                IsAuthenticatedAndNotVisitor(),
+                HasModuleAccess("CLUSTER", "write"),
+            ]
+        # approve / reject
+        return [
+            IsAuthenticatedAndNotVisitor(),
+            HasModuleAccess("CLUSTER", "write"),
+        ]
+
+    def get_queryset(self):
+        from .transfer import can_review_cluster_transfer
+
+        user = self.request.user
+        qs = ClusterTransferRequest.objects.select_related(
+            "person",
+            "from_cluster",
+            "to_cluster",
+            "requested_by",
+            "reviewed_by",
+        )
+        status_param = self.request.query_params.get("status")
+        if status_param:
+            qs = qs.filter(status=status_param)
+
+        person_param = (
+            self.request.query_params.get("person")
+            or self.request.query_params.get("person_id")
+        )
+        if person_param:
+            qs = qs.filter(person_id=person_param)
+
+        if getattr(user, "role", None) in ("ADMIN", "PASTOR") or can_review_cluster_transfer(
+            user
+        ):
+            if not can_pick_cluster_branch(user) and getattr(user, "role", None) not in (
+                "ADMIN",
+                "PASTOR",
+            ):
+                branch_id = getattr(user, "branch_id", None)
+                if branch_id:
+                    qs = qs.filter(
+                        Q(from_cluster__branch_id=branch_id)
+                        | Q(to_cluster__branch_id=branch_id)
+                        | Q(person__branch_id=branch_id)
+                    )
+                else:
+                    qs = qs.none()
+            return qs.order_by("-created_at")
+
+        operated = set(managed_cluster_ids_for_operator(user))
+        if operated:
+            return qs.filter(
+                Q(from_cluster_id__in=operated) | Q(to_cluster_id__in=operated)
+            ).order_by("-created_at")
+
+        return qs.filter(requested_by=user).order_by("-created_at")
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        self.perform_create(serializer)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+    @action(detail=True, methods=["post"])
+    def approve(self, request, pk=None):
+        from .transfer import approve_cluster_transfer_request, can_review_cluster_transfer
+
+        transfer = self.get_object()
+        if not can_review_cluster_transfer(request.user, transfer):
+            return Response(
+                {"detail": "You do not have permission to approve cluster transfers."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        note = request.data.get("review_note") or request.data.get("note") or ""
+        updated = approve_cluster_transfer_request(
+            transfer, request.user, note=note
+        )
+        return Response(self.get_serializer(updated).data)
+
+    @action(detail=True, methods=["post"], url_path="reject")
+    def reject(self, request, pk=None):
+        from .transfer import can_review_cluster_transfer, reject_cluster_transfer_request
+
+        transfer = self.get_object()
+        if not can_review_cluster_transfer(request.user, transfer):
+            return Response(
+                {"detail": "You do not have permission to reject cluster transfers."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        note = request.data.get("review_note") or request.data.get("note") or ""
+        updated = reject_cluster_transfer_request(
+            transfer, request.user, note=note
+        )
+        return Response(self.get_serializer(updated).data)
 

@@ -30,7 +30,6 @@ import {
 } from "@/src/lib/baptismVerifiers";
 import { memberCareActionLabel } from "@/src/lib/memberCare";
 import { formatPersonName, formatPersonLegalName } from "@/src/lib/name";
-
 function TrashIcon({ className = "w-4 h-4" }: { className?: string }) {
   return (
     <svg
@@ -318,11 +317,28 @@ export default function PersonProfile({
   }, [clusters, person.id, person.cluster_ids]);
 
   const linkedClusters = useMemo(() => {
-    if (person.cluster_memberships != null) {
-      return person.cluster_memberships.map(clusterStubFromMembership);
-    }
-    return personClusters;
-  }, [person.cluster_memberships, personClusters]);
+    const raw =
+      person.cluster_memberships != null
+        ? person.cluster_memberships.map(clusterStubFromMembership)
+        : personClusters;
+    const primaryId =
+      person.primary_cluster_id != null
+        ? String(person.primary_cluster_id)
+        : person.primary_cluster?.id != null
+          ? String(person.primary_cluster.id)
+          : null;
+    if (!primaryId) return raw;
+    return [...raw].sort((a, b) => {
+      const aPrimary = String(a.id) === primaryId ? 0 : 1;
+      const bPrimary = String(b.id) === primaryId ? 0 : 1;
+      return aPrimary - bPrimary;
+    });
+  }, [
+    person.cluster_memberships,
+    person.primary_cluster,
+    person.primary_cluster_id,
+    personClusters,
+  ]);
 
   const personFamilies = useMemo(() => {
     if (!families?.length) return [];

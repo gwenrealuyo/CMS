@@ -24,10 +24,12 @@ import {
   lessonsApi,
   peopleApi,
   clusterCordsApi,
+  clusterTransferRequestsApi,
 } from "@/src/lib/api";
 import PersonAvatar from "@/src/components/people/PersonAvatar";
 import { compareJourneysNewestFirst } from "@/src/lib/journeySort";
 import ConfirmationModal from "@/src/components/ui/ConfirmationModal";
+import ClusterTransferRequestModal from "@/src/components/clusters/ClusterTransferRequestModal";
 import toast from "react-hot-toast";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { useAuth } from "@/src/contexts/AuthContext";
@@ -325,6 +327,48 @@ const PersonForm = forwardRef<PersonFormHandle, PersonFormProps>(
       .map((c) => String(c.id));
   }, [initialData?.cluster_ids, initialPersonId, clusterOptions]);
 
+  /** Labels for selected memberships even when out of branch-scoped clusterOptions. */
+  const clusterDisplayById = useMemo(() => {
+    const map = new Map<string, { id: string; code: string; name: string }>();
+    for (const c of clusterOptions) {
+      map.set(String(c.id), {
+        id: String(c.id),
+        code: (c.code || "").trim(),
+        name: (c.name || "").trim(),
+      });
+    }
+    for (const m of initialData?.cluster_memberships ?? []) {
+      const id = String(m.id);
+      if (map.has(id)) continue;
+      map.set(id, {
+        id,
+        code: (m.code || "").trim(),
+        name: (m.name || "").trim(),
+      });
+    }
+    const primary = initialData?.primary_cluster;
+    if (primary?.id != null) {
+      const id = String(primary.id);
+      if (!map.has(id)) {
+        map.set(id, {
+          id,
+          code: (primary.code || "").trim(),
+          name: (primary.name || "").trim(),
+        });
+      }
+    }
+    return map;
+  }, [
+    clusterOptions,
+    initialData?.cluster_memberships,
+    initialData?.primary_cluster,
+  ]);
+
+  const resolveClusterDisplay = useCallback(
+    (id: string) => clusterDisplayById.get(id) ?? null,
+    [clusterDisplayById],
+  );
+
   const [formData, setFormData] = useState<Partial<Person>>(() => {
     const next: Partial<Person> = {
       status: isCreating ? "ONGOING" : "ACTIVE",
@@ -334,6 +378,12 @@ const PersonForm = forwardRef<PersonFormHandle, PersonFormProps>(
       role: defaultRole,
       family_ids: initialFamilyIds,
       cluster_ids: initialClusterIds,
+      primary_cluster_id:
+        initialData?.primary_cluster_id != null
+          ? String(initialData.primary_cluster_id)
+          : initialClusterIds.length === 1
+            ? initialClusterIds[0]
+            : null,
       cord_id: initialData?.cord_id ?? null,
       cord_name: initialData?.cord_name ?? null,
       cord_locked: initialData?.cord_locked ?? false,
@@ -374,6 +424,56 @@ const PersonForm = forwardRef<PersonFormHandle, PersonFormProps>(
   const [clusterSearch, setClusterSearch] = useState("");
   const [showClusterDropdown, setShowClusterDropdown] = useState(false);
   const [cordOptions, setCordOptions] = useState<ClusterCord[]>([]);
+  /** Locked primary on edit — changes require transfer request, not save. */
+  const lockedPrimaryClusterId = useMemo(() => {
+    if (isCreating) return null;
+    if (initialData?.primary_cluster_id != null) {
+      return String(initialData.primary_cluster_id);
+    }
+    if (initialClusterIds.length === 1) return initialClusterIds[0];
+    return null;
+  }, [isCreating, initialData?.primary_cluster_id, initialClusterIds]);
+  const [transferModal, setTransferModal] = useState<{
+    isOpen: boolean;
+    toClusterId: string | null;
+  }>({ isOpen: false, toClusterId: null });
+  const [hasPendingTransfer, setHasPendingTransfer] = useState(false);
+
+  useEffect(() => {
+    if (isCreating || initialData?.id == null) {
+      setHasPendingTransfer(false);
+      return;
+    }
+    let cancelled = false;
+    clusterTransferRequestsApi
+      .list({ status: "pending", person: initialData.id, page: 1 })
+      .then((res) => {
+        if (cancelled) return;
+        const results = res.data?.results || [];
+        setHasPendingTransfer(
+          results.some(
+            (item) => Number(item.person?.id) === Number(initialData.id),
+          ),
+        );
+      })
+      .catch(() => {
+        if (!cancelled) setHasPendingTransfer(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [isCreating, initialData?.id]);
+
+  /** Picker list: only clusters on the person's current branch. */
+  const branchScopedClusterOptions = useMemo(() => {
+    if (formData.branch == null || formData.branch === undefined) {
+      return [] as Cluster[];
+    }
+    const personBranch = Number(formData.branch);
+    return clusterOptions.filter(
+      (c) => c.branch != null && Number(c.branch) === personBranch,
+    );
+  }, [clusterOptions, formData.branch]);
 
   useEffect(() => {
     const clusterIds = formData.cluster_ids || [];
@@ -1258,6 +1358,35 @@ const PersonForm = forwardRef<PersonFormHandle, PersonFormProps>(
     delete personData.open_care_case;
     personData.family_ids = normalizeIdList(formData.family_ids);
     personData.cluster_ids = normalizeIdList(formData.cluster_ids);
+    delete personData.primary_cluster;
+    const clusterIdList = personData.cluster_ids || [];
+    if (!isCreating && lockedPrimaryClusterId) {
+      // Edit: never change primary via save — transfer request only.
+      if (!clusterIdList.includes(lockedPrimaryClusterId)) {
+        toast.error(
+          "Cannot remove the primary cluster here. Request a transfer instead.",
+        );
+        return;
+      }
+      personData.primary_cluster_id = Number(lockedPrimaryClusterId);
+      if (!personData.cluster_ids?.includes(lockedPrimaryClusterId)) {
+        personData.cluster_ids = [
+          lockedPrimaryClusterId,
+          ...(personData.cluster_ids || []),
+        ];
+      }
+    } else if (clusterIdList.length === 0) {
+      personData.primary_cluster_id = null;
+    } else if (clusterIdList.length === 1) {
+      personData.primary_cluster_id = Number(clusterIdList[0]);
+    } else if (
+      formData.primary_cluster_id != null &&
+      formData.primary_cluster_id !== ""
+    ) {
+      personData.primary_cluster_id = Number(formData.primary_cluster_id);
+    } else {
+      personData.primary_cluster_id = null;
+    }
     delete personData.cord_name;
     delete personData.cord_locked;
     if (
@@ -3144,84 +3273,99 @@ const PersonForm = forwardRef<PersonFormHandle, PersonFormProps>(
                           clusterSearch &&
                           !selfEditLocked && (
                             <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
-                              {clusterOptions
-                                .filter((c) => {
-                                  const q = clusterSearch.toLowerCase();
-                                  return (
-                                    (c.code || "").toLowerCase().includes(q) ||
-                                    (c.name || "").toLowerCase().includes(q)
-                                  );
-                                })
-                                .map((cluster) => {
-                                  const id = String(cluster.id);
-                                  const selected = (
-                                    formData.cluster_ids || []
-                                  ).includes(id);
-                                  return (
-                                    <button
-                                      key={id}
-                                      type="button"
-                                      disabled={selected}
-                                      onClick={() => {
-                                        setFormData((prev) => ({
-                                          ...prev,
-                                          cluster_ids: [
-                                            ...(prev.cluster_ids || []),
-                                            id,
-                                          ],
-                                        }));
-                                        setClusterSearch("");
-                                        setShowClusterDropdown(false);
-                                        setHasUnsavedChanges(true);
-                                      }}
-                                      className={`w-full px-3 py-2 text-left text-sm hover:bg-gray-50 flex items-center justify-between gap-3 ${
-                                        selected
-                                          ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-                                          : "text-gray-900"
-                                      }`}
-                                    >
-                                      <span className="min-w-0 flex items-center gap-2">
-                                        <span className="font-medium shrink-0">
-                                          {(cluster.code || "").trim() ||
-                                            `Cluster ${cluster.id}`}
-                                        </span>
-                                        <span
-                                          className={`truncate ${
+                              {formData.branch == null ? (
+                                <div className="px-3 py-2 text-gray-500 text-sm">
+                                  Select a branch before adding clusters.
+                                </div>
+                              ) : (
+                                <>
+                                  {branchScopedClusterOptions
+                                    .filter((c) => {
+                                      const q = clusterSearch.toLowerCase();
+                                      return (
+                                        (c.code || "")
+                                          .toLowerCase()
+                                          .includes(q) ||
+                                        (c.name || "")
+                                          .toLowerCase()
+                                          .includes(q)
+                                      );
+                                    })
+                                    .map((cluster) => {
+                                      const id = String(cluster.id);
+                                      const selected = (
+                                        formData.cluster_ids || []
+                                      ).includes(id);
+                                      return (
+                                        <button
+                                          key={id}
+                                          type="button"
+                                          disabled={selected}
+                                          onClick={() => {
+                                            setFormData((prev) => ({
+                                              ...prev,
+                                              cluster_ids: [
+                                                ...(prev.cluster_ids || []),
+                                                id,
+                                              ],
+                                            }));
+                                            setClusterSearch("");
+                                            setShowClusterDropdown(false);
+                                            setHasUnsavedChanges(true);
+                                          }}
+                                          className={`w-full px-3 py-2 text-left text-sm hover:bg-gray-50 flex items-center justify-between gap-3 ${
                                             selected
-                                              ? "text-gray-400"
-                                              : "text-gray-500"
+                                              ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                                              : "text-gray-900"
                                           }`}
                                         >
-                                          {(cluster.name || "").trim() ||
-                                            "Unnamed cluster"}
-                                        </span>
-                                      </span>
-                                      <span className="flex items-center justify-end gap-2 shrink-0">
-                                        <EntityBranchChip
-                                          branchId={cluster.branch}
-                                          branches={branches}
-                                        />
-                                        {selected && (
-                                          <span className="text-xs text-gray-400">
-                                            Added
+                                          <span className="min-w-0 flex items-center gap-2">
+                                            <span className="font-medium shrink-0">
+                                              {(cluster.code || "").trim() ||
+                                                `Cluster ${cluster.id}`}
+                                            </span>
+                                            <span
+                                              className={`truncate ${
+                                                selected
+                                                  ? "text-gray-400"
+                                                  : "text-gray-500"
+                                              }`}
+                                            >
+                                              {(cluster.name || "").trim() ||
+                                                "Unnamed cluster"}
+                                            </span>
                                           </span>
-                                        )}
-                                      </span>
-                                    </button>
-                                  );
-                                })}
-                              {clusterOptions.filter((c) => {
-                                const q = clusterSearch.toLowerCase();
-                                return (
-                                  (c.code || "").toLowerCase().includes(q) ||
-                                  (c.name || "").toLowerCase().includes(q)
-                                );
-                              }).length === 0 && (
-                                <div className="px-3 py-2 text-gray-500 text-sm">
-                                  No clusters found matching &ldquo;
-                                  {clusterSearch}
-                                  &rdquo;
-                                </div>
+                                          <span className="flex items-center justify-end gap-2 shrink-0">
+                                            <EntityBranchChip
+                                              branchId={cluster.branch}
+                                              branches={branches}
+                                            />
+                                            {selected && (
+                                              <span className="text-xs text-gray-400">
+                                                Added
+                                              </span>
+                                            )}
+                                          </span>
+                                        </button>
+                                      );
+                                    })}
+                                  {branchScopedClusterOptions.filter((c) => {
+                                    const q = clusterSearch.toLowerCase();
+                                    return (
+                                      (c.code || "")
+                                        .toLowerCase()
+                                        .includes(q) ||
+                                      (c.name || "")
+                                        .toLowerCase()
+                                        .includes(q)
+                                    );
+                                  }).length === 0 && (
+                                    <div className="px-3 py-2 text-gray-500 text-sm">
+                                      No clusters found for this branch matching
+                                      &ldquo;{clusterSearch}&rdquo;.
+                                    </div>
+                                  )}
+                                </>
                               )}
                             </div>
                           )}
@@ -3229,27 +3373,51 @@ const PersonForm = forwardRef<PersonFormHandle, PersonFormProps>(
                       {(formData.cluster_ids || []).length > 0 && (
                         <div className="mt-3 flex flex-wrap gap-2">
                           {(formData.cluster_ids || []).map((id) => {
-                            const cluster = clusterOptions.find(
-                              (c) => String(c.id) === id,
-                            );
+                            const cluster = resolveClusterDisplay(id);
+                            const primaryId =
+                              !isCreating && lockedPrimaryClusterId
+                                ? lockedPrimaryClusterId
+                                : formData.primary_cluster_id != null
+                                  ? String(formData.primary_cluster_id)
+                                  : null;
+                            const isPrimary =
+                              primaryId === id ||
+                              (formData.cluster_ids || []).length === 1;
                             return (
                               <div
                                 key={id}
                                 className="flex items-center space-x-2 bg-primary/10 border border-primary/20 rounded-lg px-3 py-2"
                               >
                                 <span className="text-sm font-medium text-gray-900 shrink-0">
-                                  {cluster
-                                    ? (cluster.code || "").trim() ||
-                                      `Cluster ${cluster.id}`
-                                    : `Cluster ${id}`}
+                                  {cluster?.code ||
+                                    (cluster?.name
+                                      ? cluster.name
+                                      : `Cluster ${id}`)}
                                 </span>
-                                {cluster && (
+                                {cluster?.name &&
+                                  cluster.name !== cluster.code && (
                                   <span className="text-sm text-gray-600 truncate">
-                                    {(cluster.name || "").trim() ||
-                                      "Unnamed cluster"}
+                                    {cluster.name}
                                   </span>
                                 )}
-                                {!selfEditLocked && (
+                                {isPrimary && (
+                                  <span
+                                    className="text-xs font-medium text-primary"
+                                    title={
+                                      !isCreating
+                                        ? "Primary cannot be removed here — request a transfer"
+                                        : undefined
+                                    }
+                                  >
+                                    Primary
+                                  </span>
+                                )}
+                                {!selfEditLocked &&
+                                  !(
+                                    !isCreating &&
+                                    lockedPrimaryClusterId &&
+                                    id === lockedPrimaryClusterId
+                                  ) && (
                                   <button
                                     type="button"
                                     onClick={() => {
@@ -3272,9 +3440,18 @@ const PersonForm = forwardRef<PersonFormHandle, PersonFormProps>(
                                             nextCordName = null;
                                           }
                                         }
+                                        const nextPrimary =
+                                          !isCreating && lockedPrimaryClusterId
+                                            ? lockedPrimaryClusterId
+                                            : nextClusters.length === 1
+                                              ? nextClusters[0]
+                                              : prev.primary_cluster_id != null
+                                                ? String(prev.primary_cluster_id)
+                                                : null;
                                         return {
                                           ...prev,
                                           cluster_ids: nextClusters,
+                                          primary_cluster_id: nextPrimary,
                                           cord_id: nextCordId,
                                           cord_name: nextCordName,
                                         };
@@ -3302,6 +3479,74 @@ const PersonForm = forwardRef<PersonFormHandle, PersonFormProps>(
                               </div>
                             );
                           })}
+                        </div>
+                      )}
+                      {(formData.cluster_ids || []).length > 1 && (
+                        <div className="mt-3">
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Primary cluster
+                          </label>
+                          <select
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                            disabled={selfEditLocked}
+                            value={
+                              !isCreating && lockedPrimaryClusterId
+                                ? lockedPrimaryClusterId
+                                : formData.primary_cluster_id != null
+                                  ? String(formData.primary_cluster_id)
+                                  : ""
+                            }
+                            onChange={(e) => {
+                              const next = e.target.value;
+                              if (!next) return;
+                              if (
+                                !isCreating &&
+                                lockedPrimaryClusterId &&
+                                next !== lockedPrimaryClusterId
+                              ) {
+                                // Keep displayed primary on the current (approved) cluster.
+                                setFormData((prev) => ({
+                                  ...prev,
+                                  primary_cluster_id: lockedPrimaryClusterId,
+                                }));
+                                setTransferModal({
+                                  isOpen: true,
+                                  toClusterId: next,
+                                });
+                                return;
+                              }
+                              setFormData((prev) => ({
+                                ...prev,
+                                primary_cluster_id: next,
+                              }));
+                              setHasUnsavedChanges(true);
+                            }}
+                          >
+                            {isCreating && (
+                              <option value="">Select primary…</option>
+                            )}
+                            {(formData.cluster_ids || []).map((id) => {
+                              const cluster = resolveClusterDisplay(id);
+                              const code =
+                                cluster?.code ||
+                                (cluster?.name ? "" : `Cluster ${id}`);
+                              const name = cluster?.name || "Unnamed";
+                              return (
+                                <option key={id} value={id}>
+                                  {code
+                                    ? `${code} — ${name}`
+                                    : name || `Cluster ${id}`}
+                                </option>
+                              );
+                            })}
+                          </select>
+                          <p className="mt-1 text-xs text-gray-500">
+                            {isCreating
+                              ? "Required when the person belongs to more than one cluster."
+                              : hasPendingTransfer
+                                ? "A transfer request is pending approval. Primary stays on the current cluster until it is approved."
+                                : "To change primary cluster, request a transfer for approval. Primary stays current until approved. Secondary clusters can still be added or removed here."}
+                          </p>
                         </div>
                       )}
                       {showClusterDropdown && (
@@ -3354,8 +3599,8 @@ const PersonForm = forwardRef<PersonFormHandle, PersonFormProps>(
                           }}
                           disabled={selfEditLocked}
                           options={cordOptions.map((c) => {
-                            const cluster = clusterOptions.find(
-                              (cl) => String(cl.id) === String(c.cluster_id),
+                            const cluster = resolveClusterDisplay(
+                              String(c.cluster_id),
                             );
                             const code = (cluster?.code || "").trim();
                             return {
@@ -3917,6 +4162,50 @@ const PersonForm = forwardRef<PersonFormHandle, PersonFormProps>(
         variant="warning"
         zIndex={80}
       />
+
+      {!isCreating && initialData?.id != null && (
+        <ClusterTransferRequestModal
+          isOpen={transferModal.isOpen}
+          person={
+            {
+              ...initialData,
+              cluster_ids: formData.cluster_ids || initialClusterIds,
+              primary_cluster_id:
+                lockedPrimaryClusterId ?? initialData.primary_cluster_id,
+              cluster_memberships: (
+                formData.cluster_ids ||
+                initialClusterIds
+              ).map((id) => {
+                const cluster = resolveClusterDisplay(id);
+                return {
+                  id: Number(id),
+                  code: cluster?.code || "",
+                  name: cluster?.name || `Cluster ${id}`,
+                };
+              }),
+            } as Person
+          }
+          onClose={() =>
+            setTransferModal({ isOpen: false, toClusterId: null })
+          }
+          onSubmitted={() => {
+            setTransferModal({ isOpen: false, toClusterId: null });
+            setHasPendingTransfer(true);
+            if (lockedPrimaryClusterId) {
+              setFormData((prev) => ({
+                ...prev,
+                primary_cluster_id: lockedPrimaryClusterId,
+              }));
+            }
+            toast.success(
+              "Transfer request submitted for approval. Primary stays unchanged until approved.",
+            );
+          }}
+          initialFromClusterId={lockedPrimaryClusterId}
+          initialToClusterId={transferModal.toClusterId}
+          zIndex={80}
+        />
+      )}
     </>
   );
 },

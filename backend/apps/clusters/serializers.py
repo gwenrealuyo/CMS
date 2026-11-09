@@ -44,6 +44,7 @@ from apps.clusters.cords import (
     cords_summary_for_cluster,
     prune_cord_memberships_for_removed_cluster_members,
 )
+from apps.clusters.primary_membership import sync_primary_for_people
 from .exceptions import DuplicateWeekReport
 from .models import Cluster, ClusterWeeklyReport, ClusterComplianceNote
 
@@ -178,8 +179,9 @@ class ClusterSerializer(serializers.ModelSerializer):
         write_only=True,
         default=list,
         help_text=(
-            "Person IDs among members who should leave other active clusters "
-            "(real transfer). Omitted IDs keep dual membership when already elsewhere."
+            "Deprecated. Immediate transfers are rejected — use "
+            "POST /api/clusters/transfer-requests/ instead. Dual Add "
+            "(omit this field) remains supported."
         ),
     )
     members_details = serializers.SerializerMethodField()
@@ -327,22 +329,28 @@ class ClusterSerializer(serializers.ModelSerializer):
                 if self.instance is None and not branch_id and user.branch_id:
                     attrs["branch"] = user.branch
 
-        transfer_raw = attrs.pop("transfer_member_ids", None)
-        if transfer_raw is None:
-            transfer_raw = []
-        if not isinstance(transfer_raw, list):
-            raise serializers.ValidationError(
-                {"transfer_member_ids": "Expected a list of person IDs."}
-            )
-        transfer_ids: set[int] = set()
-        for item in transfer_raw:
-            try:
-                transfer_ids.add(int(item))
-            except (TypeError, ValueError):
+        transfer_raw = attrs.pop("transfer_member_ids", serializers.empty)
+        if transfer_raw is serializers.empty:
+            transfer_raw = self.initial_data.get("transfer_member_ids", serializers.empty)
+        if transfer_raw is not serializers.empty:
+            if transfer_raw is None:
+                transfer_raw = []
+            if not isinstance(transfer_raw, list):
                 raise serializers.ValidationError(
-                    {"transfer_member_ids": "Each transfer member ID must be an integer."}
+                    {"transfer_member_ids": "Expected a list of person IDs."}
                 )
-        attrs["_transfer_member_ids"] = transfer_ids
+            if len(transfer_raw) > 0:
+                raise serializers.ValidationError(
+                    {
+                        "transfer_member_ids": (
+                            "Immediate cluster transfers are no longer allowed. "
+                            "Create a transfer request "
+                            "(POST /api/clusters/transfer-requests/) for approval. "
+                            "To keep dual membership, omit transfer_member_ids."
+                        )
+                    }
+                )
+        attrs["_transfer_member_ids"] = set()
 
         may_edit_leadership = self._user_may_edit_cluster_leadership()
         leadership_errors = {}
@@ -749,6 +757,7 @@ class ClusterSerializer(serializers.ModelSerializer):
         prune_cluster_assistant_assignments_to_members(instance, final_member_ids)
         prune_cluster_reporter_assignments_to_members(instance, final_member_ids)
         prune_cord_memberships_for_removed_cluster_members(instance)
+        sync_primary_for_people(final_member_ids)
 
         return instance
 
@@ -835,6 +844,8 @@ class ClusterSerializer(serializers.ModelSerializer):
         prune_cluster_assistant_assignments_to_members(instance, new_member_ids)
         prune_cluster_reporter_assignments_to_members(instance, new_member_ids)
         prune_cord_memberships_for_removed_cluster_members(instance)
+        # Sync primary for current roster and anyone who left this cluster.
+        sync_primary_for_people(new_member_ids | old_member_ids)
 
         return instance
 

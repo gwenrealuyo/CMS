@@ -7,7 +7,8 @@ export type ClusterContentTab =
   | "tally"
   | "reports"
   | "compliance"
-  | "care";
+  | "care"
+  | "transfers";
 
 interface ClusterContentTabsProps {
   activeTab: ClusterContentTab;
@@ -15,6 +16,7 @@ interface ClusterContentTabsProps {
   showComplianceTab?: boolean;
   showReportsTab?: boolean;
   showCareTab?: boolean;
+  showTransfersTab?: boolean;
   branchFilter?: ReactNode;
 }
 
@@ -24,6 +26,7 @@ export default function ClusterContentTabs({
   showComplianceTab = true,
   showReportsTab = true,
   showCareTab = false,
+  showTransfersTab = true,
   branchFilter,
 }: ClusterContentTabsProps) {
   const tabs: Array<{
@@ -37,11 +40,14 @@ export default function ClusterContentTabs({
     ...(showComplianceTab
       ? [{ id: "compliance" as const, label: "Compliance" }]
       : []),
+    ...(showTransfersTab
+      ? [{ id: "transfers" as const, label: "Transfers" }]
+      : []),
   ];
 
   return (
-    <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
-      <div className="min-w-0 flex-1">
+    <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+      <div className="min-w-0 flex-1 overflow-x-auto">
         <SegmentedControl
           value={activeTab}
           onChange={onTabChange}

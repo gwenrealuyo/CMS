@@ -1648,9 +1648,9 @@ export default function EvangelismPage() {
           }}
         />
 
-        {/* Tabs + branch filter (Lessons-style) */}
+        {/* Tabs + branch filter — stack until lg (branch slot is w-full below lg). */}
         <div className="mt-10 border-t border-gray-200 pt-7">
-          <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
             <div className="min-w-0 flex-1 border-b border-gray-200">
               <nav
                 className="-mb-px flex snap-x snap-mandatory gap-4 overflow-x-auto scroll-smooth sm:gap-8"
@@ -1768,7 +1768,7 @@ export default function EvangelismPage() {
                 )}
               </nav>
             </div>
-            <div className={`${TOOLBAR_BRANCH_HEADER_SLOT_CLASS} md:pb-1`}>
+            <div className={`${TOOLBAR_BRANCH_HEADER_SLOT_CLASS} lg:pb-1`}>
               {renderEvangelismGroupsBranchSelect()}
             </div>
           </div>

@@ -891,6 +891,74 @@ export const clustersApi = {
     ),
 };
 
+export type ClusterTransferRequestStatus = "pending" | "approved" | "rejected";
+
+export interface ClusterTransferRequest {
+  id: number;
+  person: {
+    id: number;
+    first_name: string;
+    last_name: string;
+    full_name?: string;
+    username: string;
+    role?: string;
+    status?: string;
+  };
+  from_cluster: { id: number; code: string | null; name: string | null };
+  to_cluster: { id: number; code: string | null; name: string | null };
+  requested_by: {
+    id: number;
+    first_name: string;
+    last_name: string;
+    full_name?: string;
+    username: string;
+  } | null;
+  status: ClusterTransferRequestStatus;
+  reason: string;
+  reviewed_by: {
+    id: number;
+    first_name: string;
+    last_name: string;
+    full_name?: string;
+    username: string;
+  } | null;
+  reviewed_at: string | null;
+  review_note: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export const clusterTransferRequestsApi = {
+  list: (params?: {
+    status?: ClusterTransferRequestStatus;
+    person?: number | string;
+    person_id?: number | string;
+    page?: number;
+    page_size?: number;
+  }) =>
+    api.get<PaginatedResponse<ClusterTransferRequest>>(
+      "/clusters/transfer-requests/",
+      { params },
+    ),
+  create: (data: {
+    person_id: number;
+    from_cluster_id: number;
+    to_cluster_id: number;
+    reason: string;
+  }) =>
+    api.post<ClusterTransferRequest>("/clusters/transfer-requests/", data),
+  approve: (id: number | string, note?: string) =>
+    api.post<ClusterTransferRequest>(
+      `/clusters/transfer-requests/${id}/approve/`,
+      { note: note || "" },
+    ),
+  reject: (id: number | string, note?: string) =>
+    api.post<ClusterTransferRequest>(
+      `/clusters/transfer-requests/${id}/reject/`,
+      { note: note || "" },
+    ),
+};
+
 export const clusterCordsApi = {
   list: (clusterId: string | number) =>
     api.get<ClusterCord[]>(`/clusters/clusters/${clusterId}/cords/`),

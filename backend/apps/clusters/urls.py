@@ -3,6 +3,7 @@ from rest_framework.routers import DefaultRouter
 from .views import (
     ClusterViewSet,
     ClusterCordViewSet,
+    ClusterTransferRequestViewSet,
     ClusterWeeklyReportViewSet,
 )
 
@@ -15,6 +16,11 @@ router.register(
     r"cluster-weekly-reports",
     ClusterWeeklyReportViewSet,
     basename="cluster-weekly-report",
+)
+router.register(
+    r"transfer-requests",
+    ClusterTransferRequestViewSet,
+    basename="cluster-transfer-request",
 )
 
 urlpatterns = [

@@ -867,6 +867,12 @@ export default function ClustersPageContainer() {
     setIsClusterModalOpen(true);
   }, [panelCluster, panelMode]);
 
+  const expandPersonFromPanel = useCallback(() => {
+    if (!panelPerson || panelEntity !== "person") return;
+    setPersonOverCluster(panelPerson);
+    setShowPersonOverCluster(true);
+  }, [panelPerson, panelEntity]);
+
   const pushCurrentPanelToHistory = useCallback(() => {
     if (!panelOpen) return;
     setPanelHistory((prev) => [
@@ -1037,6 +1043,10 @@ export default function ClustersPageContainer() {
 
     if (tab === "tally") {
       setActiveTab("tally");
+    }
+
+    if (tab === "transfers") {
+      setActiveTab("transfers");
     }
 
     if (tab === "reports") {
@@ -1251,7 +1261,6 @@ export default function ClustersPageContainer() {
         const updatedCluster = await clustersApi.update(cluster.id, {
           members: memberIds,
           families: cluster.families ?? [],
-          transfer_member_ids: transferMemberIds,
         } as Partial<ClusterInput>);
 
         const returnedIdSet = new Set(
@@ -1408,7 +1417,16 @@ export default function ClustersPageContainer() {
   return (
     <ClustersPageView
       activeTab={activeTab}
-      onTabChange={setActiveTab}
+      onTabChange={(tab) => {
+        const leavingTransfers = activeTab === "transfers" && tab !== "transfers";
+        const enteringTransfers = activeTab !== "transfers" && tab === "transfers";
+        if (leavingTransfers || enteringTransfers) {
+          closeClusterPanel();
+          setShowPersonOverCluster(false);
+          setPersonOverCluster(null);
+        }
+        setActiveTab(tab);
+      }}
       canAccessClusterReports={canAccessClusterReportsUser}
       // Clusters tab
       allClusters={clustersForNestedUi}
@@ -1487,6 +1505,7 @@ export default function ClustersPageContainer() {
         }
       }}
       onExpandClusterFromPanel={expandClusterFromPanel}
+      onExpandPersonFromPanel={expandPersonFromPanel}
       onCancelClusterEdit={handleCancelClusterEdit}
       isDesktop={isDesktop}
       panelOpen={panelOpen}

@@ -271,3 +271,71 @@ class ClusterCordMembership(models.Model):
     def __str__(self):
         return f"{self.person_id} in cord {self.cord_id}"
 
+
+class ClusterTransferRequest(models.Model):
+    """Pending/approved/rejected request to move a person between clusters."""
+
+    class Status(models.TextChoices):
+        PENDING = "pending", "Pending"
+        APPROVED = "approved", "Approved"
+        REJECTED = "rejected", "Rejected"
+
+    person = models.ForeignKey(
+        "people.Person",
+        on_delete=models.CASCADE,
+        related_name="cluster_transfer_requests",
+    )
+    from_cluster = models.ForeignKey(
+        Cluster,
+        on_delete=models.CASCADE,
+        related_name="transfer_requests_from",
+    )
+    to_cluster = models.ForeignKey(
+        Cluster,
+        on_delete=models.CASCADE,
+        related_name="transfer_requests_to",
+    )
+    requested_by = models.ForeignKey(
+        "people.Person",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="cluster_transfer_requests_submitted",
+    )
+    status = models.CharField(
+        max_length=20,
+        choices=Status.choices,
+        default=Status.PENDING,
+    )
+    reason = models.TextField(blank=True)
+    reviewed_by = models.ForeignKey(
+        "people.Person",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="cluster_transfer_requests_reviewed",
+    )
+    reviewed_at = models.DateTimeField(null=True, blank=True)
+    review_note = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["person"],
+                condition=Q(status="pending"),
+                name="unique_pending_cluster_transfer_per_person",
+            )
+        ]
+        indexes = [
+            models.Index(fields=["status", "-created_at"], name="cl_xfer_status_created_idx"),
+        ]
+
+    def __str__(self) -> str:
+        return (
+            f"Transfer {self.person_id}: {self.from_cluster_id} → "
+            f"{self.to_cluster_id} ({self.status})"
+        )
+

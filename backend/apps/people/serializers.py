@@ -103,6 +103,17 @@ def cluster_membership_payloads(person) -> list[dict]:
     ]
 
 
+def primary_cluster_payload(person):
+    cluster = getattr(person, "primary_cluster", None)
+    if cluster is None:
+        return None
+    return {
+        "id": cluster.id,
+        "name": (cluster.name or "").strip(),
+        "code": (cluster.code or "").strip() or None,
+    }
+
+
 class ModuleCoordinatorSerializer(serializers.ModelSerializer):
     module_display = serializers.CharField(source="get_module_display", read_only=True)
     level_display = serializers.CharField(source="get_level_display", read_only=True)
@@ -732,6 +743,13 @@ class PersonSerializer(serializers.ModelSerializer):
     cluster_codes = serializers.SerializerMethodField()
     cluster_labels = serializers.SerializerMethodField()
     cluster_memberships = serializers.SerializerMethodField()
+    primary_cluster = serializers.SerializerMethodField()
+    primary_cluster_id = serializers.PrimaryKeyRelatedField(
+        source="primary_cluster",
+        queryset=Cluster.objects.all(),
+        required=False,
+        allow_null=True,
+    )
     # Write: intended cord (+ membership when eligible). Read set in to_representation.
     cord_id = serializers.IntegerField(required=False, allow_null=True, write_only=True)
     cord_name = serializers.SerializerMethodField()
@@ -855,6 +873,8 @@ class PersonSerializer(serializers.ModelSerializer):
             "cluster_codes",
             "cluster_labels",
             "cluster_memberships",
+            "primary_cluster",
+            "primary_cluster_id",
             "cord_id",
             "cord_name",
             "cord_locked",
@@ -875,6 +895,7 @@ class PersonSerializer(serializers.ModelSerializer):
             "username": {"required": False, "allow_blank": True},
         }
         read_only_fields = [
+            "primary_cluster",
             "cord_locked",
             "updated_at",
             "updated_by",
@@ -1590,6 +1611,7 @@ class PersonSerializer(serializers.ModelSerializer):
         commitment_write = self._pop_commitment_write_fields(validated_data)
         verifier_write = self._pop_baptism_verifier_fields(validated_data)
         cord_id_write = self._pop_cord_id_write(validated_data)
+        primary_write = self._pop_primary_cluster_write(validated_data)
 
         note = validated_data.pop("note", "").strip() if "note" in validated_data else ""
         validated_data.pop("status_change_reason", None)
@@ -1622,6 +1644,7 @@ class PersonSerializer(serializers.ModelSerializer):
         person.save()
         self._apply_memberships(person, families=families, clusters=clusters)
         self._apply_cord_id_write(person, cord_id_write)
+        self._apply_primary_cluster_after_memberships(person, primary_write)
 
         if (
             request
@@ -1705,6 +1728,7 @@ class PersonSerializer(serializers.ModelSerializer):
         commitment_write = self._pop_commitment_write_fields(validated_data)
         verifier_write = self._pop_baptism_verifier_fields(validated_data)
         cord_id_write = self._pop_cord_id_write(validated_data)
+        primary_write = self._pop_primary_cluster_write(validated_data)
         stash_baptism_verifiers(instance, **verifier_write)
 
         families = (
@@ -1712,6 +1736,14 @@ class PersonSerializer(serializers.ModelSerializer):
         )
         clusters = (
             validated_data.pop("clusters") if "clusters" in validated_data else None
+        )
+
+        old_primary_id = instance.primary_cluster_id
+        self._reject_primary_cluster_override_on_update(
+            instance,
+            clusters=clusters,
+            primary_write=primary_write,
+            old_primary_id=old_primary_id,
         )
 
         delete_person_photo_if_cleared(instance, validated_data)
@@ -1723,6 +1755,16 @@ class PersonSerializer(serializers.ModelSerializer):
             updated_instance, families=families, clusters=clusters
         )
         self._apply_cord_id_write(updated_instance, cord_id_write)
+        # Keep existing primary on update; never promote via edit.
+        # First-time primary (old was null) may still be set explicitly.
+        primary_for_sync = (
+            primary_write
+            if old_primary_id is None and primary_write is not serializers.empty
+            else serializers.empty
+        )
+        self._apply_primary_cluster_after_memberships(
+            updated_instance, primary_for_sync
+        )
         self._trigger_legacy_lessons_backfill(
             person=updated_instance,
             previous_has_finished_lessons=previous_has_finished_lessons,
@@ -1842,18 +1884,144 @@ class PersonSerializer(serializers.ModelSerializer):
     def get_cluster_memberships(self, obj: Person):
         return cluster_membership_payloads(obj)
 
+    def get_primary_cluster(self, obj: Person):
+        return primary_cluster_payload(obj)
+
+    def _pop_primary_cluster_write(self, validated_data: dict):
+        if "primary_cluster" not in validated_data:
+            return serializers.empty
+        return validated_data.pop("primary_cluster")
+
+    def _reject_primary_cluster_override_on_update(
+        self,
+        instance: Person,
+        *,
+        clusters,
+        primary_write,
+        old_primary_id,
+    ) -> None:
+        """
+        Person edit cannot change or drop primary cluster — use transfer request.
+        Dual add/remove of secondary memberships is allowed when primary stays.
+        """
+        transfer_hint = (
+            "Changing primary cluster requires an approved transfer request "
+            "(POST /api/clusters/transfer-requests/)."
+        )
+
+        if old_primary_id is None:
+            return
+
+        if primary_write is not serializers.empty:
+            new_primary_id = primary_write.id if primary_write is not None else None
+            if new_primary_id != old_primary_id:
+                raise serializers.ValidationError(
+                    {"primary_cluster_id": transfer_hint}
+                )
+
+        if clusters is not None:
+            desired_ids = {c.pk for c in clusters}
+            if old_primary_id not in desired_ids:
+                raise serializers.ValidationError(
+                    {
+                        "cluster_ids": (
+                            "Cannot remove the primary cluster membership via "
+                            "edit. Request a cluster transfer instead."
+                        )
+                    }
+                )
+
+    def _apply_primary_cluster_after_memberships(
+        self, person: Person, primary_write
+    ) -> None:
+        from apps.clusters.primary_membership import (
+            set_primary_cluster,
+            sync_primary_cluster,
+        )
+
+        membership_count = person.clusters.count()
+        try:
+            if membership_count == 0:
+                sync_primary_cluster(person)
+                if (
+                    primary_write is not serializers.empty
+                    and primary_write is not None
+                ):
+                    raise serializers.ValidationError(
+                        {
+                            "primary_cluster_id": (
+                                "Primary cluster requires cluster membership."
+                            )
+                        }
+                    )
+                return
+
+            if membership_count == 1:
+                sync_primary_cluster(person)
+                if (
+                    primary_write is not serializers.empty
+                    and primary_write is not None
+                    and primary_write.id != person.primary_cluster_id
+                ):
+                    raise serializers.ValidationError(
+                        {
+                            "primary_cluster_id": (
+                                "With a single membership, primary must be that cluster."
+                            )
+                        }
+                    )
+                return
+
+            # Multi membership: explicit primary required when missing/invalid.
+            if primary_write is not serializers.empty:
+                if primary_write is None:
+                    raise serializers.ValidationError(
+                        {
+                            "primary_cluster_id": (
+                                "Select a primary cluster among the person's memberships."
+                            )
+                        }
+                    )
+                set_primary_cluster(person, primary_write)
+                return
+
+            if (
+                person.primary_cluster_id is None
+                or not person.clusters.filter(id=person.primary_cluster_id).exists()
+            ):
+                raise serializers.ValidationError(
+                    {
+                        "primary_cluster_id": (
+                            "Select a primary cluster among the person's memberships."
+                        )
+                    }
+                )
+            sync_primary_cluster(
+                person, preferred_cluster_id=person.primary_cluster_id
+            )
+        except DjangoValidationError as exc:
+            if hasattr(exc, "message_dict"):
+                raise serializers.ValidationError(exc.message_dict) from exc
+            raise serializers.ValidationError(
+                {"primary_cluster_id": list(exc.messages)}
+            ) from exc
+
     def _active_cord_membership(self, obj: Person):
         from apps.clusters.cords import active_cord_membership_for_person
 
         return active_cord_membership_for_person(obj.id)
 
     def _effective_cord(self, obj: Person):
-        """Active membership cord, else intended_cord."""
+        """Active membership cord, else intended_cord on a current cluster."""
         membership = self._active_cord_membership(obj)
         if membership is not None:
             return membership.cord, True
         cord = getattr(obj, "intended_cord", None)
-        if cord is not None and cord.is_active:
+        if (
+            cord is not None
+            and cord.is_active
+            and obj.clusters.filter(id=cord.cluster_id).exists()
+        ):
             return cord, False
         return None, False
 
@@ -1903,6 +2071,9 @@ class PersonSerializer(serializers.ModelSerializer):
         cord = self._resolve_cord_for_write(cord_id_write)
         if cord is not None and not person.clusters.filter(id=cord.cluster_id).exists():
             person.clusters.add(cord.cluster)
+            from apps.clusters.primary_membership import sync_primary_cluster
+
+            sync_primary_cluster(person)
         person.intended_cord = cord
         person.save(update_fields=["intended_cord"])
         if cord is None:
@@ -2061,6 +2232,7 @@ class PersonListSerializer(serializers.ModelSerializer):
 
     cluster_codes = serializers.SerializerMethodField()
     cluster_labels = serializers.SerializerMethodField()
+    primary_cluster = serializers.SerializerMethodField()
     branch_code = serializers.SerializerMethodField()
     family_names = serializers.SerializerMethodField()
     can_view_profile = serializers.SerializerMethodField()
@@ -2107,6 +2279,8 @@ class PersonListSerializer(serializers.ModelSerializer):
             "cluster_codes",
             "cluster_labels",
             "cluster_ids",
+            "primary_cluster",
+            "primary_cluster_id",
             "family_names",
             "can_view_profile",
             "cord_id",
@@ -2126,7 +2300,11 @@ class PersonListSerializer(serializers.ModelSerializer):
         if membership is not None:
             return membership.cord
         cord = getattr(obj, "intended_cord", None)
-        if cord is not None and cord.is_active:
+        if (
+            cord is not None
+            and cord.is_active
+            and obj.clusters.filter(id=cord.cluster_id).exists()
+        ):
             return cord
         return None
 
@@ -2135,6 +2313,9 @@ class PersonListSerializer(serializers.ModelSerializer):
 
     def get_cluster_labels(self, obj: Person):
         return cluster_export_labels(obj)
+
+    def get_primary_cluster(self, obj: Person):
+        return primary_cluster_payload(obj)
 
     def get_branch_code(self, obj: Person):
         branch = getattr(obj, "branch", None)

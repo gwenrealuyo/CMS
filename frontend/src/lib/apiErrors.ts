@@ -48,6 +48,7 @@ const FIELD_LABELS: Record<string, string> = {
   photo: "Photo",
   family_ids: "Families",
   non_field_errors: "",
+  detail: "",
   start_date: "Start date",
   end_date: "End date",
 };

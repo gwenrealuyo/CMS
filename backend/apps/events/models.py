@@ -195,9 +195,7 @@ class Event(models.Model):
     estimated_headcount = models.PositiveIntegerField(
         null=True,
         blank=True,
-        help_text=(
-            "Optional planned guest count for room booking / approval context."
-        ),
+        help_text=("Optional planned guest count for room booking / approval context."),
     )
     counts_toward_first_activity = models.BooleanField(
         default=False,
@@ -284,12 +282,8 @@ class EventRegistrationTier(models.Model):
     is_active = models.BooleanField(default=True)
     onsite_offered = models.BooleanField(default=True)
     online_offered = models.BooleanField(default=True)
-    onsite_price = models.DecimalField(
-        max_digits=10, decimal_places=2, default=0
-    )
-    online_price = models.DecimalField(
-        max_digits=10, decimal_places=2, default=0
-    )
+    onsite_price = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    online_price = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     available_from = models.DateTimeField(null=True, blank=True)
     available_until = models.DateTimeField(null=True, blank=True)
 

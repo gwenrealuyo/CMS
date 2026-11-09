@@ -202,6 +202,10 @@ export interface Person {
   cluster_labels?: string[];
   /** Retrieve-only memberships for profile links; omitted from list payloads */
   cluster_memberships?: ClusterMembership[];
+  /** Nested primary cluster summary (read) */
+  primary_cluster?: ClusterMembership | null;
+  /** Writable primary cluster among memberships; auto when sole membership */
+  primary_cluster_id?: number | string | null;
   family_names?: string[];
   /** Writable membership IDs (create/update); also returned on read for form prefill */
   family_ids?: string[];

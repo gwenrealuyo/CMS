@@ -351,7 +351,7 @@ All routes live under `/api/evangelism/` (namespaced in `core.urls`):
     - Counts by month (each stage is independent — a person who hits multiple stages in the same month appears in **each** matching column):
       - **INVITED**: Visitors (`role=VISITOR`) with `date_first_invited` in month, plus still-unlinked Prospects (`person` null, not dropped) whose `date_first_invited` falls in month. Independent of Attended — same person can appear in both columns. Bucketing uses first invite date (re-invites on later reports do not move the month). Report “Prospects Invited” stamps/keeps the earliest invite on the Prospect; syncs to a linked Person only while they have not attended yet (after attend, Person dates are authoritative). Unlinked prospects are Invited-only — Unique HC and other milestones use Person profiles
       - **ATTENDED**: Visitor (`role=VISITOR`) with `date_first_attended` in month (date-based; not `Person.status`)
-      - **NCC** (`students_count`): Distinct people with a `LessonSessionReport.session_date` in that month (same branch/cluster/group scoping). Conversion status / `commitment_form_signed` does **not** exclude them
+      - **NCC** (`students_count`): Distinct people whose `Person.lessons_started_at` falls in that month (same branch/cluster/group scoping). Conversion status / `commitment_form_signed` does **not** exclude them
       - **BAPTIZED**: `water_baptism_date` in month
       - **RECEIVED_HG**: `spirit_baptism_date` in month
       - **REACHED**: Person meets all reached milestones (first invited, first attended, Taken NCC via `lessons_started_at` or active lesson teacher, water baptism, Holy Ghost); counted in the month of `reached_date` (latest of those milestone dates)
@@ -779,7 +779,7 @@ The Groups tab toolbar mirrors the clusters page layout:
   - Layout: **By cluster** (default; cluster rows, month window filter) and **By month** (12-month grid, cluster/group filter)
   - Columns: Cluster or Month, Invited, Attended, NCC, Baptized, Received HG, Reached, **UNIQUE HC**
   - Multi-column counting: one person can appear in every stage column they achieved in the window; Unique HC counts them once (union across selected months, not a sum of monthly Unique HC)
-  - Clicking a non-zero count opens `TallyDrilldownModal`; for Unique HC, milestone chips (Invited, Attended, Lessons Finished, Baptism, Holy Ghost, Reached) whose dates fall in the selected months are emphasized
+  - Clicking a non-zero count opens `TallyDrilldownModal`; for Unique HC, milestone chips (Invited, Attended, NCC / lessons started, Lessons Finished, Baptism, Holy Ghost, Reached) whose dates fall in the selected months are emphasized. Lessons Finished without a trustworthy date shows as “date unknown” and is not month-highlighted
   - Filters: year (dynamic options), branch, months (cluster mode: All / YTD / Q1–Q4 / custom), and a searchable combined **cluster or evangelism group** selector in month mode (shows **Cluster** vs **Group** badges); group list respects the selected branch server-side where applicable
 - **`TallyReport`**: Weekly unified tally
   - Combines evangelism weekly reports with cluster weekly reports

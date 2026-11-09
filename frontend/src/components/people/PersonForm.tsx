@@ -208,15 +208,9 @@ function applyWaterBaptismRoleRules(
   next: Partial<Person>,
   waterBaptismDate: string,
 ): Partial<Person> {
+  // Baptism promotes visitors to member. Clearing baptism does not demote.
   if (waterBaptismDate && next.role === "VISITOR") {
     return { ...next, role: "MEMBER", status: "ACTIVE" };
-  }
-  if (!waterBaptismDate && next.role === "MEMBER") {
-    return {
-      ...next,
-      role: "VISITOR",
-      status: next.date_first_attended ? "ONGOING" : "NO_RESPONSE",
-    };
   }
   return next;
 }
@@ -1618,13 +1612,6 @@ const PersonForm = forwardRef<PersonFormHandle, PersonFormProps>(
       }
     }
 
-    if (formData.has_finished_lessons && !formData.lessons_finished_at) {
-      toast.error(
-        "Set Lessons Finished Date when marking this person as finished in NC lessons.",
-      );
-      return;
-    }
-
     if (teacherRequiredForFinished) {
       if (teacherMode === "select" && !formData.lesson_teacher_id) {
         toast.error(
@@ -2757,6 +2744,13 @@ const PersonForm = forwardRef<PersonFormHandle, PersonFormProps>(
                         disabled={!canEditVitalDates}
                       />
                     </LockedField>
+                    {formData.role === "MEMBER" &&
+                      !formData.water_baptism_date && (
+                        <p className="mt-1 text-xs text-gray-500">
+                          Recommended for members. Clearing this date does not
+                          change role or status.
+                        </p>
+                      )}
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -2938,8 +2932,10 @@ const PersonForm = forwardRef<PersonFormHandle, PersonFormProps>(
                     </LockedField>
                     {formData.has_finished_lessons &&
                       !formData.lessons_finished_at && (
-                        <p className="mt-1 text-xs text-red-600">
-                          Required when Has Finished NC Lessons is enabled.
+                        <p className="mt-1 text-xs text-gray-500">
+                          Optional. Leave blank when the finish date is unknown
+                          (legacy completers). Required only when recording a
+                          commitment form signature.
                         </p>
                       )}
                   </div>

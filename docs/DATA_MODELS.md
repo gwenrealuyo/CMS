@@ -14,7 +14,7 @@
 - Demographics: `gender?` (MALE|FEMALE), `date_of_birth?`, `country?` (full country name, max 100 chars; person form offers a complete country list)
 - Contact: `phone?`, `address?`, `facebook_name?`
 - Role: `role` (MEMBER|VISITOR|PASTOR|ADMIN) — coordinator capability is granted via `ModuleCoordinator` assignments, not a base role
-  - If `water_baptism_date` is set and role is `VISITOR`, the person is promoted to `MEMBER` with status `ACTIVE` (including existing baptized visitors). Visitor is not a valid role while the date is set. Conversely, `MEMBER` requires a water baptism date: assigning or creating `MEMBER` without one coerces to `VISITOR` (Ongoing if `date_first_attended` is set, otherwise No Response; Deceased is preserved). Clearing the baptism date demotes a `MEMBER` the same way. `PASTOR` / `ADMIN` are unchanged.
+  - If `water_baptism_date` is set and role is `VISITOR`, the person is promoted to `MEMBER` with status `ACTIVE` (including existing baptized visitors). Visitor is not a valid role while the date is set. Clearing or omitting baptism does **not** demote `MEMBER` (baptism is a vital-date completeness field, not a role gate—avoids false visitors in evangelism/status tallies). `MEMBER` may exist without a baptism date. `PASTOR` / `ADMIN` are unchanged.
 - Church-specific: `date_first_attended?`, `member_id?`, `status?` (ACTIVE|SEMIACTIVE|INACTIVE|DORMANT|FALLAWAY|DECEASED|ONGOING|NO_RESPONSE)
 - Relations: `inviter` → Person (nullable), `branch` → Branch (nullable), `primary_cluster` → Cluster (nullable; required whenever the person has ≥1 cluster membership; sole membership is always that cluster), `intended_cord` → ClusterCord (nullable), standard `groups` and `user_permissions` with custom related_names
 - Media: `photo` (ImageField → `profiles/`)
@@ -41,8 +41,8 @@ Notes
   - **FALLAWAY** (Fall Away): Member who has left fellowship or abandoned regular participation with no current expectation of return. Distinct from Dormant (membership retained, return still hoped for) and from Inactive (temporary attendance drop).
   - **DECEASED**: Marked deceased. Available for members and visitors. Set only via the Edit person form status dropdown (no profile shortcut button).
 - **Visitor statuses** (UI restricts selection by role; distinct from evangelism Prospect `pipeline_stage` INVITED/ATTENDED):
-  - **ONGOING**: Default on create and when marking attended / creating Person from a prospect. Also applied when demoting a member to visitor if `date_first_attended` is set.
-  - **NO_RESPONSE**: Auto-set only when demoting/switching to visitor with no `date_first_attended`. May also be set manually.
+  - **ONGOING**: Default on create and when marking attended / creating Person from a prospect.
+  - **NO_RESPONSE**: Default when creating a visitor with no `date_first_attended`. May also be set manually.
   - **DECEASED**: Manual only (never auto-assigned).
   - Legacy `INVITED` / `ATTENDED` Person statuses were remapped to **ONGOING** (migration `0017_person_maiden_name_and_visitor_status`).
 

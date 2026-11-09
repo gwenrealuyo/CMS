@@ -40,19 +40,21 @@ This drops all `lessons_*` tables and re-migrates (clears lesson progress, enrol
 
 - When a person has `PersonLessonProgress` rows for active latest lessons, completing or reverting lessons via `mark_progress_completed` / `revert_progress_completion` updates `people.Person.has_finished_lessons` and `lessons_finished_at`.
 - **First NCC session report:** `apps.lessons.services.sync_person_lessons_started_from_report` sets `Person.lessons_started_at` (and empty `Conversion.lesson_start_date` rows) from `session_date` unless the person already finished lessons or already has a start date.
-- **All complete:** `has_finished_lessons=True` and `lessons_finished_at` is the latest `completed_at` date across those progress rows.
+- **All complete:** `has_finished_lessons=True`. `lessons_finished_at` comes from trustworthy evidence (latest LESSON session date, or varied progress days). Uniform legacy stamps are not written as a new finish date; an already-set person date is preserved until reconcile clears it.
 - **Not all complete:** both fields are cleared (same direction as commitment-form eligibility).
 - Persons with no module progress rows are left unchanged (pure legacy manual flags).
-- Legacy manual entry (profile → progress backfill) still works; see below.
+- Legacy manual entry (profile → progress backfill when a finish date is provided) still works; see below.
 
 ## Legacy Completion Backfill
 
 - Some members may have completed lessons before the app was used. This is handled through people fields:
-  - `people.Person.has_finished_lessons`
-  - `people.Person.lessons_finished_at`
+  - `people.Person.has_finished_lessons` (eligibility / “already finished”)
+  - `people.Person.lessons_finished_at` (optional calendar day; may be blank when unknown)
 - When a person is saved with `has_finished_lessons=True` and `lessons_finished_at` present, the system creates missing `PersonLessonProgress` rows for active latest lessons and marks those new rows as `COMPLETED`.
 - Backfill behavior is non-destructive: existing lesson progress records are not overwritten (create-missing-only).
-- If `has_finished_lessons=True` but `lessons_finished_at` is missing, legacy backfill does not run.
+- If `has_finished_lessons=True` but `lessons_finished_at` is missing, legacy progress backfill does not run (finished with date unknown is allowed).
+- **Trustworthy finish dates:** `trustworthy_lessons_finished_at` prefers LESSON session report dates, then varied progress `completed_at` days. Uniform stamped `completed_at` (typical import/backfill) is not trusted for yearly “Completed This Year” cohorts. UI shows “date unknown” when the flag is set without a date.
+- **Reconcile command:** `python manage.py reconcile_lessons_finished_dates [--dry-run] [--branch ID]` keeps `has_finished_lessons`, sets `lessons_finished_at` from session/varied evidence, and clears untrusted legacy stamps.
 
 ## Lesson Assignment Eligibility
 

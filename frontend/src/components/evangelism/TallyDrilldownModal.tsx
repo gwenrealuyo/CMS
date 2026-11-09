@@ -106,7 +106,7 @@ export default function TallyDrilldownModal({
 
   const shouldShowEventDateChip = (
     metric: EvangelismTallyDrilldownRow["metric"],
-  ) => metric === "members" || metric === "visitors" || metric === "students";
+  ) => metric === "members" || metric === "visitors";
 
   const buildDisplayName = (row: EvangelismTallyDrilldownRow) => {
     const formatted = formatPersonName({
@@ -244,14 +244,27 @@ export default function TallyDrilldownModal({
                         Attended {formatDate(row.date_first_attended)}
                       </span>
                     )}
-                    {formatDate(row.lessons_finished_at) && (
+                    {formatDate(row.lessons_started_at) && (
+                      <span
+                        className={chipClassName(
+                          "rounded-full bg-orange-50 px-2 py-0.5 text-[11px] font-medium text-orange-800",
+                          row.lessons_started_at,
+                        )}
+                      >
+                        NCC {formatDate(row.lessons_started_at)}
+                      </span>
+                    )}
+                    {(formatDate(row.lessons_finished_at) ||
+                      row.has_finished_lessons) && (
                       <span
                         className={chipClassName(
                           "rounded-full bg-indigo-50 px-2 py-0.5 text-[11px] font-medium text-indigo-700",
                           row.lessons_finished_at,
                         )}
                       >
-                        Lessons Finished {formatDate(row.lessons_finished_at)}
+                        {formatDate(row.lessons_finished_at)
+                          ? `Lessons Finished ${formatDate(row.lessons_finished_at)}`
+                          : "Lessons Finished (date unknown)"}
                       </span>
                     )}
                     {formatDate(row.water_baptism_date) && (

@@ -93,6 +93,7 @@ import {
   MonthlyStatistics,
   Each1Reach1Goal,
   EvangelismSummary,
+  EvangelismAnalytics,
   RecurringSessionData as EvangelismRecurringSessionData,
   BibleSharersCoverage,
   BulkEnrollData,
@@ -2332,6 +2333,18 @@ export const evangelismApi = {
     gathering_type?: string;
   }) =>
     api.get<{ years: number[] }>("/evangelism/weekly-reports/distinct_years/", {
+      params,
+    }),
+  analytics: (params?: {
+    evangelism_group?: number | string;
+    cluster?: number | string;
+    branch?: number | string;
+    year?: number;
+    week_number?: number | string;
+    gathering_type?: string;
+    month?: number | string;
+  }) =>
+    api.get<EvangelismAnalytics>("/evangelism/weekly-reports/analytics/", {
       params,
     }),
   getWeeklyReport: (id: number | string) =>

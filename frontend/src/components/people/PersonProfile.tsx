@@ -1065,7 +1065,7 @@ export default function PersonProfile({
                         value={
                           person.has_finished_lessons
                             ? formatDisplayDate(person.lessons_finished_at) ||
-                              "Yes"
+                              "Yes (date unknown)"
                             : "Not yet"
                         }
                       />

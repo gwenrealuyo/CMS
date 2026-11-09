@@ -109,11 +109,103 @@ def sync_person_lessons_started_from_report(report: LessonSessionReport) -> None
     ).update(lesson_start_date=report.session_date)
 
 
+def latest_lesson_session_date(person: Person) -> Optional[date]:
+    """Latest LESSON-type session report calendar day for this student."""
+    return (
+        LessonSessionReport.objects.filter(
+            student_id=person.pk,
+            session_type=LessonSessionReport.SessionType.LESSON,
+            session_date__isnull=False,
+        )
+        .order_by("-session_date", "-id")
+        .values_list("session_date", flat=True)
+        .first()
+    )
+
+
+def trustworthy_lessons_finished_at(person: Person) -> Optional[date]:
+    """
+    Course-finish calendar day from evidence only.
+
+    Prefer the latest LESSON session report date. Otherwise, when every active
+    latest lesson is COMPLETED:
+    - varied ``completed_at`` calendar days → latest of those
+    - all ``completed_at`` null → fall back to ``Person.lessons_finished_at``
+    - uniform stamped ``completed_at`` (typical legacy backfill) → None
+
+    Flag-only legacy completers with no progress/sessions return None so the
+    finish date can stay blank while ``has_finished_lessons`` remains True.
+    """
+    session_finish = latest_lesson_session_date(person)
+    if session_finish is not None:
+        return session_finish
+
+    lesson_ids = list(
+        Lesson.objects.filter(is_latest=True, is_active=True).values_list("id", flat=True)
+    )
+    if not lesson_ids:
+        return None
+
+    progresses = list(
+        PersonLessonProgress.objects.filter(person=person, lesson_id__in=lesson_ids)
+    )
+    if not progresses:
+        return None
+
+    if len(progresses) != len(lesson_ids):
+        return None
+    if any(p.status != PersonLessonProgress.Status.COMPLETED for p in progresses):
+        return None
+
+    completed_days = [
+        day
+        for progress in progresses
+        if (day := church_calendar_date(progress.completed_at)) is not None
+    ]
+    if len(set(completed_days)) > 1:
+        return max(completed_days)
+    if progresses and all(progress.completed_at is None for progress in progresses):
+        return church_calendar_date(person.lessons_finished_at)
+    return None
+
+
+def reconcile_person_lessons_finished_at(
+    person: Person, *, dry_run: bool = False
+) -> str:
+    """
+    Keep ``has_finished_lessons``; set ``lessons_finished_at`` from trustworthy
+    evidence or clear untrusted legacy stamps.
+
+    Returns ``unchanged``, ``set``, ``cleared``, or ``skipped``.
+    """
+    if not person.has_finished_lessons and person.lessons_finished_at is None:
+        return "skipped"
+
+    trusted = trustworthy_lessons_finished_at(person)
+    if not person.has_finished_lessons:
+        trusted = None
+
+    if person.lessons_finished_at == trusted:
+        return "unchanged"
+
+    action = "set" if trusted is not None else "cleared"
+    if dry_run:
+        return action
+
+    person.lessons_finished_at = trusted
+    person.save(update_fields=["lessons_finished_at"])
+    return action
+
+
 def sync_person_lessons_finished_from_progress(person: Person) -> None:
     """
     Mirror module lesson completion onto Person.has_finished_lessons /
     lessons_finished_at when the person has PersonLessonProgress rows.
-  """
+
+    Finish dates prefer session reports and varied progress milestones. Uniform
+    legacy stamps are not written onto the person (date stays blank / unchanged
+    when already blank); ``has_finished_lessons`` still flips True when complete.
+    """
     lesson_ids = list(
         Lesson.objects.filter(is_latest=True, is_active=True).values_list("id", flat=True)
     )
@@ -136,12 +228,11 @@ def sync_person_lessons_finished_from_progress(person: Person) -> None:
     )
 
     if all_completed:
-        completed_dates = [
-            milestone
-            for progress in progresses
-            if (milestone := _milestone_date_for_progress(progress)) is not None
-        ]
-        lessons_finished_at = max(completed_dates) if completed_dates else None
+        lessons_finished_at = trustworthy_lessons_finished_at(person)
+        # Preserve an existing person date when evidence is only a uniform stamp
+        # (manual entry just backfilled progress with that same day).
+        if lessons_finished_at is None and person.lessons_finished_at is not None:
+            lessons_finished_at = person.lessons_finished_at
         if (
             person.has_finished_lessons
             and person.lessons_finished_at == lessons_finished_at
@@ -917,24 +1008,18 @@ def _course_finish_calendar_date(person_records) -> Optional[date]:
     """
     Real course-finish day for a person who completed every in-scope lesson.
 
-    Uses the latest progress ``completed_at`` (church calendar). If those
-    timestamps are missing (common after bulk import), falls back to
-    ``Person.lessons_finished_at``. Does not use ``assigned_at``.
+    Uses :func:`trustworthy_lessons_finished_at` (session reports, varied
+    progress days, or person date when progress ``completed_at`` is null).
+    Uniform legacy stamps and undated imports return None so they stay out of
+    yearly completion cohorts. Does not use ``assigned_at``.
     """
-    completed_dates = []
     person = None
     for record in person_records:
         person = record.person
-        if record.status != PersonLessonProgress.Status.COMPLETED:
-            continue
-        milestone = church_calendar_date(record.completed_at)
-        if milestone is not None:
-            completed_dates.append(milestone)
-    if completed_dates:
-        return max(completed_dates)
+        break
     if person is None:
         return None
-    return church_calendar_date(person.lessons_finished_at)
+    return trustworthy_lessons_finished_at(person)
 
 
 def build_lesson_progress_summary(
@@ -947,9 +1032,9 @@ def build_lesson_progress_summary(
 ) -> dict:
     """Aggregate lesson progress for a pre-filtered PersonLessonProgress queryset.
 
-    Person-level COMPLETED counts only students whose course finish date
-    (``completed_at`` or ``lessons_finished_at``) falls in ``year``. Historical
-    graduates and undated bulk imports are excluded from the yearly cohort.
+    Person-level COMPLETED counts only students whose trustworthy course finish
+    date falls in ``year``. Historical graduates, uniform legacy stamps, and
+    undated imports are excluded from the yearly cohort.
 
     Lesson rows use that same cohort: students still in the course, plus
     students who finished every in-scope lesson in ``year``. Each lesson's

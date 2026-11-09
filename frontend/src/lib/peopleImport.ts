@@ -222,11 +222,6 @@ export function mapImportRowToPerson(
     if (payload.status === "ONGOING" || payload.status === "NO_RESPONSE") {
       payload.status = "ACTIVE";
     }
-  } else if (!payload.water_baptism_date && payload.role === "MEMBER") {
-    payload.role = "VISITOR";
-    if (payload.status !== "DECEASED") {
-      payload.status = payload.date_first_attended ? "ONGOING" : "NO_RESPONSE";
-    }
   }
 
   const activity = pickString(row, "first_activity_attended");

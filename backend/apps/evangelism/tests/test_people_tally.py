@@ -431,6 +431,47 @@ class PeopleTallyAPITests(APITestCase):
         self.assertEqual(uncorded_detail.data["count"], 1)
         self.assertEqual(uncorded_detail.data["results"][0]["first_name"], "NoCord")
 
+    def test_ncc_counts_by_lessons_started_at(self):
+        starter = self._person("tallynccstart", role="MEMBER", first_name="Starter")
+        starter.lessons_started_at = date(self.year, 9, 12)
+        starter.save(update_fields=["lessons_started_at"])
+        self.east.members.add(starter)
+
+        unfinished = self._person(
+            "tallynccunfinished", role="MEMBER", first_name="Unfinished"
+        )
+        unfinished.lessons_finished_at = date(self.year, 9, 20)
+        unfinished.has_finished_lessons = True
+        unfinished.save(
+            update_fields=["lessons_finished_at", "has_finished_lessons"]
+        )
+        self.east.members.add(unfinished)
+
+        response = self.client.get(
+            TALLY_URL,
+            {"year": self.year, "branch": self.branch.id},
+        )
+        self.assertEqual(response.status_code, 200, response.data)
+        september = self._row_for_month(response.data, 9)
+        self.assertEqual(september["students_count"], 1)
+        self.assertEqual(september["unique_hc_count"], 1)
+
+        detail = self.client.get(
+            DETAIL_URL,
+            {
+                "year": self.year,
+                "branch": self.branch.id,
+                "month": 9,
+                "metric": "students",
+            },
+        )
+        self.assertEqual(detail.status_code, 200, detail.data)
+        self.assertEqual(detail.data["count"], 1)
+        row = detail.data["results"][0]
+        self.assertEqual(row["first_name"], "Starter")
+        self.assertEqual(row["lessons_started_at"], "2026-09-12")
+        self.assertEqual(row["event_date"], "2026-09-12")
+
     def test_invited_and_attended_same_month_count_independently(self):
         novelina = self._person("tallynovelina", role="VISITOR", first_name="Novelina")
         novelina.date_first_invited = date(self.year, 10, 11)

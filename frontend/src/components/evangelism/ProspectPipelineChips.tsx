@@ -25,6 +25,8 @@ export default function ProspectPipelineChips({
   const baptism = formatLocaleDate(prospect.water_baptism_date);
   const receivedHg = formatLocaleDate(prospect.spirit_baptism_date);
   const reached = formatLocaleDate(prospect.reached_date);
+  const finishedUndated =
+    Boolean(prospect.has_finished_lessons) && !lessons;
 
   return (
     <div className="flex flex-wrap gap-1.5">
@@ -36,6 +38,11 @@ export default function ProspectPipelineChips({
       {attended && chip("bg-cyan-50 text-cyan-700", `Attended ${attended}`)}
       {lessons &&
         chip("bg-indigo-50 text-indigo-700", `Lessons Finished ${lessons}`)}
+      {finishedUndated &&
+        chip(
+          "bg-indigo-50 text-indigo-700",
+          "Lessons Finished (date unknown)",
+        )}
       {baptism && chip("bg-amber-50 text-amber-700", `Baptism ${baptism}`)}
       {receivedHg &&
         chip("bg-emerald-50 text-emerald-700", `Received HG ${receivedHg}`)}

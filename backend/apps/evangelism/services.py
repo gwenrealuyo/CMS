@@ -790,35 +790,33 @@ def person_ids_with_ncc_sessions_for_months(
     unclustered: bool = False,
     weeks: Optional[Sequence[int]] = None,
 ) -> set:
-    """Distinct people with NCC lesson activity in any of the given months/weeks."""
-    from apps.lessons.models import LessonSessionReport
-
+    """Distinct people whose lessons_started_at falls in any of the given months/weeks."""
     month_list = list(months)
     if not weeks and not month_list:
         return set()
 
-    student_lsr = LessonSessionReport.objects.filter(
+    qs = Person.objects.exclude(role="ADMIN").filter(
         people_tally_date_window_q(
-            "session_date",
+            "lessons_started_at",
             year=year,
             months=month_list,
             weeks=weeks,
         )
     )
     if branch_id is not None:
-        student_lsr = student_lsr.filter(student__branch_id=branch_id)
+        qs = qs.filter(branch_id=branch_id)
     if unclustered:
-        student_lsr = student_lsr.filter(student__clusters__isnull=True)
+        qs = qs.filter(clusters__isnull=True)
     elif cluster_id is not None:
-        student_lsr = student_lsr.filter(student__clusters__id=cluster_id)
+        qs = qs.filter(clusters__id=cluster_id)
     elif evangelism_group_id is not None:
         gp_ids = group_person_ids or frozenset()
         if gp_ids:
-            student_lsr = student_lsr.filter(student_id__in=gp_ids)
+            qs = qs.filter(id__in=gp_ids)
         else:
-            student_lsr = student_lsr.none()
+            qs = qs.none()
 
-    return set(student_lsr.values_list("student_id", flat=True).distinct())
+    return set(qs.values_list("id", flat=True).distinct())
 
 
 def person_ids_with_ncc_sessions_for_month(
@@ -830,7 +828,7 @@ def person_ids_with_ncc_sessions_for_month(
     evangelism_group_id: Optional[int] = None,
     group_person_ids: Optional[frozenset] = None,
 ) -> set:
-    """Distinct people with NCC lesson activity in a month (People Tally NCC rule)."""
+    """Distinct people whose lessons_started_at falls in a month (People Tally NCC)."""
     return person_ids_with_ncc_sessions_for_months(
         year=year,
         months=[month],
@@ -1377,7 +1375,7 @@ def count_taken_ncc_prospects_for_month(
     evangelism_group_id: Optional[int] = None,
     group_person_ids: Optional[frozenset] = None,
 ) -> int:
-    """Count unique people with NCC lesson activity in a month (People Tally NCC rule)."""
+    """Count unique people whose lessons_started_at falls in a month (People Tally NCC)."""
     return len(
         person_ids_with_ncc_sessions_for_month(
             year=year,

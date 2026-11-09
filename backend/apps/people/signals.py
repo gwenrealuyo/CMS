@@ -203,57 +203,24 @@ def _handle_baptism_date_journey(person, current_date, original_date, journey_ty
 
 
 def _handle_baptism_role_update(person, current_date, original_date):
-    date_cleared = original_date is not None and current_date is None
-
-    if current_date is not None and person.role == "VISITOR":
-        old_status = person.status
-        person.role = "MEMBER"
-        person.status = "ACTIVE"
-        person.save(update_fields=["role", "status"])
-        from apps.people.models import PersonStatusChange
-        from apps.people.utils import record_person_status_change
-
-        record_person_status_change(
-            person=person,
-            from_status=old_status,
-            to_status="ACTIVE",
-            source=PersonStatusChange.Source.SYSTEM,
-            reason="Status set after water baptism.",
-        )
+    """Promote baptized visitors to MEMBER. Never demote MEMBER when baptism is cleared."""
+    if current_date is None or person.role != "VISITOR":
         return
 
-    # MEMBER requires water_baptism_date. Demote when baptism is cleared, or when
-    # created/assigned as MEMBER without a baptism date. Legacy MEMBER rows without
-    # baptism are corrected by data migration (not on every unrelated save).
-    if current_date is None and person.role == "MEMBER":
-        original_role = getattr(person, "_original_role", None)
-        becoming_member_without_baptism = original_role != "MEMBER"
-        if not (date_cleared or becoming_member_without_baptism):
-            return
+    old_status = person.status
+    person.role = "MEMBER"
+    person.status = "ACTIVE"
+    person.save(update_fields=["role", "status"])
+    from apps.people.models import PersonStatusChange
+    from apps.people.utils import record_person_status_change
 
-        old_status = person.status
-        person.role = "VISITOR"
-        if old_status == "DECEASED":
-            new_status = "DECEASED"
-        else:
-            new_status = "ONGOING" if person.date_first_attended else "NO_RESPONSE"
-        person.status = new_status
-        person.save(update_fields=["role", "status"])
-        from apps.people.models import PersonStatusChange
-        from apps.people.utils import record_person_status_change
-
-        reason = (
-            "Status set after water baptism date was cleared."
-            if date_cleared
-            else "Status set because Member requires water baptism date."
-        )
-        record_person_status_change(
-            person=person,
-            from_status=old_status,
-            to_status=new_status,
-            source=PersonStatusChange.Source.SYSTEM,
-            reason=reason,
-        )
+    record_person_status_change(
+        person=person,
+        from_status=old_status,
+        to_status="ACTIVE",
+        source=PersonStatusChange.Source.SYSTEM,
+        reason="Status set after water baptism.",
+    )
 
 
 def _handle_first_attended_journey(person, current_date, original_date, current_activity, original_activity):

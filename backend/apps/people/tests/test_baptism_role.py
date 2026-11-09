@@ -95,7 +95,7 @@ class BaptismRoleAPITests(APITestCase):
         self.assertEqual(member.role, "MEMBER")
         self.assertEqual(member.status, "ACTIVE")
 
-    def test_clearing_baptism_date_demotes_member_to_visitor(self):
+    def test_clearing_baptism_date_keeps_member_role_and_status(self):
         member = Person.objects.create_user(
             username="clearmember",
             password="pass12345",
@@ -114,18 +114,14 @@ class BaptismRoleAPITests(APITestCase):
         )
         self.assertEqual(response.status_code, 200, response.data)
         member.refresh_from_db()
-        self.assertEqual(member.role, "VISITOR")
-        self.assertEqual(member.status, "ONGOING")
+        self.assertEqual(member.role, "MEMBER")
+        self.assertEqual(member.status, "ACTIVE")
         self.assertIsNone(member.water_baptism_date)
-        change = PersonStatusChange.objects.filter(
-            person=member,
-            source=PersonStatusChange.Source.SYSTEM,
-        ).first()
-        self.assertIsNotNone(change)
-        self.assertEqual(change.to_status, "ONGOING")
-        self.assertEqual(
-            change.reason,
-            "Status set after water baptism date was cleared.",
+        self.assertFalse(
+            PersonStatusChange.objects.filter(
+                person=member,
+                source=PersonStatusChange.Source.SYSTEM,
+            ).exists()
         )
 
     def test_pastor_and_admin_keep_role_when_baptism_date_is_set(self):
@@ -187,7 +183,7 @@ class BaptismRoleAPITests(APITestCase):
         self.assertEqual(created.role, "MEMBER")
         self.assertEqual(created.status, "ACTIVE")
 
-    def test_create_member_without_baptism_coerces_to_visitor(self):
+    def test_create_member_without_baptism_keeps_member(self):
         response = self.client.post(
             "/api/people/people/",
             {
@@ -200,30 +196,14 @@ class BaptismRoleAPITests(APITestCase):
             format="json",
         )
         self.assertEqual(response.status_code, 201, response.data)
-        self.assertEqual(response.data["role"], "VISITOR")
-        self.assertEqual(response.data["status"], "NO_RESPONSE")
+        self.assertEqual(response.data["role"], "MEMBER")
+        self.assertEqual(response.data["status"], "ACTIVE")
         created = Person.objects.get(pk=response.data["id"])
-        self.assertEqual(created.role, "VISITOR")
-        self.assertEqual(created.status, "NO_RESPONSE")
+        self.assertEqual(created.role, "MEMBER")
+        self.assertEqual(created.status, "ACTIVE")
+        self.assertIsNone(created.water_baptism_date)
 
-    def test_create_member_without_baptism_with_attendance_uses_ongoing(self):
-        response = self.client.post(
-            "/api/people/people/",
-            {
-                "first_name": "Attended",
-                "last_name": "NoBap",
-                "role": "MEMBER",
-                "status": "ACTIVE",
-                "branch": self.branch.id,
-                "date_first_attended": date(2024, 5, 1).isoformat(),
-            },
-            format="json",
-        )
-        self.assertEqual(response.status_code, 201, response.data)
-        self.assertEqual(response.data["role"], "VISITOR")
-        self.assertEqual(response.data["status"], "ONGOING")
-
-    def test_patch_member_role_without_baptism_coerces_to_visitor(self):
+    def test_patch_member_role_without_baptism_keeps_member(self):
         visitor = self._create_visitor(date_first_attended=date(2024, 1, 10))
         response = self.client.patch(
             f"/api/people/people/{visitor.id}/",
@@ -232,10 +212,11 @@ class BaptismRoleAPITests(APITestCase):
         )
         self.assertEqual(response.status_code, 200, response.data)
         visitor.refresh_from_db()
-        self.assertEqual(visitor.role, "VISITOR")
-        self.assertEqual(visitor.status, "ONGOING")
+        self.assertEqual(visitor.role, "MEMBER")
+        self.assertEqual(visitor.status, "ACTIVE")
+        self.assertIsNone(visitor.water_baptism_date)
 
-    def test_orm_create_member_without_baptism_demotes_to_visitor(self):
+    def test_orm_create_member_without_baptism_keeps_member(self):
         person = Person.objects.create_user(
             username="ormmember",
             password="pass12345",
@@ -246,5 +227,5 @@ class BaptismRoleAPITests(APITestCase):
             branch=self.branch,
         )
         person.refresh_from_db()
-        self.assertEqual(person.role, "VISITOR")
-        self.assertEqual(person.status, "NO_RESPONSE")
+        self.assertEqual(person.role, "MEMBER")
+        self.assertEqual(person.status, "ACTIVE")

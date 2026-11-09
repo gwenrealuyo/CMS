@@ -84,6 +84,47 @@ export interface EvangelismWeeklyReport {
   updated_at: string;
 }
 
+export interface EvangelismAnalyticsMonthlyBucket {
+  month_key: string;
+  month_label: string;
+  members: number;
+  visitors: number;
+}
+
+export interface EvangelismAnalyticsGroupRow {
+  group_id: number;
+  group_label: string;
+  report_count: number;
+  sum_members_attended: number;
+  member_count?: number;
+  /** Percent 0–100, server-computed and clamped. */
+  attendance_rate?: number;
+}
+
+export interface EvangelismAnalyticsChartSeries {
+  monthly_attendance: EvangelismAnalyticsMonthlyBucket[];
+  group_comparison: EvangelismAnalyticsGroupRow[];
+}
+
+export interface EvangelismAnalytics {
+  total_reports: number;
+  total_attendance: {
+    members: number;
+    visitors: number;
+  };
+  average_attendance: {
+    avg_members: number;
+    avg_visitors: number;
+  };
+  /** Mean of per-report member attendance rates (0–100), clamped. */
+  average_member_attendance_rate?: number;
+  gathering_type_distribution: Array<{
+    gathering_type: string | null;
+    count: number;
+  }>;
+  chart_series?: EvangelismAnalyticsChartSeries;
+}
+
 export interface EvangelismProspectInvitedDetail {
   id: number;
   first_name: string;
@@ -200,6 +241,8 @@ export interface EvangelismTallyDrilldownRow {
   event_date?: string | null;
   date_first_invited?: string | null;
   date_first_attended?: string | null;
+  lessons_started_at?: string | null;
+  has_finished_lessons?: boolean;
   lessons_finished_at?: string | null;
   water_baptism_date?: string | null;
   spirit_baptism_date?: string | null;

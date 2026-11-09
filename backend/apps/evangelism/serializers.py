@@ -1381,6 +1381,8 @@ class EvangelismTallyDrilldownSerializer(serializers.Serializer):
     event_date = serializers.DateField(required=False, allow_null=True)
     date_first_invited = serializers.DateField(required=False, allow_null=True)
     date_first_attended = serializers.DateField(required=False, allow_null=True)
+    lessons_started_at = serializers.DateField(required=False, allow_null=True)
+    has_finished_lessons = serializers.BooleanField(required=False, default=False)
     lessons_finished_at = serializers.DateField(required=False, allow_null=True)
     water_baptism_date = serializers.DateField(required=False, allow_null=True)
     spirit_baptism_date = serializers.DateField(required=False, allow_null=True)

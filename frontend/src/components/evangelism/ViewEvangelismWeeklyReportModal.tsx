@@ -14,11 +14,12 @@ import { formatDisplayDate } from "@/src/lib/date";
 interface ViewEvangelismWeeklyReportModalProps {
   report: EvangelismWeeklyReport | null;
   isOpen: boolean;
-  /** When false, hides Edit/Delete (matches cluster modal). */
+  /** When false, hides Edit (matches cluster modal). */
   canMutateReports?: boolean;
   onClose: () => void;
   onEdit: () => void;
-  onDelete: () => void;
+  /** When omitted, the delete control is hidden (hard-delete is admin-only). */
+  onDelete?: () => void;
 }
 
 const INITIAL_DISPLAY_COUNT = 6;
@@ -573,6 +574,7 @@ export default function ViewEvangelismWeeklyReportModal({
         <div className="p-3 sm:p-4 border-t border-gray-200 bg-gray-50 shrink-0">
           <div className="flex flex-nowrap items-center gap-2 w-full overflow-x-auto">
             <div className="flex flex-nowrap items-center gap-2 shrink-0">
+              {onDelete ? (
               <Button
                 onClick={onDelete}
                 variant="secondary"
@@ -594,6 +596,7 @@ export default function ViewEvangelismWeeklyReportModal({
                   />
                 </svg>
               </Button>
+              ) : null}
             </div>
             <div className="flex flex-nowrap items-center gap-2 shrink-0 ml-auto">
               <Button

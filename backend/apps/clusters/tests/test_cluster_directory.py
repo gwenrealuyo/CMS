@@ -89,13 +89,19 @@ class ClusterDirectoryAPITests(APITestCase):
         self.assertEqual(summary.status_code, 200, summary.data)
         self.assertEqual(summary.data["member_count"], 4)
 
-    def test_unassigned_excludes_pastors(self):
+    def test_unassigned_excludes_admins_pastors_and_visitors(self):
         self._east_cluster()
         unassigned_member = self._person(
             "cludirunass", "MEMBER", first_name="Una", last_name="Member"
         )
         unclustered_pastor = self._person(
             "cludirfreepastor", "PASTOR", first_name="Free", last_name="Pastor"
+        )
+        unclustered_visitor = self._person(
+            "cludirfreevisitor", "VISITOR", first_name="Free", last_name="Visitor"
+        )
+        unclustered_admin = self._person(
+            "cludirfreeadmin", "ADMIN", first_name="Free", last_name="Admin"
         )
         self.client.force_authenticate(self.admin)
 
@@ -108,3 +114,5 @@ class ClusterDirectoryAPITests(APITestCase):
         usernames = [row["username"] for row in response.data["results"]]
         self.assertIn(unassigned_member.username, usernames)
         self.assertNotIn(unclustered_pastor.username, usernames)
+        self.assertNotIn(unclustered_visitor.username, usernames)
+        self.assertNotIn(unclustered_admin.username, usernames)

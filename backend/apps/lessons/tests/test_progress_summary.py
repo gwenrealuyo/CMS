@@ -82,12 +82,38 @@ class LessonProgressSummaryYearTests(TestCase):
 
     def test_this_year_completed_at_counts(self):
         person = self._person("thisyear")
-        self._complete_course(person, completed_on=date(self.year, 3, 1))
+        # Varied completion days (same-day uniform stamps are treated as
+        # untrusted legacy backfill and excluded from yearly cohorts).
+        PersonLessonProgress.objects.create(
+            person=person,
+            lesson=self.lesson_one,
+            status=PersonLessonProgress.Status.COMPLETED,
+            completed_at=_as_aware_datetime(date(self.year, 2, 10)),
+        )
+        PersonLessonProgress.objects.create(
+            person=person,
+            lesson=self.lesson_two,
+            status=PersonLessonProgress.Status.COMPLETED,
+            completed_at=_as_aware_datetime(date(self.year, 3, 1)),
+        )
 
         payload = self._summary()
 
         self.assertEqual(payload["overall"]["COMPLETED"], 1)
         self.assertEqual(payload["total_participants"], 1)
+
+    def test_uniform_legacy_stamp_is_excluded_from_yearly_cohort(self):
+        person = self._person(
+            "uniformstamp",
+            has_finished_lessons=True,
+            lessons_finished_at=date(self.year, 3, 1),
+        )
+        self._complete_course(person, completed_on=date(self.year, 3, 1))
+
+        payload = self._summary()
+
+        self.assertEqual(payload["overall"]["COMPLETED"], 0)
+        self.assertEqual(payload["total_participants"], 0)
 
     def test_null_completed_at_uses_lessons_finished_at(self):
         historical = self._person(

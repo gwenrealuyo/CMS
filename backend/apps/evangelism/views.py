@@ -3,7 +3,7 @@ from typing import Optional
 
 from django.db.models import Count, Min, Q, Sum
 from django.http import HttpResponse
-from django.db.models.functions import Coalesce, Greatest
+from django.db.models.functions import Coalesce, Greatest, TruncMonth
 from django.utils import timezone
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.pagination import PageNumberPagination
@@ -15,10 +15,9 @@ from rest_framework.response import Response
 from apps.attendance.models import AttendanceRecord
 from apps.events.models import Event, EventType
 from apps.people.models import Branch, ModuleCoordinator, Person
-from apps.clusters.models import Cluster, ClusterWeeklyReport
+from apps.clusters.models import Cluster, ClusterWeeklyReport, member_attendance_rate_q
 from apps.clusters.cords import active_cord_map_for_people
 from apps.clusters.utils import parse_iso_weeks
-from apps.lessons.models import LessonSessionReport
 from core.datetime_utils import church_calendar_date, church_today
 from apps.authentication.permissions import (
     IsMemberOrAbove,
@@ -682,7 +681,14 @@ class EvangelismWeeklyReportViewSet(viewsets.ModelViewSet):
     ordering = ("-year", "-week_number")
 
     def get_permissions(self):
-        if self.action in ["list", "retrieve", "compliance", "compliance_export_csv"]:
+        if self.action in [
+            "list",
+            "retrieve",
+            "compliance",
+            "compliance_export_csv",
+            "analytics",
+            "distinct_years",
+        ]:
             return [IsAuthenticatedAndNotVisitor(), IsMemberOrAbove()]
         if self.action == "destroy":
             return [IsAuthenticatedAndNotVisitor(), IsAdmin()]
@@ -870,6 +876,171 @@ class EvangelismWeeklyReportViewSet(viewsets.ModelViewSet):
         years_iter = queryset.values_list("year", flat=True).distinct()
         years = sorted(set(years_iter), reverse=True)
         return Response({"years": years})
+
+    @action(detail=False, methods=["get"])
+    def analytics(self, request):
+        """Generate analytics from evangelism weekly reports (non-cancelled only)."""
+        queryset = self.get_queryset().filter(cancelled=False)
+
+        report_count = queryset.count()
+
+        member_links = EvangelismWeeklyReport.members_attended.through.objects.filter(
+            evangelismweeklyreport__in=queryset
+        )
+        visitor_links = EvangelismWeeklyReport.visitors_attended.through.objects.filter(
+            evangelismweeklyreport__in=queryset
+        )
+
+        total_members = member_links.count()
+        total_visitors = visitor_links.count()
+
+        avg_members = total_members / report_count if report_count > 0 else 0
+        avg_visitors = total_visitors / report_count if report_count > 0 else 0
+
+        monthly_members = (
+            member_links.annotate(
+                _month=TruncMonth("evangelismweeklyreport__meeting_date")
+            )
+            .values("_month")
+            .annotate(members=Count("id"))
+        )
+        monthly_visitors = (
+            visitor_links.annotate(
+                _month=TruncMonth("evangelismweeklyreport__meeting_date")
+            )
+            .values("_month")
+            .annotate(visitors=Count("id"))
+        )
+
+        members_by_month = {}
+        for row in monthly_members:
+            mt = row["_month"]
+            if mt is None:
+                continue
+            members_by_month[mt] = row["members"]
+
+        visitors_by_month = {}
+        for row in monthly_visitors:
+            mt = row["_month"]
+            if mt is None:
+                continue
+            visitors_by_month[mt] = row["visitors"]
+
+        all_months = sorted(
+            set(members_by_month.keys()) | set(visitors_by_month.keys())
+        )
+        monthly_attendance = []
+        for mt in all_months:
+            monthly_attendance.append(
+                {
+                    "month_key": mt.strftime("%Y-%m"),
+                    "month_label": mt.strftime("%b %Y"),
+                    "members": int(members_by_month.get(mt, 0)),
+                    "visitors": int(visitors_by_month.get(mt, 0)),
+                }
+            )
+
+        member_counts_by_group = {
+            row["evangelismweeklyreport__evangelism_group_id"]: row[
+                "sum_members_attended"
+            ]
+            for row in member_links.values(
+                "evangelismweeklyreport__evangelism_group_id"
+            ).annotate(sum_members_attended=Count("id"))
+        }
+
+        group_ids = list(
+            queryset.values_list("evangelism_group_id", flat=True).distinct()
+        )
+        roster_by_group = {
+            row["id"]: row["mc"]
+            for row in EvangelismGroup.objects.filter(id__in=group_ids)
+            .annotate(
+                mc=Count(
+                    "members",
+                    filter=member_attendance_rate_q("members__"),
+                    distinct=True,
+                )
+            )
+            .values("id", "mc")
+        }
+        rate_member_links = member_links.filter(member_attendance_rate_q("person__"))
+        attended_per_report = {
+            row["evangelismweeklyreport_id"]: row["c"]
+            for row in rate_member_links.values("evangelismweeklyreport_id").annotate(
+                c=Count("id")
+            )
+        }
+        rate_attended_by_group = {
+            row["evangelismweeklyreport__evangelism_group_id"]: row[
+                "sum_members_attended"
+            ]
+            for row in rate_member_links.values(
+                "evangelismweeklyreport__evangelism_group_id"
+            ).annotate(sum_members_attended=Count("id"))
+        }
+
+        report_rates = []
+        for report in queryset.values("id", "evangelism_group_id"):
+            roster = roster_by_group.get(report["evangelism_group_id"], 0) or 0
+            attended = attended_per_report.get(report["id"], 0) or 0
+            if roster == 0:
+                report_rates.append(0.0)
+            else:
+                report_rates.append(min(100.0, (attended / roster) * 100))
+        average_member_attendance_rate = (
+            round(sum(report_rates) / len(report_rates), 1) if report_rates else 0.0
+        )
+
+        group_comparison = []
+        group_qs = (
+            queryset.values("evangelism_group_id", "evangelism_group__name")
+            .annotate(report_count=Count("id"))
+            .order_by("evangelism_group_id")
+        )
+        for row in group_qs:
+            gid = row["evangelism_group_id"]
+            name = row["evangelism_group__name"] or f"Group {gid}"
+            rc = row["report_count"]
+            member_count = int(roster_by_group.get(gid, 0) or 0)
+            sum_attended = int(member_counts_by_group.get(gid, 0))
+            rate_sum = int(rate_attended_by_group.get(gid, 0))
+            denom = member_count * rc
+            attendance_rate = (
+                min(100.0, round((rate_sum / denom) * 100, 1)) if denom > 0 else 0.0
+            )
+            group_comparison.append(
+                {
+                    "group_id": gid,
+                    "group_label": name,
+                    "report_count": rc,
+                    "sum_members_attended": sum_attended,
+                    "member_count": member_count,
+                    "attendance_rate": attendance_rate,
+                }
+            )
+
+        analytics_data = {
+            "total_reports": report_count,
+            "total_attendance": {
+                "members": total_members,
+                "visitors": total_visitors,
+            },
+            "average_attendance": {
+                "avg_members": round(avg_members, 2),
+                "avg_visitors": round(avg_visitors, 2),
+            },
+            "average_member_attendance_rate": average_member_attendance_rate,
+            "gathering_type_distribution": list(
+                queryset.values("gathering_type").annotate(count=Count("id"))
+            ),
+            "chart_series": {
+                "monthly_attendance": monthly_attendance,
+                "group_comparison": group_comparison,
+            },
+        }
+
+        return Response(analytics_data)
 
     def _resolve_branch_id(self) -> Optional[int]:
         branch = self.request.query_params.get("branch")
@@ -1139,6 +1310,8 @@ class EvangelismWeeklyReportViewSet(viewsets.ModelViewSet):
                     "event_date": self._to_date(event_date),
                     "date_first_invited": person.date_first_invited,
                     "date_first_attended": person.date_first_attended,
+                    "lessons_started_at": person.lessons_started_at,
+                    "has_finished_lessons": person.has_finished_lessons,
                     "lessons_finished_at": person.lessons_finished_at,
                     "water_baptism_date": person.water_baptism_date,
                     "spirit_baptism_date": person.spirit_baptism_date,
@@ -1219,6 +1392,14 @@ class EvangelismWeeklyReportViewSet(viewsets.ModelViewSet):
                 ),
                 "date_first_attended": (
                     prospect.person.date_first_attended if prospect.person else None
+                ),
+                "lessons_started_at": (
+                    prospect.person.lessons_started_at if prospect.person else None
+                ),
+                "has_finished_lessons": (
+                    bool(prospect.person.has_finished_lessons)
+                    if prospect.person
+                    else False
                 ),
                 "lessons_finished_at": (
                     prospect.person.lessons_finished_at if prospect.person else None
@@ -1660,12 +1841,11 @@ class EvangelismWeeklyReportViewSet(viewsets.ModelViewSet):
         elif eg_id is not None:
             prospect_qs = prospect_qs.filter(evangelism_group_id=eg_id)
         years.update(prospect_qs.dates("date_first_invited", "year"))
-
-        lesson_qs = LessonSessionReport.objects.filter(
-            session_date__isnull=False,
-            student_id__in=people_qs.values_list("id", flat=True),
+        years.update(
+            people_qs.filter(lessons_started_at__isnull=False).dates(
+                "lessons_started_at", "year"
+            )
         )
-        years.update(lesson_qs.dates("session_date", "year"))
 
         current_year = church_today().year
         sorted_years = sorted(
@@ -1858,45 +2038,23 @@ class EvangelismWeeklyReportViewSet(viewsets.ModelViewSet):
                 cord_cluster_id=cord_scope,
             )
         elif metric == "students":
-            lesson_base = LessonSessionReport.objects.filter(
+            students_qs = base_people.filter(
                 people_tally_date_window_q(
-                    "session_date",
+                    "lessons_started_at",
                     year=year_int,
                     months=months,
                     weeks=weeks,
                 )
             )
-            if branch_id is not None:
-                lesson_base = lesson_base.filter(student__branch_id=branch_id)
-            if unclustered:
-                lesson_base = lesson_base.filter(student__clusters__isnull=True)
-            elif cluster_id is not None:
-                lesson_base = lesson_base.filter(student__clusters__id=cluster_id)
-            elif eg_id is not None:
-                gp_ids = group_person_ids or frozenset()
-                if gp_ids:
-                    lesson_base = lesson_base.filter(student_id__in=gp_ids)
-                else:
-                    lesson_base = lesson_base.none()
-
-            student_dates = {
-                entry["student_id"]: entry["event_date"]
-                for entry in lesson_base.values("student_id").annotate(
-                    event_date=Min("session_date")
-                )
-            }
-            student_ids = list(student_dates.keys())
-            for person in base_people.filter(id__in=student_ids):
+            for person in students_qs:
                 advance_prospect_to_taken_ncc(
                     person,
-                    activity_date=student_dates.get(person.id),
+                    activity_date=person.lessons_started_at,
                 )
             rows = self._serialize_people_rows(
-                base_people.filter(id__in=student_ids).order_by(
-                    "first_name", "last_name", "username"
-                ),
+                students_qs.order_by("first_name", "last_name", "username"),
                 metric,
-                date_map=student_dates,
+                date_attr="lessons_started_at",
                 cord_cluster_id=cord_scope,
             )
         elif metric == "baptized":

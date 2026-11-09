@@ -39,6 +39,7 @@ export default function RecentActivity({
                   {activity.name ? (
                     <span className="font-semibold">{activity.name} </span>
                   ) : null}
+                  {/* place is only set for first-attendance rows */}
                   {activity.place ? (
                     <>
                       attended{" "}

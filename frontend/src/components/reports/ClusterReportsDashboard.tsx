@@ -2550,10 +2550,11 @@ export default function ClusterReportsDashboard({
             {totalCount > 0 && (
               <Pagination
                 currentPage={currentPage}
-                totalPages={Math.ceil(totalCount / itemsPerPage)}
+                totalPages={Math.max(1, Math.ceil(totalCount / itemsPerPage))}
                 onPageChange={setCurrentPage}
                 itemsPerPage={itemsPerPage}
                 totalItems={totalCount}
+                showItemsPerPage
                 onItemsPerPageChange={(newPageSize) => {
                   setItemsPerPage(newPageSize);
                   setCurrentPage(1);

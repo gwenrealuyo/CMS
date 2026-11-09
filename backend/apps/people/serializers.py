@@ -2225,6 +2225,8 @@ class PersonListSerializer(serializers.ModelSerializer):
             "spirit_baptism_date",
             "first_activity_attended",
             "has_finished_lessons",
+            "lessons_started_at",
+            "lessons_finished_at",
             "has_lesson_enrollment",
             "cluster_codes",
             "cluster_labels",

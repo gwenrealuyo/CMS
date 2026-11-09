@@ -208,7 +208,7 @@ export default function EvangelismReportsDashboard({
   const [yearsLoading, setYearsLoading] = useState(false);
 
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [itemsPerPage, setItemsPerPage] = useState(50);
 
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
   const [showExportDropdown, setShowExportDropdown] = useState(false);
@@ -1876,6 +1876,7 @@ export default function EvangelismReportsDashboard({
                   onPageChange={setCurrentPage}
                   itemsPerPage={itemsPerPage}
                   totalItems={totalCount}
+                  showItemsPerPage
                   onItemsPerPageChange={(newPageSize) => {
                     setItemsPerPage(newPageSize);
                     setCurrentPage(1);

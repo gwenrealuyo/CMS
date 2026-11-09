@@ -108,6 +108,20 @@ function collectSundayServiceOccurrencesThroughDate(
   );
 }
 
+const RECENT_ACTIVITY_WINDOW_DAYS = 7;
+
+const parseDateInRecentWindow = (
+  value: string | null | undefined,
+  now: Date,
+  recentCutoff: Date,
+): Date | null => {
+  if (!value) return null;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  if (date < recentCutoff || date > now) return null;
+  return date;
+};
+
 const formatRelativeTime = (date: Date) => {
   const now = new Date();
   const diffMs = date.getTime() - now.getTime();
@@ -829,15 +843,22 @@ export default function Dashboard() {
 
   const recentFirstTimerIds = useMemo(() => {
     if (!allowPeopleMetrics) return [];
+    const now = new Date();
+    const recentCutoff = new Date();
+    recentCutoff.setDate(recentCutoff.getDate() - RECENT_ACTIVITY_WINDOW_DAYS);
     return people
-      .filter((person) => person.date_first_attended)
-      .map((person) => ({
-        id: String(person.id),
-        date: new Date(person.date_first_attended as string),
-      }))
-      .filter(({ date }) => !Number.isNaN(date.getTime()))
+      .map((person) => {
+        const date = parseDateInRecentWindow(
+          person.date_first_attended,
+          now,
+          recentCutoff,
+        );
+        if (!date) return null;
+        return { id: String(person.id), date };
+      })
+      .filter((entry): entry is { id: string; date: Date } => entry !== null)
       .sort((a, b) => b.date.getTime() - a.date.getTime())
-      .slice(0, 3)
+      .slice(0, 5)
       .map(({ id }) => id);
   }, [allowPeopleMetrics, people]);
 
@@ -875,28 +896,93 @@ export default function Dashboard() {
       date: Date;
     }> = [];
 
-    if (allowPeopleMetrics) {
-      const recentPeople = people
-        .filter((person) => person.date_first_attended)
-        .map((person) => ({
-          person,
-          date: new Date(person.date_first_attended as string),
-        }))
-        .filter(({ date }) => !Number.isNaN(date.getTime()))
-        .sort((a, b) => b.date.getTime() - a.date.getTime())
-        .slice(0, 3);
+    const now = new Date();
+    const recentCutoff = new Date();
+    recentCutoff.setDate(recentCutoff.getDate() - RECENT_ACTIVITY_WINDOW_DAYS);
 
-      recentPeople.forEach(({ person, date }) => {
+    if (allowPeopleMetrics) {
+      people.forEach((person) => {
         const name = person.full_name || formatPersonName(person);
-        const place = firstAttendancePlaces[String(person.id)];
-        items.push({
-          id: `person-${person.id}`,
-          type: "people",
-          name,
-          place: place || undefined,
-          description: "attended for the first time.",
-          date,
-        });
+        const personId = String(person.id);
+
+        const firstAttended = parseDateInRecentWindow(
+          person.date_first_attended,
+          now,
+          recentCutoff,
+        );
+        if (firstAttended) {
+          const place = firstAttendancePlaces[personId];
+          items.push({
+            id: `person-first-${personId}`,
+            type: "people",
+            name,
+            place: place || undefined,
+            description: "attended for the first time.",
+            date: firstAttended,
+          });
+        }
+
+        const baptized = parseDateInRecentWindow(
+          person.water_baptism_date,
+          now,
+          recentCutoff,
+        );
+        if (baptized) {
+          items.push({
+            id: `person-baptized-${personId}`,
+            type: "people",
+            name,
+            description: "was baptized.",
+            date: baptized,
+          });
+        }
+
+        const receivedHg = parseDateInRecentWindow(
+          person.spirit_baptism_date,
+          now,
+          recentCutoff,
+        );
+        if (receivedHg) {
+          items.push({
+            id: `person-hg-${personId}`,
+            type: "people",
+            name,
+            description: "received the Holy Ghost.",
+            date: receivedHg,
+          });
+        }
+
+        if (allowLessonWidgets) {
+          const startedLessons = parseDateInRecentWindow(
+            person.lessons_started_at,
+            now,
+            recentCutoff,
+          );
+          if (startedLessons) {
+            items.push({
+              id: `person-lessons-started-${personId}`,
+              type: "people",
+              name,
+              description: "started lessons.",
+              date: startedLessons,
+            });
+          }
+
+          const finishedLessons = parseDateInRecentWindow(
+            person.lessons_finished_at,
+            now,
+            recentCutoff,
+          );
+          if (finishedLessons) {
+            items.push({
+              id: `person-lessons-finished-${personId}`,
+              type: "people",
+              name,
+              description: "finished lessons.",
+              date: finishedLessons,
+            });
+          }
+        }
       });
     }
 
@@ -924,6 +1010,7 @@ export default function Dashboard() {
       }));
   }, [
     allowEventsWidgets,
+    allowLessonWidgets,
     allowPeopleMetrics,
     eventActivity,
     firstAttendancePlaces,
@@ -931,7 +1018,7 @@ export default function Dashboard() {
   ]);
 
   const activityEmptyMessage =
-    allowPeopleMetrics || allowEventsWidgets
+    allowPeopleMetrics || allowEventsWidgets || allowLessonWidgets
       ? "No recent activity for your accessible modules."
       : "Activity isn't available for your access level.";
 

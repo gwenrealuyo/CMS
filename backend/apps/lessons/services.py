@@ -330,19 +330,27 @@ def mark_progress_completed(
     return LessonCompletionResult(progress=progress, journey=progress.journey)
 
 
+_SIGNED_AT_DEFAULT = object()
+
+
 @transaction.atomic
 def set_enrollment_commitment_signed(
     enrollment: LessonStudentEnrollment,
     *,
     signed_by: Optional[Person] = None,
-    signed_at=None,
+    signed_at=_SIGNED_AT_DEFAULT,
     note: Optional[str] = None,
 ) -> Journey:
     """
     Records a one-time commitment signature on enrollment and upserts a NOTE journey.
+
+    Omit ``signed_at`` (default) to stamp now. Pass ``None`` when the signed day
+    is unknown (stores null on enrollment; journey date uses church today as
+    the recorded-on day).
     """
 
-    signed_at = signed_at or timezone.now()
+    if signed_at is _SIGNED_AT_DEFAULT:
+        signed_at = timezone.now()
     enrollment.commitment_signed = True
     enrollment.commitment_signed_at = signed_at
     enrollment.commitment_signed_by = signed_by
@@ -355,7 +363,8 @@ def set_enrollment_commitment_signed(
         ]
     )
 
-    signed_milestone = church_calendar_date(signed_at)
+    # Unknown signed day: journey uses recorded-on (church today), not a fake signed day.
+    signed_milestone = church_calendar_date(signed_at) or church_today()
 
     commitment_journey, created = Journey.objects.get_or_create(
         user=enrollment.student,

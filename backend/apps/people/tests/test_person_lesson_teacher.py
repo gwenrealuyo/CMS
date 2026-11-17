@@ -192,3 +192,67 @@ class PersonLessonTeacherAPITests(APITestCase):
         self.assertEqual(enrollment.teacher_id, self.teacher.id)
         self.assertEqual(PersonLessonProgress.objects.filter(person=created).count(), 0)
         self.assertTrue(response.data["has_lesson_enrollment"])
+
+    def test_commitment_signed_without_dates_succeeds(self):
+        response = self._patch_student(
+            has_finished_lessons=True,
+            commitment_form_signed=True,
+            lessons_finished_at=None,
+            commitment_signed_at=None,
+            lesson_teacher_id=self.teacher.id,
+        )
+        self.assertEqual(response.status_code, 200, response.data)
+        self.student.refresh_from_db()
+        self.assertTrue(self.student.has_finished_lessons)
+        self.assertIsNone(self.student.lessons_finished_at)
+        enrollment = LessonStudentEnrollment.objects.get(student=self.student)
+        self.assertTrue(enrollment.commitment_signed)
+        self.assertIsNone(enrollment.commitment_signed_at)
+        self.assertTrue(response.data["commitment_form_signed"])
+        self.assertIsNone(response.data["commitment_signed_at"])
+
+    def test_lessons_finished_at_coerces_has_finished_lessons(self):
+        # Omit has_finished_lessons; a finish date alone must turn the flag on.
+        finished_on = date(2024, 3, 10)
+        response = self._patch_student(
+            lessons_finished_at=finished_on.isoformat(),
+            lesson_teacher_id=self.teacher.id,
+        )
+        self.assertEqual(response.status_code, 200, response.data)
+        self.student.refresh_from_db()
+        self.assertTrue(self.student.has_finished_lessons)
+        self.assertTrue(response.data["has_finished_lessons"])
+
+    def test_commitment_requires_finished_flag_not_date(self):
+        response = self._patch_student(
+            commitment_form_signed=True,
+            has_finished_lessons=False,
+            lesson_teacher_id=self.teacher.id,
+        )
+        self.assertEqual(response.status_code, 400, response.data)
+        self.assertIn("commitment_form_signed", self._error_details(response))
+
+    def test_unrelated_patch_ok_when_committed_without_dates(self):
+        ensure_lesson_enrollment(self.student, self.teacher, assigned_by=self.admin)
+        self.student.has_finished_lessons = True
+        self.student.lessons_finished_at = None
+        self.student.save(update_fields=["has_finished_lessons", "lessons_finished_at"])
+        enrollment = LessonStudentEnrollment.objects.get(student=self.student)
+        from apps.lessons.services import set_enrollment_commitment_signed
+
+        set_enrollment_commitment_signed(
+            enrollment, signed_by=self.admin, signed_at=None
+        )
+        response = self._patch_student(
+            nickname="Sammy",
+            has_finished_lessons=True,
+            commitment_form_signed=True,
+            lessons_finished_at=None,
+            commitment_signed_at=None,
+        )
+        self.assertEqual(response.status_code, 200, response.data)
+        self.student.refresh_from_db()
+        self.assertEqual(self.student.nickname, "Sammy")
+        enrollment.refresh_from_db()
+        self.assertTrue(enrollment.commitment_signed)
+        self.assertIsNone(enrollment.commitment_signed_at)

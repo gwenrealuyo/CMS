@@ -1126,13 +1126,15 @@ class PersonSerializer(serializers.ModelSerializer):
                     {"branch": "Branch cannot be cleared."}
                 )
 
+        # Date filled ⇒ matching flag true (dates stay optional / may be unknown).
+        if attrs.get("lessons_finished_at") is not None:
+            attrs["has_finished_lessons"] = True
+        if attrs.get("commitment_signed_at") is not None:
+            attrs["commitment_form_signed"] = True
+
         has_finished_lessons = attrs.get(
             "has_finished_lessons",
             instance.has_finished_lessons if instance else False,
-        )
-        lessons_finished_at = attrs.get(
-            "lessons_finished_at",
-            instance.lessons_finished_at if instance else None,
         )
         toggling_lessons_complete_on = (
             bool(instance)
@@ -1162,33 +1164,14 @@ class PersonSerializer(serializers.ModelSerializer):
                 has_finished_lessons=has_finished_lessons,
             )
 
-        commitment_in_payload = "commitment_form_signed" in attrs
-        if commitment_in_payload:
-            commitment_signed = bool(attrs.get("commitment_form_signed"))
-            commitment_signed_at = attrs.get("commitment_signed_at")
-            if commitment_signed:
-                if not has_finished_lessons or not lessons_finished_at:
-                    raise serializers.ValidationError(
-                        {
-                            "commitment_form_signed": (
-                                "Mark lessons finished (with a finished date) before "
-                                "recording commitment form signed."
-                            )
-                        }
-                    )
-                if not commitment_signed_at:
-                    raise serializers.ValidationError(
-                        {
-                            "commitment_signed_at": (
-                                "Set commitment signed date when marking the form as signed."
-                            )
-                        }
-                    )
-            elif commitment_signed_at is not None:
+        if "commitment_form_signed" in attrs or "commitment_signed_at" in attrs:
+            commitment_signed = bool(attrs.get("commitment_form_signed", False))
+            if commitment_signed and not has_finished_lessons:
                 raise serializers.ValidationError(
                     {
-                        "commitment_signed_at": (
-                            "Clear commitment signed date when the form is not signed."
+                        "commitment_form_signed": (
+                            "Mark lessons finished before recording "
+                            "commitment form signed."
                         )
                     }
                 )
@@ -1544,18 +1527,15 @@ class PersonSerializer(serializers.ModelSerializer):
             )
 
         signed_at = write_fields.get("commitment_signed_at")
-        if signed_at is serializers.empty or signed_at is None:
-            raise serializers.ValidationError(
-                {
-                    "commitment_signed_at": (
-                        "Set commitment signed date when marking the form as signed."
-                    )
-                }
-            )
+        if signed_at is serializers.empty:
+            # Flag-only write: leave signed day unknown (do not invent today).
+            signed_at = None
+        elif signed_at is not None:
+            signed_at = _as_aware_datetime(signed_at)
         set_enrollment_commitment_signed(
             enrollment,
             signed_by=actor,
-            signed_at=_as_aware_datetime(signed_at),
+            signed_at=signed_at,
         )
 
     def create(self, validated_data):

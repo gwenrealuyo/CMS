@@ -893,21 +893,13 @@ const PersonForm = forwardRef<PersonFormHandle, PersonFormProps>(
       if (name === "water_baptism_date") {
         next = applyWaterBaptismRoleRules(next, value);
       }
-      if (name === "lessons_finished_at") {
-        if (value) {
-          next = { ...next, has_finished_lessons: true };
-        } else {
-          next = {
-            ...next,
-            has_finished_lessons: false,
-            commitment_form_signed: false,
-            commitment_signed_at: "",
-          };
-        }
+      if (name === "lessons_finished_at" && value) {
+        next = { ...next, has_finished_lessons: true };
       }
-      if (name === "commitment_signed_at" && !value) {
-        next = { ...next, commitment_form_signed: false };
+      if (name === "commitment_signed_at" && value) {
+        next = { ...next, commitment_form_signed: true };
       }
+      // Clearing a date leaves the flag alone (date unknown is allowed).
       return next;
     });
     setHasUnsavedChanges(true);
@@ -1652,19 +1644,11 @@ const PersonForm = forwardRef<PersonFormHandle, PersonFormProps>(
       return;
     }
 
-    if (formData.commitment_form_signed) {
-      if (!formData.has_finished_lessons || !formData.lessons_finished_at) {
-        toast.error(
-          "Mark Has Finished NC Lessons (with a finished date) before recording commitment form signed.",
-        );
-        return;
-      }
-      if (!formData.commitment_signed_at) {
-        toast.error(
-          "Set Commitment Signed Date when marking the commitment form as signed.",
-        );
-        return;
-      }
+    if (formData.commitment_form_signed && !formData.has_finished_lessons) {
+      toast.error(
+        "Mark Has Finished NC Lessons before recording commitment form signed.",
+      );
+      return;
     }
 
     for (const { key, label } of PERSON_DATE_FIELDS) {
@@ -2933,9 +2917,7 @@ const PersonForm = forwardRef<PersonFormHandle, PersonFormProps>(
                     {formData.has_finished_lessons &&
                       !formData.lessons_finished_at && (
                         <p className="mt-1 text-xs text-gray-500">
-                          Optional. Leave blank when the finish date is unknown
-                          (legacy completers). Required only when recording a
-                          commitment form signature.
+                          Optional. Leave blank when the finish date is unknown.
                         </p>
                       )}
                   </div>
@@ -2958,8 +2940,8 @@ const PersonForm = forwardRef<PersonFormHandle, PersonFormProps>(
                         />
                       </LockedField>
                       {!formData.commitment_signed_at && (
-                        <p className="mt-1 text-xs text-red-600">
-                          Required when Commitment Form Signed is enabled.
+                        <p className="mt-1 text-xs text-gray-500">
+                          Optional. Leave blank when the signed date is unknown.
                         </p>
                       )}
                     </div>

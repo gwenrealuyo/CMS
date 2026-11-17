@@ -44,6 +44,7 @@ This drops all `lessons_*` tables and re-migrates (clears lesson progress, enrol
 - **Not all complete:** both fields are cleared (same direction as commitment-form eligibility).
 - Persons with no module progress rows are left unchanged (pure legacy manual flags).
 - Legacy manual entry (profile → progress backfill when a finish date is provided) still works; see below.
+- **Profile flags vs dates:** Person profile may set `has_finished_lessons` / enrollment `commitment_signed` without dates (date unknown). Filling a date still auto-sets the matching flag. Commitment on the profile still requires the finished flag, but neither `lessons_finished_at` nor `commitment_signed_at` is required to save.
 
 ## Legacy Completion Backfill
 

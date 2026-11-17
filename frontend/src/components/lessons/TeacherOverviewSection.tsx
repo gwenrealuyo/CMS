@@ -189,7 +189,7 @@ export default function TeacherOverviewSection({
               ariaLabel="Search teacher"
             />
             <ViewModeToggle
-              className="w-full md:w-auto md:shrink-0"
+              className={isMdUp ? "w-fit shrink-0" : "w-full"}
               compact={isMdUp}
               viewMode={viewMode}
               onViewModeChange={setViewMode}

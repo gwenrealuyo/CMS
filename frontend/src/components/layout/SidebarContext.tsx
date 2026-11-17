@@ -103,3 +103,8 @@ export function useSidebar() {
   if (!ctx) throw new Error("useSidebar must be used within SidebarProvider");
   return ctx;
 }
+
+/** Safe for shared hooks that may render outside the dashboard shell. */
+export function useOptionalSidebar(): SidebarContextValue | null {
+  return useContext(SidebarContext) ?? null;
+}

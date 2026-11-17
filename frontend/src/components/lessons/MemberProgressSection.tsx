@@ -131,32 +131,33 @@ export default function MemberProgressSection({
   );
 
   return (
-    <Card title="Student Progress">
-      <div className="space-y-5">
+    <Card title="Student Progress" className="min-w-0">
+      <div className="min-w-0 space-y-5">
         <p className="text-sm text-gray-500">
           View all students taking lessons and their overall progress.
         </p>
 
         <div className={`${TOOLBAR_CARD_CLASS} min-w-0`}>
           <div className="flex min-w-0 flex-col gap-3">
-            <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center">
+            <div className="flex min-w-0 flex-col gap-3 tablet:flex-row tablet:items-center tablet:gap-2">
               <ToolbarSearch
                 fullWidth
-                className="min-w-0 flex-1"
+                className="min-w-0 w-full tablet:flex-1"
                 value={progressSearchQuery}
                 onChange={onProgressSearchQueryChange}
                 placeholder="Search student..."
                 ariaLabel="Search student"
               />
-              <div className="flex w-full min-w-0 flex-col gap-3 sm:w-auto sm:shrink-0 sm:flex-row sm:items-center">
+
+              <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center sm:gap-2 tablet:shrink-0">
                 <ViewModeToggle
-                  className="w-full sm:w-auto"
+                  className={isMdUp ? "w-fit shrink-0" : "w-full sm:w-fit"}
                   compact={isMdUp}
                   viewMode={viewMode}
                   onViewModeChange={setViewMode}
                 />
                 {canAssignLessons ? (
-                  <div className="w-full sm:w-auto">
+                  <div className="min-w-0 w-full shrink-0 sm:w-auto [&>div]:sm:w-auto [&_button]:sm:w-auto">
                     <AssignLessonsDropdown
                       allLessons={activeLatestLessons}
                       people={people}
@@ -178,7 +179,7 @@ export default function MemberProgressSection({
               </div>
             </div>
 
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
               <div className="min-w-0">
                 <ScalableSelect
                   options={teacherFilterOptions}
@@ -193,7 +194,7 @@ export default function MemberProgressSection({
               </div>
 
               <select
-                className="box-border h-auto w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm"
+                className="box-border h-auto w-full min-w-0 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm"
                 value={progressFilterLessonId || ""}
                 onChange={(e) =>
                   onProgressFilterChange(
@@ -217,7 +218,7 @@ export default function MemberProgressSection({
                     e.target.value as ProgressStatusFilter,
                   )
                 }
-                className="box-border h-auto w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm"
+                className="box-border h-auto w-full min-w-0 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm"
                 aria-label="Filter by status"
               >
                 <option value="ALL">All status</option>
@@ -227,14 +228,14 @@ export default function MemberProgressSection({
                 <option value="SKIPPED">Skipped</option>
               </select>
 
-              <label className="inline-flex w-full items-center gap-2 rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-700 sm:w-auto">
+              <label className="inline-flex w-full min-w-0 items-center gap-2 rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-700">
                 <input
                   type="checkbox"
                   checked={includeHistoricalFinished}
                   onChange={(e) =>
                     onIncludeHistoricalFinishedChange(e.target.checked)
                   }
-                  className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-ring"
+                  className="h-4 w-4 shrink-0 rounded border-gray-300 text-primary focus:ring-ring"
                 />
                 Include past years
               </label>
@@ -249,34 +250,36 @@ export default function MemberProgressSection({
         {progressActionError && <ErrorMessage message={progressActionError} />}
         {assignError && <ErrorMessage message={assignError} />}
 
-        <LessonProgressTable
-          groupedProgress={groupedProgress}
-          studentTeacherById={studentTeacherById}
-          loading={progressLoading}
-          error={progressError}
-          sortField={progressSortField}
-          sortDirection={progressSortDirection}
-          onSortChange={onProgressSortChange}
-          onPersonClick={onPersonClick}
-          displayMode={viewMode}
-          searchQuery={progressSearchQuery}
-          focusTeacherKey={focusTeacherKey}
-          serverPagination={
-            progressTotalCount != null &&
-            progressPage != null &&
-            progressPageSize != null &&
-            onProgressPageChange &&
-            onProgressPageSizeChange
-              ? {
-                  totalCount: progressTotalCount,
-                  currentPage: progressPage,
-                  pageSize: progressPageSize,
-                  onPageChange: onProgressPageChange,
-                  onPageSizeChange: onProgressPageSizeChange,
-                }
-              : undefined
-          }
-        />
+        <div className="min-w-0">
+          <LessonProgressTable
+            groupedProgress={groupedProgress}
+            studentTeacherById={studentTeacherById}
+            loading={progressLoading}
+            error={progressError}
+            sortField={progressSortField}
+            sortDirection={progressSortDirection}
+            onSortChange={onProgressSortChange}
+            onPersonClick={onPersonClick}
+            displayMode={viewMode}
+            searchQuery={progressSearchQuery}
+            focusTeacherKey={focusTeacherKey}
+            serverPagination={
+              progressTotalCount != null &&
+              progressPage != null &&
+              progressPageSize != null &&
+              onProgressPageChange &&
+              onProgressPageSizeChange
+                ? {
+                    totalCount: progressTotalCount,
+                    currentPage: progressPage,
+                    pageSize: progressPageSize,
+                    onPageChange: onProgressPageChange,
+                    onPageSizeChange: onProgressPageSizeChange,
+                  }
+                : undefined
+            }
+          />
+        </div>
       </div>
     </Card>
   );

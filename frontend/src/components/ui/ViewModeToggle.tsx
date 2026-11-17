@@ -32,10 +32,12 @@ export default function ViewModeToggle({
   };
 
   const containerClass = compact
-    ? `inline-flex shrink-0 rounded-lg border border-gray-300 bg-white p-0.5 ${className}`
+    ? // w-fit + justify-self-start: grid parents default to stretch, which
+      // otherwise leaves empty space after the last segment.
+      `inline-flex w-fit max-w-full shrink-0 justify-self-start rounded-lg border border-gray-300 bg-white p-0.5 ${className}`
     : fullWidth
       ? `flex w-full rounded-lg border border-gray-300 bg-white p-0.5 ${className}`
-      : `flex w-full rounded-lg border border-gray-300 bg-white p-0.5 md:inline-flex md:w-auto md:shrink-0 ${className}`;
+      : `flex w-full rounded-lg border border-gray-300 bg-white p-0.5 md:inline-flex md:w-fit md:shrink-0 ${className}`;
 
   return (
     <div className={containerClass}>

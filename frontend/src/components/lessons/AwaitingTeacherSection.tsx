@@ -397,18 +397,18 @@ export default function AwaitingTeacherSection({
 
   return (
     <>
-    <Card title="Awaiting Teacher">
-      <div className="space-y-5">
+    <Card title="Awaiting Teacher" className="min-w-0">
+      <div className="min-w-0 space-y-5">
         <p className="text-sm text-gray-500">
           Visitors who do not have a lessons teacher yet. Assigning a teacher
           also enrolls them in the current lessons.
         </p>
 
-        <div className={TOOLBAR_CARD_CLASS}>
-          <div className="flex flex-col gap-3 md:flex-row md:items-center md:gap-2">
+        <div className={`${TOOLBAR_CARD_CLASS} min-w-0`}>
+          <div className="flex min-w-0 flex-col gap-3 tablet:flex-row tablet:items-center tablet:gap-2">
             <ToolbarSearch
               fullWidth
-              className="md:min-w-0 md:max-w-none md:flex-[2]"
+              className="min-w-0 w-full tablet:min-w-0 tablet:flex-1"
               value={searchQuery}
               onChange={(value) => {
                 setSearchQuery(value);
@@ -432,7 +432,7 @@ export default function AwaitingTeacherSection({
                   setCurrentPage(1);
                 }
               }}
-              className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm md:min-w-0 md:max-w-[10rem] md:flex-1 md:truncate"
+              className="box-border h-auto w-full min-w-0 shrink-0 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm tablet:w-28 lg:w-44"
               aria-label="Filter by visitor status"
             >
               <option value="ONGOING">Ongoing</option>
@@ -440,21 +440,21 @@ export default function AwaitingTeacherSection({
               <option value="ALL">All</option>
             </select>
             <ViewModeToggle
-              className="w-full md:w-auto md:shrink-0"
+              className={isMdUp ? "w-fit shrink-0" : "w-full"}
               compact={isMdUp}
               viewMode={viewMode}
               onViewModeChange={setViewMode}
             />
             <div
               ref={exportMenuRef}
-              className="relative w-full md:w-auto md:shrink-0"
+              className="relative w-full min-w-0 shrink-0 tablet:w-auto"
             >
               <Button
                 type="button"
                 variant="secondary"
                 onClick={() => setShowExportDropdown((previous) => !previous)}
                 disabled={loading || filteredRows.length === 0}
-                className="w-full gap-2 md:w-auto min-h-[44px] text-sm"
+                className="w-full gap-2 min-h-[44px] text-sm tablet:w-auto"
                 aria-expanded={showExportDropdown}
                 aria-haspopup="menu"
               >
@@ -464,7 +464,7 @@ export default function AwaitingTeacherSection({
               {showExportDropdown ? (
                 <div
                   role="menu"
-                  className="absolute right-0 z-10 mt-2 w-48 rounded-md bg-white shadow-lg ring-1 ring-black ring-opacity-5"
+                  className="absolute left-0 right-0 z-10 mt-2 w-full rounded-md bg-white shadow-lg ring-1 ring-black ring-opacity-5 tablet:left-auto tablet:right-0 tablet:w-48"
                 >
                   <div className="py-1">
                     <button
@@ -554,11 +554,11 @@ export default function AwaitingTeacherSection({
             No visitors are waiting for a lessons teacher.
           </div>
         ) : viewMode === "cards" ? (
-          <div className="space-y-3">
+          <div className="min-w-0 space-y-3">
             {paginatedRows.map((row) => (
               <article
                 key={row.id}
-                className="space-y-3 rounded-xl border border-gray-200 bg-white p-4 shadow-sm"
+                className="min-w-0 space-y-3 overflow-hidden rounded-xl border border-gray-200 bg-white p-4 shadow-sm"
               >
                 <div>
                   <button
@@ -603,7 +603,7 @@ export default function AwaitingTeacherSection({
             ))}
           </div>
         ) : (
-          <div className="overflow-x-auto rounded-lg border">
+          <div className="min-w-0 overflow-x-auto rounded-lg border">
             <table className="w-full min-w-[720px] divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>

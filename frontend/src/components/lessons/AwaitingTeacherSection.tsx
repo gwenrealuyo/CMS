@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import PersonProfile from "@/src/components/people/PersonProfile";
 import Button from "@/src/components/ui/Button";
 import Card from "@/src/components/ui/Card";
@@ -19,6 +19,7 @@ import {
   useIsTabletUp,
 } from "@/src/lib/listViewMode";
 import {
+  escapeCsvValue,
   extractErrorMessage,
   LessonPersonLike,
   NCC_TEACHER_ROSTER_EMPTY_MESSAGE,
@@ -29,7 +30,14 @@ import { TABLE_ENTITY_LINK_CLASS } from "@/src/lib/tableEntityLink";
 import { TOOLBAR_CARD_CLASS } from "@/src/lib/toolbarStyles";
 import { VisitorAwaitingTeacher } from "@/src/types/lesson";
 import { Person } from "@/src/types/person";
-import { ChevronDownIcon, ChevronUpIcon } from "@heroicons/react/24/outline";
+import {
+  ChevronDownIcon,
+  ChevronUpIcon,
+  DocumentArrowDownIcon,
+} from "@heroicons/react/24/outline";
+import { jsPDF } from "jspdf";
+import autoTable from "jspdf-autotable";
+import * as XLSX from "xlsx";
 
 interface AwaitingTeacherSectionProps {
   rows: VisitorAwaitingTeacher[];
@@ -105,6 +113,8 @@ export default function AwaitingTeacherSection({
   const [profileOpen, setProfileOpen] = useState(false);
   const [profileLoading, setProfileLoading] = useState(false);
   const [profileError, setProfileError] = useState<string | null>(null);
+  const [showExportDropdown, setShowExportDropdown] = useState(false);
+  const exportMenuRef = useRef<HTMLDivElement>(null);
 
   const closeProfile = () => {
     setProfileOpen(false);
@@ -209,6 +219,112 @@ export default function AwaitingTeacherSection({
     setSortDirection("asc");
   };
 
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        showExportDropdown &&
+        exportMenuRef.current &&
+        !exportMenuRef.current.contains(event.target as Node)
+      ) {
+        setShowExportDropdown(false);
+      }
+    };
+
+    if (showExportDropdown) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [showExportDropdown]);
+
+  const exportHeaders = useMemo(
+    () => [
+      "Name",
+      ...(showBranchColumn ? ["Branch"] : []),
+      "Cluster",
+      "Inviter",
+      "Visitor since",
+      "Status",
+      "Phone",
+    ],
+    [showBranchColumn],
+  );
+
+  const buildExportCells = (row: VisitorAwaitingTeacher): string[] => [
+    row.name,
+    ...(showBranchColumn ? [row.branch_code] : []),
+    row.cluster_codes.join(", "),
+    row.inviter_name,
+    formatDateOnly(row.visitor_since),
+    row.status,
+    row.phone,
+  ];
+
+  const exportToCsv = () => {
+    const csvContent = [
+      exportHeaders.map(escapeCsvValue).join(","),
+      ...filteredRows.map((row) =>
+        buildExportCells(row).map(escapeCsvValue).join(","),
+      ),
+    ].join("\n");
+
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.setAttribute("download", "awaiting-teacher.csv");
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  const exportToExcel = () => {
+    const worksheet = XLSX.utils.json_to_sheet(
+      filteredRows.map((row) => {
+        const cells = buildExportCells(row);
+        return Object.fromEntries(
+          exportHeaders.map((header, index) => [header, cells[index] ?? ""]),
+        );
+      }),
+    );
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Awaiting Teacher");
+    XLSX.writeFile(workbook, "awaiting-teacher.xlsx");
+  };
+
+  const exportToPdf = () => {
+    const doc = new jsPDF({ orientation: "landscape" });
+    autoTable(doc, {
+      head: [exportHeaders],
+      body: filteredRows.map((row) => buildExportCells(row)),
+      startY: 20,
+      theme: "grid",
+      styles: { fontSize: 8 },
+    });
+    doc.save("awaiting-teacher.pdf");
+  };
+
+  const handleExport = (format: "excel" | "pdf" | "csv") => {
+    if (filteredRows.length === 0) {
+      return;
+    }
+    switch (format) {
+      case "excel":
+        exportToExcel();
+        break;
+      case "pdf":
+        exportToPdf();
+        break;
+      case "csv":
+        exportToCsv();
+        break;
+    }
+    setShowExportDropdown(false);
+  };
+
   const renderSortIcon = (field: AwaitingTeacherSortField) => {
     if (sortField !== field) {
       return null;
@@ -285,6 +401,98 @@ export default function AwaitingTeacherSection({
               viewMode={viewMode}
               onViewModeChange={setViewMode}
             />
+            <div
+              ref={exportMenuRef}
+              className="relative w-full md:w-auto md:shrink-0"
+            >
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => setShowExportDropdown((previous) => !previous)}
+                disabled={loading || filteredRows.length === 0}
+                className="w-full gap-2 md:w-auto min-h-[44px] text-sm"
+                aria-expanded={showExportDropdown}
+                aria-haspopup="menu"
+              >
+                <DocumentArrowDownIcon className="h-4 w-4 shrink-0" />
+                Export
+              </Button>
+              {showExportDropdown ? (
+                <div
+                  role="menu"
+                  className="absolute right-0 z-10 mt-2 w-48 rounded-md bg-white shadow-lg ring-1 ring-black ring-opacity-5"
+                >
+                  <div className="py-1">
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onClick={() => handleExport("excel")}
+                      className="flex min-h-[44px] w-full items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                    >
+                      <svg
+                        className="mr-2 h-4 w-4 text-green-600"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                        aria-hidden
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                        />
+                      </svg>
+                      Export to Excel
+                    </button>
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onClick={() => handleExport("pdf")}
+                      className="flex min-h-[44px] w-full items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                    >
+                      <svg
+                        className="mr-2 h-4 w-4 text-red-600"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                        aria-hidden
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"
+                        />
+                      </svg>
+                      Export to PDF
+                    </button>
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onClick={() => handleExport("csv")}
+                      className="flex min-h-[44px] w-full items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                    >
+                      <svg
+                        className="mr-2 h-4 w-4 text-primary"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                        aria-hidden
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                        />
+                      </svg>
+                      Export to CSV
+                    </button>
+                  </div>
+                </div>
+              ) : null}
+            </div>
           </div>
         </div>
 

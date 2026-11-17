@@ -56,7 +56,6 @@ import {
   sanitizeNumericValue,
   escapeCsvValue,
   SessionFilterValues,
-  buildStudentTeacherMapFromEnrollments,
   enrollmentByStudentId,
   studentsAssignedToTeacher,
   TeacherProgressGroup,
@@ -94,9 +93,6 @@ export default function LessonsPageContainer() {
   const [progress, setProgress] = useState<PersonLessonProgress[]>([]);
   const [progressBrowsePage, setProgressBrowsePage] = useState(1);
   const [progressBrowsePageSize, setProgressBrowsePageSize] = useState(25);
-  const [assignedStudentIds, setAssignedStudentIds] = useState<Set<number>>(
-    () => new Set(),
-  );
   const [teacherOverviewRows, setTeacherOverviewRows] = useState<
     TeacherProgressGroup[]
   >([]);
@@ -639,14 +635,81 @@ export default function LessonsPageContainer() {
   }, [lessons]);
 
   const studentTeacherById = useMemo(() => {
-    const map = buildStudentTeacherMapFromEnrollments(enrollments);
+    const map = new Map<number, LessonPersonSummary>();
     studentSummaries.forEach((summary) => {
       if (summary.teacher?.id != null) {
         map.set(summary.person.id, summary.teacher);
       }
     });
     return map;
-  }, [enrollments, studentSummaries]);
+  }, [studentSummaries]);
+
+  const upsertEnrollment = useCallback((enrollment: LessonStudentEnrollment) => {
+    if (!enrollment.student?.id) {
+      return;
+    }
+    const studentId = enrollment.student.id;
+    setEnrollments((previous) => {
+      const next = previous.filter((entry) => entry.student?.id !== studentId);
+      return [...next, enrollment];
+    });
+  }, []);
+
+  const fetchEnrollmentForStudent = useCallback(
+    async (studentId: number): Promise<LessonStudentEnrollment | null> => {
+      try {
+        const response = await lessonsApi.listEnrollments({
+          student: studentId,
+          page_size: 10,
+          ...(branchApiParams ?? {}),
+        });
+        return unwrapList(response.data)[0] ?? null;
+      } catch {
+        return null;
+      }
+    },
+    [branchApiParams],
+  );
+
+  const refreshEnrollmentsForStudents = useCallback(
+    async (studentIds: number[]) => {
+      const results = await Promise.all(
+        studentIds.map((id) => fetchEnrollmentForStudent(id)),
+      );
+      results.forEach((enrollment) => {
+        if (enrollment) {
+          upsertEnrollment(enrollment);
+        }
+      });
+    },
+    [fetchEnrollmentForStudent, upsertEnrollment],
+  );
+
+  const fetchTeacherScopedEnrollments = useCallback(async () => {
+    if (!defaultSessionTeacherId) {
+      return [];
+    }
+    const all: LessonStudentEnrollment[] = [];
+    let page = 1;
+    for (let i = 0; i < 50; i += 1) {
+      const response = await lessonsApi.listEnrollments({
+        teacher: defaultSessionTeacherId,
+        page_size: 100,
+        page,
+        ...(branchApiParams ?? {}),
+      });
+      const payload = response.data;
+      if (Array.isArray(payload)) {
+        return payload;
+      }
+      all.push(...(payload.results ?? []));
+      if (!payload.next) {
+        break;
+      }
+      page += 1;
+    }
+    return all;
+  }, [branchApiParams, defaultSessionTeacherId]);
 
   const enrollmentByStudent = useMemo(
     () => enrollmentByStudentId(enrollments),
@@ -726,39 +789,6 @@ export default function LessonsPageContainer() {
   }, [branchApiParams, showStudentWorkflowTabs]);
 
   useEffect(() => {
-    if (branchApiParams === null || !showStudentWorkflowTabs) {
-      setAssignedStudentIds(new Set());
-      return;
-    }
-    let cancelled = false;
-    lessonsApi
-      .getStudentSummariesAll({ ...(branchApiParams ?? {}) })
-      .then((response) => {
-        if (cancelled) return;
-        const ids = new Set<number>();
-        response.data.forEach((row) => {
-          if (row.person?.id != null) {
-            ids.add(row.person.id);
-          }
-        });
-        enrollments.forEach((enrollment) => {
-          if (enrollment.student?.id != null) {
-            ids.add(enrollment.student.id);
-          }
-        });
-        setAssignedStudentIds(ids);
-      })
-      .catch(() => {
-        if (!cancelled) {
-          setAssignedStudentIds(new Set());
-        }
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [branchApiParams, showStudentWorkflowTabs, enrollments]);
-
-  useEffect(() => {
     setProgressBrowsePage(1);
   }, [
     progressSearchQuery,
@@ -775,7 +805,6 @@ export default function LessonsPageContainer() {
   }, [sessionFilters, selectedBranchId]);
 
   useEffect(() => {
-    fetchLessons();
     fetchLessons();
     fetchCommitmentForm();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -895,13 +924,44 @@ export default function LessonsPageContainer() {
       return;
     }
     fetchSummary();
-    fetchEnrollments();
     fetchAssignmentRequests();
     if (selectedLessonId) {
       fetchProgress(selectedLessonId);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [branchApiParams, selectedBranchId, showStudentWorkflowTabs]);
+
+  useEffect(() => {
+    if (branchApiParams === null || !showStudentWorkflowTabs) {
+      setEnrollments([]);
+      return;
+    }
+    if (!defaultSessionTeacherId) {
+      setEnrollments([]);
+      return;
+    }
+    let cancelled = false;
+    fetchTeacherScopedEnrollments()
+      .then((rows) => {
+        if (!cancelled) {
+          setEnrollments(rows);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setEnrollments([]);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    branchApiParams,
+    selectedBranchId,
+    showStudentWorkflowTabs,
+    defaultSessionTeacherId,
+    fetchTeacherScopedEnrollments,
+  ]);
 
   const fetchLessons = async () => {
     try {
@@ -996,11 +1056,25 @@ export default function LessonsPageContainer() {
     }
     try {
       setAssignmentRequestsLoading(true);
-      const response = await lessonsApi.listAssignmentRequestsAll({
-        status: "pending",
-        ...(branchApiParams ?? {}),
-      });
-      setAssignmentRequests(response.data || []);
+      const collected: LessonAssignmentRequest[] = [];
+      for (let page = 1; page <= 2; page += 1) {
+        const response = await lessonsApi.listAssignmentRequests({
+          status: "pending",
+          page_size: 100,
+          page,
+          ...(branchApiParams ?? {}),
+        });
+        const payload = response.data;
+        const rows = unwrapList(payload);
+        collected.push(...rows);
+        if (Array.isArray(payload) || !payload.next || rows.length === 0) {
+          break;
+        }
+        if (collected.length >= payload.count) {
+          break;
+        }
+      }
+      setAssignmentRequests(collected);
       setAssignmentRequestsError(null);
     } catch (error) {
       setAssignmentRequestsError(
@@ -1008,15 +1082,6 @@ export default function LessonsPageContainer() {
       );
     } finally {
       setAssignmentRequestsLoading(false);
-    }
-  };
-
-  const fetchEnrollments = async () => {
-    try {
-      const response = await lessonsApi.listEnrollmentsAll(branchApiParams ?? {});
-      setEnrollments(response.data);
-    } catch {
-      setEnrollments([]);
     }
   };
 
@@ -1412,7 +1477,7 @@ export default function LessonsPageContainer() {
         });
       }
 
-      await fetchEnrollments();
+      await refreshEnrollmentsForStudents(numericPersonIds);
       await refetchStudentSummaries();
       if (selectedLessonId) {
         await fetchProgress(selectedLessonId);
@@ -1451,9 +1516,13 @@ export default function LessonsPageContainer() {
       try {
         setAssigning(true);
         setAssignError(null);
-        await lessonsApi.transferEnrollment(enrollmentId, {
-          teacher_id: teacherId,
-        });
+        const transferResponse = await lessonsApi.transferEnrollment(
+          enrollmentId,
+          {
+            teacher_id: teacherId,
+          },
+        );
+        upsertEnrollment(transferResponse.data);
       } catch (error) {
         setAssignError(
           extractErrorMessage(error, "Failed to assign a lessons teacher."),
@@ -1467,13 +1536,21 @@ export default function LessonsPageContainer() {
   };
 
   const handleApproveAssignmentRequest = async (id: number) => {
+    const pendingRequest = assignmentRequests.find((request) => request.id === id);
     try {
       setReviewingAssignmentRequestId(id);
       setAssignmentRequestsError(null);
       await lessonsApi.approveAssignmentRequest(id);
       toast.success("Assignment approved.");
       await fetchAssignmentRequests();
-      await fetchEnrollments();
+      if (pendingRequest?.student?.id != null) {
+        const enrollment = await fetchEnrollmentForStudent(
+          pendingRequest.student.id,
+        );
+        if (enrollment) {
+          upsertEnrollment(enrollment);
+        }
+      }
       await refetchStudentSummaries();
       await refetchVisitorsAwaitingTeacher();
       fetchSummary();
@@ -1535,6 +1612,11 @@ export default function LessonsPageContainer() {
     setPersonProgressModal({
       isOpen: true,
       person,
+    });
+    void fetchEnrollmentForStudent(person.id).then((enrollment) => {
+      if (enrollment) {
+        upsertEnrollment(enrollment);
+      }
     });
   };
 
@@ -1784,10 +1866,13 @@ export default function LessonsPageContainer() {
       ) {
         const enrollment = enrollmentByStudent.get(Number(payload.student_id));
         if (enrollment?.id) {
-          await lessonsApi.setEnrollmentCommitment(enrollment.id, {
-            commitment_signed: true,
-          });
-          await fetchEnrollments();
+          const commitmentResponse = await lessonsApi.setEnrollmentCommitment(
+            enrollment.id,
+            {
+              commitment_signed: true,
+            },
+          );
+          upsertEnrollment(commitmentResponse.data);
         }
       }
 
@@ -1947,26 +2032,25 @@ export default function LessonsPageContainer() {
       lessonTimelineError={lessonTimelineError}
       lessonTimelineSaving={lessonTimelineSaving}
       onSaveLessonFollowUp={handleSaveLessonFollowUp}
-      assignedStudentIds={assignedStudentIds}
       studentTeacherById={studentTeacherById}
       focusTeacherKey={focusTeacherKey}
       enrollmentByStudent={enrollmentByStudent}
       teacherChoices={teacherChoices}
       currentUserId={user?.id ?? null}
       onAssignTeacher={async (studentId, teacherId, note) => {
-        await lessonsApi.createEnrollment({
+        const response = await lessonsApi.createEnrollment({
           student_id: studentId,
           teacher_id: teacherId,
           note,
         });
-        await fetchEnrollments();
+        upsertEnrollment(response.data);
       }}
       onTransferTeacher={async (enrollmentId, teacherId, note) => {
-        await lessonsApi.transferEnrollment(enrollmentId, {
+        const response = await lessonsApi.transferEnrollment(enrollmentId, {
           teacher_id: teacherId,
           note,
         });
-        await fetchEnrollments();
+        upsertEnrollment(response.data);
       }}
       progressFilterLessonId={progressFilterLessonId}
       progressSearchQuery={progressSearchQuery}

@@ -245,7 +245,10 @@ export function groupStudentsByTeacher(
   >();
 
   for (const summary of students) {
-    const teacher = studentTeacherById.get(summary.person.id) ?? null;
+    const teacher =
+      summary.teacher ??
+      studentTeacherById.get(summary.person.id) ??
+      null;
     const key = teacher?.id != null ? String(teacher.id) : "no-teacher";
     const bucket = buckets.get(key);
     if (bucket) {

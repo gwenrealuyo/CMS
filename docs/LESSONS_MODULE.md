@@ -66,11 +66,11 @@ Bulk assign (`POST /api/lessons/progress/assign/`) and the frontend **Assign Les
 - Do **not** already have a lessons enrollment (`has_lesson_enrollment`) or any `PersonLessonProgress` row
 - Are **not** the logged-in user (the Assign Lessons picker hides them so a teacher cannot pick themselves)
 
-The people list used by Assign Lessons (`for_lessons=1`) includes `has_finished_lessons` and `has_lesson_enrollment` so scoped Lessons teachers can hide finished / already-assigned students even when their progress and enrollment APIs only return their own students.
+The people list used by Assign Lessons (`for_lessons=1`) includes `has_finished_lessons`, `has_lesson_enrollment`, and `has_any_lesson_progress` so pickers can hide finished / already-assigned students without walking all student summaries client-side.
 
 A person cannot be their own lessons teacher (`student_id != teacher_id`). A lessons teacher may still be assigned as a student of a **different** teacher. This is enforced on bulk assign, enrollment create, teacher transfer, session reports, and person-profile `lesson_teacher_id`.
 
-Validation is enforced in `LessonBulkAssignSerializer` via `person_assignment_eligibility_error()` and `student_cannot_be_own_teacher_error()` in `apps.lessons.services`. The UI also hides students who already appear in the global progress list.
+Validation is enforced in `LessonBulkAssignSerializer` via `person_assignment_eligibility_error()` and `student_cannot_be_own_teacher_error()` in `apps.lessons.services`. The UI also hides students flagged with `has_any_lesson_progress` or `has_lesson_enrollment` on the people list.
 
 **Teacher requests.** A Lessons teacher who is not also a coordinator, admin, or pastor does not assign a student directly. Assign Lessons (teacher locked to themselves) creates a `LessonAssignmentRequest` (`pending`). The student stays unassigned: no enrollment, no lesson progress, and they do not appear in that teacher's progress list, session picker, or People directory. Lessons coordinators, seniors, NCC primary/support, admins, and pastors still assign immediately.
 
@@ -187,7 +187,7 @@ Entry: [`frontend/src/app/lessons/page.tsx`](../frontend/src/app/lessons/page.ts
 
 ### Scale / pagination (browse APIs)
 
-The Lessons page no longer downloads unfiltered progress or full session-report lists on branch change. Browse tabs call paginated (or summary) endpoints:
+Branch change does **not** walk all progress rows, session reports, enrollments, or student summaries. Browse tabs use paginated (or aggregate) endpoints; nested summary payloads are hydrated for the current page only.
 
 | Endpoint | Use |
 |----------|-----|
@@ -196,9 +196,9 @@ The Lessons page no longer downloads unfiltered progress or full session-report 
 | `GET /lessons/teachers/overview/` | Teachers tab counts (no per-teacher student arrays). |
 | `GET /lessons/progress/timeline/` | Timeline tab (`filter_mode`, search, pagination); `results` mirrors `students` for the current page. |
 | `GET /lessons/visitors-awaiting-teacher/` | Awaiting Teacher tab; `export=1` returns the full filtered list for export. |
-| Paginated `progress/`, `session-reports/`, `enrollments/`, `assignment-requests/` | Lesson detail progress, session list pages, enrollment bulk load, pending assignment queue. |
+| Paginated `progress/`, `session-reports/`, `enrollments/`, `assignment-requests/` | Lesson detail progress, session list pages, teacher-scoped or per-student enrollments, pending assignment queue (`page_size` capped). |
 
-`PersonLessonProgressModal` loads per-person progress via `GET /lessons/progress/?person=&page_size=100` when opened. Assign-lessons people pickers use paged `peopleApi.list` (`for_lessons`) instead of loading the whole directory on mount.
+`PersonLessonProgressModal` loads per-person progress via `GET /lessons/progress/?person=` and enrollment via `GET /lessons/enrollments/?student=` when opened. Assign pickers use paged `peopleApi.list` (`for_lessons`); eligibility uses `has_lesson_enrollment` and `has_any_lesson_progress` on that list (no client-side walk of all student summaries). Teachers load only their enrollments for session student pickers. Intentional full walks remain for session CSV export and visitors `export=1`.
 
 NCC ministry roles:
 

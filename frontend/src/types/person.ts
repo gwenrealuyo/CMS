@@ -168,6 +168,7 @@ export interface Person {
   commitment_form_signed?: boolean;
   commitment_signed_at?: string | null; // ISO date or datetime
   has_lesson_enrollment?: boolean;
+  has_any_lesson_progress?: boolean;
   lesson_teacher_display_name?: string | null;
   /** Write-only: assign teacher when creating enrollment via person form */
   lesson_teacher_id?: number | string | null;

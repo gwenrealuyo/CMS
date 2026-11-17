@@ -37,7 +37,6 @@ interface AssignLessonsDropdownProps {
     teacherId: string
   ) => void;
   enrollmentByStudent: Map<number, LessonStudentEnrollment>;
-  assignedStudentIds: Set<number>;
   defaultTeacherId: string | null;
   teacherChoices: LessonPersonLike[];
   currentUserId?: string | number | null;
@@ -45,6 +44,12 @@ interface AssignLessonsDropdownProps {
   pendingStudentIds?: Set<number>;
   /** When set, search is server-driven (parent updates `people`). */
   onPeopleSearchChange?: (query: string) => void;
+}
+
+function personAlreadyInLessons(person: Person): boolean {
+  return Boolean(
+    person.has_lesson_enrollment || person.has_any_lesson_progress,
+  );
 }
 
 export default function AssignLessonsDropdown({
@@ -56,7 +61,6 @@ export default function AssignLessonsDropdown({
   assignError,
   onAssignLessons,
   enrollmentByStudent,
-  assignedStudentIds,
   defaultTeacherId,
   teacherChoices,
   currentUserId,
@@ -88,7 +92,7 @@ export default function AssignLessonsDropdown({
       ) {
         return false;
       }
-      if (person.has_lesson_enrollment) {
+      if (personAlreadyInLessons(person)) {
         return false;
       }
       const personId = Number(person.id);
@@ -101,15 +105,9 @@ export default function AssignLessonsDropdown({
       if (enrollmentByStudent.has(personId)) {
         return false;
       }
-      return !assignedStudentIds.has(personId);
+      return true;
     });
-  }, [
-    assignedStudentIds,
-    currentUserId,
-    enrollmentByStudent,
-    pendingStudentIds,
-    people,
-  ]);
+  }, [currentUserId, enrollmentByStudent, pendingStudentIds, people]);
 
   const emptyEligibleMessage = useMemo(() => {
     const visitors = people.filter(
@@ -130,16 +128,15 @@ export default function AssignLessonsDropdown({
         return false;
       }
       return (
-        person.has_lesson_enrollment === true ||
-        enrollmentByStudent.has(personId) ||
-        assignedStudentIds.has(personId)
+        personAlreadyInLessons(person) ||
+        enrollmentByStudent.has(personId)
       );
     });
     if (allAlreadyAssigned) {
       return "No people available (all eligible students already have lessons assigned).";
     }
     return "No people available.";
-  }, [assignedStudentIds, enrollmentByStudent, people]);
+  }, [enrollmentByStudent, people]);
 
   const filteredPeople = useMemo(() => {
     // Server search already narrowed `people`; still apply local filter as a

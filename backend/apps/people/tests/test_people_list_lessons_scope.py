@@ -203,3 +203,34 @@ class PeopleListLessonsScopeAPITests(APITestCase):
         self.assertIn(self.plain_member.id, ids)
         self.assertNotIn(self.same_branch.id, ids)
         self.assertNotIn(self.coordinator.id, ids)
+
+    def test_for_lessons_has_any_lesson_progress_flag(self):
+        from apps.lessons.models import Lesson, PersonLessonProgress
+
+        ModuleCoordinator.objects.create(
+            person=self.coordinator,
+            module=ModuleCoordinator.ModuleType.LESSONS,
+            level=ModuleCoordinator.CoordinatorLevel.COORDINATOR,
+            resource_id=None,
+        )
+        lesson = Lesson.objects.create(
+            code="lessscp-01",
+            title="Scope Lesson 1",
+            order=1,
+            is_latest=True,
+            is_active=True,
+        )
+        PersonLessonProgress.objects.create(
+            person=self.same_branch_visitor,
+            lesson=lesson,
+            status=PersonLessonProgress.Status.ASSIGNED,
+        )
+        self.client.force_authenticate(self.coordinator)
+        response = self.client.get(
+            "/api/people/people/",
+            {"for_lessons": "true", "page_size": 100},
+        )
+        self.assertEqual(response.status_code, 200, response.data)
+        by_id = {row["id"]: row for row in response.data.get("results", [])}
+        self.assertTrue(by_id[self.same_branch_visitor.id]["has_any_lesson_progress"])
+        self.assertFalse(by_id[self.same_branch.id]["has_any_lesson_progress"])

@@ -790,6 +790,7 @@ class PersonSerializer(serializers.ModelSerializer):
         required=False, allow_blank=True, write_only=True, max_length=150
     )
     has_lesson_enrollment = serializers.SerializerMethodField()
+    has_any_lesson_progress = serializers.SerializerMethodField()
     lesson_teacher_display_name = serializers.SerializerMethodField()
     initial_password = serializers.CharField(
         write_only=True, required=False, allow_blank=True
@@ -858,6 +859,7 @@ class PersonSerializer(serializers.ModelSerializer):
             "historical_teacher_first_name",
             "historical_teacher_last_name",
             "has_lesson_enrollment",
+            "has_any_lesson_progress",
             "lesson_teacher_display_name",
             "inviter",
             "inviter_display_name",
@@ -2057,6 +2059,12 @@ class PersonSerializer(serializers.ModelSerializer):
     def get_has_lesson_enrollment(self, obj: Person) -> bool:
         return self._lesson_enrollment(obj) is not None
 
+    def get_has_any_lesson_progress(self, obj: Person) -> bool:
+        annotated = getattr(obj, "has_any_lesson_progress", None)
+        if annotated is not None:
+            return bool(annotated)
+        return obj.lesson_progress.exists()
+
     def get_lesson_teacher_display_name(self, obj: Person):
         enrollment = self._lesson_enrollment(obj)
         if not enrollment:
@@ -2169,6 +2177,7 @@ class PersonListSerializer(serializers.ModelSerializer):
     cord_id = serializers.SerializerMethodField()
     cord_name = serializers.SerializerMethodField()
     has_lesson_enrollment = serializers.SerializerMethodField()
+    has_any_lesson_progress = serializers.SerializerMethodField()
     cluster_ids = serializers.PrimaryKeyRelatedField(
         source="clusters", many=True, read_only=True
     )
@@ -2208,6 +2217,7 @@ class PersonListSerializer(serializers.ModelSerializer):
             "lessons_started_at",
             "lessons_finished_at",
             "has_lesson_enrollment",
+            "has_any_lesson_progress",
             "cluster_codes",
             "cluster_labels",
             "cluster_ids",
@@ -2260,6 +2270,12 @@ class PersonListSerializer(serializers.ModelSerializer):
 
     def get_has_lesson_enrollment(self, obj: Person) -> bool:
         return getattr(obj, "lesson_enrollment", None) is not None
+
+    def get_has_any_lesson_progress(self, obj: Person) -> bool:
+        annotated = getattr(obj, "has_any_lesson_progress", None)
+        if annotated is not None:
+            return bool(annotated)
+        return obj.lesson_progress.exists()
 
     def get_cord_id(self, obj: Person):
         cord = self._list_effective_cord(obj)

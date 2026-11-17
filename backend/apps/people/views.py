@@ -1,4 +1,4 @@
-from django.db.models import Q, Sum
+from django.db.models import Exists, OuterRef, Q, Sum
 from django.db.models.deletion import ProtectedError
 from rest_framework import viewsets, filters, status
 from rest_framework.decorators import api_view, permission_classes, action
@@ -488,6 +488,14 @@ class PersonViewSet(viewsets.ModelViewSet):
         if getattr(self, "action", None) in ("list", "admin_accounts"):
             # Needed by PersonListSerializer eligibility fields for Assign Lessons.
             qs = qs.select_related("lesson_enrollment")
+            if for_lessons:
+                from apps.lessons.models import PersonLessonProgress
+
+                qs = qs.annotate(
+                    has_any_lesson_progress=Exists(
+                        PersonLessonProgress.objects.filter(person_id=OuterRef("pk"))
+                    )
+                )
         # M2M filters (cluster) can duplicate rows; distinct keeps pagination stable.
         if getattr(self, "action", None) == "list" and (
             self.request.query_params.get("cluster")

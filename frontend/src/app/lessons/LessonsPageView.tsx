@@ -166,7 +166,6 @@ interface LessonsPageViewProps {
   onVisitorsSortChange?: (field: string, direction: "asc" | "desc") => void;
   onExportVisitorsAll?: () => Promise<VisitorAwaitingTeacher[]>;
   onSaveLessonFollowUp: (input: LessonFollowUpInput) => Promise<void>;
-  assignedStudentIds: Set<number>;
   studentTeacherById: Map<number, LessonPersonSummary>;
   progressFilterLessonId: number | null;
   progressSearchQuery: string;
@@ -500,7 +499,6 @@ export default function LessonsPageView({
   onSessionReportsPageChange,
   onSessionReportsPageSizeChange,
   onSaveLessonFollowUp,
-  assignedStudentIds,
   studentTeacherById,
   progressFilterLessonId,
   progressSearchQuery,
@@ -804,7 +802,6 @@ export default function LessonsPageView({
               canAssignLessons={canWriteLessonsAccess}
               onAssignLessons={onAssignLessons}
               enrollmentByStudent={enrollmentByStudentForAssign}
-              assignedStudentIds={assignedStudentIds}
               defaultTeacherId={defaultAssignTeacherId}
               teacherChoices={teacherChoices}
               currentUserId={currentUserId}

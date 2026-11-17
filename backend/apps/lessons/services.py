@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import date, datetime, time
+from collections import defaultdict
 from dataclasses import dataclass
 from typing import Iterable, Optional
 
@@ -839,11 +840,8 @@ def person_assignment_eligibility_error(
         return "is not a visitor"
     if person.has_finished_lessons:
         return "has finished lessons"
-    if LessonAssignmentRequest.objects.filter(
-        student=person,
-        status=LessonAssignmentRequest.Status.PENDING,
-    ).exists():
-        return "has a pending teacher assignment request"
+    # Pending assignment requests must not block here: other teachers may still
+    # request the same student, and coordinator bulk assign closes open requests.
     # Existing enrollment must not block progress assign: coordinators assign
     # multiple active lessons in sequence, and the first call creates the
     # enrollment that later calls would otherwise reject.
@@ -1534,21 +1532,57 @@ def build_lesson_student_summaries(
     if not person_ids:
         return {"count": 0, "results": []}
 
-    people = (
-        Person.objects.filter(pk__in=person_ids)
-        .prefetch_related(
-            "clusters",
-            "evangelism_groups",
-            Prefetch(
-                "lesson_progress",
-                queryset=PersonLessonProgress.objects.filter(
-                    lesson_id__in=catalog_ids,
-                ).select_related("lesson"),
-            ),
+    normalized_query = (search or "").strip()
+    if normalized_query:
+        person_ids = list(
+            Person.objects.filter(pk__in=person_ids)
+            .filter(
+                Q(first_name__icontains=normalized_query)
+                | Q(last_name__icontains=normalized_query)
+                | Q(middle_name__icontains=normalized_query)
+                | Q(username__icontains=normalized_query)
+                | Q(member_id__icontains=normalized_query)
+            )
+            .values_list("pk", flat=True)
         )
-        .select_related("lesson_enrollment__teacher")
-    )
-    people_by_id = {person.id: person for person in people}
+        if not person_ids:
+            return {"count": 0, "results": []}
+
+    if teacher_key == "no-teacher":
+        with_teacher_ids = set(
+            LessonStudentEnrollment.objects.filter(
+                student_id__in=person_ids,
+                is_active=True,
+                teacher_id__isnull=False,
+            ).values_list("student_id", flat=True)
+        )
+        person_ids = [pid for pid in person_ids if pid not in with_teacher_ids]
+    elif teacher_key:
+        person_ids = list(
+            LessonStudentEnrollment.objects.filter(
+                student_id__in=person_ids,
+                is_active=True,
+                teacher_id=int(teacher_key),
+            ).values_list("student_id", flat=True)
+        )
+    elif teacher_id is not None:
+        person_ids = list(
+            LessonStudentEnrollment.objects.filter(
+                student_id__in=person_ids,
+                is_active=True,
+                teacher_id=teacher_id,
+            ).values_list("student_id", flat=True)
+        )
+
+    if not person_ids:
+        return {"count": 0, "results": []}
+
+    progress_by_person: dict[int, list[PersonLessonProgress]] = defaultdict(list)
+    for progress in PersonLessonProgress.objects.filter(
+        person_id__in=person_ids,
+        lesson_id__in=catalog_ids,
+    ).select_related("lesson"):
+        progress_by_person[progress.person_id].append(progress)
 
     enrollments = {
         enrollment.student_id: enrollment
@@ -1557,15 +1591,33 @@ def build_lesson_student_summaries(
         ).select_related("teacher")
     }
 
+    person_name_data = {
+        row["id"]: row
+        for row in Person.objects.filter(pk__in=person_ids).values(
+            "id", "first_name", "last_name", "username"
+        )
+    }
+
     session_activity = build_latest_session_activity(person_ids)
 
-    rows: list[dict] = []
+    def _person_sort_name(person_id: int) -> str:
+        person = person_name_data.get(person_id) or {}
+        return " ".join(
+            part
+            for part in (
+                person.get("first_name"),
+                person.get("last_name"),
+                person.get("username"),
+            )
+            if part
+        ).lower()
+
+    light_rows: list[dict] = []
     for person_id in person_ids:
-        person = people_by_id.get(person_id)
-        if person is None:
+        if person_id not in person_name_data:
             continue
 
-        progress_list = list(person.lesson_progress.all())
+        progress_list = progress_by_person.get(person_id, [])
         completed_progress = [
             progress
             for progress in progress_list
@@ -1585,8 +1637,7 @@ def build_lesson_student_summaries(
             ).lesson
 
         completed_lesson_ids = {
-            progress.lesson_id
-            for progress in completed_progress
+            progress.lesson_id for progress in completed_progress
         }
         next_lesson = next(
             (lesson for lesson in catalog if lesson.id not in completed_lesson_ids),
@@ -1599,9 +1650,18 @@ def build_lesson_student_summaries(
         lifecycle = _person_lifecycle_status(completed_count, total_lessons)
 
         enrollment = enrollments.get(person_id)
-        teacher_person = None
-        if enrollment and enrollment.is_active and enrollment.teacher is not None:
-            teacher_person = enrollment.teacher
+        teacher_sort = ("", "")
+        if (
+            enrollment is not None
+            and enrollment.is_active
+            and enrollment.teacher_id
+            and enrollment.teacher is not None
+        ):
+            teacher = enrollment.teacher
+            teacher_sort = (
+                (teacher.last_name or "").lower(),
+                (teacher.first_name or "").lower(),
+            )
 
         assigned_values = [
             progress.assigned_at for progress in progress_list if progress.assigned_at
@@ -1612,66 +1672,36 @@ def build_lesson_student_summaries(
             session_iso=session_activity.get(str(person_id)),
         )
 
-        rows.append(
+        light_rows.append(
             {
-                "person": _person_nested(person),
-                "teacher": _person_nested(teacher_person) if teacher_person else None,
-                "previousLesson": (
-                    _lesson_brief(previous_lesson) if previous_lesson else None
-                ),
+                "person_id": person_id,
                 "completedCount": completed_count,
                 "totalLessons": total_lessons,
-                "nextLesson": _lesson_brief(next_lesson) if next_lesson else None,
                 "progressPercentage": progress_percentage,
                 "lifecycleStatus": lifecycle,
                 "hasSkipped": has_skipped,
                 "lastActivityAt": last_activity,
-                "allProgress": [],
+                "previousLesson": (
+                    _lesson_brief(previous_lesson) if previous_lesson else None
+                ),
+                "nextLesson": _lesson_brief(next_lesson) if next_lesson else None,
+                "person_sort_name": _person_sort_name(person_id),
+                "teacher_sort": teacher_sort,
             }
         )
 
-    normalized_query = (search or "").strip().lower()
-    if normalized_query:
-
-        def matches_search(row: dict) -> bool:
-            person = row["person"]
-            parts = [
-                person.get("first_name") or "",
-                person.get("middle_name") or "",
-                person.get("last_name") or "",
-                person.get("username") or "",
-                person.get("member_id") or "",
-            ]
-            haystack = " ".join(parts).lower()
-            return normalized_query in haystack
-
-        rows = [row for row in rows if matches_search(row)]
-
-    if teacher_key == "no-teacher":
-        rows = [row for row in rows if row["teacher"] is None]
-    elif teacher_key:
-        rows = [
-            row
-            for row in rows
-            if row["teacher"] and str(row["teacher"]["id"]) == str(teacher_key)
-        ]
-    elif teacher_id is not None:
-        rows = [
-            row
-            for row in rows
-            if row["teacher"] and row["teacher"]["id"] == teacher_id
-        ]
-
     if status:
         if status == PersonLessonProgress.Status.SKIPPED:
-            rows = [row for row in rows if row.get("hasSkipped")]
+            light_rows = [row for row in light_rows if row.get("hasSkipped")]
         else:
-            rows = [row for row in rows if row["lifecycleStatus"] == status]
+            light_rows = [
+                row for row in light_rows if row["lifecycleStatus"] == status
+            ]
 
     if next_lesson_id is not None:
-        rows = [
+        light_rows = [
             row
-            for row in rows
+            for row in light_rows
             if row["nextLesson"] and row["nextLesson"]["id"] == next_lesson_id
         ]
 
@@ -1681,27 +1711,11 @@ def build_lesson_student_summaries(
     if field == "recentActivity" and ordering is None:
         descending = True
 
-    def person_name(row: dict) -> str:
-        person = row["person"]
-        return " ".join(
-            part
-            for part in (
-                person.get("first_name"),
-                person.get("last_name"),
-                person.get("username"),
-            )
-            if part
-        ).lower()
-
     def sort_key(row: dict):
         if field == "person":
-            return (person_name(row),)
+            return (row["person_sort_name"],)
         if field == "teacher":
-            teacher = row["teacher"] or {}
-            return (
-                (teacher.get("last_name") or "").lower(),
-                (teacher.get("first_name") or "").lower(),
-            )
+            return row["teacher_sort"]
         if field == "previousLesson":
             lesson = row["previousLesson"]
             return (
@@ -1718,21 +1732,62 @@ def build_lesson_student_summaries(
             return (row["progressPercentage"], row["completedCount"])
         if field == "status":
             return (row["lifecycleStatus"],)
-        # recentActivity default
         iso = row.get("lastActivityAt") or ""
         try:
             ms = datetime.fromisoformat(iso.replace("Z", "+00:00")).timestamp()
         except ValueError:
             ms = 0
-        return (ms, person_name(row))
+        return (ms, row["person_sort_name"])
 
-    rows.sort(key=sort_key, reverse=descending)
+    light_rows.sort(key=sort_key, reverse=descending)
 
     page = max(1, int(page or 1))
     page_size = max(1, int(page_size or 25))
     start = (page - 1) * page_size
     end = start + page_size
-    return {"count": len(rows), "results": rows[start:end]}
+    page_light_rows = light_rows[start:end]
+    total_count = len(light_rows)
+
+    if not page_light_rows:
+        return {"count": total_count, "results": []}
+
+    page_person_ids = [row["person_id"] for row in page_light_rows]
+    people_by_id = {
+        person.id: person
+        for person in Person.objects.filter(pk__in=page_person_ids)
+        .prefetch_related("clusters", "evangelism_groups")
+        .select_related("lesson_enrollment__teacher")
+    }
+
+    results: list[dict] = []
+    for light in page_light_rows:
+        person_id = light["person_id"]
+        person = people_by_id.get(person_id)
+        if person is None:
+            continue
+
+        enrollment = enrollments.get(person_id)
+        teacher_person = None
+        if enrollment and enrollment.is_active and enrollment.teacher is not None:
+            teacher_person = enrollment.teacher
+
+        results.append(
+            {
+                "person": _person_nested(person),
+                "teacher": _person_nested(teacher_person) if teacher_person else None,
+                "previousLesson": light["previousLesson"],
+                "completedCount": light["completedCount"],
+                "totalLessons": light["totalLessons"],
+                "nextLesson": light["nextLesson"],
+                "progressPercentage": light["progressPercentage"],
+                "lifecycleStatus": light["lifecycleStatus"],
+                "hasSkipped": light["hasSkipped"],
+                "lastActivityAt": light["lastActivityAt"],
+                "allProgress": [],
+            }
+        )
+
+    return {"count": total_count, "results": results}
 
 
 def build_lesson_timeline(

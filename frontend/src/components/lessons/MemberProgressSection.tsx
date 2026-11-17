@@ -54,7 +54,6 @@ interface MemberProgressSectionProps {
     teacherId: string,
   ) => void;
   enrollmentByStudent: Map<number, LessonStudentEnrollment>;
-  assignedStudentIds: Set<number>;
   defaultTeacherId: string | null;
   teacherChoices: LessonPersonLike[];
   currentUserId?: string | number | null;
@@ -96,7 +95,6 @@ export default function MemberProgressSection({
   canAssignLessons,
   onAssignLessons,
   enrollmentByStudent,
-  assignedStudentIds,
   defaultTeacherId,
   teacherChoices,
   currentUserId,
@@ -164,7 +162,6 @@ export default function MemberProgressSection({
                       assignError={assignError}
                       onAssignLessons={onAssignLessons}
                       enrollmentByStudent={enrollmentByStudent}
-                      assignedStudentIds={assignedStudentIds}
                       defaultTeacherId={defaultTeacherId}
                       teacherChoices={teacherChoices}
                       currentUserId={currentUserId}

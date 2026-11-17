@@ -16,6 +16,7 @@ export interface LessonFormValues {
   code: string;
   version_label: string;
   title: string;
+  short_title: string;
   summary: string;
   outline: string;
   order: number;
@@ -45,29 +46,29 @@ export default function LessonForm({
 }: LessonFormProps) {
   const [code, setCode] = useState(lesson?.code ?? "");
   const [versionLabel, setVersionLabel] = useState(
-    lesson?.version_label ?? "v1"
+    lesson?.version_label ?? "v1",
   );
   const [title, setTitle] = useState(lesson?.title ?? "");
+  const [shortTitle, setShortTitle] = useState(lesson?.short_title ?? "");
   const [summary, setSummary] = useState(lesson?.summary ?? "");
   const [outline, setOutline] = useState(lesson?.outline ?? "");
   const [order, setOrder] = useState<string>(
-    lesson?.order ? String(lesson.order) : "1"
+    lesson?.order ? String(lesson.order) : "1",
   );
   const [isLatest, setIsLatest] = useState<boolean>(lesson?.is_latest ?? true);
   const [isActive, setIsActive] = useState<boolean>(lesson?.is_active ?? true);
   const [journeyType, setJourneyType] = useState<JourneyType>(
-    lesson?.journey_config?.journey_type ?? "NOTE"
+    lesson?.journey_config?.journey_type ?? "NOTE",
   );
   const [journeyTitle, setJourneyTitle] = useState<string>(
-    lesson?.journey_config?.title_template ?? ""
+    lesson?.journey_config?.title_template ?? "",
   );
   const [journeyNote, setJourneyNote] = useState<string>(
-    lesson?.journey_config?.note_template ?? ""
+    lesson?.journey_config?.note_template ?? "",
   );
   const isEditing = Boolean(lesson);
-  const [showJourneyFields, setShowJourneyFields] = useState<boolean>(
-    !isEditing
-  );
+  const [showJourneyFields, setShowJourneyFields] =
+    useState<boolean>(!isEditing);
 
   useEffect(() => {
     if (!lesson) {
@@ -77,6 +78,7 @@ export default function LessonForm({
     setCode(lesson.code);
     setVersionLabel(lesson.version_label);
     setTitle(lesson.title);
+    setShortTitle(lesson.short_title ?? "");
     setSummary(lesson.summary ?? "");
     setOutline(lesson.outline ?? "");
     setOrder(String(lesson.order));
@@ -101,6 +103,7 @@ export default function LessonForm({
       code: code.trim(),
       version_label: versionLabel.trim() || "v1",
       title: title.trim(),
+      short_title: shortTitle.trim(),
       summary: summary.trim(),
       outline: outline.trim(),
       order: numericOrder,
@@ -119,7 +122,7 @@ export default function LessonForm({
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 gap-4">
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
-            Lesson Code
+            Lesson Code <span className="text-red-500">*</span>
           </label>
           <input
             type="text"
@@ -136,7 +139,7 @@ export default function LessonForm({
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
-            Version Label
+            Version Label <span className="text-red-500">*</span>
           </label>
           <input
             type="text"
@@ -144,11 +147,12 @@ export default function LessonForm({
             onChange={(event) => setVersionLabel(event.target.value)}
             className="w-full min-h-[44px] border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
             placeholder="v1"
+            required
           />
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
-            Display Order
+            Display Order <span className="text-red-500">*</span>
           </label>
           <input
             type="number"
@@ -183,7 +187,7 @@ export default function LessonForm({
 
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-1">
-          Title
+          Title <span className="text-red-500">*</span>
         </label>
         <input
           type="text"
@@ -193,6 +197,24 @@ export default function LessonForm({
           placeholder="Living on Mission Every Day"
           required
         />
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          Short title
+        </label>
+        <input
+          type="text"
+          value={shortTitle}
+          onChange={(event) => setShortTitle(event.target.value)}
+          className="w-full min-h-[44px] border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+          placeholder="Living on Mission"
+          maxLength={100}
+        />
+        <p className="mt-1 text-xs text-gray-500">
+          Optional shorter label for the timeline and progress filter. Falls
+          back to the full title when blank.
+        </p>
       </div>
 
       <div>

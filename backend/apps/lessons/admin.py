@@ -30,7 +30,7 @@ class LessonAdmin(admin.ModelAdmin):
         "updated_at",
     )
     list_filter = ("is_latest", "is_active", "version_label")
-    search_fields = ("title", "code", "version_label")
+    search_fields = ("title", "short_title", "code", "version_label")
     ordering = ("order", "title")
 
 

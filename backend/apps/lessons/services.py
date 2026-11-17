@@ -1357,6 +1357,7 @@ def build_lesson_timeline(people: QuerySet[Person]) -> dict:
             {
                 "id": lesson.id,
                 "title": lesson.title,
+                "short_title": lesson.short_title,
                 "order": lesson.order,
                 "code": lesson.code,
             }

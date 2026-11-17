@@ -156,7 +156,7 @@ export function buildTimelineMarks(
   const lessonMarks: LessonTimelineVisualMark[] = catalog.map((lesson) => ({
     kind: "lesson",
     key: `lesson-${lesson.id}`,
-    title: lesson.title,
+    title: lesson.short_title?.trim() || lesson.title,
     completedOn: progressByLesson.get(lesson.id)?.completed_on ?? null,
     status: progressByLesson.get(lesson.id)?.status ?? null,
   }));

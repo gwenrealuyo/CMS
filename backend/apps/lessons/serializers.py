@@ -86,6 +86,7 @@ class LessonSerializer(serializers.ModelSerializer):
             "code",
             "version_label",
             "title",
+            "short_title",
             "summary",
             "outline",
             "order",

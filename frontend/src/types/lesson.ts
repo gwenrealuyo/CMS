@@ -11,6 +11,7 @@ export interface Lesson {
   code: string;
   version_label: string;
   title: string;
+  short_title: string;
   summary: string;
   outline: string;
   order: number;
@@ -243,6 +244,7 @@ export interface LessonFollowUpCase {
 export interface LessonTimelineCatalogLesson {
   id: number;
   title: string;
+  short_title: string;
   order: number;
   code: string;
 }

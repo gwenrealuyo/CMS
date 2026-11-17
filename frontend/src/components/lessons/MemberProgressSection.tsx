@@ -176,7 +176,7 @@ export default function MemberProgressSection({
               <option value="">All lessons</option>
               {activeLatestLessons.map((lesson) => (
                 <option key={lesson.id} value={lesson.id}>
-                  {lesson.title}
+                  {lesson.short_title?.trim() || lesson.title}
                 </option>
               ))}
             </select>

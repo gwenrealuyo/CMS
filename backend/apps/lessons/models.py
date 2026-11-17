@@ -21,6 +21,11 @@ class Lesson(models.Model):
         help_text="Short label that indicates the lesson revision (e.g., v1, v2).",
     )
     title = models.CharField(max_length=200)
+    short_title = models.CharField(
+        max_length=100,
+        blank=True,
+        help_text="Optional short label for compact UI (timeline, filters). Falls back to title when blank.",
+    )
     summary = models.TextField(blank=True)
     outline = models.TextField(
         blank=True,

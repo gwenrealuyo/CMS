@@ -119,6 +119,9 @@ export default function LessonsPageContainer() {
   const [progressSortDirection, setProgressSortDirection] = useState<
     "asc" | "desc"
   >("desc");
+  const [includeHistoricalFinished, setIncludeHistoricalFinished] =
+    useState(false);
+  const lessonsBrowseYear = useMemo(() => getChurchCalendarYear(), []);
 
   const [summary, setSummary] = useState<LessonProgressSummary | null>(null);
   const [summaryLoading, setSummaryLoading] = useState(true);
@@ -424,6 +427,8 @@ export default function LessonsPageContainer() {
     sortDirection: progressSortDirection,
     page: progressBrowsePage,
     pageSize: progressBrowsePageSize,
+    year: lessonsBrowseYear,
+    includeHistoricalFinished,
     enabled: progressBrowseEnabled,
   });
 
@@ -752,7 +757,13 @@ export default function LessonsPageContainer() {
     let cancelled = false;
     setTeacherOverviewLoading(true);
     lessonsApi
-      .getTeacherOverview(branchApiParams ?? {})
+      .getTeacherOverview({
+        ...(branchApiParams ?? {}),
+        year: lessonsBrowseYear,
+        ...(includeHistoricalFinished
+          ? { include_historical_finished: 1 }
+          : {}),
+      })
       .then((response) => {
         if (cancelled) return;
         const rows: TeacherProgressGroup[] = (response.data ?? []).map(
@@ -786,7 +797,12 @@ export default function LessonsPageContainer() {
     return () => {
       cancelled = true;
     };
-  }, [branchApiParams, showStudentWorkflowTabs]);
+  }, [
+    branchApiParams,
+    showStudentWorkflowTabs,
+    lessonsBrowseYear,
+    includeHistoricalFinished,
+  ]);
 
   useEffect(() => {
     setProgressBrowsePage(1);
@@ -798,6 +814,7 @@ export default function LessonsPageContainer() {
     progressSortField,
     progressSortDirection,
     selectedBranchId,
+    includeHistoricalFinished,
   ]);
 
   useEffect(() => {
@@ -2208,6 +2225,8 @@ export default function LessonsPageContainer() {
       onProgressSearchQueryChange={handleProgressSearchQueryChange}
       onProgressTeacherFilterChange={handleProgressTeacherFilterChange}
       onProgressStatusFilterChange={handleProgressStatusFilterChange}
+      includeHistoricalFinished={includeHistoricalFinished}
+      onIncludeHistoricalFinishedChange={setIncludeHistoricalFinished}
       onProgressSortChange={handleProgressSortChange}
       onTeacherOverviewClick={handleTeacherOverviewClick}
       onAssignAwaitingTeacher={handleAssignAwaitingTeacher}

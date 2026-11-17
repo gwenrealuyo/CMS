@@ -264,8 +264,24 @@ def lesson_teacher_overview(request):
     )
     people_qs = Person.objects.filter(pk__in=person_ids)
 
+    year_param = request.query_params.get("year")
+    year = None
+    if year_param:
+        try:
+            year = int(year_param)
+        except (TypeError, ValueError) as exc:
+            raise ValidationError({"year": "Year must be a valid number."}) from exc
+    include_historical = str(
+        request.query_params.get("include_historical_finished", "")
+    ).lower() in {"1", "true", "yes"}
+
     return Response(
-        build_lesson_teacher_overview(people_qs=people_qs, roster_rows=roster_rows)
+        build_lesson_teacher_overview(
+            people_qs=people_qs,
+            roster_rows=roster_rows,
+            year=year,
+            include_historical_finished=include_historical,
+        )
     )
 
 
@@ -771,6 +787,17 @@ class PersonLessonProgressViewSet(
             enrollment_qs, user, request, person_lookup="student"
         )
 
+        year_param = params.get("year")
+        year = None
+        if year_param:
+            try:
+                year = int(year_param)
+            except (TypeError, ValueError) as exc:
+                raise ValidationError({"year": "Year must be a valid number."}) from exc
+        include_historical = str(
+            params.get("include_historical_finished", "")
+        ).lower() in {"1", "true", "yes"}
+
         payload = build_lesson_student_summaries(
             progress_qs=self.get_queryset(),
             enrollment_qs=enrollment_qs,
@@ -782,6 +809,8 @@ class PersonLessonProgressViewSet(
             ordering=params.get("ordering"),
             page=page,
             page_size=page_size,
+            year=year,
+            include_historical_finished=include_historical,
         )
         return Response(payload)
 

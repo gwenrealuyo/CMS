@@ -39,6 +39,8 @@ interface MemberProgressSectionProps {
   onProgressTeacherFilterChange: (value: string) => void;
   progressStatusFilter: ProgressStatusFilter;
   onProgressStatusFilterChange: (value: ProgressStatusFilter) => void;
+  includeHistoricalFinished: boolean;
+  onIncludeHistoricalFinishedChange: (value: boolean) => void;
   progressSortField: ProgressSortField;
   progressSortDirection: "asc" | "desc";
   onProgressSortChange: (field: ProgressSortField) => void;
@@ -84,6 +86,8 @@ export default function MemberProgressSection({
   onProgressTeacherFilterChange,
   progressStatusFilter,
   onProgressStatusFilterChange,
+  includeHistoricalFinished,
+  onIncludeHistoricalFinishedChange,
   progressSortField,
   progressSortDirection,
   onProgressSortChange,
@@ -222,7 +226,23 @@ export default function MemberProgressSection({
                 <option value="COMPLETED">Completed</option>
                 <option value="SKIPPED">Skipped</option>
               </select>
+
+              <label className="inline-flex w-full items-center gap-2 rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-700 sm:w-auto">
+                <input
+                  type="checkbox"
+                  checked={includeHistoricalFinished}
+                  onChange={(e) =>
+                    onIncludeHistoricalFinishedChange(e.target.checked)
+                  }
+                  className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-ring"
+                />
+                Include past years
+              </label>
             </div>
+            <p className="text-xs text-gray-500">
+              Completed means finished this year unless past years are included.
+              Teachers overview uses the same setting.
+            </p>
           </div>
         </div>
 

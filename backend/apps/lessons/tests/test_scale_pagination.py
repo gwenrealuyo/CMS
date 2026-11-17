@@ -1,4 +1,7 @@
-from datetime import date, timedelta
+from __future__ import annotations
+
+from datetime import date, datetime, time, timedelta
+from typing import Optional
 
 from django.utils import timezone
 from rest_framework.test import APITestCase
@@ -277,3 +280,139 @@ class LessonsScalePaginationAPITests(APITestCase):
             {row["id"] for row in search.data["results"]},
             {self.visitor_no_teacher.id},
         )
+
+    def _finish_student(
+        self, student, *, finish_day: Optional[date], stamp_uniform: bool = False
+    ):
+        LessonStudentEnrollment.objects.get_or_create(
+            student=student,
+            defaults={"teacher": self.teacher},
+        )
+        completed_at = timezone.now()
+        if finish_day is not None and not stamp_uniform:
+            completed_at = timezone.make_aware(
+                datetime.combine(finish_day, time.min)
+            )
+        catalog = list(
+            Lesson.objects.filter(is_latest=True, is_active=True).order_by(
+                "order", "id"
+            )
+        )
+        last_lesson = catalog[-1] if catalog else self.lesson_two
+        for lesson in catalog:
+            PersonLessonProgress.objects.update_or_create(
+                person=student,
+                lesson=lesson,
+                defaults={
+                    "status": PersonLessonProgress.Status.COMPLETED,
+                    "completed_at": completed_at,
+                },
+            )
+        if finish_day is not None and not stamp_uniform:
+            LessonSessionReport.objects.create(
+                teacher=self.teacher,
+                student=student,
+                lesson=last_lesson,
+                session_type=LessonSessionReport.SessionType.LESSON,
+                session_date=finish_day,
+                session_start=timezone.make_aware(
+                    datetime.combine(finish_day, time(10, 0))
+                ),
+            )
+            student.has_finished_lessons = True
+            student.lessons_finished_at = finish_day
+            student.save(
+                update_fields=["has_finished_lessons", "lessons_finished_at"]
+            )
+        elif stamp_uniform:
+            student.has_finished_lessons = True
+            student.lessons_finished_at = None
+            student.save(
+                update_fields=["has_finished_lessons", "lessons_finished_at"]
+            )
+
+    def test_student_summaries_yearly_cohort_default(self):
+        this_year = date.today().year
+        finished_this_year = self._person(
+            "scalefinishnow",
+            role="VISITOR",
+            branch=self.branch,
+            first_name="Finn",
+            last_name="ThisYear",
+            status="ONGOING",
+        )
+        finished_last_year = self._person(
+            "scalefinishold",
+            role="VISITOR",
+            branch=self.branch,
+            first_name="Old",
+            last_name="Graduate",
+            status="ONGOING",
+        )
+        undated_finished = self._person(
+            "scaleundated",
+            role="VISITOR",
+            branch=self.branch,
+            first_name="Undated",
+            last_name="Finisher",
+            status="ONGOING",
+        )
+        self._finish_student(
+            finished_this_year, finish_day=date(this_year, 3, 15)
+        )
+        self._finish_student(
+            finished_last_year, finish_day=date(this_year - 1, 6, 1)
+        )
+        self._finish_student(
+            undated_finished, finish_day=None, stamp_uniform=True
+        )
+
+        self.client.force_authenticate(self.coordinator)
+        default_response = self.client.get(
+            "/api/lessons/progress/student-summaries/",
+            {"page_size": 50, "year": this_year},
+        )
+        self.assertEqual(default_response.status_code, 200)
+        default_ids = {
+            row["person"]["id"] for row in default_response.data["results"]
+        }
+        self.assertIn(self.student_assigned.id, default_ids)
+        self.assertIn(self.student_in_progress.id, default_ids)
+        self.assertIn(finished_this_year.id, default_ids)
+        self.assertNotIn(finished_last_year.id, default_ids)
+        self.assertNotIn(undated_finished.id, default_ids)
+
+        completed = self.client.get(
+            "/api/lessons/progress/student-summaries/",
+            {"page_size": 50, "year": this_year, "status": "COMPLETED"},
+        )
+        completed_ids = {row["person"]["id"] for row in completed.data["results"]}
+        self.assertEqual(completed_ids, {finished_this_year.id})
+
+        historical = self.client.get(
+            "/api/lessons/progress/student-summaries/",
+            {
+                "page_size": 50,
+                "year": this_year,
+                "include_historical_finished": "1",
+            },
+        )
+        historical_ids = {
+            row["person"]["id"] for row in historical.data["results"]
+        }
+        self.assertIn(finished_last_year.id, historical_ids)
+        self.assertIn(undated_finished.id, historical_ids)
+
+        overview = self.client.get(
+            "/api/lessons/teachers/overview/",
+            {"branch_id": self.branch.id, "year": this_year},
+        )
+        tara = next(
+            (row for row in overview.data if row["key"] == str(self.teacher.id)),
+            None,
+        )
+        self.assertIsNotNone(tara)
+        # assigned + in_progress + finished_this_year (not last year / undated)
+        self.assertEqual(tara["total"], 3)
+        self.assertEqual(tara["completed"], 1)
+        self.assertEqual(tara["not_started"], 2)

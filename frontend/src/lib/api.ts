@@ -1633,6 +1633,8 @@ export const lessonsApi = {
     ordering?: string;
     page?: number;
     page_size?: number;
+    year?: number;
+    include_historical_finished?: boolean | string | number;
   }) =>
     api.get<StudentSummariesPage>("/lessons/progress/student-summaries/", {
       params,
@@ -1646,7 +1648,11 @@ export const lessonsApi = {
       "/lessons/progress/latest-session-activity/",
       { params },
     ),
-  getTeacherOverview: (params?: { branch_id?: string | number }) =>
+  getTeacherOverview: (params?: {
+    branch_id?: string | number;
+    year?: number;
+    include_historical_finished?: boolean | string | number;
+  }) =>
     api.get<LessonTeacherOverviewRow[]>("/lessons/teachers/overview/", {
       params,
     }),

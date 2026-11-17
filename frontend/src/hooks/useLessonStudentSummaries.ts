@@ -15,6 +15,8 @@ export interface UseLessonStudentSummariesOptions {
   sortDirection?: "asc" | "desc";
   page?: number;
   pageSize?: number;
+  year?: number;
+  includeHistoricalFinished?: boolean;
   enabled?: boolean;
   debounceMs?: number;
 }
@@ -57,6 +59,8 @@ export function useLessonStudentSummaries(
     sortDirection = "desc",
     page = 1,
     pageSize = 25,
+    year,
+    includeHistoricalFinished = false,
     enabled = true,
     debounceMs = 300,
   } = options;
@@ -117,6 +121,12 @@ export function useLessonStudentSummaries(
       if (nextLessonId != null) {
         params.next_lesson_id = nextLessonId;
       }
+      if (year != null) {
+        params.year = year;
+      }
+      if (includeHistoricalFinished) {
+        params.include_historical_finished = 1;
+      }
 
       const response = await lessonsApi.getStudentSummaries(
         params as Parameters<typeof lessonsApi.getStudentSummaries>[0],
@@ -153,6 +163,8 @@ export function useLessonStudentSummaries(
     teacherKey,
     status,
     nextLessonId,
+    year,
+    includeHistoricalFinished,
   ]);
 
   useEffect(() => {

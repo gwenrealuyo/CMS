@@ -1053,6 +1053,33 @@ def _course_finish_calendar_date(person_records) -> Optional[date]:
     return church_calendar_date(person.lessons_finished_at)
 
 
+def person_in_lessons_year_cohort(
+    *,
+    completed_count: int,
+    total_lessons: int,
+    person_records,
+    year: int,
+    include_historical_finished: bool = False,
+) -> bool:
+    """
+    Whether a student belongs in the yearly Lessons browse / stats cohort.
+
+    Ongoing and not-started students are always included. Course finishers are
+    included when their trustworthy finish date falls in ``year``, or when
+    ``include_historical_finished`` is True (including undated finishers).
+    """
+    if total_lessons <= 0 or completed_count <= 0:
+        return True
+    if completed_count < total_lessons:
+        return True
+    if include_historical_finished:
+        return True
+    finish_date = _course_finish_calendar_date(person_records)
+    if finish_date is None:
+        return False
+    return date(year, 1, 1) <= finish_date <= date(year, 12, 31)
+
+
 def build_lesson_progress_summary(
     progress_qs,
     *,
@@ -1089,8 +1116,6 @@ def build_lesson_progress_summary(
         record_status_totals[entry["status"]] = entry["total"]
 
     target_year = year if year is not None else timezone.now().year
-    year_start_date = date(target_year, 1, 1)
-    year_end_date = date(target_year, 12, 31)
 
     active_latest_queryset = queryset.filter(
         lesson__is_latest=True,
@@ -1116,25 +1141,17 @@ def build_lesson_progress_summary(
             if record.status == PersonLessonProgress.Status.COMPLETED
         )
 
-        if completed_count == 0:
-            person_status_totals[PersonLessonProgress.Status.ASSIGNED] += 1
-            cohort_person_ids.append(person_id)
+        if not person_in_lessons_year_cohort(
+            completed_count=completed_count,
+            total_lessons=lessons_in_scope_count,
+            person_records=person_records,
+            year=target_year,
+            include_historical_finished=False,
+        ):
             continue
 
-        finished_all = (
-            lessons_in_scope_count > 0 and completed_count >= lessons_in_scope_count
-        )
-        if finished_all:
-            finish_date = _course_finish_calendar_date(person_records)
-            if (
-                finish_date is not None
-                and year_start_date <= finish_date <= year_end_date
-            ):
-                person_status_totals[PersonLessonProgress.Status.COMPLETED] += 1
-                cohort_person_ids.append(person_id)
-            continue
-
-        person_status_totals[PersonLessonProgress.Status.IN_PROGRESS] += 1
+        lifecycle = _person_lifecycle_status(completed_count, lessons_in_scope_count)
+        person_status_totals[lifecycle] += 1
         cohort_person_ids.append(person_id)
 
     lesson_breakdown = (
@@ -1378,11 +1395,18 @@ def build_latest_session_activity(student_ids_or_qs) -> dict[str, str]:
     return result
 
 
-def build_lesson_teacher_overview(*, people_qs, roster_rows: list[dict]) -> list[dict]:
+def build_lesson_teacher_overview(
+    *,
+    people_qs,
+    roster_rows: list[dict],
+    year: Optional[int] = None,
+    include_historical_finished: bool = False,
+) -> list[dict]:
     catalog = list(
         Lesson.objects.filter(is_latest=True, is_active=True).order_by("order", "id")
     )
     total_lessons = len(catalog)
+    target_year = year if year is not None else timezone.now().year
 
     people = list(
         people_qs.prefetch_related(
@@ -1391,7 +1415,7 @@ def build_lesson_teacher_overview(*, people_qs, roster_rows: list[dict]) -> list
                 queryset=PersonLessonProgress.objects.filter(
                     lesson__is_latest=True,
                     lesson__is_active=True,
-                ).select_related("lesson"),
+                ).select_related("lesson", "person"),
             ),
             "lesson_enrollment__teacher",
         )
@@ -1418,6 +1442,14 @@ def build_lesson_teacher_overview(*, people_qs, roster_rows: list[dict]) -> list
             for progress in progress_list
             if progress.status == PersonLessonProgress.Status.COMPLETED
         )
+        if not person_in_lessons_year_cohort(
+            completed_count=completed_count,
+            total_lessons=total_lessons,
+            person_records=progress_list,
+            year=target_year,
+            include_historical_finished=include_historical_finished,
+        ):
+            continue
         lifecycle = _person_lifecycle_status(completed_count, total_lessons)
 
         enrollment = _enrollment_for(person)
@@ -1499,12 +1531,15 @@ def build_lesson_student_summaries(
     ordering: Optional[str] = None,
     page: int = 1,
     page_size: int = 25,
+    year: Optional[int] = None,
+    include_historical_finished: bool = False,
 ) -> dict:
     catalog = list(
         Lesson.objects.filter(is_latest=True, is_active=True).order_by("order", "id")
     )
     total_lessons = len(catalog)
     catalog_ids = {lesson.id for lesson in catalog}
+    target_year = year if year is not None else timezone.now().year
 
     base_progress = progress_qs.filter(
         lesson__is_latest=True,
@@ -1581,7 +1616,7 @@ def build_lesson_student_summaries(
     for progress in PersonLessonProgress.objects.filter(
         person_id__in=person_ids,
         lesson_id__in=catalog_ids,
-    ).select_related("lesson"):
+    ).select_related("lesson", "person"):
         progress_by_person[progress.person_id].append(progress)
 
     enrollments = {
@@ -1648,6 +1683,15 @@ def build_lesson_student_summaries(
             round((completed_count / total_lessons) * 100) if total_lessons else 0
         )
         lifecycle = _person_lifecycle_status(completed_count, total_lessons)
+
+        if not person_in_lessons_year_cohort(
+            completed_count=completed_count,
+            total_lessons=total_lessons,
+            person_records=progress_list,
+            year=target_year,
+            include_historical_finished=include_historical_finished,
+        ):
+            continue
 
         enrollment = enrollments.get(person_id)
         teacher_sort = ("", "")

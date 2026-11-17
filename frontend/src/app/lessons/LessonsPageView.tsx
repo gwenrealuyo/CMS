@@ -171,6 +171,8 @@ interface LessonsPageViewProps {
   progressSearchQuery: string;
   progressTeacherFilterKey: string;
   progressStatusFilter: ProgressStatusFilter;
+  includeHistoricalFinished: boolean;
+  onIncludeHistoricalFinishedChange: (value: boolean) => void;
   progressSortField: ProgressSortField;
   progressSortDirection: "asc" | "desc";
   focusTeacherKey?: string | null;
@@ -452,6 +454,8 @@ export default function LessonsPageView({
   onProgressSearchQueryChange,
   onProgressTeacherFilterChange,
   onProgressStatusFilterChange,
+  includeHistoricalFinished,
+  onIncludeHistoricalFinishedChange,
   onProgressSortChange,
   onTeacherOverviewClick,
   onAssignAwaitingTeacher,
@@ -791,6 +795,10 @@ export default function LessonsPageView({
               onProgressTeacherFilterChange={onProgressTeacherFilterChange}
               progressStatusFilter={progressStatusFilter}
               onProgressStatusFilterChange={onProgressStatusFilterChange}
+              includeHistoricalFinished={includeHistoricalFinished}
+              onIncludeHistoricalFinishedChange={
+                onIncludeHistoricalFinishedChange
+              }
               progressSortField={progressSortField}
               progressSortDirection={progressSortDirection}
               onProgressSortChange={onProgressSortChange}

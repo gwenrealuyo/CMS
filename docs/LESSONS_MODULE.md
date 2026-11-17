@@ -191,14 +191,16 @@ Branch change does **not** walk all progress rows, session reports, enrollments,
 
 | Endpoint | Use |
 |----------|-----|
-| `GET /lessons/progress/student-summaries/` | Student Progress table (filters, sort, `page` / `page_size`); rows include `lifecycleStatus`, `hasSkipped`, `teacher`, `lastActivityAt`; `allProgress` is empty in list responses. |
+| `GET /lessons/progress/student-summaries/` | Student Progress table (filters, sort, `page` / `page_size`); rows include `lifecycleStatus`, `hasSkipped`, `teacher`, `lastActivityAt`; `allProgress` is empty in list responses. Default cohort matches stats cards: ongoing students plus course finishers in `year` (church calendar year). Pass `include_historical_finished=1` to include prior-year / undated finishers. |
 | `GET /lessons/progress/latest-session-activity/` | Per-student latest session ISO map (replaces scanning all session reports). |
-| `GET /lessons/teachers/overview/` | Teachers tab counts (no per-teacher student arrays). |
+| `GET /lessons/teachers/overview/` | Teachers tab counts (no per-teacher student arrays). Same `year` / `include_historical_finished` cohort as student-summaries. |
 | `GET /lessons/progress/timeline/` | Timeline tab (`filter_mode`, search, pagination); `results` mirrors `students` for the current page. |
 | `GET /lessons/visitors-awaiting-teacher/` | Awaiting Teacher tab; `export=1` returns the full filtered list for export. |
 | Paginated `progress/`, `session-reports/`, `enrollments/`, `assignment-requests/` | Lesson detail progress, session list pages, teacher-scoped or per-student enrollments, pending assignment queue (`page_size` capped). |
 
 `PersonLessonProgressModal` loads per-person progress via `GET /lessons/progress/?person=` and enrollment via `GET /lessons/enrollments/?student=` when opened. Assign pickers use paged `peopleApi.list` (`for_lessons`); eligibility uses `has_lesson_enrollment` and `has_any_lesson_progress` on that list (no client-side walk of all student summaries). Teachers load only their enrollments for session student pickers. Intentional full walks remain for session CSV export and visitors `export=1`.
+
+**Yearly cohort (Progress / Teachers):** By default the Student Progress list and Teachers overview hide students who finished the full catalog in a prior year or with no trustworthy finish date. Students still in the course always appear. Finishers dated in the selected `year` appear (and the Completed status filter means finished this year). The Progress toolbar **Include past years** checkbox sets `include_historical_finished` for both Progress and Teachers. Timeline is unchanged (Needs follow-up / Finished / Dropped filters).
 
 NCC ministry roles:
 

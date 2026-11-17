@@ -159,7 +159,10 @@ class LessonTimelineAPITests(APITestCase):
 
     def _rows(self, user):
         self.client.force_authenticate(user)
-        response = self.client.get("/api/lessons/progress/timeline/")
+        response = self.client.get(
+            "/api/lessons/progress/timeline/",
+            {"filter_mode": "all"},
+        )
         return response
 
     def test_includes_finished_student_milestones_cluster_and_days(self):
@@ -225,7 +228,10 @@ class LessonTimelineAPITests(APITestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data["status"], "ACTION_PLANNED")
 
-        timeline = self.client.get("/api/lessons/progress/timeline/")
+        timeline = self.client.get(
+            "/api/lessons/progress/timeline/",
+            {"filter_mode": "all"},
+        )
         by_id = {row["person"]["id"]: row for row in timeline.data["students"]}
         self.assertEqual(by_id[self.quiet.id]["follow_up"]["status"], "ACTION_PLANNED")
         note = Journey.objects.get(user=self.quiet, title=FOLLOW_UP_PLAN_TITLE)

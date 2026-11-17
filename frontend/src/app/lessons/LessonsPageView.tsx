@@ -121,12 +121,19 @@ interface LessonsPageViewProps {
   assignError: string | null;
   peopleLoading: boolean;
   peopleError: string | null;
+  onPeopleSearchChange?: (query: string) => void;
   // Grouped progress state
-  allProgress: PersonLessonProgress[];
   allProgressLoading: boolean;
   allProgressError: string | null;
   groupedProgress: PersonProgressSummary[];
+  progressTotalCount?: number;
+  progressBrowsePage?: number;
+  progressBrowsePageSize?: number;
+  onProgressBrowsePageChange?: (page: number) => void;
+  onProgressBrowsePageSizeChange?: (size: number) => void;
   teacherOverviewRows: TeacherProgressGroup[];
+  teacherOverviewLoading?: boolean;
+  teacherOverviewError?: string | null;
   visitorsAwaitingTeacher: VisitorAwaitingTeacher[];
   visitorsAwaitingTeacherLoading: boolean;
   visitorsAwaitingTeacherError: string | null;
@@ -135,6 +142,28 @@ interface LessonsPageViewProps {
   lessonTimelineLoading: boolean;
   lessonTimelineError: string | null;
   lessonTimelineSaving: boolean;
+  timelinePage?: number;
+  timelinePageSize?: number;
+  timelineTotalCount?: number;
+  onTimelinePageChange?: (page: number) => void;
+  onTimelinePageSizeChange?: (size: number) => void;
+  onTimelineSearchChange?: (query: string) => void;
+  onTimelineFilterChange?: (
+    filter: "follow-up" | "finished" | "dropped" | "all",
+  ) => void;
+  onTimelineSortChange?: (
+    field: "days" | "name" | "teacher",
+    direction: "asc" | "desc",
+  ) => void;
+  visitorsPage?: number;
+  visitorsPageSize?: number;
+  visitorsTotalCount?: number;
+  onVisitorsPageChange?: (page: number) => void;
+  onVisitorsPageSizeChange?: (size: number) => void;
+  onVisitorsSearchChange?: (query: string) => void;
+  onVisitorsStatusChange?: (status: string) => void;
+  onVisitorsSortChange?: (field: string, direction: "asc" | "desc") => void;
+  onExportVisitorsAll?: () => Promise<VisitorAwaitingTeacher[]>;
   onSaveLessonFollowUp: (input: LessonFollowUpInput) => Promise<void>;
   assignedStudentIds: Set<number>;
   studentTeacherById: Map<number, LessonPersonSummary>;
@@ -162,6 +191,11 @@ interface LessonsPageViewProps {
   lessonsBranchesLoading: boolean;
   // Session reports state
   sessionReports: LessonSessionReport[];
+  sessionReportsTotalCount?: number;
+  sessionReportsPage?: number;
+  sessionReportsPageSize?: number;
+  onSessionReportsPageChange?: (page: number) => void;
+  onSessionReportsPageSizeChange?: (size: number) => void;
   sessionReportsLoading: boolean;
   sessionReportsError: string | null;
   isSessionModalOpen: boolean;
@@ -338,6 +372,7 @@ export default function LessonsPageView({
   assignError,
   peopleLoading,
   peopleError,
+  onPeopleSearchChange,
   activeContentTab,
   lessonsBranchSelectedId,
   onLessonsBranchChange,
@@ -422,11 +457,17 @@ export default function LessonsPageView({
   onAssignAwaitingTeacher,
   onOpenPersonProgressModal,
   onClosePersonProgressModal,
-  allProgress,
   allProgressLoading,
   allProgressError,
   groupedProgress,
+  progressTotalCount,
+  progressBrowsePage,
+  progressBrowsePageSize,
+  onProgressBrowsePageChange,
+  onProgressBrowsePageSizeChange,
   teacherOverviewRows,
+  teacherOverviewLoading,
+  teacherOverviewError,
   visitorsAwaitingTeacher,
   visitorsAwaitingTeacherLoading,
   visitorsAwaitingTeacherError,
@@ -435,6 +476,28 @@ export default function LessonsPageView({
   lessonTimelineLoading,
   lessonTimelineError,
   lessonTimelineSaving,
+  timelinePage,
+  timelinePageSize,
+  timelineTotalCount,
+  onTimelinePageChange,
+  onTimelinePageSizeChange,
+  onTimelineSearchChange,
+  onTimelineFilterChange,
+  onTimelineSortChange,
+  visitorsPage,
+  visitorsPageSize,
+  visitorsTotalCount,
+  onVisitorsPageChange,
+  onVisitorsPageSizeChange,
+  onVisitorsSearchChange,
+  onVisitorsStatusChange,
+  onVisitorsSortChange,
+  onExportVisitorsAll,
+  sessionReportsTotalCount,
+  sessionReportsPage,
+  sessionReportsPageSize,
+  onSessionReportsPageChange,
+  onSessionReportsPageSizeChange,
   onSaveLessonFollowUp,
   assignedStudentIds,
   studentTeacherById,
@@ -731,6 +794,12 @@ export default function LessonsPageView({
               pendingStudentIds={pendingAssignStudentIds}
               onPersonClick={onOpenPersonProgressModal}
               focusTeacherKey={focusTeacherKey}
+              progressTotalCount={progressTotalCount}
+              progressPage={progressBrowsePage}
+              progressPageSize={progressBrowsePageSize}
+              onProgressPageChange={onProgressBrowsePageChange}
+              onProgressPageSizeChange={onProgressBrowsePageSizeChange}
+              onPeopleSearchChange={onPeopleSearchChange}
             />
           </div>
 
@@ -753,8 +822,8 @@ export default function LessonsPageView({
               />
               <TeacherOverviewSection
                 rows={teacherOverviewRows}
-                loading={allProgressLoading}
-                error={allProgressError}
+                loading={teacherOverviewLoading ?? allProgressLoading}
+                error={teacherOverviewError ?? allProgressError}
                 onTeacherClick={onTeacherOverviewClick}
               />
             </div>
@@ -775,6 +844,24 @@ export default function LessonsPageView({
                 saving={lessonTimelineSaving}
                 formatDateOnly={formatDateOnly}
                 onSaveFollowUp={onSaveLessonFollowUp}
+                serverPagination={
+                  timelineTotalCount != null &&
+                  timelinePage != null &&
+                  timelinePageSize != null &&
+                  onTimelinePageChange &&
+                  onTimelinePageSizeChange
+                    ? {
+                        totalCount: timelineTotalCount,
+                        currentPage: timelinePage,
+                        pageSize: timelinePageSize,
+                        onPageChange: onTimelinePageChange,
+                        onPageSizeChange: onTimelinePageSizeChange,
+                      }
+                    : undefined
+                }
+                onServerSearchChange={onTimelineSearchChange}
+                onServerFilterChange={onTimelineFilterChange}
+                onServerSortChange={onTimelineSortChange}
               />
             </div>
           ) : null}
@@ -798,6 +885,27 @@ export default function LessonsPageView({
                 showBranchColumn={!lessonsBranchSelectedId}
                 formatDateOnly={formatDateOnly}
                 onAssign={onAssignAwaitingTeacher}
+                serverPagination={
+                  visitorsTotalCount != null &&
+                  visitorsPage != null &&
+                  visitorsPageSize != null &&
+                  onVisitorsPageChange &&
+                  onVisitorsPageSizeChange
+                    ? {
+                        totalCount: visitorsTotalCount,
+                        currentPage: visitorsPage,
+                        pageSize: visitorsPageSize,
+                        onPageChange: onVisitorsPageChange,
+                        onPageSizeChange: onVisitorsPageSizeChange,
+                      }
+                    : undefined
+                }
+                onServerSearchChange={onVisitorsSearchChange}
+                onServerStatusChange={(status) =>
+                  onVisitorsStatusChange?.(status)
+                }
+                onServerSortChange={onVisitorsSortChange}
+                onExportAll={onExportVisitorsAll}
               />
             </div>
           ) : null}
@@ -831,7 +939,22 @@ export default function LessonsPageView({
               formatDateTime={formatDateTime}
               canLogSession={canWriteLessonsAccess}
               logSessionEnabled={lessons.length > 0}
-              canExport={sessionReports.length > 0}
+              canExport={(sessionReportsTotalCount ?? sessionReports.length) > 0}
+              serverPagination={
+                sessionReportsTotalCount != null &&
+                sessionReportsPage != null &&
+                sessionReportsPageSize != null &&
+                onSessionReportsPageChange &&
+                onSessionReportsPageSizeChange
+                  ? {
+                      totalCount: sessionReportsTotalCount,
+                      currentPage: sessionReportsPage,
+                      pageSize: sessionReportsPageSize,
+                      onPageChange: onSessionReportsPageChange,
+                      onPageSizeChange: onSessionReportsPageSizeChange,
+                    }
+                  : undefined
+              }
             />
           </div>
             </>
@@ -1156,7 +1279,6 @@ export default function LessonsPageView({
       <PersonLessonProgressModal
         isOpen={personProgressModal.isOpen}
         person={personProgressModal.person}
-        allProgress={allProgress}
         allLessons={lessons}
         enrollment={
           personProgressModal.person

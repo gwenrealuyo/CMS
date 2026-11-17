@@ -250,6 +250,14 @@ interface SessionReportsSectionProps {
   /** When false, Log Session is shown but disabled (e.g. no lessons in catalog). */
   logSessionEnabled?: boolean;
   canExport: boolean;
+  /** When set, `sessionReports` is one server page; Pagination uses these counts. */
+  serverPagination?: {
+    totalCount: number;
+    currentPage: number;
+    pageSize: number;
+    onPageChange: (page: number) => void;
+    onPageSizeChange: (size: number) => void;
+  };
 }
 
 function hasActiveSessionFilters(
@@ -288,7 +296,9 @@ export default function SessionReportsSection({
   canLogSession,
   logSessionEnabled = true,
   canExport,
+  serverPagination,
 }: SessionReportsSectionProps) {
+  const serverDriven = Boolean(serverPagination);
   const monthOptions = useMemo(
     () => [
       { value: "", label: "All months" },
@@ -453,10 +463,13 @@ export default function SessionReportsSection({
   }, [groupedReports]);
 
   const paginatedCardGroups = useMemo(() => {
+    if (serverDriven) {
+      return groupedReports;
+    }
     const startIndex = (currentPage - 1) * itemsPerPage;
     const endIndex = startIndex + itemsPerPage;
     return groupedReports.slice(startIndex, endIndex);
-  }, [groupedReports, currentPage, itemsPerPage]);
+  }, [groupedReports, currentPage, itemsPerPage, serverDriven]);
 
   const groupedTableReports = useMemo<StudentReportGroup[]>(() => {
     const groups = new Map<string, StudentReportGroup>();
@@ -504,14 +517,28 @@ export default function SessionReportsSection({
   }, [sortedReports]);
 
   const paginatedTableGroups = useMemo(() => {
+    if (serverDriven) {
+      return groupedTableReports;
+    }
     const startIndex = (currentPage - 1) * itemsPerPage;
     const endIndex = startIndex + itemsPerPage;
     return groupedTableReports.slice(startIndex, endIndex);
-  }, [groupedTableReports, currentPage, itemsPerPage]);
+  }, [groupedTableReports, currentPage, itemsPerPage, serverDriven]);
 
-  const totalPages = Math.ceil(
-    (effectiveViewMode === "table" ? groupedTableReports.length : groupedReports.length) /
-      itemsPerPage,
+  const paginationTotalItems = serverDriven
+    ? (serverPagination?.totalCount ?? 0)
+    : effectiveViewMode === "table"
+      ? groupedTableReports.length
+      : groupedReports.length;
+  const paginationPageSize = serverDriven
+    ? (serverPagination?.pageSize ?? itemsPerPage)
+    : itemsPerPage;
+  const paginationCurrentPage = serverDriven
+    ? (serverPagination?.currentPage ?? currentPage)
+    : currentPage;
+  const totalPages = Math.max(
+    1,
+    Math.ceil(paginationTotalItems / Math.max(1, paginationPageSize)),
   );
 
   const toggleGroup = (groupKey: string) => {
@@ -531,10 +558,13 @@ export default function SessionReportsSection({
   };
 
   useEffect(() => {
+    if (serverDriven) {
+      return;
+    }
     if (currentPage > totalPages && totalPages > 0) {
       setCurrentPage(1);
     }
-  }, [currentPage, totalPages]);
+  }, [currentPage, totalPages, serverDriven]);
 
   return (
     <Card title="Session Reports">
@@ -964,18 +994,24 @@ export default function SessionReportsSection({
             })}
           </div>
         )}
-        {totalPages > 1 && (
+        {paginationTotalItems > paginationPageSize && (
           <Pagination
-            currentPage={currentPage}
+            currentPage={paginationCurrentPage}
             totalPages={totalPages}
-            totalItems={
-              effectiveViewMode === "table"
-                ? groupedTableReports.length
-                : groupedReports.length
+            totalItems={paginationTotalItems}
+            itemsPerPage={paginationPageSize}
+            onPageChange={
+              serverDriven && serverPagination
+                ? serverPagination.onPageChange
+                : setCurrentPage
             }
-            itemsPerPage={itemsPerPage}
-            onPageChange={setCurrentPage}
-            onItemsPerPageChange={setItemsPerPage}
+            onItemsPerPageChange={(value) => {
+              if (serverDriven && serverPagination) {
+                serverPagination.onPageSizeChange(value);
+              } else {
+                setItemsPerPage(value);
+              }
+            }}
             showItemsPerPage={true}
           />
         )}

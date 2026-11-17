@@ -179,8 +179,14 @@ export function extractErrorMessage(
 
 /** Person-level course status: not started, in progress, or completed. */
 export function getPersonLessonLifecycleStatus(
-  summary: Pick<PersonProgressSummary, "totalLessons" | "completedCount">,
+  summary: Pick<
+    PersonProgressSummary,
+    "totalLessons" | "completedCount" | "lifecycleStatus"
+  >,
 ): LessonProgressStatus {
+  if (summary.lifecycleStatus) {
+    return summary.lifecycleStatus;
+  }
   if (summary.totalLessons <= 0 || summary.completedCount <= 0) {
     return "ASSIGNED";
   }
@@ -188,6 +194,15 @@ export function getPersonLessonLifecycleStatus(
     return "COMPLETED";
   }
   return "IN_PROGRESS";
+}
+
+export function personHasSkippedLessons(summary: PersonProgressSummary): boolean {
+  if (summary.hasSkipped != null) {
+    return summary.hasSkipped;
+  }
+  return (
+    summary.allProgress?.some((record) => record.status === "SKIPPED") ?? false
+  );
 }
 
 export function lessonProgressStatusLabel(
@@ -548,7 +563,7 @@ export function getPersonLastActivityIso(
   const candidates: Array<string | null | undefined> = [
     enrollment?.assigned_at,
     latestSessionIso,
-    ...summary.allProgress.map((record) => record.assigned_at),
+    ...(summary.allProgress ?? []).map((record) => record.assigned_at),
   ];
 
   let bestIso: string | null = null;

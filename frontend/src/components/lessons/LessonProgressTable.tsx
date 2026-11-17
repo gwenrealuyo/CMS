@@ -41,6 +41,14 @@ interface LessonProgressTableProps {
   displayMode?: "table" | "cards";
   searchQuery?: string;
   focusTeacherKey?: string | null;
+  /** When set, pagination reflects server-side student pages (no group slicing). */
+  serverPagination?: {
+    totalCount: number;
+    currentPage: number;
+    pageSize: number;
+    onPageChange: (page: number) => void;
+    onPageSizeChange: (size: number) => void;
+  };
 }
 
 const DEFAULT_ITEMS_PER_PAGE = 25;
@@ -199,9 +207,11 @@ export default function LessonProgressTable({
   displayMode = "table",
   searchQuery = "",
   focusTeacherKey = null,
+  serverPagination,
 }: LessonProgressTableProps) {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(DEFAULT_ITEMS_PER_PAGE);
+  const usingServerPagination = Boolean(serverPagination);
   const [expandedGroupKeys, setExpandedGroupKeys] = useState<string[]>([]);
 
   const teacherGroups = useMemo(
@@ -244,11 +254,23 @@ export default function LessonProgressTable({
   }, [focusTeacherKey, teacherGroups, itemsPerPage]);
 
   const paginatedGroups = useMemo(() => {
+    if (usingServerPagination) {
+      return teacherGroups;
+    }
     const startIndex = (currentPage - 1) * itemsPerPage;
     return teacherGroups.slice(startIndex, startIndex + itemsPerPage);
-  }, [teacherGroups, currentPage, itemsPerPage]);
+  }, [teacherGroups, currentPage, itemsPerPage, usingServerPagination]);
 
-  const totalPages = Math.ceil(teacherGroups.length / itemsPerPage);
+  const totalItems = usingServerPagination
+    ? serverPagination!.totalCount
+    : teacherGroups.length;
+  const activePage = usingServerPagination
+    ? serverPagination!.currentPage
+    : currentPage;
+  const activePageSize = usingServerPagination
+    ? serverPagination!.pageSize
+    : itemsPerPage;
+  const totalPages = Math.max(1, Math.ceil(totalItems / activePageSize));
 
   useEffect(() => {
     if (currentPage > totalPages && totalPages > 0) {
@@ -276,14 +298,22 @@ export default function LessonProgressTable({
   };
 
   const pagination =
-    totalPages > 1 ? (
+    totalPages > 1 || usingServerPagination ? (
       <Pagination
-        currentPage={currentPage}
+        currentPage={activePage}
         totalPages={totalPages}
-        totalItems={teacherGroups.length}
-        itemsPerPage={itemsPerPage}
-        onPageChange={setCurrentPage}
-        onItemsPerPageChange={setItemsPerPage}
+        totalItems={totalItems}
+        itemsPerPage={activePageSize}
+        onPageChange={
+          usingServerPagination
+            ? serverPagination!.onPageChange
+            : setCurrentPage
+        }
+        onItemsPerPageChange={
+          usingServerPagination
+            ? serverPagination!.onPageSizeChange
+            : setItemsPerPage
+        }
         showItemsPerPage={true}
       />
     ) : null;

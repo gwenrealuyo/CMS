@@ -43,6 +43,8 @@ interface AssignLessonsDropdownProps {
   currentUserId?: string | number | null;
   lockTeacherToSelf?: boolean;
   pendingStudentIds?: Set<number>;
+  /** When set, search is server-driven (parent updates `people`). */
+  onPeopleSearchChange?: (query: string) => void;
 }
 
 export default function AssignLessonsDropdown({
@@ -60,6 +62,7 @@ export default function AssignLessonsDropdown({
   currentUserId,
   lockTeacherToSelf = false,
   pendingStudentIds,
+  onPeopleSearchChange,
 }: AssignLessonsDropdownProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -139,7 +142,9 @@ export default function AssignLessonsDropdown({
   }, [assignedStudentIds, enrollmentByStudent, people]);
 
   const filteredPeople = useMemo(() => {
-    if (!searchQuery.trim()) {
+    // Server search already narrowed `people`; still apply local filter as a
+    // light client pass when the parent is not driving search.
+    if (onPeopleSearchChange || !searchQuery.trim()) {
       return eligiblePeople;
     }
     const query = searchQuery.toLowerCase();
@@ -148,7 +153,12 @@ export default function AssignLessonsDropdown({
       const memberId = (person.member_id || "").toLowerCase();
       return haystack.includes(query) || memberId.includes(query);
     });
-  }, [eligiblePeople, searchQuery]);
+  }, [eligiblePeople, onPeopleSearchChange, searchQuery]);
+
+  const handleSearchChange = (value: string) => {
+    setSearchQuery(value);
+    onPeopleSearchChange?.(value);
+  };
 
   const selectedPerson = selectedPersonId
     ? people.find((person) => String(person.id) === String(selectedPersonId)) ??
@@ -344,7 +354,7 @@ export default function AssignLessonsDropdown({
                 <input
                   type="text"
                   value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onChange={(e) => handleSearchChange(e.target.value)}
                   placeholder="Search by name, nickname, or member ID..."
                   className="w-full min-h-[44px] border border-gray-300 rounded-md px-3 py-2 text-base md:text-sm focus:outline-none focus:ring-2 focus:ring-ring"
                   autoFocus={isMdUp}

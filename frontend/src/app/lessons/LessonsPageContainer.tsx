@@ -10,7 +10,11 @@ import {
 } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import toast from "react-hot-toast";
-import { branchesApi, lessonsApi } from "@/src/lib/api";
+import {
+  branchesApi,
+  lessonsApi,
+  unwrapList,
+} from "@/src/lib/api";
 import { canChangeLessonsBranchFilter as canChangeLessonsBranchFilterForUser } from "@/src/lib/lessonsBranchFilter";
 import {
   Lesson,
@@ -25,7 +29,14 @@ import {
   LessonStudentEnrollment,
   PersonLessonProgress,
 } from "@/src/types/lesson";
-import { usePeople } from "@/src/hooks/usePeople";
+import { usePeopleDirectory } from "@/src/hooks/usePeopleDirectory";
+import { useLessonStudentSummaries } from "@/src/hooks/useLessonStudentSummaries";
+import { useLessonSessionReports } from "@/src/hooks/useLessonSessionReports";
+import {
+  useLessonTimeline,
+  type LessonTimelineFilterMode,
+} from "@/src/hooks/useLessonTimeline";
+import { useVisitorsAwaitingTeacher } from "@/src/hooks/useVisitorsAwaitingTeacher";
 import { formatPersonName } from "@/src/lib/name";
 import { formatDisplayDate, getChurchCalendarYear } from "@/src/lib/date";
 import { isSelectablePerson } from "@/src/lib/peopleSelectors";
@@ -45,16 +56,9 @@ import {
   sanitizeNumericValue,
   escapeCsvValue,
   SessionFilterValues,
-  groupProgressByPerson,
-  getPersonLessonLifecycleStatus,
   buildStudentTeacherMapFromEnrollments,
   enrollmentByStudentId,
-  buildLatestSessionAtByStudent,
-  getPersonLastActivityIso,
-  parseTimestampMs,
   studentsAssignedToTeacher,
-  groupStudentsByTeacher,
-  buildTeacherOverviewRows,
   TeacherProgressGroup,
 } from "@/src/lib/lessonsUtils";
 import {
@@ -87,9 +91,18 @@ export default function LessonsPageContainer() {
   const [selectedLessonId, setSelectedLessonId] = useState<number | null>(null);
 
   const [progress, setProgress] = useState<PersonLessonProgress[]>([]);
-  const [allProgress, setAllProgress] = useState<PersonLessonProgress[]>([]);
-  const [allProgressLoading, setAllProgressLoading] = useState(false);
-  const [allProgressError, setAllProgressError] = useState<string | null>(null);
+  const [progressBrowsePage, setProgressBrowsePage] = useState(1);
+  const [progressBrowsePageSize, setProgressBrowsePageSize] = useState(25);
+  const [assignedStudentIds, setAssignedStudentIds] = useState<Set<number>>(
+    () => new Set(),
+  );
+  const [teacherOverviewRows, setTeacherOverviewRows] = useState<
+    TeacherProgressGroup[]
+  >([]);
+  const [teacherOverviewLoading, setTeacherOverviewLoading] = useState(false);
+  const [teacherOverviewError, setTeacherOverviewError] = useState<
+    string | null
+  >(null);
   const [progressLoading, setProgressLoading] = useState(false);
   const [progressError, setProgressError] = useState<string | null>(null);
   const [progressActionError, setProgressActionError] = useState<string | null>(
@@ -158,22 +171,24 @@ export default function LessonsPageContainer() {
 
   const [assigning, setAssigning] = useState(false);
   const [assignError, setAssignError] = useState<string | null>(null);
-  const [visitorsAwaitingTeacher, setVisitorsAwaitingTeacher] = useState<
-    VisitorAwaitingTeacher[]
-  >([]);
-  const [visitorsAwaitingTeacherLoading, setVisitorsAwaitingTeacherLoading] =
-    useState(false);
-  const [visitorsAwaitingTeacherError, setVisitorsAwaitingTeacherError] =
-    useState<string | null>(null);
-  const [visitorsAwaitingTeacherLoaded, setVisitorsAwaitingTeacherLoaded] =
-    useState(false);
-  const [lessonTimeline, setLessonTimeline] =
-    useState<LessonTimelinePayload | null>(null);
-  const [lessonTimelineLoading, setLessonTimelineLoading] = useState(false);
-  const [lessonTimelineError, setLessonTimelineError] = useState<string | null>(
-    null,
-  );
   const [lessonTimelineSaving, setLessonTimelineSaving] = useState(false);
+  const [timelineSearch, setTimelineSearch] = useState("");
+  const [timelineFilter, setTimelineFilter] =
+    useState<LessonTimelineFilterMode>("follow-up");
+  const [timelinePage, setTimelinePage] = useState(1);
+  const [timelinePageSize, setTimelinePageSize] = useState(10);
+  const [timelineOrdering, setTimelineOrdering] = useState<string | undefined>(
+    undefined,
+  );
+  const [awaitingSearch, setAwaitingSearch] = useState("");
+  const [awaitingStatus, setAwaitingStatus] = useState("ONGOING");
+  const [awaitingPage, setAwaitingPage] = useState(1);
+  const [awaitingPageSize, setAwaitingPageSize] = useState(10);
+  const [awaitingOrdering, setAwaitingOrdering] = useState<string | undefined>(
+    undefined,
+  );
+  const [sessionReportsPage, setSessionReportsPage] = useState(1);
+  const [sessionReportsPageSize, setSessionReportsPageSize] = useState(10);
 
   const [personProgressModal, setPersonProgressModal] = useState<{
     isOpen: boolean;
@@ -186,12 +201,6 @@ export default function LessonsPageContainer() {
   const [activeContentTab, setActiveContentTab] =
     useState<LessonContentTab>("progress");
 
-  const [sessionReports, setSessionReports] = useState<LessonSessionReport[]>(
-    []
-  );
-  const [latestSessionAtByStudent, setLatestSessionAtByStudent] = useState<
-    Map<number, string>
-  >(() => new Map());
   const [enrollments, setEnrollments] = useState<LessonStudentEnrollment[]>([]);
   const [assignmentRequests, setAssignmentRequests] = useState<
     LessonAssignmentRequest[]
@@ -203,10 +212,6 @@ export default function LessonsPageContainer() {
   >(null);
   const [reviewingAssignmentRequestId, setReviewingAssignmentRequestId] =
     useState<number | null>(null);
-  const [sessionReportsLoading, setSessionReportsLoading] = useState(false);
-  const [sessionReportsError, setSessionReportsError] = useState<string | null>(
-    null
-  );
   const [isSessionModalOpen, setSessionModalOpen] = useState(false);
   const [sessionFormSubmitting, setSessionFormSubmitting] = useState(false);
   const [sessionFormError, setSessionFormError] = useState<string | null>(null);
@@ -248,10 +253,7 @@ export default function LessonsPageContainer() {
     String(new Date().getFullYear()),
   ]);
 
-  const { people, loading: peopleLoading, error: peopleError } = usePeople(
-    true,
-    { for_lessons: true },
-  );
+  const [assignPeopleSearch, setAssignPeopleSearch] = useState("");
   const { user } = useAuth();
   const { moduleEnabled } = useModuleSettings();
   const userCanHardDelete = canHardDelete(user);
@@ -268,6 +270,15 @@ export default function LessonsPageContainer() {
     [user],
   );
   const showStudentWorkflowTabs = !user || canWriteLessonsAccess;
+  const { people, loading: peopleLoading, error: peopleError } =
+    usePeopleDirectory({
+      enabled: Boolean(user) && showStudentWorkflowTabs,
+      search: assignPeopleSearch,
+      filters: { for_lessons: true },
+      page: 1,
+      pageSize: 50,
+    });
+
   const defaultSessionTeacherId = useMemo(() => {
     if (!isTeacherScopedSessionView || user?.id == null) {
       return "";
@@ -396,35 +407,88 @@ export default function LessonsPageContainer() {
     return branchId ? { branch_id: branchId } : {};
   }, [user, lessonsBranchCanChangeFilter, selectedBranchId]);
 
-  const fetchVisitorsAwaitingTeacher = useCallback(async () => {
-    if (!user || !canBrowseAllLessonStudents(user) || branchApiParams === null) {
-      setVisitorsAwaitingTeacher([]);
-      setVisitorsAwaitingTeacherLoaded(false);
-      return;
-    }
-    try {
-      setVisitorsAwaitingTeacherLoading(true);
-      const response = await lessonsApi.listVisitorsAwaitingTeacher(
-        branchApiParams,
-      );
-      setVisitorsAwaitingTeacher(response.data || []);
-      setVisitorsAwaitingTeacherError(null);
-      setVisitorsAwaitingTeacherLoaded(true);
-    } catch (error) {
-      setVisitorsAwaitingTeacherError(
-        extractErrorMessage(
-          error,
-          "Failed to load visitors awaiting a lessons teacher.",
-        ),
-      );
-    } finally {
-      setVisitorsAwaitingTeacherLoading(false);
-    }
-  }, [user, branchApiParams]);
+  const progressBrowseEnabled =
+    showStudentWorkflowTabs && branchApiParams !== null;
 
-  useEffect(() => {
-    fetchVisitorsAwaitingTeacher();
-  }, [fetchVisitorsAwaitingTeacher]);
+  const {
+    summaries: studentSummaries,
+    totalCount: progressTotalCount,
+    loading: allProgressLoading,
+    error: allProgressError,
+    refetch: refetchStudentSummaries,
+  } = useLessonStudentSummaries({
+    branchParams: branchApiParams,
+    search: progressSearchQuery,
+    teacherKey: progressTeacherFilterKey,
+    status:
+      progressStatusFilter === "ALL" ? undefined : progressStatusFilter,
+    nextLessonId: progressFilterLessonId,
+    sortField: progressSortField,
+    sortDirection: progressSortDirection,
+    page: progressBrowsePage,
+    pageSize: progressBrowsePageSize,
+    enabled: progressBrowseEnabled,
+  });
+
+  const sessionsTabActive =
+    showStudentWorkflowTabs && activeContentTab === "sessions";
+  const {
+    reports: sessionReports,
+    totalCount: sessionReportsTotalCount,
+    loading: sessionReportsLoading,
+    error: sessionReportsError,
+    refetch: refetchSessionReports,
+  } = useLessonSessionReports({
+    branchParams: branchApiParams,
+    filters: sessionFilters,
+    page: sessionReportsPage,
+    pageSize: sessionReportsPageSize,
+    enabled: sessionsTabActive && branchApiParams !== null,
+  });
+
+  const timelineTabActive =
+    showStudentWorkflowTabs &&
+    canViewLessonTimeline(user) &&
+    activeContentTab === "timeline";
+
+  const {
+    timeline: lessonTimeline,
+    loading: lessonTimelineLoading,
+    error: lessonTimelineError,
+    refetch: refetchLessonTimeline,
+  } = useLessonTimeline({
+    branchParams: branchApiParams,
+    search: timelineSearch,
+    filterMode: timelineFilter,
+    ordering: timelineOrdering,
+    page: timelinePage,
+    pageSize: timelinePageSize,
+    enabled: timelineTabActive && branchApiParams !== null,
+  });
+
+  const visitorsEnabled =
+    Boolean(user) &&
+    canBrowseAllLessonStudents(user) &&
+    branchApiParams !== null &&
+    activeContentTab === "awaiting-teacher";
+
+  const {
+    visitors: visitorsAwaitingTeacher,
+    totalCount: visitorsTotalCount,
+    loading: visitorsAwaitingTeacherLoading,
+    error: visitorsAwaitingTeacherError,
+    loaded: visitorsAwaitingTeacherLoaded,
+    refetch: refetchVisitorsAwaitingTeacher,
+    exportAll: exportVisitorsAwaitingTeacher,
+  } = useVisitorsAwaitingTeacher({
+    branchParams: branchApiParams,
+    search: awaitingSearch,
+    status: awaitingStatus,
+    ordering: awaitingOrdering,
+    page: awaitingPage,
+    pageSize: awaitingPageSize,
+    enabled: visitorsEnabled,
+  });
 
   const peopleInBranchScope = useMemo(() => {
     if (!selectedBranchId) {
@@ -573,36 +637,29 @@ export default function LessonsPageContainer() {
     return lessons.filter((lesson) => lesson.is_latest && lesson.is_active);
   }, [lessons]);
 
-  const studentTeacherById = useMemo(
-    () => buildStudentTeacherMapFromEnrollments(enrollments),
-    [enrollments],
-  );
+  const studentTeacherById = useMemo(() => {
+    const map = buildStudentTeacherMapFromEnrollments(enrollments);
+    studentSummaries.forEach((summary) => {
+      if (summary.teacher?.id != null) {
+        map.set(summary.person.id, summary.teacher);
+      }
+    });
+    return map;
+  }, [enrollments, studentSummaries]);
 
   const enrollmentByStudent = useMemo(
     () => enrollmentByStudentId(enrollments),
     [enrollments],
   );
 
-  // Group progress by person
-  const groupedProgress = useMemo(() => {
-    if (allProgressLoading || allProgress.length === 0) {
-      return [];
-    }
-    return groupProgressByPerson(allProgress, lessons).map((summary) => ({
-      ...summary,
-      lastActivityAt: getPersonLastActivityIso(
-        summary,
-        enrollmentByStudent.get(summary.person.id),
-        latestSessionAtByStudent.get(summary.person.id),
-      ),
-    }));
-  }, [
-    allProgress,
-    allProgressLoading,
-    enrollmentByStudent,
-    latestSessionAtByStudent,
-    lessons,
-  ]);
+  const groupedProgress = useMemo(
+    () =>
+      studentSummaries.map((summary) => ({
+        ...summary,
+        allProgress: summary.allProgress ?? [],
+      })),
+    [studentSummaries],
+  );
 
   const nextLessonIdByStudent = useMemo(() => {
     const map = new Map<number, number>();
@@ -614,162 +671,6 @@ export default function LessonsPageContainer() {
     return map;
   }, [groupedProgress]);
 
-  const assignedStudentIds = useMemo(() => {
-    const ids = new Set<number>();
-    allProgress.forEach((record) => {
-      if (record.person?.id != null) {
-        ids.add(record.person.id);
-      }
-    });
-    return ids;
-  }, [allProgress]);
-
-  const getLifecycleStatus = useCallback(
-    (summary: PersonProgressSummary): LessonProgressStatus => {
-      return getPersonLessonLifecycleStatus(summary);
-    },
-    [],
-  );
-
-  const getStatusForSort = useCallback(
-    (summary: PersonProgressSummary): LessonProgressStatus => {
-      return getLifecycleStatus(summary);
-    },
-    [getLifecycleStatus],
-  );
-
-  const displayedGroupedProgress = useMemo(() => {
-    const normalizedQuery = progressSearchQuery.trim().toLowerCase();
-    const statusRank: Record<LessonProgressStatus | "ASSIGNED", number> = {
-      SKIPPED: 0,
-      ASSIGNED: 1,
-      IN_PROGRESS: 2,
-      COMPLETED: 3,
-    };
-
-    const filtered = groupedProgress.filter((summary) => {
-      if (
-        progressFilterLessonId &&
-        summary.nextLesson?.id !== progressFilterLessonId
-      ) {
-        return false;
-      }
-
-      if (progressTeacherFilterKey) {
-        const teacher = studentTeacherById.get(summary.person.id);
-        if (progressTeacherFilterKey === "no-teacher") {
-          if (teacher) {
-            return false;
-          }
-        } else if (
-          teacher?.id == null ||
-          String(teacher.id) !== progressTeacherFilterKey
-        ) {
-          return false;
-        }
-      }
-
-      if (progressStatusFilter !== "ALL") {
-        if (progressStatusFilter === "SKIPPED") {
-          if (!summary.allProgress.some((record) => record.status === "SKIPPED")) {
-            return false;
-          }
-        } else if (getLifecycleStatus(summary) !== progressStatusFilter) {
-          return false;
-        }
-      }
-
-      if (!normalizedQuery) {
-        return true;
-      }
-
-      const fullName = formatPersonName(summary.person).toLowerCase();
-      const memberId = (summary.person.member_id || "").toLowerCase();
-      return fullName.includes(normalizedQuery) || memberId.includes(normalizedQuery);
-    });
-
-    return [...filtered].sort((first, second) => {
-      const direction = progressSortDirection === "asc" ? 1 : -1;
-      switch (progressSortField) {
-        case "recentActivity": {
-          const firstMs = parseTimestampMs(first.lastActivityAt);
-          const secondMs = parseTimestampMs(second.lastActivityAt);
-          if (firstMs !== secondMs) {
-            return (firstMs - secondMs) * direction;
-          }
-          return formatPersonName(first.person).localeCompare(
-            formatPersonName(second.person)
-          );
-        }
-        case "person":
-          return (
-            formatPersonName(first.person).localeCompare(
-              formatPersonName(second.person)
-            ) * direction
-          );
-        case "teacher": {
-          const firstTeacher = studentTeacherById.get(first.person.id);
-          const secondTeacher = studentTeacherById.get(second.person.id);
-          const firstName = firstTeacher
-            ? formatPersonName(firstTeacher)
-            : "";
-          const secondName = secondTeacher
-            ? formatPersonName(secondTeacher)
-            : "";
-          return firstName.localeCompare(secondName) * direction;
-        }
-        case "previousLesson": {
-          const firstOrder = first.previousLesson?.order ?? Number.POSITIVE_INFINITY;
-          const secondOrder = second.previousLesson?.order ?? Number.POSITIVE_INFINITY;
-          if (firstOrder !== secondOrder) {
-            return (firstOrder - secondOrder) * direction;
-          }
-          return (
-            (first.previousLesson?.title || "").localeCompare(
-              second.previousLesson?.title || ""
-            ) * direction
-          );
-        }
-        case "progress":
-          if (first.progressPercentage !== second.progressPercentage) {
-            return (first.progressPercentage - second.progressPercentage) * direction;
-          }
-          return (first.completedCount - second.completedCount) * direction;
-        case "nextLesson": {
-          const firstOrder = first.nextLesson?.order ?? Number.POSITIVE_INFINITY;
-          const secondOrder = second.nextLesson?.order ?? Number.POSITIVE_INFINITY;
-          if (firstOrder !== secondOrder) {
-            return (firstOrder - secondOrder) * direction;
-          }
-          return (
-            (first.nextLesson?.title || "").localeCompare(
-              second.nextLesson?.title || ""
-            ) * direction
-          );
-        }
-        case "status":
-          return (
-            (statusRank[getStatusForSort(first)] -
-              statusRank[getStatusForSort(second)]) *
-            direction
-          );
-        default:
-          return 0;
-      }
-    });
-  }, [
-    getLifecycleStatus,
-    getStatusForSort,
-    groupedProgress,
-    progressFilterLessonId,
-    progressSearchQuery,
-    progressSortDirection,
-    progressSortField,
-    progressStatusFilter,
-    progressTeacherFilterKey,
-    studentTeacherById,
-  ]);
-
   const ongoingStudentsCount = useMemo(() => {
     if (!summary?.overall) {
       return 0;
@@ -779,16 +680,101 @@ export default function LessonsPageContainer() {
     );
   }, [summary]);
 
-  const teacherOverviewRows = useMemo(
-    () =>
-      buildTeacherOverviewRows(
-        groupStudentsByTeacher(groupedProgress, studentTeacherById),
-        teacherRoster,
-      ),
-    [groupedProgress, studentTeacherById, teacherRoster],
-  );
+  useEffect(() => {
+    if (branchApiParams === null || !showStudentWorkflowTabs) {
+      setTeacherOverviewRows([]);
+      return;
+    }
+    let cancelled = false;
+    setTeacherOverviewLoading(true);
+    lessonsApi
+      .getTeacherOverview(branchApiParams ?? {})
+      .then((response) => {
+        if (cancelled) return;
+        const rows: TeacherProgressGroup[] = (response.data ?? []).map(
+          (row) => ({
+            key: row.key,
+            teacher: row.teacher,
+            students: [],
+            total: row.total,
+            inProgress: row.in_progress,
+            completed: row.completed,
+            notStarted: row.not_started,
+            number: row.number,
+            isActive: row.is_active,
+          }),
+        );
+        setTeacherOverviewRows(rows);
+        setTeacherOverviewError(null);
+      })
+      .catch((error) => {
+        if (cancelled) return;
+        setTeacherOverviewRows([]);
+        setTeacherOverviewError(
+          extractErrorMessage(error, "Failed to load teacher overview."),
+        );
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setTeacherOverviewLoading(false);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [branchApiParams, showStudentWorkflowTabs]);
 
   useEffect(() => {
+    if (branchApiParams === null || !showStudentWorkflowTabs) {
+      setAssignedStudentIds(new Set());
+      return;
+    }
+    let cancelled = false;
+    lessonsApi
+      .getStudentSummariesAll({ ...(branchApiParams ?? {}) })
+      .then((response) => {
+        if (cancelled) return;
+        const ids = new Set<number>();
+        response.data.forEach((row) => {
+          if (row.person?.id != null) {
+            ids.add(row.person.id);
+          }
+        });
+        enrollments.forEach((enrollment) => {
+          if (enrollment.student?.id != null) {
+            ids.add(enrollment.student.id);
+          }
+        });
+        setAssignedStudentIds(ids);
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setAssignedStudentIds(new Set());
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [branchApiParams, showStudentWorkflowTabs, enrollments]);
+
+  useEffect(() => {
+    setProgressBrowsePage(1);
+  }, [
+    progressSearchQuery,
+    progressTeacherFilterKey,
+    progressStatusFilter,
+    progressFilterLessonId,
+    progressSortField,
+    progressSortDirection,
+    selectedBranchId,
+  ]);
+
+  useEffect(() => {
+    setSessionReportsPage(1);
+  }, [sessionFilters, selectedBranchId]);
+
+  useEffect(() => {
+    fetchLessons();
     fetchLessons();
     fetchCommitmentForm();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -871,76 +857,19 @@ export default function LessonsPageContainer() {
     }
   }, [selectedLessonId, showStudentWorkflowTabs]);
 
-  const fetchLessonTimeline = useCallback(async () => {
-    if (branchApiParams === null) {
-      return;
-    }
-    try {
-      setLessonTimelineLoading(true);
-      const response = await lessonsApi.getTimeline(branchApiParams);
-      setLessonTimeline(response.data);
-      setLessonTimelineError(null);
-    } catch (err) {
-      console.error(err);
-      setLessonTimelineError(
-        extractErrorMessage(err, "Failed to load the lessons timeline"),
-      );
-    } finally {
-      setLessonTimelineLoading(false);
-    }
-  }, [branchApiParams]);
-
   const handleSaveLessonFollowUp = useCallback(
     async (input: LessonFollowUpInput) => {
       setLessonTimelineSaving(true);
       try {
         await lessonsApi.saveFollowUp(input);
-        await fetchLessonTimeline();
+        await refetchLessonTimeline();
       } finally {
         setLessonTimelineSaving(false);
       }
     },
-    [fetchLessonTimeline],
+    [refetchLessonTimeline],
   );
 
-  useEffect(() => {
-    if (
-      !showStudentWorkflowTabs ||
-      !canViewLessonTimeline(user) ||
-      branchApiParams === null
-    ) {
-      return;
-    }
-    if (activeContentTab !== "timeline") {
-      return;
-    }
-    fetchLessonTimeline();
-  }, [
-    activeContentTab,
-    branchApiParams,
-    fetchLessonTimeline,
-    showStudentWorkflowTabs,
-    user,
-  ]);
-
-  useEffect(() => {
-    if (!showStudentWorkflowTabs || activeContentTab !== "sessions") {
-      return;
-    }
-    if (branchApiParams === null) {
-      return;
-    }
-    fetchSessionReports(sessionFilters);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    activeContentTab,
-    branchApiParams,
-    sessionFilters,
-    showStudentWorkflowTabs,
-  ]);
-
-  // Branch-scoped overview data only — do not refetch on content-tab changes
-  // (that was causing LessonStatsCards to flash loading on every tab switch).
   useEffect(() => {
     if (branchApiParams === null) {
       return;
@@ -949,10 +878,8 @@ export default function LessonsPageContainer() {
       return;
     }
     fetchSummary();
-    fetchAllProgress();
     fetchEnrollments();
     fetchAssignmentRequests();
-    fetchLatestSessionActivity();
     if (selectedLessonId) {
       fetchProgress(selectedLessonId);
     }
@@ -1002,96 +929,33 @@ export default function LessonsPageContainer() {
     }
   };
 
-  const fetchSessionReports = async (
-    filtersOverride?: SessionFilterValues
-  ) => {
-    try {
-      setSessionReportsLoading(true);
-      const activeFilters = filtersOverride ?? sessionFilters;
-      const params: {
-        lesson?: number;
-        teacher?: number;
-        student?: number;
-        date_from?: string;
-        date_to?: string;
-      } = {};
-
-      const lessonValue = sanitizeNumericValue(activeFilters.lessonId);
-      if (lessonValue) {
-        params.lesson = lessonValue;
-      }
-
-      const teacherValue = sanitizeNumericValue(activeFilters.teacherId);
-      if (teacherValue) {
-        params.teacher = teacherValue;
-      }
-
-      const studentValue = sanitizeNumericValue(activeFilters.studentId);
-      if (studentValue) {
-        params.student = studentValue;
-      }
-
-      const monthValue = sanitizeNumericValue(activeFilters.month);
-      const yearValue = sanitizeNumericValue(activeFilters.year);
-      if (
-        yearValue &&
-        monthValue &&
-        monthValue >= 1 &&
-        monthValue <= 12
-      ) {
-        const start = new Date(yearValue, monthValue - 1, 1);
-        const end = new Date(yearValue, monthValue, 0);
-        params.date_from = start.toISOString().slice(0, 10);
-        params.date_to = end.toISOString().slice(0, 10);
-      } else if (yearValue) {
-        const start = new Date(yearValue, 0, 1);
-        const end = new Date(yearValue, 11, 31);
-        params.date_from = start.toISOString().slice(0, 10);
-        params.date_to = end.toISOString().slice(0, 10);
-      }
-
-      const response = await lessonsApi.listSessionReports({
-        ...params,
-        ...branchApiParams,
-      });
-      const sorted = [...response.data].sort(
-        compareSessionReportsByStartThenLessonOrder,
-      );
-      const yearsFromReports = Array.from(
-        new Set(
-          sorted
-            .map((report) => {
-              const source = report.session_start || report.session_date;
-              const date = source ? new Date(source) : null;
-              if (!date || Number.isNaN(date.getTime())) {
-                return null;
-              }
-              return String(date.getFullYear());
-            })
-            .filter((year): year is string => Boolean(year))
-        )
-      );
-      setSessionYearOptions((previous) => {
-        const merged = new Set([
-          ...previous,
-          ...yearsFromReports,
-          activeFilters.year,
-          String(new Date().getFullYear()),
-        ]);
-        return Array.from(merged)
-          .filter(Boolean)
-          .sort((a, b) => Number(b) - Number(a));
-      });
-      setSessionReports(sorted);
-      setSessionReportsError(null);
-    } catch (error) {
-      setSessionReportsError(
-        extractErrorMessage(error, "Failed to load session reports.")
-      );
-    } finally {
-      setSessionReportsLoading(false);
-    }
-  };
+  useEffect(() => {
+    const yearsFromReports = Array.from(
+      new Set(
+        sessionReports
+          .map((report) => {
+            const source = report.session_start || report.session_date;
+            const date = source ? new Date(source) : null;
+            if (!date || Number.isNaN(date.getTime())) {
+              return null;
+            }
+            return String(date.getFullYear());
+          })
+          .filter((year): year is string => Boolean(year)),
+      ),
+    );
+    setSessionYearOptions((previous) => {
+      const merged = new Set([
+        ...previous,
+        ...yearsFromReports,
+        sessionFilters.year,
+        String(new Date().getFullYear()),
+      ]);
+      return Array.from(merged)
+        .filter(Boolean)
+        .sort((a, b) => Number(b) - Number(a));
+    });
+  }, [sessionReports, sessionFilters.year]);
 
   const fetchCommitmentForm = async () => {
     try {
@@ -1108,21 +972,6 @@ export default function LessonsPageContainer() {
     }
   };
 
-  const fetchAllProgress = async () => {
-    try {
-      setAllProgressLoading(true);
-      const response = await lessonsApi.getProgress(branchApiParams ?? {});
-      setAllProgress(response.data);
-      setAllProgressError(null);
-    } catch (error) {
-      setAllProgressError(
-        extractErrorMessage(error, "Failed to load all progress.")
-      );
-    } finally {
-      setAllProgressLoading(false);
-    }
-  };
-
   const fetchAssignmentRequests = async () => {
     if (!isTeacherScopedSessionView && !canBrowseAllLessonStudents(user)) {
       setAssignmentRequests([]);
@@ -1130,7 +979,7 @@ export default function LessonsPageContainer() {
     }
     try {
       setAssignmentRequestsLoading(true);
-      const response = await lessonsApi.listAssignmentRequests({
+      const response = await lessonsApi.listAssignmentRequestsAll({
         status: "pending",
         ...(branchApiParams ?? {}),
       });
@@ -1147,19 +996,10 @@ export default function LessonsPageContainer() {
 
   const fetchEnrollments = async () => {
     try {
-      const response = await lessonsApi.listEnrollments(branchApiParams ?? {});
+      const response = await lessonsApi.listEnrollmentsAll(branchApiParams ?? {});
       setEnrollments(response.data);
     } catch {
       setEnrollments([]);
-    }
-  };
-
-  const fetchLatestSessionActivity = async () => {
-    try {
-      const response = await lessonsApi.listSessionReports(branchApiParams ?? {});
-      setLatestSessionAtByStudent(buildLatestSessionAtByStudent(response.data));
-    } catch {
-      setLatestSessionAtByStudent(new Map());
     }
   };
 
@@ -1169,8 +1009,9 @@ export default function LessonsPageContainer() {
       const response = await lessonsApi.getProgress({
         lesson: lessonId,
         ...(branchApiParams ?? {}),
+        page_size: 100,
       });
-      setProgress(response.data);
+      setProgress(unwrapList(response.data));
       setProgressError(null);
     } catch (error) {
       setProgressError(
@@ -1553,7 +1394,7 @@ export default function LessonsPageContainer() {
       }
 
       await fetchEnrollments();
-      await fetchAllProgress();
+      await refetchStudentSummaries();
       if (selectedLessonId) {
         await fetchProgress(selectedLessonId);
       }
@@ -1603,7 +1444,7 @@ export default function LessonsPageContainer() {
       }
     }
     await handleAssignLessons([personId], lessonIds, teacherId);
-    await fetchVisitorsAwaitingTeacher();
+    await refetchVisitorsAwaitingTeacher();
   };
 
   const handleApproveAssignmentRequest = async (id: number) => {
@@ -1614,7 +1455,7 @@ export default function LessonsPageContainer() {
       toast.success("Assignment approved.");
       await fetchAssignmentRequests();
       await fetchEnrollments();
-      await fetchAllProgress();
+      await refetchStudentSummaries();
       fetchSummary();
     } catch (error) {
       setAssignmentRequestsError(
@@ -1719,8 +1560,14 @@ export default function LessonsPageContainer() {
     setSessionFilters(defaults);
   };
 
-  const handleExportSessionReports = () => {
-    if (sessionReports.length === 0) {
+  const handleExportSessionReports = async () => {
+    const exportResponse = await lessonsApi.listSessionReportsAll({
+      ...(branchApiParams ?? {}),
+    });
+    const exportRows = [...exportResponse.data].sort(
+      compareSessionReportsByStartThenLessonOrder,
+    );
+    if (exportRows.length === 0) {
       setAlertModal({
         isOpen: true,
         message: "No session reports to export.",
@@ -1741,7 +1588,7 @@ export default function LessonsPageContainer() {
       "Progress ID",
     ];
 
-    const rows = sessionReports.map((report) => [
+    const rows = exportRows.map((report) => [
       formatSessionTopicLabel(
         report.session_type,
         report.pre_lesson_kind,
@@ -1936,16 +1783,16 @@ export default function LessonsPageContainer() {
           : `Session report logged for ${studentName}.`,
         { duration: 4000 },
       );
-      await fetchLatestSessionActivity();
+      await refetchStudentSummaries();
       if (activeContentTab === "sessions") {
-        await fetchSessionReports(sessionFilters);
+        await refetchSessionReports();
       }
       if (lessonIdForRefresh != null) {
         await fetchProgress(lessonIdForRefresh);
       } else if (selectedLessonId) {
         await fetchProgress(selectedLessonId);
       }
-      await fetchAllProgress();
+      await refetchStudentSummaries();
       fetchSummary();
     } catch (error) {
       setSessionFormError(
@@ -1991,14 +1838,14 @@ export default function LessonsPageContainer() {
       toast.success(`Session report for ${studentName} deleted.`, {
         duration: 4000,
       });
-      await fetchLatestSessionActivity();
+      await refetchStudentSummaries();
       if (activeContentTab === "sessions") {
-        await fetchSessionReports(sessionFilters);
+        await refetchSessionReports();
       }
       if (selectedLessonId) {
         await fetchProgress(selectedLessonId);
       }
-      await fetchAllProgress();
+      await refetchStudentSummaries();
       fetchSummary();
     } catch (error) {
       setSessionDeleteError(
@@ -2057,12 +1904,19 @@ export default function LessonsPageContainer() {
       assignError={assignError}
       peopleLoading={peopleLoading}
       peopleError={peopleError}
+      onPeopleSearchChange={setAssignPeopleSearch}
       // Grouped progress state
-      allProgress={allProgress}
       allProgressLoading={allProgressLoading}
       allProgressError={allProgressError}
-      groupedProgress={displayedGroupedProgress}
+      groupedProgress={groupedProgress}
+      progressTotalCount={progressTotalCount}
+      progressBrowsePage={progressBrowsePage}
+      progressBrowsePageSize={progressBrowsePageSize}
+      onProgressBrowsePageChange={setProgressBrowsePage}
+      onProgressBrowsePageSizeChange={setProgressBrowsePageSize}
       teacherOverviewRows={teacherOverviewRows}
+      teacherOverviewLoading={teacherOverviewLoading}
+      teacherOverviewError={teacherOverviewError}
       visitorsAwaitingTeacher={visitorsAwaitingTeacher}
       visitorsAwaitingTeacherLoading={visitorsAwaitingTeacherLoading}
       visitorsAwaitingTeacherError={visitorsAwaitingTeacherError}
@@ -2119,6 +1973,48 @@ export default function LessonsPageContainer() {
       sessionFilters={sessionFilters}
       sessionFilterDraft={sessionFilterDraft}
       sessionYearOptions={sessionYearOptions}
+      sessionReportsTotalCount={sessionReportsTotalCount}
+      sessionReportsPage={sessionReportsPage}
+      sessionReportsPageSize={sessionReportsPageSize}
+      onSessionReportsPageChange={setSessionReportsPage}
+      onSessionReportsPageSizeChange={setSessionReportsPageSize}
+      timelinePage={timelinePage}
+      timelinePageSize={timelinePageSize}
+      timelineTotalCount={lessonTimeline?.count}
+      onTimelinePageChange={setTimelinePage}
+      onTimelinePageSizeChange={setTimelinePageSize}
+      onTimelineSearchChange={(query) => {
+        setTimelineSearch(query);
+        setTimelinePage(1);
+      }}
+      onTimelineFilterChange={(filter) => {
+        setTimelineFilter(filter);
+        setTimelinePage(1);
+      }}
+      onTimelineSortChange={(field, direction) => {
+        const prefix = direction === "desc" ? "-" : "";
+        setTimelineOrdering(`${prefix}${field}`);
+        setTimelinePage(1);
+      }}
+      visitorsPage={awaitingPage}
+      visitorsPageSize={awaitingPageSize}
+      visitorsTotalCount={visitorsTotalCount}
+      onVisitorsPageChange={setAwaitingPage}
+      onVisitorsPageSizeChange={setAwaitingPageSize}
+      onVisitorsSearchChange={(query) => {
+        setAwaitingSearch(query);
+        setAwaitingPage(1);
+      }}
+      onVisitorsStatusChange={(status) => {
+        setAwaitingStatus(status);
+        setAwaitingPage(1);
+      }}
+      onVisitorsSortChange={(field, direction) => {
+        const prefix = direction === "desc" ? "-" : "";
+        setAwaitingOrdering(`${prefix}${field}`);
+        setAwaitingPage(1);
+      }}
+      onExportVisitorsAll={exportVisitorsAwaitingTeacher}
       // Delete lesson state
       lessonDeleteTarget={lessonDeleteTarget}
       lessonDeleteLoading={lessonDeleteLoading}

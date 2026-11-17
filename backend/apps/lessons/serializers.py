@@ -76,6 +76,23 @@ class LessonJourneySerializer(serializers.ModelSerializer):
         fields = ["journey_type", "title_template", "note_template"]
 
 
+class LessonBriefSerializer(serializers.ModelSerializer):
+    """Lean lesson shape for nested list responses (no outline/summary/journey)."""
+
+    class Meta:
+        model = Lesson
+        fields = [
+            "id",
+            "code",
+            "version_label",
+            "title",
+            "short_title",
+            "order",
+            "is_latest",
+            "is_active",
+        ]
+
+
 class LessonSerializer(serializers.ModelSerializer):
     journey_config = LessonJourneySerializer(required=False)
 
@@ -148,6 +165,32 @@ class PersonNestedSerializer(serializers.ModelSerializer):
         ]
 
 
+class PersonLessonProgressListSerializer(serializers.ModelSerializer):
+    """List shape: brief lesson, no journey_config / outline / summary."""
+
+    person = PersonNestedSerializer(read_only=True)
+    lesson = LessonBriefSerializer(read_only=True)
+
+    class Meta:
+        model = PersonLessonProgress
+        fields = [
+            "id",
+            "person",
+            "lesson",
+            "status",
+            "assigned_at",
+            "assigned_by",
+            "started_at",
+            "completed_at",
+            "completed_by",
+            "journey",
+            "notes",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = fields
+
+
 class PersonLessonProgressSerializer(serializers.ModelSerializer):
     person = PersonNestedSerializer(read_only=True)
     person_id = serializers.PrimaryKeyRelatedField(
@@ -209,6 +252,36 @@ class PersonLessonProgressSerializer(serializers.ModelSerializer):
             revert_progress_completion(instance, previous_status=status_before)
 
         return instance
+
+
+class LessonSessionReportListSerializer(serializers.ModelSerializer):
+    """List shape: brief nested lesson."""
+
+    teacher = PersonNestedSerializer(read_only=True)
+    student = PersonNestedSerializer(read_only=True)
+    lesson = LessonBriefSerializer(read_only=True)
+    progress = serializers.PrimaryKeyRelatedField(read_only=True)
+
+    class Meta:
+        model = LessonSessionReport
+        fields = [
+            "id",
+            "teacher",
+            "student",
+            "session_type",
+            "pre_lesson_kind",
+            "lesson",
+            "progress",
+            "session_date",
+            "session_start",
+            "score",
+            "next_session_date",
+            "remarks",
+            "submitted_by",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = fields
 
 
 class LessonSessionReportSerializer(serializers.ModelSerializer):

@@ -8,6 +8,7 @@ from django.utils import timezone
 from rest_framework import mixins, status, viewsets
 from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.decorators import action, api_view, permission_classes
+from rest_framework.pagination import PageNumberPagination
 from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
@@ -54,13 +55,18 @@ from .serializers import (
     LessonStudentEnrollmentSerializer,
     LessonTeacherTransferRequestSerializer,
     LessonTeacherTransferSerializer,
+    PersonLessonProgressListSerializer,
     PersonLessonProgressSerializer,
+    LessonSessionReportListSerializer,
 )
 from .branch_scope import apply_branch_to_person_queryset, apply_lessons_branch_filter
 from .services import (
     approve_lesson_assignment_request,
     bulk_assign_lessons,
+    build_latest_session_activity,
     build_lesson_progress_summary,
+    build_lesson_student_summaries,
+    build_lesson_teacher_overview,
     build_lesson_timeline,
     clear_lesson_follow_up_for_newer_session,
     clear_pre_lesson_session_journey,
@@ -73,6 +79,12 @@ from .services import (
     submit_lesson_assignment_request,
     sync_pre_lesson_session_journey,
 )
+
+
+class LessonPagination(PageNumberPagination):
+    page_size = 25
+    page_size_query_param = "page_size"
+    max_page_size = 100
 
 
 def _ncc_roster_rows(memberships: Iterable[MinistryMember]) -> list[dict]:
@@ -168,6 +180,95 @@ def lesson_teacher_roster(request):
     return Response(_ncc_roster_rows(memberships))
 
 
+@api_view(["GET"])
+@permission_classes([IsAuthenticatedAndNotVisitor, IsMemberOrAbove])
+def lesson_teacher_overview(request):
+    """Teacher progress counts merged with the NCC roster (see build_lesson_teacher_overview)."""
+    user = request.user
+    branch_param = request.query_params.get("branch_id") or request.query_params.get(
+        "branch"
+    )
+    branch_id = None
+    if branch_param:
+        try:
+            branch_id = int(branch_param)
+        except (TypeError, ValueError):
+            raise ValidationError({"branch_id": "Invalid branch id."})
+
+    from apps.people.models import Branch
+
+    membership_qs = MinistryMember.objects.select_related("member", "ministry")
+
+    if can_pick_lessons_branch(user):
+        if branch_id is None:
+            memberships = list(
+                membership_qs.filter(ministry__code=NCC_MINISTRY_CODE).order_by(
+                    "member__last_name", "member__first_name"
+                )
+            )
+        else:
+            try:
+                branch = Branch.objects.get(pk=branch_id)
+            except Branch.DoesNotExist:
+                raise ValidationError({"branch_id": "Branch not found."})
+            ministry = ensure_ncc_ministry(branch)
+            memberships = list(
+                membership_qs.filter(ministry=ministry).order_by(
+                    "member__last_name", "member__first_name"
+                )
+            )
+    else:
+        branch_id = user.branch_id
+        if not branch_id:
+            return Response([])
+        if branch_param and int(branch_param) != branch_id:
+            raise ValidationError({"branch_id": "You can only view your own branch roster."})
+        try:
+            branch = Branch.objects.get(pk=branch_id)
+        except Branch.DoesNotExist:
+            raise ValidationError({"branch_id": "Branch not found."})
+        ministry = ensure_ncc_ministry(branch)
+        memberships = list(
+            membership_qs.filter(ministry=ministry).order_by(
+                "member__last_name", "member__first_name"
+            )
+        )
+
+    roster_rows = _ncc_roster_rows(memberships)
+
+    progress_qs = PersonLessonProgress.objects.filter(
+        lesson__is_latest=True,
+        lesson__is_active=True,
+    )
+    if user.role in ["ADMIN", "PASTOR"] or has_lessons_browse_all(user):
+        pass
+    elif has_lessons_teacher_assignment(user):
+        progress_qs = progress_qs.filter(person__lesson_enrollment__teacher=user)
+    elif user.role == "MEMBER":
+        progress_qs = progress_qs.filter(person=user)
+    else:
+        progress_qs = progress_qs.none()
+
+    progress_qs = apply_lessons_branch_filter(
+        progress_qs, user, request, person_lookup="person"
+    )
+    enrollment_qs = LessonStudentEnrollment.objects.filter(is_active=True)
+    if has_lessons_teacher_assignment(user) and user.role not in ["ADMIN", "PASTOR"]:
+        if not has_lessons_browse_all(user):
+            enrollment_qs = enrollment_qs.filter(teacher=user)
+    enrollment_qs = apply_lessons_branch_filter(
+        enrollment_qs, user, request, person_lookup="student"
+    )
+    person_ids = set(progress_qs.values_list("person_id", flat=True)) | set(
+        enrollment_qs.values_list("student_id", flat=True)
+    )
+    people_qs = Person.objects.filter(pk__in=person_ids)
+
+    return Response(
+        build_lesson_teacher_overview(people_qs=people_qs, roster_rows=roster_rows)
+    )
+
+
 def _visitor_since(person: Person) -> str | None:
     if person.date_first_attended:
         return person.date_first_attended.isoformat()
@@ -222,7 +323,41 @@ def visitors_awaiting_teacher(request):
         .order_by("last_name", "first_name", "id")
     )
     queryset = apply_branch_to_person_queryset(queryset, user, request)
-    people = list(queryset)
+
+    search = (request.query_params.get("search") or "").strip()
+    if search:
+        queryset = queryset.filter(
+            Q(first_name__icontains=search)
+            | Q(last_name__icontains=search)
+            | Q(phone__icontains=search)
+        )
+
+    status_param = request.query_params.get("status")
+    if status_param:
+        queryset = queryset.filter(status=status_param)
+
+    ordering = request.query_params.get("ordering") or "last_name"
+    allowed_order = {
+        "last_name": ("last_name", "first_name", "id"),
+        "-last_name": ("-last_name", "-first_name", "-id"),
+        "first_name": ("first_name", "last_name", "id"),
+        "-first_name": ("-first_name", "-last_name", "-id"),
+        "name": ("last_name", "first_name", "id"),
+        "-name": ("-last_name", "-first_name", "-id"),
+    }
+    queryset = queryset.order_by(*allowed_order.get(ordering, ("last_name", "first_name", "id")))
+
+    export = str(request.query_params.get("export", "")).lower() in {"1", "true", "yes"}
+    if export:
+        people = list(queryset)
+    else:
+        paginator = LessonPagination()
+        page = paginator.paginate_queryset(queryset, request)
+        if page is not None:
+            people = list(page)
+        else:
+            people = list(queryset)
+
     enrollment_ids = dict(
         LessonStudentEnrollment.objects.filter(
             student_id__in=[person.id for person in people],
@@ -260,7 +395,12 @@ def visitors_awaiting_teacher(request):
                 "enrollment_id": enrollment_ids.get(person.id),
             }
         )
-    return Response(payload)
+
+    if export:
+        return Response(payload)
+    if page is not None:
+        return paginator.get_paginated_response(payload)
+    return Response({"count": len(payload), "results": payload})
 
 
 class LessonViewSet(viewsets.ModelViewSet):
@@ -287,16 +427,7 @@ class LessonViewSet(viewsets.ModelViewSet):
         return [IsAuthenticatedAndNotVisitor(), CanManageLessonCatalog()]
 
     def get_queryset(self):
-        queryset = (
-            Lesson.objects.all()
-            .select_related("journey_config")
-            .prefetch_related(
-                Prefetch(
-                    "progress_records",
-                    queryset=PersonLessonProgress.objects.select_related("person"),
-                )
-            )
-        )
+        queryset = Lesson.objects.all().select_related("journey_config")
         include_superseded = self.request.query_params.get("include_superseded")
         if not include_superseded:
             queryset = queryset.filter(is_latest=True, is_active=True)
@@ -361,11 +492,15 @@ class PersonLessonProgressViewSet(
 ):
     permission_classes = [IsAuthenticatedAndNotVisitor]
     serializer_class = PersonLessonProgressSerializer
+    pagination_class = LessonPagination
 
     def get_queryset(self):
         user = self.request.user
         queryset = PersonLessonProgress.objects.select_related(
-            "person", "lesson", "lesson__journey_config", "journey"
+            "person", "lesson", "journey"
+        ).prefetch_related(
+            "person__clusters",
+            "person__evangelism_groups",
         )
         
         # ADMIN/PASTOR: All progress
@@ -399,7 +534,12 @@ class PersonLessonProgressViewSet(
             queryset, user, self.request, person_lookup="person"
         )
         return queryset.order_by("lesson__order", "-updated_at")
-    
+
+    def get_serializer_class(self):
+        if self.action == "list":
+            return PersonLessonProgressListSerializer
+        return PersonLessonProgressSerializer
+
     def get_permissions(self):
         """
         Override to set permissions based on action.
@@ -548,7 +688,57 @@ class PersonLessonProgressViewSet(
             raise PermissionDenied(
                 "You do not have permission to view the lessons timeline."
             )
-        return Response(build_lesson_timeline(self._timeline_people()))
+        params = request.query_params
+        page = params.get("page") or 1
+        page_size = params.get("page_size") or 25
+        try:
+            page = int(page)
+            page_size = int(page_size)
+        except (TypeError, ValueError) as exc:
+            raise ValidationError({"page": "Invalid pagination parameters."}) from exc
+
+        payload = build_lesson_timeline(
+            self._timeline_people(),
+            search=params.get("search"),
+            filter_mode=params.get("filter_mode") or params.get("filter"),
+            ordering=params.get("ordering"),
+            page=page,
+            page_size=page_size,
+        )
+        return Response(payload)
+
+    @action(detail=False, methods=["get"], url_path="student-summaries")
+    def student_summaries(self, request):
+        params = request.query_params
+        page = params.get("page") or 1
+        page_size = params.get("page_size") or 25
+        teacher_id = params.get("teacher_id")
+        next_lesson_id = params.get("next_lesson_id") or params.get("lesson")
+        try:
+            page = int(page)
+            page_size = int(page_size)
+            teacher_id = int(teacher_id) if teacher_id else None
+            next_lesson_id = int(next_lesson_id) if next_lesson_id else None
+        except (TypeError, ValueError) as exc:
+            raise ValidationError({"page": "Invalid query parameters."}) from exc
+
+        payload = build_lesson_student_summaries(
+            progress_qs=self.get_queryset(),
+            search=params.get("search"),
+            teacher_id=teacher_id,
+            teacher_key=params.get("teacher_key") or params.get("teacher"),
+            status=params.get("status"),
+            next_lesson_id=next_lesson_id,
+            ordering=params.get("ordering"),
+            page=page,
+            page_size=page_size,
+        )
+        return Response(payload)
+
+    @action(detail=False, methods=["get"], url_path="latest-session-activity")
+    def latest_session_activity(self, request):
+        student_ids = self.get_queryset().values_list("person_id", flat=True).distinct()
+        return Response(build_latest_session_activity(student_ids))
 
     @action(detail=False, methods=["post"], url_path="follow-up")
     def follow_up(self, request):
@@ -579,11 +769,17 @@ class PersonLessonProgressViewSet(
 class LessonSessionReportViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticatedAndNotVisitor]
     serializer_class = LessonSessionReportSerializer
+    pagination_class = LessonPagination
 
     def get_queryset(self):
         user = self.request.user
         queryset = LessonSessionReport.objects.select_related(
             "teacher", "student", "lesson"
+        ).prefetch_related(
+            "student__clusters",
+            "student__evangelism_groups",
+            "teacher__clusters",
+            "teacher__evangelism_groups",
         )
         
         # ADMIN/PASTOR: All reports
@@ -640,6 +836,11 @@ class LessonSessionReportViewSet(viewsets.ModelViewSet):
             return [IsAuthenticatedAndNotVisitor(), IsAdmin()]
         # Write operations: ADMIN, PASTOR, Lessons Coordinator, or Teacher
         return [IsAuthenticatedAndNotVisitor(), HasModuleAccess('LESSONS', 'write')]
+
+    def get_serializer_class(self):
+        if self.action == "list":
+            return LessonSessionReportListSerializer
+        return LessonSessionReportSerializer
 
     def perform_create(self, serializer):
         request = self.request
@@ -752,11 +953,17 @@ class LessonSessionReportViewSet(viewsets.ModelViewSet):
 class LessonStudentEnrollmentViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticatedAndNotVisitor]
     serializer_class = LessonStudentEnrollmentSerializer
+    pagination_class = LessonPagination
 
     def get_queryset(self):
         user = self.request.user
         queryset = LessonStudentEnrollment.objects.select_related(
             "student", "teacher", "assigned_by"
+        ).prefetch_related(
+            "student__clusters",
+            "student__evangelism_groups",
+            "teacher__clusters",
+            "teacher__evangelism_groups",
         )
 
         if user.role in ["ADMIN", "PASTOR"]:
@@ -864,6 +1071,7 @@ class LessonAssignmentRequestViewSet(
     viewsets.GenericViewSet,
 ):
     serializer_class = LessonAssignmentRequestSerializer
+    pagination_class = LessonPagination
 
     def get_queryset(self):
         user = self.request.user

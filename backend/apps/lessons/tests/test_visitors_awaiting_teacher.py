@@ -167,7 +167,7 @@ class VisitorsAwaitingTeacherAPITests(APITestCase):
     def test_includes_visitors_without_a_live_teacher(self):
         response = self._ids(self.admin)
         self.assertEqual(response.status_code, 200)
-        by_id = {row["id"]: row for row in response.data}
+        by_id = {row["id"]: row for row in response.data["results"]}
         self.assertIn(self.unassigned.id, by_id)
         self.assertIn(self.historical.id, by_id)
         self.assertEqual(
@@ -201,14 +201,14 @@ class VisitorsAwaitingTeacherAPITests(APITestCase):
         response = self._ids(self.coordinator, branch_id=self.branch_b.id)
         self.assertEqual(response.status_code, 200)
         self.assertEqual(
-            {row["id"] for row in response.data},
+            {row["id"] for row in response.data["results"]},
             {self.unassigned.id, self.historical.id, self.no_response.id},
         )
 
         admin_response = self._ids(self.admin, branch_id=self.branch_b.id)
         self.assertEqual(admin_response.status_code, 200)
         self.assertEqual(
-            {row["id"] for row in admin_response.data},
+            {row["id"] for row in admin_response.data["results"]},
             {self.other_branch.id},
         )
 

@@ -7,6 +7,7 @@ from .views import (
     LessonStudentEnrollmentViewSet,
     LessonViewSet,
     PersonLessonProgressViewSet,
+    lesson_teacher_overview,
     lesson_teacher_roster,
     visitors_awaiting_teacher,
 )
@@ -34,6 +35,7 @@ router.register(
 
 urlpatterns = [
     path("teachers/", lesson_teacher_roster, name="lesson-teachers"),
+    path("teachers/overview/", lesson_teacher_overview, name="lesson-teachers-overview"),
     path(
         "visitors-awaiting-teacher/",
         visitors_awaiting_teacher,

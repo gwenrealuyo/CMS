@@ -169,15 +169,42 @@ export interface LessonSessionReportInput {
   remarks?: string;
 }
 
+/** Lesson fields from summary/timeline APIs (outline optional). */
+export type LessonBrief = Pick<
+  Lesson,
+  | "id"
+  | "code"
+  | "version_label"
+  | "title"
+  | "short_title"
+  | "order"
+  | "is_latest"
+  | "is_active"
+>;
+
 export interface PersonProgressSummary {
   person: LessonPersonSummary;
-  previousLesson: Lesson | null;
+  teacher?: LessonPersonSummary | null;
+  previousLesson: Lesson | LessonBrief | null;
   completedCount: number;
   totalLessons: number;
-  nextLesson: Lesson | null;
+  nextLesson: Lesson | LessonBrief | null;
   progressPercentage: number;
-  allProgress: PersonLessonProgress[];
+  allProgress?: PersonLessonProgress[];
+  lifecycleStatus?: LessonProgressStatus;
+  hasSkipped?: boolean;
   lastActivityAt?: string | null;
+}
+
+export interface LessonTeacherOverviewRow {
+  key: string;
+  teacher: LessonPersonSummary | null;
+  total: number;
+  in_progress: number;
+  completed: number;
+  not_started: number;
+  number: number | null;
+  is_active: boolean | null;
 }
 
 export interface LessonStudentEnrollment {
@@ -275,6 +302,8 @@ export interface LessonTimelineStudent {
 export interface LessonTimelinePayload {
   lessons: LessonTimelineCatalogLesson[];
   students: LessonTimelineStudent[];
+  count?: number;
+  results?: LessonTimelineStudent[];
 }
 
 export interface LessonFollowUpInput {

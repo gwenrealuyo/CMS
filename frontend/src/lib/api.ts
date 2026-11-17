@@ -31,7 +31,9 @@ import {
   LessonStudentEnrollment,
   LessonTeacherTransfer,
   LessonTeacherRosterEntry,
+  LessonTeacherOverviewRow,
   PersonLessonProgress,
+  PersonProgressSummary,
   VisitorAwaitingTeacher,
 } from "@/src/types/lesson";
 import {
@@ -1546,6 +1548,53 @@ export const journeysApi = {
     api.get<Journey[]>(`/people/journeys/?user=${userId}`),
 };
 
+export function unwrapList<T>(data: PaginatedResponse<T> | T[]): T[] {
+  return Array.isArray(data) ? data : (data.results ?? []);
+}
+
+async function fetchAllPaginatedRows<T>(
+  path: string,
+  params: Record<string, unknown> = {},
+): Promise<T[]> {
+  const all: T[] = [];
+  let page = 1;
+  for (let i = 0; i < 500; i += 1) {
+    const { data } = await api.get<PaginatedResponse<T> | T[]>(path, {
+      params: { ...params, page, page_size: 100 },
+    });
+    if (Array.isArray(data)) {
+      return data;
+    }
+    all.push(...(data.results ?? []));
+    if (!data.next) {
+      break;
+    }
+    page += 1;
+  }
+  return all;
+}
+
+type StudentSummariesPage = { count: number; results: PersonProgressSummary[] };
+
+async function fetchAllStudentSummaries(
+  params: Record<string, unknown> = {},
+): Promise<PersonProgressSummary[]> {
+  const all: PersonProgressSummary[] = [];
+  let page = 1;
+  for (let i = 0; i < 500; i += 1) {
+    const { data } = await api.get<StudentSummariesPage>(
+      "/lessons/progress/student-summaries/",
+      { params: { ...params, page, page_size: 100 } },
+    );
+    all.push(...(data.results ?? []));
+    if (all.length >= data.count || (data.results ?? []).length === 0) {
+      break;
+    }
+    page += 1;
+  }
+  return all;
+}
+
 export const lessonsApi = {
   getAll: (params?: { include_superseded?: boolean }) =>
     api.get<Lesson[]>("/lessons/lessons/", { params }),
@@ -1561,8 +1610,44 @@ export const lessonsApi = {
     lesson?: string | number;
     status?: string;
     branch_id?: string | number;
+    page?: number;
+    page_size?: number;
   }) =>
-    api.get<PersonLessonProgress[]>("/lessons/progress/", {
+    api.get<PaginatedResponse<PersonLessonProgress>>("/lessons/progress/", {
+      params,
+    }),
+  getProgressAll: async (params?: Record<string, unknown>) => {
+    const data = await fetchAllPaginatedRows<PersonLessonProgress>(
+      "/lessons/progress/",
+      params ?? {},
+    );
+    return { data } as AxiosResponse<PersonLessonProgress[]>;
+  },
+  getStudentSummaries: (params?: {
+    branch_id?: string | number;
+    search?: string;
+    teacher_id?: string | number;
+    teacher_key?: string;
+    status?: string;
+    next_lesson_id?: string | number;
+    ordering?: string;
+    page?: number;
+    page_size?: number;
+  }) =>
+    api.get<StudentSummariesPage>("/lessons/progress/student-summaries/", {
+      params,
+    }),
+  getStudentSummariesAll: async (params?: Record<string, unknown>) => {
+    const data = await fetchAllStudentSummaries(params ?? {});
+    return { data } as AxiosResponse<PersonProgressSummary[]>;
+  },
+  getLatestSessionActivity: (params?: { branch_id?: string | number }) =>
+    api.get<Record<string, string>>(
+      "/lessons/progress/latest-session-activity/",
+      { params },
+    ),
+  getTeacherOverview: (params?: { branch_id?: string | number }) =>
+    api.get<LessonTeacherOverviewRow[]>("/lessons/teachers/overview/", {
       params,
     }),
   updateProgress: (id: number | string, data: Partial<PersonLessonProgress>) =>
@@ -1575,10 +1660,22 @@ export const lessonsApi = {
   listAssignmentRequests: (params?: {
     status?: string;
     branch_id?: string | number;
+    page?: number;
+    page_size?: number;
   }) =>
-    api.get<LessonAssignmentRequest[]>("/lessons/assignment-requests/", {
-      params,
-    }),
+    api.get<PaginatedResponse<LessonAssignmentRequest>>(
+      "/lessons/assignment-requests/",
+      { params },
+    ),
+  listAssignmentRequestsAll: async (
+    params?: Record<string, unknown>,
+  ) => {
+    const data = await fetchAllPaginatedRows<LessonAssignmentRequest>(
+      "/lessons/assignment-requests/",
+      params ?? {},
+    );
+    return { data } as AxiosResponse<LessonAssignmentRequest[]>;
+  },
   createAssignmentRequest: (payload: {
     student_id: number | string;
     lesson_ids: Array<number | string>;
@@ -1599,8 +1696,20 @@ export const lessonsApi = {
     student?: string | number;
     teacher?: string | number;
     branch_id?: string | number;
+    page?: number;
+    page_size?: number;
   }) =>
-    api.get<LessonStudentEnrollment[]>("/lessons/enrollments/", { params }),
+    api.get<PaginatedResponse<LessonStudentEnrollment>>(
+      "/lessons/enrollments/",
+      { params },
+    ),
+  listEnrollmentsAll: async (params?: Record<string, unknown>) => {
+    const data = await fetchAllPaginatedRows<LessonStudentEnrollment>(
+      "/lessons/enrollments/",
+      params ?? {},
+    );
+    return { data } as AxiosResponse<LessonStudentEnrollment[]>;
+  },
   createEnrollment: (payload: {
     student_id: number | string;
     teacher_id: number | string;
@@ -1626,10 +1735,23 @@ export const lessonsApi = {
     api.get<LessonTeacherTransfer[]>(`/lessons/enrollments/${id}/transfers/`),
   listTeachers: (params?: { branch_id?: string | number }) =>
     api.get<LessonTeacherRosterEntry[]>("/lessons/teachers/", { params }),
-  listVisitorsAwaitingTeacher: (params?: { branch_id?: string | number }) =>
-    api.get<VisitorAwaitingTeacher[]>("/lessons/visitors-awaiting-teacher/", {
-      params,
-    }),
+  listVisitorsAwaitingTeacher: (params?: {
+    branch_id?: string | number;
+    search?: string;
+    status?: string;
+    ordering?: string;
+    page?: number;
+    page_size?: number;
+    export?: boolean | number | string;
+  }) =>
+    api.get<PaginatedResponse<VisitorAwaitingTeacher> | VisitorAwaitingTeacher[]>(
+      "/lessons/visitors-awaiting-teacher/",
+      {
+        params: params?.export
+          ? { ...params, export: 1 }
+          : params,
+      },
+    ),
   complete: (
     id: number | string,
     payload: {
@@ -1650,7 +1772,14 @@ export const lessonsApi = {
     branch_id?: string | number;
   }) =>
     api.get<LessonProgressSummary>("/lessons/progress/summary/", { params }),
-  getTimeline: (params?: { branch_id?: string | number }) =>
+  getTimeline: (params?: {
+    branch_id?: string | number;
+    search?: string;
+    filter_mode?: string;
+    ordering?: string;
+    page?: number;
+    page_size?: number;
+  }) =>
     api.get<LessonTimelinePayload>("/lessons/progress/timeline/", { params }),
   saveFollowUp: (payload: LessonFollowUpInput) =>
     api.post<LessonFollowUpCase>("/lessons/progress/follow-up/", payload),
@@ -1661,7 +1790,20 @@ export const lessonsApi = {
     date_from?: string;
     date_to?: string;
     branch_id?: string | number;
-  }) => api.get<LessonSessionReport[]>("/lessons/session-reports/", { params }),
+    page?: number;
+    page_size?: number;
+  }) =>
+    api.get<PaginatedResponse<LessonSessionReport>>(
+      "/lessons/session-reports/",
+      { params },
+    ),
+  listSessionReportsAll: async (params?: Record<string, unknown>) => {
+    const data = await fetchAllPaginatedRows<LessonSessionReport>(
+      "/lessons/session-reports/",
+      params ?? {},
+    );
+    return { data } as AxiosResponse<LessonSessionReport[]>;
+  },
   getSessionReport: (id: number | string) =>
     api.get<LessonSessionReport>(`/lessons/session-reports/${id}/`),
   createSessionReport: (payload: LessonSessionReportInput) =>
@@ -2149,28 +2291,6 @@ export type EvangelismProspectsListParams = {
   page?: number;
   page_size?: number;
 };
-
-async function fetchAllPaginatedRows<T>(
-  path: string,
-  params: Record<string, unknown> = {},
-): Promise<T[]> {
-  const all: T[] = [];
-  let page = 1;
-  for (let i = 0; i < 500; i += 1) {
-    const { data } = await api.get<PaginatedResponse<T> | T[]>(path, {
-      params: { ...params, page, page_size: 100 },
-    });
-    if (Array.isArray(data)) {
-      return data;
-    }
-    all.push(...(data.results ?? []));
-    if (!data.next) {
-      break;
-    }
-    page += 1;
-  }
-  return all;
-}
 
 export const evangelismApi = {
   // Groups

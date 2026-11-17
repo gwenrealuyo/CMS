@@ -111,10 +111,10 @@ class LessonAssignmentRequestAPITests(APITestCase):
 
         progress = self.client.get("/api/lessons/progress/")
         self.assertEqual(progress.status_code, 200, progress.data)
-        self.assertEqual(progress.data, [])
+        self.assertEqual(progress.data["results"], [])
         enrollments = self.client.get("/api/lessons/enrollments/")
         self.assertEqual(enrollments.status_code, 200, enrollments.data)
-        self.assertEqual(enrollments.data, [])
+        self.assertEqual(enrollments.data["results"], [])
 
     def test_teacher_assign_endpoint_creates_request_not_enrollment(self):
         self.client.force_authenticate(self.teacher)
@@ -225,7 +225,7 @@ class LessonAssignmentRequestAPITests(APITestCase):
 
         self.client.force_authenticate(self.teacher)
         progress = self.client.get("/api/lessons/progress/")
-        self.assertEqual(len(progress.data), 1)
+        self.assertEqual(len(progress.data["results"]), 1)
 
     def test_reject_leaves_student_unassigned_and_allows_a_later_request(self):
         self.client.force_authenticate(self.teacher)
@@ -356,6 +356,10 @@ class LessonAssignmentRequestAPITests(APITestCase):
             {"status": "pending"},
         )
         self.assertEqual(listed.status_code, 200, listed.data)
-        row = next(item for item in listed.data if item["id"] == created.data["id"])
+        row = next(
+            item
+            for item in listed.data["results"]
+            if item["id"] == created.data["id"]
+        )
         self.assertEqual(row["student"]["cluster_codes"], ["NORTH"])
         self.assertEqual(row["teacher"]["evangelism_group_names"], ["East Circle"])

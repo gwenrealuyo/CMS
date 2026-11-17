@@ -54,6 +54,20 @@ interface AwaitingTeacherSectionProps {
     teacherId: string,
     enrollmentId: number | null,
   ) => void;
+  serverPagination?: {
+    totalCount: number;
+    currentPage: number;
+    pageSize: number;
+    onPageChange: (page: number) => void;
+    onPageSizeChange: (size: number) => void;
+  };
+  onServerSearchChange?: (query: string) => void;
+  onServerStatusChange?: (status: AwaitingTeacherStatusFilter) => void;
+  onServerSortChange?: (
+    field: AwaitingTeacherSortField,
+    direction: "asc" | "desc",
+  ) => void;
+  onExportAll?: () => Promise<VisitorAwaitingTeacher[]>;
 }
 
 const DEFAULT_ITEMS_PER_PAGE = 10;
@@ -94,7 +108,13 @@ export default function AwaitingTeacherSection({
   showBranchColumn,
   formatDateOnly,
   onAssign,
+  serverPagination,
+  onServerSearchChange,
+  onServerStatusChange,
+  onServerSortChange,
+  onExportAll,
 }: AwaitingTeacherSectionProps) {
+  const serverDriven = Boolean(serverPagination);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] =
     useState<AwaitingTeacherStatusFilter>("ONGOING");
@@ -141,6 +161,9 @@ export default function AwaitingTeacherSection({
   };
 
   const filteredRows = useMemo(() => {
+    if (serverDriven) {
+      return rows;
+    }
     const query = searchQuery.trim().toLowerCase();
     const byStatus =
       statusFilter === "ALL"
@@ -200,23 +223,37 @@ export default function AwaitingTeacherSection({
         }
       }
     });
-  }, [rows, searchQuery, sortDirection, sortField, statusFilter]);
+  }, [rows, searchQuery, sortDirection, sortField, statusFilter, serverDriven]);
 
-  const totalPages = Math.ceil(filteredRows.length / itemsPerPage) || 1;
-  const page = Math.min(currentPage, totalPages);
-  const paginatedRows = filteredRows.slice(
-    (page - 1) * itemsPerPage,
-    page * itemsPerPage,
-  );
+  const totalItems = serverDriven
+    ? (serverPagination?.totalCount ?? filteredRows.length)
+    : filteredRows.length;
+  const activePageSize = serverDriven
+    ? (serverPagination?.pageSize ?? itemsPerPage)
+    : itemsPerPage;
+  const activePage = serverDriven
+    ? (serverPagination?.currentPage ?? currentPage)
+    : currentPage;
+  const totalPages = Math.ceil(totalItems / activePageSize) || 1;
+  const page = Math.min(activePage, totalPages);
+  const paginatedRows = serverDriven
+    ? filteredRows
+    : filteredRows.slice((page - 1) * itemsPerPage, page * itemsPerPage);
 
   const handleSort = (field: AwaitingTeacherSortField) => {
-    setCurrentPage(1);
-    if (sortField === field) {
-      setSortDirection((previous) => (previous === "asc" ? "desc" : "asc"));
-      return;
-    }
+    const nextDirection =
+      sortField === field
+        ? sortDirection === "asc"
+          ? "desc"
+          : "asc"
+        : "asc";
     setSortField(field);
-    setSortDirection("asc");
+    setSortDirection(nextDirection);
+    if (serverDriven) {
+      onServerSortChange?.(field, nextDirection);
+    } else {
+      setCurrentPage(1);
+    }
   };
 
   useEffect(() => {
@@ -307,19 +344,61 @@ export default function AwaitingTeacherSection({
     doc.save("awaiting-teacher.pdf");
   };
 
-  const handleExport = (format: "excel" | "pdf" | "csv") => {
-    if (filteredRows.length === 0) {
+  const runExport = (exportRows: VisitorAwaitingTeacher[]) => {
+    const csvContent = [
+      exportHeaders.map(escapeCsvValue).join(","),
+      ...exportRows.map((row) =>
+        buildExportCells(row).map(escapeCsvValue).join(","),
+      ),
+    ].join("\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.setAttribute("download", "awaiting-teacher.csv");
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  const handleExport = async (format: "excel" | "pdf" | "csv") => {
+    let exportRows = filteredRows;
+    if (onExportAll) {
+      exportRows = await onExportAll();
+    }
+    if (exportRows.length === 0) {
       return;
     }
     switch (format) {
-      case "excel":
-        exportToExcel();
+      case "excel": {
+        const worksheet = XLSX.utils.json_to_sheet(
+          exportRows.map((row) => {
+            const cells = buildExportCells(row);
+            return Object.fromEntries(
+              exportHeaders.map((header, index) => [header, cells[index] ?? ""]),
+            );
+          }),
+        );
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, "Awaiting Teacher");
+        XLSX.writeFile(workbook, "awaiting-teacher.xlsx");
         break;
-      case "pdf":
-        exportToPdf();
+      }
+      case "pdf": {
+        const doc = new jsPDF({ orientation: "landscape" });
+        autoTable(doc, {
+          head: [exportHeaders],
+          body: exportRows.map((row) => buildExportCells(row)),
+          startY: 20,
+          theme: "grid",
+          styles: { fontSize: 8 },
+        });
+        doc.save("awaiting-teacher.pdf");
         break;
+      }
       case "csv":
-        exportToCsv();
+        runExport(exportRows);
         break;
     }
     setShowExportDropdown(false);
@@ -375,7 +454,11 @@ export default function AwaitingTeacherSection({
               value={searchQuery}
               onChange={(value) => {
                 setSearchQuery(value);
-                setCurrentPage(1);
+                if (serverDriven) {
+                  onServerSearchChange?.(value);
+                } else {
+                  setCurrentPage(1);
+                }
               }}
               placeholder="Search visitors..."
               ariaLabel="Search visitors awaiting a teacher"
@@ -383,10 +466,13 @@ export default function AwaitingTeacherSection({
             <select
               value={statusFilter}
               onChange={(event) => {
-                setStatusFilter(
-                  event.target.value as AwaitingTeacherStatusFilter,
-                );
-                setCurrentPage(1);
+                const next = event.target.value as AwaitingTeacherStatusFilter;
+                setStatusFilter(next);
+                if (serverDriven) {
+                  onServerStatusChange?.(next);
+                } else {
+                  setCurrentPage(1);
+                }
               }}
               className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm md:min-w-0 md:max-w-[10rem] md:flex-1 md:truncate"
               aria-label="Filter by visitor status"
@@ -632,16 +718,24 @@ export default function AwaitingTeacherSection({
           </div>
         )}
 
-        {filteredRows.length > 0 ? (
+        {filteredRows.length > 0 || serverDriven ? (
           <Pagination
             currentPage={page}
             totalPages={totalPages}
-            totalItems={filteredRows.length}
-            itemsPerPage={itemsPerPage}
-            onPageChange={setCurrentPage}
+            totalItems={totalItems}
+            itemsPerPage={activePageSize}
+            onPageChange={
+              serverDriven && serverPagination
+                ? serverPagination.onPageChange
+                : setCurrentPage
+            }
             onItemsPerPageChange={(value) => {
-              setItemsPerPage(value);
-              setCurrentPage(1);
+              if (serverDriven && serverPagination) {
+                serverPagination.onPageSizeChange(value);
+              } else {
+                setItemsPerPage(value);
+                setCurrentPage(1);
+              }
             }}
             showItemsPerPage
           />

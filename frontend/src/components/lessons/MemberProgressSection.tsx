@@ -67,6 +67,12 @@ interface MemberProgressSectionProps {
   pendingStudentIds?: Set<number>;
   onPersonClick: (person: LessonPersonSummary) => void;
   focusTeacherKey?: string | null;
+  progressTotalCount?: number;
+  progressPage?: number;
+  progressPageSize?: number;
+  onProgressPageChange?: (page: number) => void;
+  onProgressPageSizeChange?: (size: number) => void;
+  onPeopleSearchChange?: (query: string) => void;
 }
 
 export default function MemberProgressSection({
@@ -103,6 +109,12 @@ export default function MemberProgressSection({
   pendingStudentIds,
   onPersonClick,
   focusTeacherKey = null,
+  progressTotalCount,
+  progressPage,
+  progressPageSize,
+  onProgressPageChange,
+  onProgressPageSizeChange,
+  onPeopleSearchChange,
 }: MemberProgressSectionProps) {
   const activeLatestLessons = allLessons.filter(
     (lesson) => lesson.is_latest && lesson.is_active,
@@ -215,6 +227,7 @@ export default function MemberProgressSection({
                   currentUserId={currentUserId}
                   lockTeacherToSelf={lockTeacherToSelf}
                   pendingStudentIds={pendingStudentIds}
+                  onPeopleSearchChange={onPeopleSearchChange}
                 />
               </div>
             )}
@@ -236,6 +249,21 @@ export default function MemberProgressSection({
           displayMode={effectiveViewMode}
           searchQuery={progressSearchQuery}
           focusTeacherKey={focusTeacherKey}
+          serverPagination={
+            progressTotalCount != null &&
+            progressPage != null &&
+            progressPageSize != null &&
+            onProgressPageChange &&
+            onProgressPageSizeChange
+              ? {
+                  totalCount: progressTotalCount,
+                  currentPage: progressPage,
+                  pageSize: progressPageSize,
+                  onPageChange: onProgressPageChange,
+                  onPageSizeChange: onProgressPageSizeChange,
+                }
+              : undefined
+          }
         />
       </div>
     </Card>

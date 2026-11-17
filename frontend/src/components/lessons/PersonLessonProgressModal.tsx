@@ -13,7 +13,7 @@ import {
   LessonTeacherTransfer,
   PersonLessonProgress,
 } from "@/src/types/lesson";
-import { lessonsApi } from "@/src/lib/api";
+import { lessonsApi, unwrapList } from "@/src/lib/api";
 import { formatPersonName } from "@/src/lib/name";
 import { formatDisplayDate } from "@/src/lib/date";
 import {
@@ -27,7 +27,8 @@ import {
 interface PersonLessonProgressModalProps {
   isOpen: boolean;
   person: LessonPersonSummary | null;
-  allProgress: PersonLessonProgress[];
+  /** Legacy bulk progress; omitted when the modal loads per-person progress. */
+  allProgress?: PersonLessonProgress[];
   allLessons: Lesson[];
   enrollment: LessonStudentEnrollment | null;
   canTransferTeacher: boolean;
@@ -58,7 +59,7 @@ const STATUS_COLORS: Record<string, string> = {
 export default function PersonLessonProgressModal({
   isOpen,
   person,
-  allProgress,
+  allProgress = [],
   allLessons,
   enrollment,
   canTransferTeacher,
@@ -76,6 +77,13 @@ export default function PersonLessonProgressModal({
   const [transfers, setTransfers] = useState<LessonTeacherTransfer[]>([]);
   const [transfersLoading, setTransfersLoading] = useState(false);
   const [showTransferHistory, setShowTransferHistory] = useState(false);
+  const [personProgressRows, setPersonProgressRows] = useState<
+    PersonLessonProgress[]
+  >([]);
+  const [personProgressLoading, setPersonProgressLoading] = useState(false);
+  const [personProgressError, setPersonProgressError] = useState<string | null>(
+    null,
+  );
   const [transferRoster, setTransferRoster] = useState<
     LessonTeacherRosterEntry[]
   >([]);
@@ -198,12 +206,52 @@ export default function PersonLessonProgressModal({
     };
   }, [enrollment?.id, isOpen, enrollment?.teacher?.id]);
 
-  const personProgress = useMemo(() => {
-    if (!person) return [];
-    return allProgress
-      .filter((p) => p.person?.id === person.id)
-      .sort((a, b) => a.lesson.order - b.lesson.order);
-  }, [person, allProgress]);
+  useEffect(() => {
+    if (!isOpen || !person?.id) {
+      setPersonProgressRows([]);
+      setPersonProgressError(null);
+      return;
+    }
+    if (allProgress.length > 0) {
+      setPersonProgressRows(
+        allProgress
+          .filter((record) => record.person?.id === person.id)
+          .sort((a, b) => a.lesson.order - b.lesson.order),
+      );
+      return;
+    }
+
+    let cancelled = false;
+    setPersonProgressLoading(true);
+    setPersonProgressError(null);
+    lessonsApi
+      .getProgress({ person: person.id, page_size: 100 })
+      .then((response) => {
+        if (cancelled) return;
+        const rows = unwrapList(response.data).sort(
+          (a, b) => a.lesson.order - b.lesson.order,
+        );
+        setPersonProgressRows(rows);
+      })
+      .catch((error: unknown) => {
+        if (cancelled) return;
+        setPersonProgressRows([]);
+        setPersonProgressError(
+          extractErrorMessage(error, "Failed to load lesson progress."),
+        );
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setPersonProgressLoading(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isOpen, person?.id, allProgress]);
+
+  const personProgress = useMemo(() => personProgressRows, [personProgressRows]);
 
   const allLessonsWithProgress = useMemo(() => {
     const progressMap = new Map<number, PersonLessonProgress>();

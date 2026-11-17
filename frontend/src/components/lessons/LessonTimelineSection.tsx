@@ -51,6 +51,19 @@ interface LessonTimelineSectionProps {
   saving: boolean;
   formatDateOnly: (value?: string | null) => string;
   onSaveFollowUp: (input: LessonFollowUpInput) => Promise<void>;
+  serverPagination?: {
+    totalCount: number;
+    currentPage: number;
+    pageSize: number;
+    onPageChange: (page: number) => void;
+    onPageSizeChange: (size: number) => void;
+  };
+  onServerSearchChange?: (query: string) => void;
+  onServerFilterChange?: (filter: TimelineFilter) => void;
+  onServerSortChange?: (
+    field: TimelineSortField,
+    direction: SortDirection,
+  ) => void;
 }
 
 const fieldClass =
@@ -120,7 +133,12 @@ export default function LessonTimelineSection({
   saving,
   formatDateOnly,
   onSaveFollowUp,
+  serverPagination,
+  onServerSearchChange,
+  onServerFilterChange,
+  onServerSortChange,
 }: LessonTimelineSectionProps) {
+  const serverDriven = Boolean(serverPagination);
   const [searchQuery, setSearchQuery] = useState("");
   const [filter, setFilter] = useState<TimelineFilter>("follow-up");
   const [sortField, setSortField] = useState<TimelineSortField>("days");
@@ -154,6 +172,9 @@ export default function LessonTimelineSection({
   }, [sortOpen]);
 
   const rows = useMemo(() => {
+    if (serverDriven) {
+      return timeline?.results ?? timeline?.students ?? [];
+    }
     const students = timeline?.students ?? [];
     const query = searchQuery.trim().toLowerCase();
     const filtered = students.filter((row) => {
@@ -208,18 +229,33 @@ export default function LessonTimelineSection({
       }
       return left.person.id - right.person.id;
     });
-  }, [timeline, searchQuery, filter, sortField, sortDirection]);
+  }, [timeline, searchQuery, filter, sortField, sortDirection, serverDriven]);
 
-  const totalPages = Math.max(1, Math.ceil(rows.length / itemsPerPage));
-  const page = Math.min(currentPage, totalPages);
-  const pageRows = rows.slice((page - 1) * itemsPerPage, page * itemsPerPage);
+  const totalItems = serverDriven
+    ? (serverPagination?.totalCount ?? rows.length)
+    : rows.length;
+  const activePageSize = serverDriven
+    ? (serverPagination?.pageSize ?? itemsPerPage)
+    : itemsPerPage;
+  const activePage = serverDriven
+    ? (serverPagination?.currentPage ?? currentPage)
+    : currentPage;
+  const totalPages = Math.max(1, Math.ceil(totalItems / activePageSize));
+  const page = Math.min(activePage, totalPages);
+  const pageRows = serverDriven
+    ? rows
+    : rows.slice((page - 1) * itemsPerPage, page * itemsPerPage);
   const activeSort = SORT_OPTIONS.find((option) => option.key === sortField);
   const sortLabel = activeSort?.shortLabel ?? "Sort";
 
   const chooseSort = (field: TimelineSortField, direction: SortDirection) => {
     setSortField(field);
     setSortDirection(direction);
-    setCurrentPage(1);
+    if (serverDriven) {
+      onServerSortChange?.(field, direction);
+    } else {
+      setCurrentPage(1);
+    }
     setSortOpen(false);
   };
 
@@ -239,7 +275,11 @@ export default function LessonTimelineSection({
             value={searchQuery}
             onChange={(value) => {
               setSearchQuery(value);
-              setCurrentPage(1);
+              if (serverDriven) {
+                onServerSearchChange?.(value);
+              } else {
+                setCurrentPage(1);
+              }
             }}
             placeholder="Search student or teacher..."
             ariaLabel="Search timeline"
@@ -252,7 +292,11 @@ export default function LessonTimelineSection({
                 value={filter}
                 onChange={(value) => {
                   setFilter(value);
-                  setCurrentPage(1);
+                  if (serverDriven) {
+                    onServerFilterChange?.(value);
+                  } else {
+                    setCurrentPage(1);
+                  }
                 }}
                 options={[
                   { id: "follow-up", label: "Needs follow-up" },
@@ -360,16 +404,24 @@ export default function LessonTimelineSection({
         </div>
       )}
 
-      {rows.length > 0 ? (
+      {rows.length > 0 || serverDriven ? (
         <Pagination
           currentPage={page}
           totalPages={totalPages}
-          totalItems={rows.length}
-          itemsPerPage={itemsPerPage}
-          onPageChange={setCurrentPage}
+          totalItems={totalItems}
+          itemsPerPage={activePageSize}
+          onPageChange={
+            serverDriven && serverPagination
+              ? serverPagination.onPageChange
+              : setCurrentPage
+          }
           onItemsPerPageChange={(value) => {
-            setItemsPerPage(value);
-            setCurrentPage(1);
+            if (serverDriven && serverPagination) {
+              serverPagination.onPageSizeChange(value);
+            } else {
+              setItemsPerPage(value);
+              setCurrentPage(1);
+            }
           }}
           showItemsPerPage
         />

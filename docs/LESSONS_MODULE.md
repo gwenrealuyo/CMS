@@ -185,6 +185,21 @@ Entry: [`frontend/src/app/lessons/page.tsx`](../frontend/src/app/lessons/page.ts
 - **Timeline** tab: those same coordinators, plus Lessons teachers. Teachers only see students assigned to them.
 - Branch picker: ADMIN, PASTOR, and HQ Lessons seniors (including HQ NCC primary) only. Hidden when Progress/Reports tabs are hidden.
 
+### Scale / pagination (browse APIs)
+
+The Lessons page no longer downloads unfiltered progress or full session-report lists on branch change. Browse tabs call paginated (or summary) endpoints:
+
+| Endpoint | Use |
+|----------|-----|
+| `GET /lessons/progress/student-summaries/` | Student Progress table (filters, sort, `page` / `page_size`); rows include `lifecycleStatus`, `hasSkipped`, `teacher`, `lastActivityAt`; `allProgress` is empty in list responses. |
+| `GET /lessons/progress/latest-session-activity/` | Per-student latest session ISO map (replaces scanning all session reports). |
+| `GET /lessons/teachers/overview/` | Teachers tab counts (no per-teacher student arrays). |
+| `GET /lessons/progress/timeline/` | Timeline tab (`filter_mode`, search, pagination); `results` mirrors `students` for the current page. |
+| `GET /lessons/visitors-awaiting-teacher/` | Awaiting Teacher tab; `export=1` returns the full filtered list for export. |
+| Paginated `progress/`, `session-reports/`, `enrollments/`, `assignment-requests/` | Lesson detail progress, session list pages, enrollment bulk load, pending assignment queue. |
+
+`PersonLessonProgressModal` loads per-person progress via `GET /lessons/progress/?person=&page_size=100` when opened. Assign-lessons people pickers use paged `peopleApi.list` (`for_lessons`) instead of loading the whole directory on mount.
+
 NCC ministry roles:
 
 | NCC ministry role | Lessons access |
@@ -204,6 +219,9 @@ Automated tests live under `apps.lessons.tests`:
 | `test_catalog_permissions.py` | Catalog CRUD, commitment PDF, NCC booklet upload permissions |
 | `test_ncc_coordinator_access.py` | NCC primary/support Lessons access, HQ vs satellite branch picking |
 | `test_progress_summary.py` | Yearly COMPLETED cohort uses finish dates, not import-time `assigned_at` |
+| `test_scale_pagination.py` | Paginated progress/session lists, student-summaries, latest-session-activity, teachers overview, timeline/visitors pagination |
+| `test_lesson_timeline.py` | Timeline rows, follow-up, filter_mode compatibility |
+| `test_visitors_awaiting_teacher.py` | Awaiting-teacher list scoping and export |
 
 Run with SQLite test settings (required in this repo):
 

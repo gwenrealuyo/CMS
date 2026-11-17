@@ -27,7 +27,7 @@ import {
 } from "@/src/types/lesson";
 import { usePeople } from "@/src/hooks/usePeople";
 import { formatPersonName } from "@/src/lib/name";
-import { formatDisplayDate } from "@/src/lib/date";
+import { formatDisplayDate, getChurchCalendarYear } from "@/src/lib/date";
 import { isSelectablePerson } from "@/src/lib/peopleSelectors";
 import { useAuth } from "@/src/contexts/AuthContext";
 import { canHardDelete } from "@/src/lib/canHardDelete";
@@ -771,13 +771,13 @@ export default function LessonsPageContainer() {
   ]);
 
   const ongoingStudentsCount = useMemo(() => {
-    return groupedProgress.filter((summary) => {
-      if (summary.totalLessons <= 0) {
-        return false;
-      }
-      return summary.completedCount < summary.totalLessons;
-    }).length;
-  }, [groupedProgress]);
+    if (!summary?.overall) {
+      return 0;
+    }
+    return (
+      (summary.overall.ASSIGNED ?? 0) + (summary.overall.IN_PROGRESS ?? 0)
+    );
+  }, [summary]);
 
   const teacherOverviewRows = useMemo(
     () =>
@@ -988,7 +988,7 @@ export default function LessonsPageContainer() {
       setSummaryLoading(true);
       const response = await lessonsApi.summary({
         include_superseded: true,
-        year: new Date().getFullYear(),
+        year: getChurchCalendarYear(),
         ...branchApiParams,
       });
       setSummary(response.data);

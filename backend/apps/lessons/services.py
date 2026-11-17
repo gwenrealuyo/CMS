@@ -1017,10 +1017,14 @@ def _course_finish_calendar_date(person_records) -> Optional[date]:
     """
     Real course-finish day for a person who completed every in-scope lesson.
 
-    Uses :func:`trustworthy_lessons_finished_at` (session reports, varied
-    progress days, or person date when progress ``completed_at`` is null).
-    Uniform legacy stamps and undated imports return None so they stay out of
-    yearly completion cohorts. Does not use ``assigned_at``.
+    1. :func:`trustworthy_lessons_finished_at` (session reports / full-catalog
+       progress evidence)
+    2. Varied ``completed_at`` days on the in-scope progress rows (when the
+       full catalog is larger than this summary cohort)
+    3. ``Person.lessons_finished_at`` for legacy graduates (including uniform
+       stamped progress)
+
+    Does not use ``assigned_at``.
     """
     person = None
     for record in person_records:
@@ -1028,7 +1032,21 @@ def _course_finish_calendar_date(person_records) -> Optional[date]:
         break
     if person is None:
         return None
-    return trustworthy_lessons_finished_at(person)
+
+    trusted = trustworthy_lessons_finished_at(person)
+    if trusted is not None:
+        return trusted
+
+    completed_days = [
+        day
+        for record in person_records
+        if record.status == PersonLessonProgress.Status.COMPLETED
+        and (day := church_calendar_date(record.completed_at)) is not None
+    ]
+    if len(set(completed_days)) > 1:
+        return max(completed_days)
+
+    return church_calendar_date(person.lessons_finished_at)
 
 
 def build_lesson_progress_summary(
@@ -1041,9 +1059,10 @@ def build_lesson_progress_summary(
 ) -> dict:
     """Aggregate lesson progress for a pre-filtered PersonLessonProgress queryset.
 
-    Person-level COMPLETED counts only students whose trustworthy course finish
-    date falls in ``year``. Historical graduates, uniform legacy stamps, and
-    undated imports are excluded from the yearly cohort.
+    Person-level COMPLETED counts only students whose course finish date falls
+    in ``year`` (trustworthy evidence first, else ``Person.lessons_finished_at``).
+    Historical graduates and undated imports without a finish date are excluded
+    from the yearly cohort.
 
     Lesson rows use that same cohort: students still in the course, plus
     students who finished every in-scope lesson in ``year``. Each lesson's

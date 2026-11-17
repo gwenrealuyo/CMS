@@ -102,11 +102,23 @@ class LessonProgressSummaryYearTests(TestCase):
         self.assertEqual(payload["overall"]["COMPLETED"], 1)
         self.assertEqual(payload["total_participants"], 1)
 
-    def test_uniform_legacy_stamp_is_excluded_from_yearly_cohort(self):
+    def test_uniform_legacy_stamp_falls_back_to_lessons_finished_at(self):
         person = self._person(
             "uniformstamp",
             has_finished_lessons=True,
             lessons_finished_at=date(self.year, 3, 1),
+        )
+        self._complete_course(person, completed_on=date(self.year, 3, 1))
+
+        payload = self._summary()
+
+        self.assertEqual(payload["overall"]["COMPLETED"], 1)
+        self.assertEqual(payload["total_participants"], 1)
+
+    def test_uniform_legacy_stamp_without_lessons_finished_at_is_excluded(self):
+        person = self._person(
+            "uniformstampnodate",
+            has_finished_lessons=True,
         )
         self._complete_course(person, completed_on=date(self.year, 3, 1))
 
@@ -167,11 +179,24 @@ class LessonProgressSummaryYearTests(TestCase):
     def test_finish_date_uses_church_calendar_not_utc_date(self):
         person = self._person("timezone")
         church_new_year = datetime(
-            self.year, 1, 1, 0, 0, tzinfo=get_church_timezone()
+            self.year, 1, 1, 0, 30, tzinfo=get_church_timezone()
         )
-        self._complete_course(
-            person,
-            completed_on=church_new_year.astimezone(timezone.utc),
+        later_church_day = datetime(
+            self.year, 1, 2, 0, 30, tzinfo=get_church_timezone()
+        )
+        # Varied days so trustworthy finish uses progress dates (not a
+        # uniform legacy stamp). UTC clock may still be prior calendar day.
+        PersonLessonProgress.objects.create(
+            person=person,
+            lesson=self.lesson_one,
+            status=PersonLessonProgress.Status.COMPLETED,
+            completed_at=church_new_year.astimezone(timezone.utc),
+        )
+        PersonLessonProgress.objects.create(
+            person=person,
+            lesson=self.lesson_two,
+            status=PersonLessonProgress.Status.COMPLETED,
+            completed_at=later_church_day.astimezone(timezone.utc),
         )
 
         payload = self._summary()
@@ -180,8 +205,14 @@ class LessonProgressSummaryYearTests(TestCase):
         self.assertEqual(payload["total_participants"], 1)
 
     def test_lesson_rows_follow_yearly_cohort(self):
-        historical = self._person("oldlesson")
-        finished = self._person("newlesson")
+        historical = self._person(
+            "oldlesson",
+            lessons_finished_at=date(self.year - 1, 6, 15),
+        )
+        finished = self._person(
+            "newlesson",
+            lessons_finished_at=date(self.year, 3, 1),
+        )
         ongoing = self._person("ongoinglesson")
         self._complete_course(historical, completed_on=date(self.year - 1, 6, 15))
         self._complete_course(finished, completed_on=date(self.year, 3, 1))

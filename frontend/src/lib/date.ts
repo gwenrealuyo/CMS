@@ -74,6 +74,21 @@ export type LocalYmdParts = {
   day: number; // 1–31
 };
 
+/**
+ * Matches backend ``CHURCH_TIME_ZONE`` default (Asia/Manila).
+ * Used when the frontend must agree with church-calendar year/day logic.
+ */
+export const CHURCH_TIME_ZONE = "Asia/Manila";
+
+/** Church-calendar year for the current instant (matches backend ``church_today().year``). */
+export function getChurchCalendarYear(now: Date = new Date()): number {
+  const yearPart = new Intl.DateTimeFormat("en-US", {
+    timeZone: CHURCH_TIME_ZONE,
+    year: "numeric",
+  }).format(now);
+  return Number(yearPart);
+}
+
 /** Local calendar date as YYYY-MM-DD (avoids UTC off-by-one from toISOString). */
 export function getLocalTodayDateString(now: Date = new Date()): string {
   const y = now.getFullYear();

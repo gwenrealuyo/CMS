@@ -509,6 +509,10 @@ export default function LessonsPageView({
     isModuleCoordinator("CLUSTER", "COORDINATOR") ||
     isModuleCoordinator("CLUSTER", "ASSISTANT_COORDINATOR");
 
+  const ongoingAwaitingTeacherCount = visitorsAwaitingTeacherLoaded
+    ? visitorsAwaitingTeacher.filter((row) => row.status === "ONGOING").length
+    : null;
+
   const lessonsBranchSelectInteractive =
     lessonsBranchCanChangeFilter && !lessonsBranchesLoading;
 
@@ -607,7 +611,9 @@ export default function LessonsPageView({
         {shouldShowStats && (
           <LessonStatsCards
             summary={summary}
-            visitorsAwaitingCount={summary?.unassigned_visitors ?? 0}
+            visitorsAwaitingCount={
+              ongoingAwaitingTeacherCount ?? summary?.unassigned_visitors ?? 0
+            }
             loading={summaryLoading}
             error={summaryError}
             ongoingStudentsCount={ongoingStudentsCount}
@@ -628,11 +634,7 @@ export default function LessonsPageView({
             hideTeachers={!showTeachersTab}
             hideTimeline={!showTimelineTab}
             hideAwaitingTeacher={!showTeachersTab}
-            awaitingTeacherCount={
-              visitorsAwaitingTeacherLoaded
-                ? visitorsAwaitingTeacher.length
-                : null
-            }
+            awaitingTeacherCount={ongoingAwaitingTeacherCount}
             hideSessions={!showStudentWorkflowTabs}
             branchFilter={
               showStudentWorkflowTabs ? renderLessonsBranchSelect() : undefined

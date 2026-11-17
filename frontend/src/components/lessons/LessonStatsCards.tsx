@@ -64,8 +64,8 @@ export default function LessonStatsCards({
     ? "Share of your assigned students this year who finished the course"
     : "Share of this year's students who finished the course";
   const visitorsSubtitle = scopedToAssignedStudents
-    ? "Visitors in your branch not yet enrolled (not limited to your students)"
-    : "Visitors not yet enrolled in any lesson";
+    ? "Ongoing visitors in your branch not yet enrolled (not limited to your students)"
+    : "Ongoing visitors not yet enrolled";
 
   return (
     <div className="space-y-6">

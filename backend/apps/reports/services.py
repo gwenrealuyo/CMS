@@ -1121,9 +1121,20 @@ def build_ncc_summary(progress_qs, people_qs, *, year: int):
     """Build NCC (lessons) analytics for pre-scoped querysets."""
     from apps.lessons.services import build_lesson_progress_summary
 
+    from django.db.models import Exists, OuterRef
+
+    from apps.lessons.models import LessonStudentEnrollment
+
     payload = build_lesson_progress_summary(progress_qs, year=year)
+    # Match lessons Awaiting Teacher badge: Ongoing visitors with no live teacher.
+    live_teacher = LessonStudentEnrollment.objects.filter(
+        student_id=OuterRef("pk"),
+        teacher__isnull=False,
+    )
     payload["unassigned_visitors"] = (
-        people_qs.filter(role="VISITOR", lesson_progress__isnull=True)
+        people_qs.filter(role="VISITOR", status="ONGOING")
+        .exclude(has_finished_lessons=True)
+        .exclude(Exists(live_teacher))
         .distinct()
         .count()
     )

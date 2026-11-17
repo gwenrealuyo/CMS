@@ -158,13 +158,13 @@ export default function MemberProgressSection({
                 placeholder="All teachers"
                 searchPlaceholder="Search teacher..."
                 emptyMessage="No teachers found"
-                className="min-h-[44px]"
+                triggerClassName="!h-auto py-2"
                 pinnedOption={{ value: "", label: "All teachers" }}
               />
             </div>
 
             <select
-              className="min-h-[44px] w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm md:min-w-0 md:max-w-[9rem] md:flex-1 md:truncate"
+              className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm md:min-w-0 md:max-w-[9rem] md:flex-1 md:truncate"
               value={progressFilterLessonId || ""}
               onChange={(e) =>
                 onProgressFilterChange(
@@ -188,7 +188,7 @@ export default function MemberProgressSection({
                   e.target.value as ProgressStatusFilter,
                 )
               }
-              className="min-h-[44px] w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm md:min-w-0 md:max-w-[8rem] md:flex-1 md:truncate"
+              className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm md:min-w-0 md:max-w-[8rem] md:flex-1 md:truncate"
               aria-label="Filter by status"
             >
               <option value="ALL">All status</option>

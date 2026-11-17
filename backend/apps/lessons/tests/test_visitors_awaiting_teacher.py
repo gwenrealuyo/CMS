@@ -68,6 +68,14 @@ class VisitorsAwaitingTeacherAPITests(APITestCase):
             phone="09170000001",
             date_first_attended=date(2026, 1, 15),
         )
+        self.no_response = self._person(
+            "awaitnoresponse",
+            role="VISITOR",
+            branch=self.branch_a,
+            first_name="Nora",
+            last_name="NoResponse",
+            status="NO_RESPONSE",
+        )
         cluster = Cluster.objects.create(
             name="North Cluster",
             code="NORTH",
@@ -164,7 +172,12 @@ class VisitorsAwaitingTeacherAPITests(APITestCase):
         self.assertIn(self.historical.id, by_id)
         self.assertEqual(
             set(by_id),
-            {self.unassigned.id, self.historical.id, self.other_branch.id},
+            {
+                self.unassigned.id,
+                self.historical.id,
+                self.other_branch.id,
+                self.no_response.id,
+            },
         )
 
         row = by_id[self.unassigned.id]
@@ -173,9 +186,11 @@ class VisitorsAwaitingTeacherAPITests(APITestCase):
         self.assertEqual(row["branch_code"], "BRA")
         self.assertEqual(row["cluster_codes"], ["NORTH"])
         self.assertEqual(row["phone"], "09170000001")
+        self.assertEqual(row["status"], "ONGOING")
         self.assertEqual(row["visitor_since"], "2026-01-15")
         self.assertEqual(row["inviter_name"], self.coordinator.get_full_name())
         self.assertEqual(by_id[self.historical.id]["inviter_name"], "")
+        self.assertEqual(by_id[self.no_response.id]["status"], "NO_RESPONSE")
         self.assertIsNone(row["enrollment_id"])
         self.assertEqual(
             by_id[self.historical.id]["enrollment_id"],
@@ -187,7 +202,7 @@ class VisitorsAwaitingTeacherAPITests(APITestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(
             {row["id"] for row in response.data},
-            {self.unassigned.id, self.historical.id},
+            {self.unassigned.id, self.historical.id, self.no_response.id},
         )
 
         admin_response = self._ids(self.admin, branch_id=self.branch_b.id)

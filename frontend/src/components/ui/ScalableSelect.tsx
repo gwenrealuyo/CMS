@@ -55,6 +55,7 @@ interface ScalableSelectProps {
   placeholder?: string;
   searchPlaceholder?: string;
   className?: string;
+  triggerClassName?: string;
   disabled?: boolean;
   maxHeight?: number;
   showSearch?: boolean;
@@ -84,6 +85,7 @@ export default function ScalableSelect({
   placeholder = "Select an option",
   searchPlaceholder = "Search...",
   className = "",
+  triggerClassName = "",
   disabled = false,
   maxHeight = 200,
   showSearch = true,
@@ -575,6 +577,7 @@ export default function ScalableSelect({
               ? "ring-2 ring-ring border-transparent"
               : ""
           }
+          ${triggerClassName}
         `}
       >
         <div className="flex w-full min-w-0 items-center justify-between gap-2">

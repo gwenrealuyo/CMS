@@ -254,6 +254,7 @@ def visitors_awaiting_teacher(request):
                 "branch_code": branch_code,
                 "cluster_codes": cluster_codes,
                 "phone": person.phone or "",
+                "status": person.status or "",
                 "visitor_since": _visitor_since(person),
                 "inviter_name": inviter_name,
                 "enrollment_id": enrollment_ids.get(person.id),
@@ -511,8 +512,15 @@ class PersonLessonProgressViewSet(
             include_superseded=include_superseded,
         )
 
-        unassigned_visitors_qs = Person.objects.filter(role="VISITOR").filter(
-            lesson_progress__isnull=True
+        # Match Awaiting Teacher tab badge: Ongoing visitors with no live teacher.
+        live_teacher = LessonStudentEnrollment.objects.filter(
+            student_id=OuterRef("pk"),
+            teacher__isnull=False,
+        )
+        unassigned_visitors_qs = (
+            Person.objects.filter(role="VISITOR", status="ONGOING")
+            .exclude(has_finished_lessons=True)
+            .exclude(Exists(live_teacher))
         )
         unassigned_visitors_qs = apply_branch_to_person_queryset(
             unassigned_visitors_qs, request.user, request

@@ -50,6 +50,8 @@ interface AwaitingTeacherSectionProps {
 
 const DEFAULT_ITEMS_PER_PAGE = 10;
 
+type AwaitingTeacherStatusFilter = "ONGOING" | "NO_RESPONSE" | "ALL";
+
 type AwaitingTeacherSortField =
   | "name"
   | "branch"
@@ -86,6 +88,8 @@ export default function AwaitingTeacherSection({
   onAssign,
 }: AwaitingTeacherSectionProps) {
   const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] =
+    useState<AwaitingTeacherStatusFilter>("ONGOING");
   const [sortField, setSortField] =
     useState<AwaitingTeacherSortField>("visitorSince");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
@@ -128,8 +132,12 @@ export default function AwaitingTeacherSection({
 
   const filteredRows = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
+    const byStatus =
+      statusFilter === "ALL"
+        ? rows
+        : rows.filter((row) => row.status === statusFilter);
     const filtered = query
-      ? rows.filter((row) => {
+      ? byStatus.filter((row) => {
           const haystack = [
             row.name,
             row.inviter_name,
@@ -140,7 +148,7 @@ export default function AwaitingTeacherSection({
             .toLowerCase();
           return haystack.includes(query);
         })
-      : [...rows];
+      : [...byStatus];
     const direction = sortDirection === "asc" ? 1 : -1;
     return filtered.sort((first, second) => {
       switch (sortField) {
@@ -182,7 +190,7 @@ export default function AwaitingTeacherSection({
         }
       }
     });
-  }, [rows, searchQuery, sortDirection, sortField]);
+  }, [rows, searchQuery, sortDirection, sortField, statusFilter]);
 
   const totalPages = Math.ceil(filteredRows.length / itemsPerPage) || 1;
   const page = Math.min(currentPage, totalPages);
@@ -256,6 +264,21 @@ export default function AwaitingTeacherSection({
               placeholder="Search visitors..."
               ariaLabel="Search visitors awaiting a teacher"
             />
+            <select
+              value={statusFilter}
+              onChange={(event) => {
+                setStatusFilter(
+                  event.target.value as AwaitingTeacherStatusFilter,
+                );
+                setCurrentPage(1);
+              }}
+              className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm md:min-w-0 md:max-w-[10rem] md:flex-1 md:truncate"
+              aria-label="Filter by visitor status"
+            >
+              <option value="ONGOING">Ongoing</option>
+              <option value="NO_RESPONSE">No Response</option>
+              <option value="ALL">All</option>
+            </select>
             <ViewModeToggle
               className="w-full md:w-auto md:shrink-0"
               compact={isMdUp}

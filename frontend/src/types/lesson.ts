@@ -60,6 +60,7 @@ export interface VisitorAwaitingTeacher {
   branch_code: string;
   cluster_codes: string[];
   phone: string;
+  status: "ONGOING" | "NO_RESPONSE" | string;
   visitor_since: string | null;
   inviter_name: string;
   enrollment_id: number | null;

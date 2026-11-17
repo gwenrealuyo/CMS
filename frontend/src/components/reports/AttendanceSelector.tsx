@@ -93,6 +93,8 @@ interface AttendanceSelectorProps {
   openRoster?: boolean;
   /** Short note under the label. */
   hint?: string;
+  /** Show a red required asterisk next to the label. */
+  required?: boolean;
 }
 
 export default function AttendanceSelector({
@@ -113,6 +115,7 @@ export default function AttendanceSelector({
   sitInSearch = false,
   openRoster = false,
   hint,
+  required = false,
 }: AttendanceSelectorProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
@@ -734,6 +737,12 @@ export default function AttendanceSelector({
       <div className="flex items-center justify-between mb-2">
         <label className="block text-sm font-medium text-gray-700">
           {label}
+          {required && label ? (
+            <>
+              {" "}
+              <span className="text-red-500">*</span>
+            </>
+          ) : null}
           <span className="text-gray-500 font-normal ml-2">
             ({selectedPeople.length} selected)
           </span>

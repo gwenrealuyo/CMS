@@ -278,6 +278,9 @@ export default function EvangelismWeeklyReportForm({
   });
   const [groupProspects, setGroupProspects] = useState<Prospect[]>(prospects);
   const [groupFieldError, setGroupFieldError] = useState<string | null>(null);
+  const [membersAttendedError, setMembersAttendedError] = useState<
+    string | null
+  >(null);
   const [previouslyAttendedVisitorIds, setPreviouslyAttendedVisitorIds] =
     useState<string[]>([]);
   const [mostRecentAttendedVisitorIds, setMostRecentAttendedVisitorIds] =
@@ -986,6 +989,12 @@ export default function EvangelismWeeklyReportForm({
     }
     setGroupFieldError(null);
 
+    if (!formData.cancelled && !(formData.members_attended || []).length) {
+      setMembersAttendedError("Select at least one member who attended.");
+      return;
+    }
+    setMembersAttendedError(null);
+
     try {
       await onSubmit({
         ...formData,
@@ -1068,7 +1077,7 @@ export default function EvangelismWeeklyReportForm({
         {showGroupPicker && (
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Evangelism group *
+              Evangelism group <span className="text-red-500">*</span>
             </label>
             <ScalableSelect
               value={selectedGroupId}
@@ -1092,31 +1101,33 @@ export default function EvangelismWeeklyReportForm({
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Year
+              Year <span className="text-red-500">*</span>
             </label>
             <input
               type="number"
               value={formData.year}
               readOnly
               tabIndex={-1}
+              required
               className="w-full rounded-md border border-gray-200 bg-gray-50 px-3 py-2 min-h-[44px] text-sm text-gray-600"
             />
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Week Number
+              Week Number <span className="text-red-500">*</span>
             </label>
             <input
               type="number"
               value={formData.week_number}
               readOnly
               tabIndex={-1}
+              required
               className="w-full rounded-md border border-gray-200 bg-gray-50 px-3 py-2 min-h-[44px] text-sm text-gray-600"
             />
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Meeting Date
+              Meeting Date <span className="text-red-500">*</span>
             </label>
             <input
               type="date"
@@ -1133,6 +1144,7 @@ export default function EvangelismWeeklyReportForm({
                   return next;
                 });
               }}
+              required
               className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm"
             />
           </div>
@@ -1143,12 +1155,13 @@ export default function EvangelismWeeklyReportForm({
             <input
               type="checkbox"
               checked={Boolean(formData.cancelled)}
-              onChange={(e) =>
+              onChange={(e) => {
+                setMembersAttendedError(null);
                 setFormData((prev) => ({
                   ...prev,
                   cancelled: e.target.checked,
-                }))
-              }
+                }));
+              }}
               className="h-4 w-4 rounded border-gray-300"
             />
             Gathering was cancelled
@@ -1156,7 +1169,7 @@ export default function EvangelismWeeklyReportForm({
           {formData.cancelled && (
             <div className="mt-3">
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Reason *
+                Reason <span className="text-red-500">*</span>
               </label>
               <textarea
                 value={formData.cancellation_reason || ""}
@@ -1180,7 +1193,7 @@ export default function EvangelismWeeklyReportForm({
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Gathering Type
+              Gathering Type <span className="text-red-500">*</span>
             </label>
             <select
               value={formData.gathering_type}
@@ -1191,6 +1204,7 @@ export default function EvangelismWeeklyReportForm({
                     .value as EvangelismWeeklyReportFormValues["gathering_type"],
                 }))
               }
+              required
               className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm"
             >
               <option value="PHYSICAL">Physical</option>
@@ -1200,7 +1214,7 @@ export default function EvangelismWeeklyReportForm({
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Topic
+              Topic <span className="text-red-500">*</span>
             </label>
             <input
               type="text"
@@ -1208,6 +1222,7 @@ export default function EvangelismWeeklyReportForm({
               onChange={(e) =>
                 setFormData((prev) => ({ ...prev, topic: e.target.value }))
               }
+              required
               className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm"
               placeholder="Topic or lesson..."
             />
@@ -1217,12 +1232,14 @@ export default function EvangelismWeeklyReportForm({
         <div className="space-y-4">
           <AttendanceSelector
             label="Members Attended"
+            required
             selectedIds={formData.members_attended}
             availablePeople={memberOptions}
             filterRole="MEMBER"
-            onSelectionChange={(ids) =>
-              setFormData((prev) => ({ ...prev, members_attended: ids }))
-            }
+            onSelectionChange={(ids) => {
+              setMembersAttendedError(null);
+              setFormData((prev) => ({ ...prev, members_attended: ids }));
+            }}
             allowedIds={allowedMemberIds}
             sitInSearch={Boolean(selectedGroupId) && !loadingRoster}
             hint="Search to add a member who sat in, including someone from another cluster. This records them for this meeting only and does not add them to the group."
@@ -1233,6 +1250,9 @@ export default function EvangelismWeeklyReportForm({
               loadingRoster || (showGroupPicker && !selectedGroupId)
             }
           />
+          {membersAttendedError && (
+            <p className="mt-1 text-sm text-red-600">{membersAttendedError}</p>
+          )}
           <div>
             <div className="flex items-center justify-between mb-2">
               <label className="text-sm font-medium text-gray-700">
@@ -1313,7 +1333,7 @@ export default function EvangelismWeeklyReportForm({
         <div className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Activities Held
+              Activities Held <span className="text-red-500">*</span>
             </label>
             <textarea
               value={formData.activities_held || ""}
@@ -1324,13 +1344,14 @@ export default function EvangelismWeeklyReportForm({
                 }))
               }
               rows={2}
+              required
               placeholder="Describe activities or events held during the evangelism meeting..."
               className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm"
             />
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Prayer Requests
+              Prayer Requests <span className="text-red-500">*</span>
             </label>
             <textarea
               value={formData.prayer_requests || ""}
@@ -1341,13 +1362,14 @@ export default function EvangelismWeeklyReportForm({
                 }))
               }
               rows={2}
+              required
               placeholder="List prayer requests shared during the meeting..."
               className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm"
             />
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Testimonies
+              Testimonies <span className="text-red-500">*</span>
             </label>
             <textarea
               value={formData.testimonies || ""}
@@ -1358,13 +1380,14 @@ export default function EvangelismWeeklyReportForm({
                 }))
               }
               rows={2}
+              required
               placeholder="Share testimonies or encouraging stories..."
               className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm"
             />
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Notes
+              Notes <span className="text-red-500">*</span>
             </label>
             <textarea
               value={formData.notes || ""}
@@ -1372,6 +1395,7 @@ export default function EvangelismWeeklyReportForm({
                 setFormData((prev) => ({ ...prev, notes: e.target.value }))
               }
               rows={3}
+              required
               placeholder="Additional notes, highlights, or concerns..."
               className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm"
             />

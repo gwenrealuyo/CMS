@@ -966,6 +966,7 @@ export default function ClusterWeeklyReportForm({
   }, [clusterProspects, pendingNewProspects]);
 
   const handleMembersChange = (ids: string[]) => {
+    setFormError(null);
     setFormData((prev) => ({ ...prev, members_attended: ids }));
   };
 
@@ -1043,6 +1044,10 @@ export default function ClusterWeeklyReportForm({
     e.preventDefault();
     e.stopPropagation();
     if (showAddVisitorModal || showAddProspectModal) {
+      return;
+    }
+    if (!formData.cancelled && !(formData.members_attended || []).length) {
+      setFormError("Select at least one member who attended.");
       return;
     }
     setLoading(true);
@@ -1134,7 +1139,7 @@ export default function ClusterWeeklyReportForm({
       {/* Cluster Selection */}
       <div className="mb-6">
         <label className="block text-sm font-medium text-gray-700 mb-2">
-          Cluster *
+          Cluster <span className="text-red-500">*</span>
         </label>
         <div className="relative" ref={dropdownRef}>
           <input
@@ -1191,7 +1196,7 @@ export default function ClusterWeeklyReportForm({
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
-            Year *
+            Year <span className="text-red-500">*</span>
           </label>
           <input
             type="number"
@@ -1206,7 +1211,7 @@ export default function ClusterWeeklyReportForm({
 
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
-            Week Number *
+            Week Number <span className="text-red-500">*</span>
           </label>
           <input
             type="number"
@@ -1230,7 +1235,7 @@ export default function ClusterWeeklyReportForm({
 
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
-            Meeting Date *
+            Meeting Date <span className="text-red-500">*</span>
           </label>
           <input
             type="date"
@@ -1251,7 +1256,7 @@ export default function ClusterWeeklyReportForm({
         {!formData.cancelled && (
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Gathering Type *
+              Gathering Type <span className="text-red-500">*</span>
             </label>
             <select
               value={formData.gathering_type || "PHYSICAL"}
@@ -1274,7 +1279,10 @@ export default function ClusterWeeklyReportForm({
           <input
             type="checkbox"
             checked={Boolean(formData.cancelled)}
-            onChange={(e) => handleChange("cancelled", e.target.checked)}
+            onChange={(e) => {
+              setFormError(null);
+              handleChange("cancelled", e.target.checked);
+            }}
             className="h-4 w-4 rounded border-gray-300"
           />
           Gathering was cancelled
@@ -1282,7 +1290,7 @@ export default function ClusterWeeklyReportForm({
         {formData.cancelled && (
           <div className="mt-3">
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Reason *
+              Reason <span className="text-red-500">*</span>
             </label>
             <textarea
               value={formData.cancellation_reason || ""}
@@ -1309,6 +1317,7 @@ export default function ClusterWeeklyReportForm({
         <>
           <AttendanceSelector
             label="Members Attended"
+            required
             selectedIds={(formData.members_attended || []).map((id) =>
               String(id)
             )}
@@ -1482,12 +1491,13 @@ export default function ClusterWeeklyReportForm({
       {/* Activities and Content */}
       <div className="mb-6">
         <label className="block text-sm font-medium text-gray-700 mb-2">
-          Activities Held
+          Activities Held <span className="text-red-500">*</span>
         </label>
         <textarea
           value={formData.activities_held || ""}
           onChange={(e) => handleChange("activities_held", e.target.value)}
           rows={3}
+          required
           placeholder="Describe activities or events held during the cluster meeting..."
           className="w-full px-3 py-2 min-h-[44px] border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent"
         />
@@ -1495,12 +1505,13 @@ export default function ClusterWeeklyReportForm({
 
       <div className="mb-6">
         <label className="block text-sm font-medium text-gray-700 mb-2">
-          Prayer Requests
+          Prayer Requests <span className="text-red-500">*</span>
         </label>
         <textarea
           value={formData.prayer_requests || ""}
           onChange={(e) => handleChange("prayer_requests", e.target.value)}
           rows={3}
+          required
           placeholder="List prayer requests shared during the meeting..."
           className="w-full px-3 py-2 min-h-[44px] border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent"
         />
@@ -1508,12 +1519,13 @@ export default function ClusterWeeklyReportForm({
 
       <div className="mb-6">
         <label className="block text-sm font-medium text-gray-700 mb-2">
-          Testimonies
+          Testimonies <span className="text-red-500">*</span>
         </label>
         <textarea
           value={formData.testimonies || ""}
           onChange={(e) => handleChange("testimonies", e.target.value)}
           rows={3}
+          required
           placeholder="Share testimonies or encouraging stories from members..."
           className="w-full px-3 py-2 min-h-[44px] border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent"
         />
@@ -1522,12 +1534,13 @@ export default function ClusterWeeklyReportForm({
       {/* Highlights and Lowlights */}
       <div className="mb-6">
         <label className="block text-sm font-medium text-gray-700 mb-2">
-          Highlights
+          Highlights <span className="text-red-500">*</span>
         </label>
         <textarea
           value={formData.highlights || ""}
           onChange={(e) => handleChange("highlights", e.target.value)}
           rows={3}
+          required
           placeholder="Positive events, achievements, or encouraging moments..."
           className="w-full px-3 py-2 min-h-[44px] border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent"
         />
@@ -1535,12 +1548,13 @@ export default function ClusterWeeklyReportForm({
 
       <div className="mb-6">
         <label className="block text-sm font-medium text-gray-700 mb-2">
-          Lowlights
+          Lowlights <span className="text-red-500">*</span>
         </label>
         <textarea
           value={formData.lowlights || ""}
           onChange={(e) => handleChange("lowlights", e.target.value)}
           rows={3}
+          required
           placeholder="Challenges, concerns, or areas needing attention..."
           className="w-full px-3 py-2 min-h-[44px] border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent"
         />

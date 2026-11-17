@@ -77,6 +77,62 @@ export function assistantClusterIdsFromAssignments(
     .map((a) => Number(a.resource_id));
 }
 
+/**
+ * Coordinator resource IDs from module_coordinator_assignments.
+ */
+export function coordinatorClusterIdsFromAssignments(
+  assignments: ModuleCoordinator[] | undefined,
+): number[] {
+  if (!assignments?.length) return [];
+  return assignments
+    .filter(
+      (a) =>
+        a.module === "CLUSTER" &&
+        a.level === "COORDINATOR" &&
+        a.resource_id != null,
+    )
+    .map((a) => Number(a.resource_id));
+}
+
+type ScopedClusterAutoOpenAuth = ManageClusterAuth & {
+  moduleCoordinatorAssignments?: ModuleCoordinator[];
+  /** Same gate as ClustersPageContainer `hasClusterModuleWideAccess`. */
+  hasClusterModuleWideAccess?: boolean;
+};
+
+/**
+ * For scoped CLUSTER coordinators / assistants / reporters: the sole assigned
+ * cluster id, or null when oversight, none, or more than one.
+ */
+export function resolveSingleScopedClusterId(
+  auth: ScopedClusterAutoOpenAuth,
+  clusters: Cluster[] = [],
+): number | null {
+  if (!auth.userId) return null;
+  if (auth.hasClusterModuleWideAccess) return null;
+
+  const assignments = auth.moduleCoordinatorAssignments ?? [];
+  const ids = new Set<number>([
+    ...coordinatorClusterIdsFromAssignments(assignments),
+    ...assistantClusterIdsFromAssignments(assignments),
+    ...reporterClusterIdsFromAssignments(assignments),
+  ]);
+
+  for (const cluster of clusters) {
+    const coordinatorId =
+      cluster.coordinator?.id ?? cluster.coordinator_id ?? undefined;
+    if (
+      coordinatorId != null &&
+      Number(coordinatorId) === Number(auth.userId)
+    ) {
+      ids.add(Number(cluster.id));
+    }
+  }
+
+  if (ids.size !== 1) return null;
+  return Array.from(ids)[0];
+}
+
 function isNamedOrAssignedCoordinator(
   cluster: Cluster,
   auth: ManageClusterAuth,

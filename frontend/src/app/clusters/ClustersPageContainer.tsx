@@ -33,6 +33,10 @@ import {
   userCanAccessMemberCare,
   userCanExportClusterData,
   userCanPickClusterBranch,
+  resolveSingleScopedClusterId,
+  coordinatorClusterIdsFromAssignments,
+  assistantClusterIdsFromAssignments,
+  reporterClusterIdsFromAssignments,
 } from "@/src/lib/clusterPermissions";
 import { countClusterMembersFromDetails } from "@/src/lib/clusterRoster";
 import { formatPersonName } from "@/src/lib/name";
@@ -993,6 +997,7 @@ export default function ClustersPageContainer() {
   );
 
   const openClusterId = searchParams.get("open");
+  const didAutoOpenScopedClusterRef = useRef(false);
 
   useEffect(() => {
     if (!openClusterId) {
@@ -1022,6 +1027,84 @@ export default function ClustersPageContainer() {
       cancelled = true;
     };
   }, [openClusterId, openClusterInteraction, pathname, router]);
+
+  // Scoped coord/assistant/reporter with exactly one cluster: open detail once.
+  useEffect(() => {
+    if (didAutoOpenScopedClusterRef.current) {
+      return;
+    }
+
+    const tab = searchParams.get("tab");
+    const conflictingTab =
+      tab === "reports" ||
+      tab === "care" ||
+      tab === "tally" ||
+      tab === "transfers";
+    if (openClusterId || action || conflictingTab) {
+      didAutoOpenScopedClusterRef.current = true;
+      return;
+    }
+
+    if (!user?.id || hasClusterModuleWideAccess) {
+      return;
+    }
+
+    const singleId = resolveSingleScopedClusterId(
+      { ...clusterAuthCtx, hasClusterModuleWideAccess },
+      clustersForNestedUi,
+    );
+
+    if (singleId == null) {
+      const assignmentIds = new Set([
+        ...coordinatorClusterIdsFromAssignments(
+          user.module_coordinator_assignments,
+        ),
+        ...assistantClusterIdsFromAssignments(
+          user.module_coordinator_assignments,
+        ),
+        ...reporterClusterIdsFromAssignments(
+          user.module_coordinator_assignments,
+        ),
+      ]);
+      if (assignmentIds.size !== 0) {
+        didAutoOpenScopedClusterRef.current = true;
+        return;
+      }
+      // Named FK coordinator only: wait for directory before giving up.
+      if (!branchFilterReady || clustersLoading) {
+        return;
+      }
+      didAutoOpenScopedClusterRef.current = true;
+      return;
+    }
+
+    didAutoOpenScopedClusterRef.current = true;
+
+    const fromList = clustersForNestedUi.find(
+      (c) => Number(c.id) === singleId,
+    );
+    void (async () => {
+      try {
+        const cluster =
+          fromList ?? (await clustersApi.getById(singleId)).data;
+        openClusterInteraction("view", cluster);
+      } catch (e) {
+        console.error("Failed to auto-open assigned cluster", e);
+      }
+    })();
+  }, [
+    action,
+    branchFilterReady,
+    clusterAuthCtx,
+    clustersForNestedUi,
+    clustersLoading,
+    hasClusterModuleWideAccess,
+    openClusterId,
+    openClusterInteraction,
+    searchParams,
+    user?.id,
+    user?.module_coordinator_assignments,
+  ]);
 
   useEffect(() => {
     const tab = searchParams.get("tab");

@@ -84,6 +84,7 @@ export default function LessonsPageContainer() {
   const pathname = usePathname();
   const action = searchParams.get("action");
   const tabParam = searchParams.get("tab");
+  const approvalParam = searchParams.get("approval");
   const [lessons, setLessons] = useState<Lesson[]>([]);
   const [lessonsLoading, setLessonsLoading] = useState(true);
   const [lessonsError, setLessonsError] = useState<string | null>(null);
@@ -269,7 +270,7 @@ export default function LessonsPageContainer() {
     () => isLessonsTeacherScoped(user),
     [user],
   );
-  const showStudentWorkflowTabs = !user || canWriteLessonsAccess;
+  const showStudentWorkflowTabs = Boolean(user) && canWriteLessonsAccess;
   const { people, loading: peopleLoading, error: peopleError } =
     usePeopleDirectory({
       enabled: Boolean(user) && showStudentWorkflowTabs,
@@ -801,6 +802,22 @@ export default function LessonsPageContainer() {
       setActiveContentTab("timeline");
     }
   }, [tabParam, user]);
+
+  useEffect(() => {
+    if (
+      tabParam !== "teachers" ||
+      approvalParam !== "pending" ||
+      !canBrowseAllLessonStudents(user)
+    ) {
+      return;
+    }
+    const frame = window.requestAnimationFrame(() => {
+      document
+        .getElementById("lessons-for-approval")
+        ?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [tabParam, approvalParam, user, activeContentTab]);
 
   useEffect(() => {
     if (
@@ -1382,7 +1399,9 @@ export default function LessonsPageContainer() {
         lesson_id: 0,
         person_ids: numericPersonIds,
       };
-      if (needsTeacher && !Number.isNaN(numericTeacherId)) {
+      // Always send a selected teacher id so students without an enrollment
+      // never hit "Teacher is required" when the local enrollment map is stale.
+      if (!Number.isNaN(numericTeacherId)) {
         assignPayload.teacher_id = numericTeacherId;
       }
 
@@ -1456,6 +1475,7 @@ export default function LessonsPageContainer() {
       await fetchAssignmentRequests();
       await fetchEnrollments();
       await refetchStudentSummaries();
+      await refetchVisitorsAwaitingTeacher();
       fetchSummary();
     } catch (error) {
       setAssignmentRequestsError(
@@ -1473,6 +1493,7 @@ export default function LessonsPageContainer() {
       await lessonsApi.rejectAssignmentRequest(id, note);
       toast.success("Assignment request rejected.");
       await fetchAssignmentRequests();
+      await refetchVisitorsAwaitingTeacher();
     } catch (error) {
       setAssignmentRequestsError(
         extractErrorMessage(error, "Failed to reject the assignment request.")

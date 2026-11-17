@@ -14,12 +14,7 @@ import {
 } from "@/src/lib/lessonsUtils";
 import { formatPersonName } from "@/src/lib/name";
 import { TABLE_ENTITY_LINK_CLASS } from "@/src/lib/tableEntityLink";
-import {
-  effectiveListViewMode,
-  getInitialListViewMode,
-  useIsMdUp,
-  useIsTabletUp,
-} from "@/src/lib/listViewMode";
+import { useIsMdUp, useListViewMode } from "@/src/lib/listViewMode";
 import { TOOLBAR_CARD_CLASS } from "@/src/lib/toolbarStyles";
 import { ChevronDownIcon, ChevronUpIcon } from "@heroicons/react/24/outline";
 
@@ -49,12 +44,8 @@ export default function TeacherOverviewSection({
   const [sortField, setSortField] =
     useState<TeacherOverviewSortField>("assigned");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
-  const [viewMode, setViewMode] = useState<"table" | "cards">(() =>
-    getInitialListViewMode("table"),
-  );
-  const isTabletUp = useIsTabletUp();
+  const [viewMode, setViewMode] = useListViewMode("table");
   const isMdUp = useIsMdUp();
-  const effectiveViewMode = effectiveListViewMode(viewMode, isTabletUp);
 
   const filteredRows = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
@@ -212,7 +203,7 @@ export default function TeacherOverviewSection({
           <div className="rounded-lg border border-dashed border-gray-200 p-4 text-center text-sm text-gray-500 sm:p-6">
             No teachers found for this branch.
           </div>
-        ) : effectiveViewMode === "cards" ? (
+        ) : viewMode === "cards" ? (
           <div className={`${TEACHER_LIST_HEIGHT_CLASS} space-y-3 overflow-y-auto`}>
             {filteredRows.map((row) => (
               <article

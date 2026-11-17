@@ -121,7 +121,7 @@ export default function LessonContentTabs({
   }, [activeTab]);
 
   return (
-    <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+    <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
       <div className="min-w-0 flex-1 border-b border-gray-200">
         <nav
           className="-mb-px flex snap-x snap-mandatory gap-4 overflow-x-auto scroll-smooth"
@@ -163,7 +163,7 @@ export default function LessonContentTabs({
         </nav>
       </div>
       {branchFilter ? (
-        <div className={`${TOOLBAR_BRANCH_HEADER_SLOT_CLASS} md:pb-1`}>
+        <div className={`${TOOLBAR_BRANCH_HEADER_SLOT_CLASS} lg:pb-1`}>
           {branchFilter}
         </div>
       ) : null}

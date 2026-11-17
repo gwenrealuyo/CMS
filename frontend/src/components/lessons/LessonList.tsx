@@ -36,7 +36,7 @@ export default function LessonList({
           No lessons available yet. Create the first one to get started.
         </div>
       ) : (
-        <div className="space-y-3">
+        <div className="w-full space-y-3">
           {lessons.map((lesson) => {
             const isSelected = lesson.id === selectedLessonId;
 
@@ -45,13 +45,13 @@ export default function LessonList({
                 key={`${lesson.code}-${lesson.version_label}-${lesson.id}`}
                 type="button"
                 onClick={() => onSelect(lesson)}
-                className={`card-list-row px-4 py-3 ${
+                className={`card-list-row box-border w-full px-4 py-3 text-left ${
                   isSelected ? "card-list-row--selected" : ""
                 }`}
               >
-                <div className="flex justify-between items-start gap-3">
-                  <div>
-                    <div className="flex items-center gap-2">
+                <div className="flex w-full min-w-0 items-start justify-between gap-3">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
                       <span className="text-sm font-semibold text-gray-500">
                         Step {lesson.order}
                       </span>
@@ -73,11 +73,16 @@ export default function LessonList({
                         </span>
                       )}
                     </div>
-                    <h4 className="text-lg font-semibold text-foreground mt-1">
+                    <h4 className="mt-1 break-words text-lg font-semibold text-foreground">
                       {lesson.title}
                     </h4>
+                    {lesson.short_title?.trim() ? (
+                      <p className="mt-0.5 break-words text-sm text-gray-600">
+                        Short title: {lesson.short_title.trim()}
+                      </p>
+                    ) : null}
                     {lesson.summary && (
-                      <p className="text-sm text-gray-500 mt-1">
+                      <p className="mt-1 break-words text-sm text-gray-500">
                         {lesson.summary}
                       </p>
                     )}

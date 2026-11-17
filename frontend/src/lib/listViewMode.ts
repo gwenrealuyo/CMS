@@ -1,6 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type Dispatch,
+  type SetStateAction,
+} from "react";
 import { DESKTOP_MIN, TABLET_MIN } from "@/src/lib/breakpoints";
 
 export function getInitialListViewMode(
@@ -10,6 +17,34 @@ export function getInitialListViewMode(
     return "cards";
   }
   return desktopDefault;
+}
+
+/**
+ * Mobile-first list mode. Starts on cards so SSR/hydration does not lock phones
+ * to table; after mount, applies the desktop default on tablet+ widths.
+ * User toggles are preserved.
+ */
+export function useListViewMode(
+  desktopDefault: "table" | "cards" = "table",
+): ["table" | "cards", Dispatch<SetStateAction<"table" | "cards">>] {
+  const [viewMode, setViewMode] = useState<"table" | "cards">("cards");
+  const userChoseRef = useRef(false);
+
+  useEffect(() => {
+    if (userChoseRef.current) {
+      return;
+    }
+    setViewMode(getInitialListViewMode(desktopDefault));
+  }, [desktopDefault]);
+
+  const setViewModeWithChoice = useCallback<
+    Dispatch<SetStateAction<"table" | "cards">>
+  >((value) => {
+    userChoseRef.current = true;
+    setViewMode(value);
+  }, []);
+
+  return [viewMode, setViewModeWithChoice];
 }
 
 export function useIsMdUp(): boolean {

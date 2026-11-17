@@ -94,6 +94,8 @@ class LessonTimelineAPITests(APITestCase):
             is_active=True,
         )
         cluster.members.add(self.student)
+        self.student.primary_cluster = cluster
+        self.student.save(update_fields=["primary_cluster"])
 
         self.quiet = self._person(
             "timelinequiet",
@@ -184,6 +186,22 @@ class LessonTimelineAPITests(APITestCase):
             lesson for lesson in row["lessons"] if lesson["lesson_id"] == self.lesson.id
         )
         self.assertEqual(completed["completed_on"], row["last_session_date"])
+
+    def test_timeline_shows_only_primary_cluster(self):
+        secondary = Cluster.objects.create(
+            name="South",
+            code="SOUTH",
+            branch=self.branch_a,
+            is_active=True,
+        )
+        secondary.members.add(self.student)
+        self.student.refresh_from_db()
+        self.assertEqual(self.student.clusters.count(), 2)
+
+        response = self._rows(self.coordinator)
+        self.assertEqual(response.status_code, 200)
+        by_id = {row["person"]["id"]: row for row in response.data["students"]}
+        self.assertEqual(by_id[self.student.id]["cluster_codes"], ["NORTH"])
 
     def test_no_session_counts_days_since_enrollment(self):
         response = self._rows(self.coordinator)

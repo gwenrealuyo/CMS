@@ -3,7 +3,7 @@ from datetime import date
 from rest_framework.test import APITestCase
 
 from apps.clusters.models import Cluster
-from apps.lessons.models import LessonStudentEnrollment
+from apps.lessons.models import LessonAssignmentRequest, LessonStudentEnrollment
 from apps.people.models import Branch, ModuleCoordinator, Person
 
 
@@ -196,6 +196,55 @@ class VisitorsAwaitingTeacherAPITests(APITestCase):
             by_id[self.historical.id]["enrollment_id"],
             self.historical_enrollment.id,
         )
+        self.assertEqual(row["pending_teachers"], [])
+        self.assertEqual(by_id[self.historical.id]["pending_teachers"], [])
+
+    def test_includes_pending_teachers_for_open_requests(self):
+        LessonAssignmentRequest.objects.create(
+            student=self.unassigned,
+            teacher=self.teacher,
+            requested_by=self.teacher,
+            status=LessonAssignmentRequest.Status.PENDING,
+        )
+        non_visitor = self._person(
+            "awaitpendingpastor",
+            role="PASTOR",
+            branch=self.branch_a,
+            first_name="Pat",
+            last_name="Pastor",
+            status="SEMIACTIVE",
+            water_baptism_date=date(2020, 1, 1),
+        )
+        LessonAssignmentRequest.objects.create(
+            student=non_visitor,
+            teacher=self.teacher,
+            requested_by=self.teacher,
+            status=LessonAssignmentRequest.Status.PENDING,
+        )
+        response = self._ids(self.admin, status="ONGOING")
+        self.assertEqual(response.status_code, 200)
+        by_id = {row["id"]: row for row in response.data["results"]}
+        self.assertIn(self.unassigned.id, by_id)
+        self.assertIn(non_visitor.id, by_id)
+        self.assertEqual(
+            by_id[self.unassigned.id]["pending_teachers"],
+            [
+                {
+                    "id": self.teacher.id,
+                    "name": self.teacher.get_full_name(),
+                }
+            ],
+        )
+        self.assertEqual(
+            by_id[non_visitor.id]["pending_teachers"],
+            [
+                {
+                    "id": self.teacher.id,
+                    "name": self.teacher.get_full_name(),
+                }
+            ],
+        )
+        self.assertEqual(by_id[self.historical.id]["pending_teachers"], [])
 
     def test_coordinator_is_limited_to_their_branch(self):
         response = self._ids(self.coordinator, branch_id=self.branch_b.id)

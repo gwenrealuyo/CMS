@@ -839,8 +839,14 @@ def person_assignment_eligibility_error(
         return "is not a visitor"
     if person.has_finished_lessons:
         return "has finished lessons"
-    if LessonStudentEnrollment.objects.filter(student=person).exists():
-        return "already has a lessons teacher"
+    if LessonAssignmentRequest.objects.filter(
+        student=person,
+        status=LessonAssignmentRequest.Status.PENDING,
+    ).exists():
+        return "has a pending teacher assignment request"
+    # Existing enrollment must not block progress assign: coordinators assign
+    # multiple active lessons in sequence, and the first call creates the
+    # enrollment that later calls would otherwise reject.
     if lesson is not None and PersonLessonProgress.objects.filter(
         person=person, lesson=lesson
     ).exists():
@@ -1485,6 +1491,7 @@ def build_lesson_teacher_overview(*, people_qs, roster_rows: list[dict]) -> list
 def build_lesson_student_summaries(
     *,
     progress_qs,
+    enrollment_qs=None,
     people_scope_qs=None,
     search: Optional[str] = None,
     teacher_id: Optional[int] = None,
@@ -1505,7 +1512,21 @@ def build_lesson_student_summaries(
         lesson__is_latest=True,
         lesson__is_active=True,
     )
-    person_ids = list(base_progress.values_list("person_id", flat=True).distinct())
+    # Clear model Meta.ordering — DISTINCT person_id otherwise keeps
+    # lesson__order / name columns and repeats each student once per lesson.
+    person_ids = list(
+        base_progress.order_by().values_list("person_id", flat=True).distinct()
+    )
+    # Match Teachers overview: include active enrollments even with no progress yet.
+    if enrollment_qs is not None:
+        enrollment_person_ids = list(
+            enrollment_qs.values_list("student_id", flat=True)
+        )
+        seen = set(person_ids)
+        for student_id in enrollment_person_ids:
+            if student_id not in seen:
+                seen.add(student_id)
+                person_ids.append(student_id)
     if people_scope_qs is not None:
         allowed_ids = set(people_scope_qs.values_list("pk", flat=True))
         person_ids = [pid for pid in person_ids if pid in allowed_ids]
@@ -1735,8 +1756,8 @@ def build_lesson_timeline(
     people = people.select_related(
         "lesson_enrollment__teacher",
         "lesson_follow_up_case",
+        "primary_cluster",
     ).prefetch_related(
-        "clusters",
         Prefetch(
             "lesson_progress",
             queryset=PersonLessonProgress.objects.select_related("lesson"),
@@ -1829,6 +1850,12 @@ def build_lesson_timeline(
             for row in lesson_rows
         )
         has_finished_lessons = bool(person.has_finished_lessons) or completed_all_catalog
+        primary_cluster = (
+            person.primary_cluster if person.primary_cluster_id else None
+        )
+        primary_cluster_code = (
+            (primary_cluster.code or "").strip() if primary_cluster is not None else ""
+        )
 
         students.append(
             {
@@ -1846,8 +1873,8 @@ def build_lesson_timeline(
                     if person.spirit_baptism_date
                     else None
                 ),
-                "cluster_codes": sorted(
-                    code for cluster in person.clusters.all() if (code := cluster.code)
+                "cluster_codes": (
+                    [primary_cluster_code] if primary_cluster_code else []
                 ),
                 "lessons": lesson_rows,
                 "last_session_date": (

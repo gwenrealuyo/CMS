@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useRef } from "react";
 import { LockedControlTooltip } from "@/src/components/ui/LockedControlTooltip";
 import { LESSONS_BRANCH_LOCKED_HINT } from "@/src/lib/lessonsBranchFilter";
 import BranchFilterFrame from "@/src/components/ui/BranchFilterFrame";
@@ -7,6 +7,7 @@ import {
   TOOLBAR_BRANCH_HEADER_SELECT_CLASS,
   TOOLBAR_BRANCH_HEADER_SELECT_LOCKED_CLASS,
 } from "@/src/lib/toolbarStyles";
+import { useIsDesktopUp } from "@/src/lib/listViewMode";
 import DashboardLayout from "@/src/components/layout/DashboardLayout";
 import LessonList from "@/src/components/lessons/LessonList";
 import LessonDetailPanel from "@/src/components/lessons/LessonDetailPanel";
@@ -549,7 +550,7 @@ export default function LessonsPageView({
     moduleEnabled,
   });
   const canTransferLessonTeacher = canWriteLessonsAccess;
-  const showStudentWorkflowTabs = !user || canWriteLessonsAccess;
+  const showStudentWorkflowTabs = Boolean(user) && canWriteLessonsAccess;
   const showTeachersTab =
     showStudentWorkflowTabs && canBrowseAllLessonStudents(user);
   const showTimelineTab =
@@ -572,9 +573,7 @@ export default function LessonsPageView({
     isModuleCoordinator("CLUSTER", "COORDINATOR") ||
     isModuleCoordinator("CLUSTER", "ASSISTANT_COORDINATOR");
 
-  const ongoingAwaitingTeacherCount = visitorsAwaitingTeacherLoaded
-    ? visitorsAwaitingTeacher.filter((row) => row.status === "ONGOING").length
-    : null;
+  const visitorsAwaitingCount = summary?.unassigned_visitors ?? 0;
 
   const lessonsBranchSelectInteractive =
     lessonsBranchCanChangeFilter && !lessonsBranchesLoading;
@@ -590,6 +589,22 @@ export default function LessonsPageView({
     lessonsBranchesLoading,
     lessonsBranchCanChangeFilter,
   ]);
+
+  const lessonDetailRef = useRef<HTMLDivElement | null>(null);
+  const isDesktopUp = useIsDesktopUp();
+
+  const handleSelectLesson = (lesson: Lesson) => {
+    onSelectLesson(lesson);
+    if (isDesktopUp) {
+      return;
+    }
+    window.requestAnimationFrame(() => {
+      lessonDetailRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    });
+  };
 
   const renderLessonsBranchSelect = () => {
     const options =
@@ -674,9 +689,7 @@ export default function LessonsPageView({
         {shouldShowStats && (
           <LessonStatsCards
             summary={summary}
-            visitorsAwaitingCount={
-              ongoingAwaitingTeacherCount ?? summary?.unassigned_visitors ?? 0
-            }
+            visitorsAwaitingCount={visitorsAwaitingCount}
             loading={summaryLoading}
             error={summaryError}
             ongoingStudentsCount={ongoingStudentsCount}
@@ -697,7 +710,9 @@ export default function LessonsPageView({
             hideTeachers={!showTeachersTab}
             hideTimeline={!showTimelineTab}
             hideAwaitingTeacher={!showTeachersTab}
-            awaitingTeacherCount={ongoingAwaitingTeacherCount}
+            awaitingTeacherCount={
+              summary != null ? visitorsAwaitingCount : null
+            }
             hideSessions={!showStudentWorkflowTabs}
             branchFilter={
               showStudentWorkflowTabs ? renderLessonsBranchSelect() : undefined
@@ -707,8 +722,8 @@ export default function LessonsPageView({
           <div
             className={activeContentTab === "lesson" ? "space-y-6" : "hidden"}
           >
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              <div className="lg:col-span-1">
+            <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+              <div className="min-w-0 lg:col-span-1">
                 {lessonsLoading ? (
                   <Card>
                     <LoadingSpinner />
@@ -718,7 +733,7 @@ export default function LessonsPageView({
                     <LessonList
                       lessons={lessons}
                       selectedLessonId={selectedLessonId}
-                      onSelect={onSelectLesson}
+                      onSelect={handleSelectLesson}
                       onEdit={
                         canManageLessonCatalogAccess
                           ? onOpenEditLesson
@@ -733,7 +748,10 @@ export default function LessonsPageView({
                   </div>
                 )}
               </div>
-              <div className="lg:col-span-2">
+              <div
+                ref={lessonDetailRef}
+                className="min-w-0 scroll-mt-4 lg:col-span-2"
+              >
                 <LessonDetailPanel
                   lesson={selectedLesson}
                   onEdit={
@@ -809,17 +827,19 @@ export default function LessonsPageView({
                 activeContentTab === "teachers" ? "space-y-6" : "hidden"
               }
             >
-              <AssignmentRequestQueue
-                title="For approval"
-                description="Teachers requested these students for themselves. Approving assigns the student and any requested lessons. Rejecting leaves the student unassigned."
-                requests={assignmentRequests}
-                loading={assignmentRequestsLoading}
-                error={assignmentRequestsError}
-                canReview
-                reviewingId={reviewingAssignmentRequestId}
-                onApprove={onApproveAssignmentRequest}
-                onReject={onRejectAssignmentRequest}
-              />
+              <div id="lessons-for-approval">
+                <AssignmentRequestQueue
+                  title="For approval"
+                  description="Teachers requested these students for themselves. Approving assigns the student and any requested lessons. Rejecting leaves the student unassigned."
+                  requests={assignmentRequests}
+                  loading={assignmentRequestsLoading}
+                  error={assignmentRequestsError}
+                  canReview
+                  reviewingId={reviewingAssignmentRequestId}
+                  onApprove={onApproveAssignmentRequest}
+                  onReject={onRejectAssignmentRequest}
+                />
+              </div>
               <TeacherOverviewSection
                 rows={teacherOverviewRows}
                 loading={teacherOverviewLoading ?? allProgressLoading}
@@ -870,7 +890,7 @@ export default function LessonsPageView({
             <div
               className={
                 activeContentTab === "awaiting-teacher"
-                  ? "space-y-6"
+                  ? "min-w-0 space-y-6"
                   : "hidden"
               }
             >

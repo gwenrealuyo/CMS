@@ -308,8 +308,16 @@ def visitors_awaiting_teacher(request):
         student_id=OuterRef("pk"),
         teacher__isnull=False,
     )
+    pending_assignment_students = LessonAssignmentRequest.objects.filter(
+        status=LessonAssignmentRequest.Status.PENDING,
+        student_id=OuterRef("pk"),
+    )
+    # Visitors without a live teacher, plus anyone with an open teacher
+    # request (so pending teachers are visible on this tab).
     queryset = (
-        Person.objects.filter(role="VISITOR")
+        Person.objects.filter(
+            Q(role="VISITOR") | Exists(pending_assignment_students)
+        )
         .exclude(status="DECEASED")
         .exclude(has_finished_lessons=True)
         .exclude(Exists(live_teacher))
@@ -334,7 +342,11 @@ def visitors_awaiting_teacher(request):
 
     status_param = request.query_params.get("status")
     if status_param:
-        queryset = queryset.filter(status=status_param)
+        # Keep pending teacher requests visible even when their person status
+        # (e.g. SEMIACTIVE) does not match the Ongoing filter.
+        queryset = queryset.filter(
+            Q(status=status_param) | Exists(pending_assignment_students)
+        )
 
     ordering = request.query_params.get("ordering") or "last_name"
     allowed_order = {
@@ -358,12 +370,34 @@ def visitors_awaiting_teacher(request):
         else:
             people = list(queryset)
 
+    person_ids = [person.id for person in people]
     enrollment_ids = dict(
         LessonStudentEnrollment.objects.filter(
-            student_id__in=[person.id for person in people],
+            student_id__in=person_ids,
             teacher__isnull=True,
         ).values_list("student_id", "id")
     )
+
+    pending_teachers_by_student: dict[int, list[dict]] = {person_id: [] for person_id in person_ids}
+    if person_ids:
+        pending_rows = (
+            LessonAssignmentRequest.objects.filter(
+                student_id__in=person_ids,
+                status=LessonAssignmentRequest.Status.PENDING,
+            )
+            .select_related("teacher")
+            .order_by("created_at", "id")
+        )
+        for request_row in pending_rows:
+            teacher = request_row.teacher
+            if teacher is None:
+                continue
+            pending_teachers_by_student.setdefault(request_row.student_id, []).append(
+                {
+                    "id": teacher.id,
+                    "name": teacher.get_full_name() or teacher.username,
+                }
+            )
 
     payload = []
     for person in people:
@@ -393,6 +427,7 @@ def visitors_awaiting_teacher(request):
                 "visitor_since": _visitor_since(person),
                 "inviter_name": inviter_name,
                 "enrollment_id": enrollment_ids.get(person.id),
+                "pending_teachers": pending_teachers_by_student.get(person.id, []),
             }
         )
 
@@ -722,8 +757,23 @@ class PersonLessonProgressViewSet(
         except (TypeError, ValueError) as exc:
             raise ValidationError({"page": "Invalid query parameters."}) from exc
 
+        user = request.user
+        enrollment_qs = LessonStudentEnrollment.objects.filter(is_active=True)
+        if user.role in ["ADMIN", "PASTOR"] or has_lessons_browse_all(user):
+            pass
+        elif has_lessons_teacher_assignment(user):
+            enrollment_qs = enrollment_qs.filter(teacher=user)
+        elif user.role == "MEMBER":
+            enrollment_qs = enrollment_qs.filter(student=user)
+        else:
+            enrollment_qs = enrollment_qs.none()
+        enrollment_qs = apply_lessons_branch_filter(
+            enrollment_qs, user, request, person_lookup="student"
+        )
+
         payload = build_lesson_student_summaries(
             progress_qs=self.get_queryset(),
+            enrollment_qs=enrollment_qs,
             search=params.get("search"),
             teacher_id=teacher_id,
             teacher_key=params.get("teacher_key") or params.get("teacher"),
@@ -737,7 +787,9 @@ class PersonLessonProgressViewSet(
 
     @action(detail=False, methods=["get"], url_path="latest-session-activity")
     def latest_session_activity(self, request):
-        student_ids = self.get_queryset().values_list("person_id", flat=True).distinct()
+        student_ids = (
+            self.get_queryset().order_by().values_list("person_id", flat=True).distinct()
+        )
         return Response(build_latest_session_activity(student_ids))
 
     @action(detail=False, methods=["post"], url_path="follow-up")

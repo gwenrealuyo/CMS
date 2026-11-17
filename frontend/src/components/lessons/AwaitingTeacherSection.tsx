@@ -1,9 +1,11 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import PersonProfile from "@/src/components/people/PersonProfile";
 import Button from "@/src/components/ui/Button";
 import Card from "@/src/components/ui/Card";
+import ConfirmationModal from "@/src/components/ui/ConfirmationModal";
 import ErrorMessage from "@/src/components/ui/ErrorMessage";
 import LoadingSpinner from "@/src/components/ui/LoadingSpinner";
 import ModalOverlay from "@/src/components/ui/ModalOverlay";
@@ -12,12 +14,7 @@ import ScalableSelect from "@/src/components/ui/ScalableSelect";
 import ToolbarSearch from "@/src/components/ui/ToolbarSearch";
 import ViewModeToggle from "@/src/components/ui/ViewModeToggle";
 import { peopleApi } from "@/src/lib/api";
-import {
-  effectiveListViewMode,
-  getInitialListViewMode,
-  useIsMdUp,
-  useIsTabletUp,
-} from "@/src/lib/listViewMode";
+import { useIsMdUp, useListViewMode } from "@/src/lib/listViewMode";
 import {
   escapeCsvValue,
   extractErrorMessage,
@@ -123,12 +120,8 @@ export default function AwaitingTeacherSection({
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(DEFAULT_ITEMS_PER_PAGE);
-  const [viewMode, setViewMode] = useState<"table" | "cards">(() =>
-    getInitialListViewMode("table"),
-  );
-  const isTabletUp = useIsTabletUp();
+  const [viewMode, setViewMode] = useListViewMode("table");
   const isMdUp = useIsMdUp();
-  const effectiveViewMode = effectiveListViewMode(viewMode, isTabletUp);
   const [profilePerson, setProfilePerson] = useState<Person | null>(null);
   const [profileOpen, setProfileOpen] = useState(false);
   const [profileLoading, setProfileLoading] = useState(false);
@@ -278,6 +271,7 @@ export default function AwaitingTeacherSection({
 
   const exportHeaders = useMemo(
     () => [
+      "#",
       "Name",
       ...(showBranchColumn ? ["Branch"] : []),
       "Cluster",
@@ -285,11 +279,16 @@ export default function AwaitingTeacherSection({
       "Visitor since",
       "Status",
       "Phone",
+      "Pending teacher",
     ],
     [showBranchColumn],
   );
 
-  const buildExportCells = (row: VisitorAwaitingTeacher): string[] => [
+  const buildExportCells = (
+    row: VisitorAwaitingTeacher,
+    rowNumber: number,
+  ): string[] => [
+    String(rowNumber),
     row.name,
     ...(showBranchColumn ? [row.branch_code] : []),
     row.cluster_codes.join(", "),
@@ -297,58 +296,14 @@ export default function AwaitingTeacherSection({
     formatDateOnly(row.visitor_since),
     row.status,
     row.phone,
+    (row.pending_teachers ?? []).map((teacher) => teacher.name).join(", "),
   ];
-
-  const exportToCsv = () => {
-    const csvContent = [
-      exportHeaders.map(escapeCsvValue).join(","),
-      ...filteredRows.map((row) =>
-        buildExportCells(row).map(escapeCsvValue).join(","),
-      ),
-    ].join("\n");
-
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.setAttribute("download", "awaiting-teacher.csv");
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-  };
-
-  const exportToExcel = () => {
-    const worksheet = XLSX.utils.json_to_sheet(
-      filteredRows.map((row) => {
-        const cells = buildExportCells(row);
-        return Object.fromEntries(
-          exportHeaders.map((header, index) => [header, cells[index] ?? ""]),
-        );
-      }),
-    );
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Awaiting Teacher");
-    XLSX.writeFile(workbook, "awaiting-teacher.xlsx");
-  };
-
-  const exportToPdf = () => {
-    const doc = new jsPDF({ orientation: "landscape" });
-    autoTable(doc, {
-      head: [exportHeaders],
-      body: filteredRows.map((row) => buildExportCells(row)),
-      startY: 20,
-      theme: "grid",
-      styles: { fontSize: 8 },
-    });
-    doc.save("awaiting-teacher.pdf");
-  };
 
   const runExport = (exportRows: VisitorAwaitingTeacher[]) => {
     const csvContent = [
       exportHeaders.map(escapeCsvValue).join(","),
-      ...exportRows.map((row) =>
-        buildExportCells(row).map(escapeCsvValue).join(","),
+      ...exportRows.map((row, index) =>
+        buildExportCells(row, index + 1).map(escapeCsvValue).join(","),
       ),
     ].join("\n");
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
@@ -373,10 +328,13 @@ export default function AwaitingTeacherSection({
     switch (format) {
       case "excel": {
         const worksheet = XLSX.utils.json_to_sheet(
-          exportRows.map((row) => {
-            const cells = buildExportCells(row);
+          exportRows.map((row, index) => {
+            const cells = buildExportCells(row, index + 1);
             return Object.fromEntries(
-              exportHeaders.map((header, index) => [header, cells[index] ?? ""]),
+              exportHeaders.map((header, headerIndex) => [
+                header,
+                cells[headerIndex] ?? "",
+              ]),
             );
           }),
         );
@@ -389,7 +347,7 @@ export default function AwaitingTeacherSection({
         const doc = new jsPDF({ orientation: "landscape" });
         autoTable(doc, {
           head: [exportHeaders],
-          body: exportRows.map((row) => buildExportCells(row)),
+          body: exportRows.map((row, index) => buildExportCells(row, index + 1)),
           startY: 20,
           theme: "grid",
           styles: { fontSize: 8 },
@@ -595,7 +553,7 @@ export default function AwaitingTeacherSection({
           <div className="rounded-lg border border-dashed border-gray-200 p-4 text-center text-sm text-gray-500 sm:p-6">
             No visitors are waiting for a lessons teacher.
           </div>
-        ) : effectiveViewMode === "cards" ? (
+        ) : viewMode === "cards" ? (
           <div className="space-y-3">
             {paginatedRows.map((row) => (
               <article
@@ -788,6 +746,18 @@ function AssignTeacherControls({
   onAssign: AwaitingTeacherSectionProps["onAssign"];
 }) {
   const [teacherId, setTeacherId] = useState("");
+  const [teacherUnavailableAlertOpen, setTeacherUnavailableAlertOpen] =
+    useState(false);
+  const pendingTeachers = row.pending_teachers ?? [];
+  const hasPendingTeacher = pendingTeachers.length > 0;
+  const pendingTeacherLabel = pendingTeachers
+    .map((teacher) => teacher.name.trim())
+    .filter(Boolean)
+    .join(", ");
+  const missingBranch = row.branch_id == null;
+  const teacherUnavailableMessage = missingBranch
+    ? "This student doesn't have a branch on their profile. Add a branch before assigning a teacher."
+    : NCC_TEACHER_ROSTER_EMPTY_MESSAGE;
   const options = useMemo(
     () =>
       teacherChoices
@@ -812,30 +782,79 @@ function AssignTeacherControls({
         })),
     [row.branch_id, row.id, teacherChoices],
   );
+  const noTeachersAvailable = options.length === 0;
+
+  const closeTeacherUnavailableAlert = () =>
+    setTeacherUnavailableAlertOpen(false);
+
+  if (hasPendingTeacher) {
+    return (
+      <div className="flex w-full min-w-[18rem] flex-col gap-2 sm:w-[24rem] sm:shrink-0 sm:flex-row sm:items-center">
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-medium text-gray-900">
+            {pendingTeacherLabel || "Pending teacher"}
+          </p>
+          <Link
+            href="/lessons?tab=teachers&approval=pending"
+            className="text-xs font-medium text-amber-700 hover:text-amber-800 hover:underline"
+          >
+            Pending approval
+          </Link>
+        </div>
+        <Button
+          variant="primary"
+          className="shrink-0 px-3"
+          disabled
+          title="Review this request on the Teachers tab"
+        >
+          Assign
+        </Button>
+      </div>
+    );
+  }
 
   return (
-    <div className="flex w-full min-w-[18rem] flex-col gap-2 sm:w-[24rem] sm:shrink-0 sm:flex-row sm:items-center">
-      <div className="min-w-0 flex-1">
-        <ScalableSelect
-          options={options}
-          value={teacherId}
-          onChange={setTeacherId}
-          placeholder="Select teacher"
-          searchPlaceholder="Search teachers..."
-          emptyMessage={NCC_TEACHER_ROSTER_EMPTY_MESSAGE}
-          disabled={assigning || options.length === 0}
-          menuMinWidth={384}
-        />
+    <>
+      <div className="flex w-full min-w-[18rem] flex-col gap-2 sm:w-[24rem] sm:shrink-0 sm:flex-row sm:items-center">
+        <div className="relative min-w-0 flex-1">
+          <ScalableSelect
+            options={options}
+            value={teacherId}
+            onChange={setTeacherId}
+            placeholder="Select teacher"
+            searchPlaceholder="Search teachers..."
+            emptyMessage={teacherUnavailableMessage}
+            disabled={assigning || noTeachersAvailable}
+            menuMinWidth={384}
+          />
+          {noTeachersAvailable ? (
+            <button
+              type="button"
+              className="absolute inset-0 z-10 cursor-not-allowed"
+              aria-label={teacherUnavailableMessage}
+              onClick={() => setTeacherUnavailableAlertOpen(true)}
+            />
+          ) : null}
+        </div>
+        <Button
+          variant="primary"
+          className="shrink-0 px-3"
+          disabled={assigning || !teacherId || !hasActiveLessons}
+          onClick={() => onAssign(String(row.id), teacherId, row.enrollment_id)}
+        >
+          {assigning ? "Assigning..." : "Assign"}
+        </Button>
       </div>
-      <Button
-        variant="primary"
-        className="shrink-0 px-3"
-        disabled={assigning || !teacherId || !hasActiveLessons}
-        onClick={() => onAssign(String(row.id), teacherId, row.enrollment_id)}
-      >
-        {assigning ? "Assigning..." : "Assign"}
-      </Button>
-    </div>
+      <ConfirmationModal
+        isOpen={teacherUnavailableAlertOpen}
+        onClose={closeTeacherUnavailableAlert}
+        onConfirm={closeTeacherUnavailableAlert}
+        title="Cannot select teacher"
+        message={teacherUnavailableMessage}
+        confirmText="OK"
+        variant="info"
+      />
+    </>
   );
 }
 

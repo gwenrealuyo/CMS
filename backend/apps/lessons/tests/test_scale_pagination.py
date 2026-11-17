@@ -203,6 +203,41 @@ class LessonsScalePaginationAPITests(APITestCase):
         self.assertEqual(tara["in_progress"], 0)
         self.assertEqual(tara["number"], 1)
 
+    def test_student_summaries_includes_enrollment_only_students(self):
+        enrollment_only = self._person(
+            "scaleenrollonly",
+            role="VISITOR",
+            branch=self.branch,
+            first_name="Enroll",
+            last_name="Only",
+            status="ONGOING",
+        )
+        LessonStudentEnrollment.objects.create(
+            student=enrollment_only,
+            teacher=self.teacher,
+        )
+
+        self.client.force_authenticate(self.coordinator)
+        overview = self.client.get(
+            "/api/lessons/teachers/overview/",
+            {"branch_id": self.branch.id},
+        )
+        tara = next(
+            (row for row in overview.data if row["key"] == str(self.teacher.id)),
+            None,
+        )
+        self.assertIsNotNone(tara)
+        self.assertEqual(tara["total"], 3)
+
+        progress = self.client.get(
+            "/api/lessons/progress/student-summaries/",
+            {"teacher_key": str(self.teacher.id), "page_size": 50},
+        )
+        self.assertEqual(progress.status_code, 200)
+        self.assertEqual(progress.data["count"], tara["total"])
+        ids = {row["person"]["id"] for row in progress.data["results"]}
+        self.assertIn(enrollment_only.id, ids)
+
     def test_timeline_paginated_shape(self):
         self.client.force_authenticate(self.coordinator)
         response = self.client.get(

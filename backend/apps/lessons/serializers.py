@@ -724,6 +724,9 @@ class LessonBulkAssignSerializer(serializers.Serializer):
         ineligible_labels = []
         for person in persons:
             reason = person_assignment_eligibility_error(person, lesson=lesson)
+            # Idempotent for a lesson already on the student — get_or_create no-ops.
+            if reason == "already has lesson progress":
+                continue
             if reason:
                 display_name = person.get_full_name() or person.username
                 ineligible_labels.append(f"{display_name} ({reason})")

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import Card from "@/src/components/ui/Card";
 import ErrorMessage from "@/src/components/ui/ErrorMessage";
 import ScalableSelect from "@/src/components/ui/ScalableSelect";
@@ -19,12 +19,7 @@ import {
 import { Person } from "@/src/types/person";
 import { LessonPersonLike } from "@/src/lib/lessonsUtils";
 import { formatPersonName } from "@/src/lib/name";
-import {
-  effectiveListViewMode,
-  getInitialListViewMode,
-  useIsMdUp,
-  useIsTabletUp,
-} from "@/src/lib/listViewMode";
+import { useIsMdUp, useListViewMode } from "@/src/lib/listViewMode";
 import { TOOLBAR_CARD_CLASS } from "@/src/lib/toolbarStyles";
 
 type ProgressStatusFilter = "ALL" | LessonProgressStatus;
@@ -119,12 +114,8 @@ export default function MemberProgressSection({
   const activeLatestLessons = allLessons.filter(
     (lesson) => lesson.is_latest && lesson.is_active,
   );
-  const [viewMode, setViewMode] = useState<"table" | "cards">(() =>
-    getInitialListViewMode("table"),
-  );
-  const isTabletUp = useIsTabletUp();
+  const [viewMode, setViewMode] = useListViewMode("table");
   const isMdUp = useIsMdUp();
-  const effectiveViewMode = effectiveListViewMode(viewMode, isTabletUp);
 
   const teacherFilterOptions = useMemo(
     () => [
@@ -144,93 +135,97 @@ export default function MemberProgressSection({
           View all students taking lessons and their overall progress.
         </p>
 
-        <div className={TOOLBAR_CARD_CLASS}>
-          <div className="flex flex-col gap-3 md:flex-row md:items-center md:gap-2">
-            <ToolbarSearch
-              fullWidth
-              className="md:min-w-0 md:max-w-[14rem] md:flex-1"
-              value={progressSearchQuery}
-              onChange={onProgressSearchQueryChange}
-              placeholder="Search student..."
-              ariaLabel="Search student"
-            />
-
-            <ViewModeToggle
-              className="w-full md:w-auto md:shrink-0"
-              compact={isMdUp}
-              viewMode={viewMode}
-              onViewModeChange={setViewMode}
-            />
-
-            <div className="w-full md:min-w-0 md:max-w-[12rem] md:flex-1">
-              <ScalableSelect
-                options={teacherFilterOptions}
-                value={progressTeacherFilterKey}
-                onChange={onProgressTeacherFilterChange}
-                placeholder="All teachers"
-                searchPlaceholder="Search teacher..."
-                emptyMessage="No teachers found"
-                triggerClassName="!h-auto py-2"
-                pinnedOption={{ value: "", label: "All teachers" }}
+        <div className={`${TOOLBAR_CARD_CLASS} min-w-0`}>
+          <div className="flex min-w-0 flex-col gap-3">
+            <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center">
+              <ToolbarSearch
+                fullWidth
+                className="min-w-0 flex-1"
+                value={progressSearchQuery}
+                onChange={onProgressSearchQueryChange}
+                placeholder="Search student..."
+                ariaLabel="Search student"
               />
+              <div className="flex w-full min-w-0 flex-col gap-3 sm:w-auto sm:shrink-0 sm:flex-row sm:items-center">
+                <ViewModeToggle
+                  className="w-full sm:w-auto"
+                  compact={isMdUp}
+                  viewMode={viewMode}
+                  onViewModeChange={setViewMode}
+                />
+                {canAssignLessons ? (
+                  <div className="w-full sm:w-auto">
+                    <AssignLessonsDropdown
+                      allLessons={activeLatestLessons}
+                      people={people}
+                      peopleLoading={peopleLoading}
+                      peopleError={peopleError}
+                      assigning={assigning}
+                      assignError={assignError}
+                      onAssignLessons={onAssignLessons}
+                      enrollmentByStudent={enrollmentByStudent}
+                      assignedStudentIds={assignedStudentIds}
+                      defaultTeacherId={defaultTeacherId}
+                      teacherChoices={teacherChoices}
+                      currentUserId={currentUserId}
+                      lockTeacherToSelf={lockTeacherToSelf}
+                      pendingStudentIds={pendingStudentIds}
+                      onPeopleSearchChange={onPeopleSearchChange}
+                    />
+                  </div>
+                ) : null}
+              </div>
             </div>
 
-            <select
-              className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm md:min-w-0 md:max-w-[9rem] md:flex-1 md:truncate"
-              value={progressFilterLessonId || ""}
-              onChange={(e) =>
-                onProgressFilterChange(
-                  e.target.value ? Number(e.target.value) : null,
-                )
-              }
-              aria-label="Filter by lesson"
-            >
-              <option value="">All lessons</option>
-              {activeLatestLessons.map((lesson) => (
-                <option key={lesson.id} value={lesson.id}>
-                  {lesson.short_title?.trim() || lesson.title}
-                </option>
-              ))}
-            </select>
-
-            <select
-              value={progressStatusFilter}
-              onChange={(e) =>
-                onProgressStatusFilterChange(
-                  e.target.value as ProgressStatusFilter,
-                )
-              }
-              className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm md:min-w-0 md:max-w-[8rem] md:flex-1 md:truncate"
-              aria-label="Filter by status"
-            >
-              <option value="ALL">All status</option>
-              <option value="ASSIGNED">Not started</option>
-              <option value="IN_PROGRESS">In Progress</option>
-              <option value="COMPLETED">Completed</option>
-              <option value="SKIPPED">Skipped</option>
-            </select>
-
-            {canAssignLessons && (
-              <div className="w-full md:w-auto md:shrink-0">
-                <AssignLessonsDropdown
-                  allLessons={activeLatestLessons}
-                  people={people}
-                  peopleLoading={peopleLoading}
-                  peopleError={peopleError}
-                  assigning={assigning}
-                  assignError={assignError}
-                  onAssignLessons={onAssignLessons}
-                  enrollmentByStudent={enrollmentByStudent}
-                  assignedStudentIds={assignedStudentIds}
-                  defaultTeacherId={defaultTeacherId}
-                  teacherChoices={teacherChoices}
-                  currentUserId={currentUserId}
-                  lockTeacherToSelf={lockTeacherToSelf}
-                  pendingStudentIds={pendingStudentIds}
-                  onPeopleSearchChange={onPeopleSearchChange}
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+              <div className="min-w-0">
+                <ScalableSelect
+                  options={teacherFilterOptions}
+                  value={progressTeacherFilterKey}
+                  onChange={onProgressTeacherFilterChange}
+                  placeholder="All teachers"
+                  searchPlaceholder="Search teacher..."
+                  emptyMessage="No teachers found"
+                  triggerClassName="!h-auto py-2"
+                  pinnedOption={{ value: "", label: "All teachers" }}
                 />
               </div>
-            )}
+
+              <select
+                className="box-border h-auto w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm"
+                value={progressFilterLessonId || ""}
+                onChange={(e) =>
+                  onProgressFilterChange(
+                    e.target.value ? Number(e.target.value) : null,
+                  )
+                }
+                aria-label="Filter by lesson"
+              >
+                <option value="">All lessons</option>
+                {activeLatestLessons.map((lesson) => (
+                  <option key={lesson.id} value={lesson.id}>
+                    {lesson.short_title?.trim() || lesson.title}
+                  </option>
+                ))}
+              </select>
+
+              <select
+                value={progressStatusFilter}
+                onChange={(e) =>
+                  onProgressStatusFilterChange(
+                    e.target.value as ProgressStatusFilter,
+                  )
+                }
+                className="box-border h-auto w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm"
+                aria-label="Filter by status"
+              >
+                <option value="ALL">All status</option>
+                <option value="ASSIGNED">Not started</option>
+                <option value="IN_PROGRESS">In Progress</option>
+                <option value="COMPLETED">Completed</option>
+                <option value="SKIPPED">Skipped</option>
+              </select>
+            </div>
           </div>
         </div>
 
@@ -246,7 +241,7 @@ export default function MemberProgressSection({
           sortDirection={progressSortDirection}
           onSortChange={onProgressSortChange}
           onPersonClick={onPersonClick}
-          displayMode={effectiveViewMode}
+          displayMode={viewMode}
           searchQuery={progressSearchQuery}
           focusTeacherKey={focusTeacherKey}
           serverPagination={

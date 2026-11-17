@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
   UserCircleIcon,
@@ -20,12 +19,12 @@ export default function Navbar() {
   const [showSearch, setShowSearch] = useState(false);
   const { collapsed, toggleMobile } = useSidebar();
   const { user, logout } = useAuth();
-  const router = useRouter();
   const profileRef = useRef<HTMLDivElement>(null);
 
   const handleLogout = async () => {
     await logout();
-    router.push("/login");
+    // Soft router.push can stall while heavy pages (e.g. Lessons) re-render after user→null.
+    window.location.assign("/login");
   };
 
   // Close dropdowns when clicking outside

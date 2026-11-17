@@ -2,10 +2,6 @@ import { useState, useMemo, useEffect } from "react";
 import Card from "@/src/components/ui/Card";
 import Button from "@/src/components/ui/Button";
 import ViewModeToggle from "@/src/components/ui/ViewModeToggle";
-import {
-  effectiveListViewMode,
-  useIsTabletUp,
-} from "@/src/lib/listViewMode";
 import ErrorMessage from "@/src/components/ui/ErrorMessage";
 import LoadingSpinner from "@/src/components/ui/LoadingSpinner";
 import Pagination from "@/src/components/ui/Pagination";
@@ -126,7 +122,9 @@ function SessionReportCard({
                   : "border-blue-200 bg-blue-50 text-blue-900"
               } ${hideStudentHeader ? "" : "mt-2"}`}
             >
-              <span className="whitespace-normal break-words">{topicLabel}</span>
+              <span className="whitespace-normal break-words">
+                {topicLabel}
+              </span>
             </span>
           </div>
           <div className="flex shrink-0 gap-1.5">
@@ -139,15 +137,15 @@ function SessionReportCard({
               Edit
             </Button>
             {onRequestDelete && (
-            <Button
-              variant="secondary"
-              className="!text-red-600 min-h-[36px] px-3 py-1.5 text-xs font-normal bg-white border border-red-200 hover:bg-red-50 hover:border-red-300 inline-flex items-center gap-1.5"
-              onClick={() => onRequestDelete(report)}
-              aria-label="Delete session report"
-            >
-              <TrashIcon className="h-3.5 w-3.5" />
-              Delete
-            </Button>
+              <Button
+                variant="secondary"
+                className="!text-red-600 min-h-[36px] px-3 py-1.5 text-xs font-normal bg-white border border-red-200 hover:bg-red-50 hover:border-red-300 inline-flex items-center gap-1.5"
+                onClick={() => onRequestDelete(report)}
+                aria-label="Delete session report"
+              >
+                <TrashIcon className="h-3.5 w-3.5" />
+                Delete
+              </Button>
             )}
           </div>
         </div>
@@ -269,9 +267,9 @@ function hasActiveSessionFilters(
     (!lockedTeacherId || filters.teacherId !== lockedTeacherId);
   return Boolean(
     teacherIsCustom ||
-      filters.studentId ||
-      filters.lessonId ||
-      hasNonDefaultSessionDateFilters(filters),
+    filters.studentId ||
+    filters.lessonId ||
+    hasNonDefaultSessionDateFilters(filters),
   );
 }
 
@@ -322,15 +320,13 @@ export default function SessionReportsSection({
     DEFAULT_SESSION_ITEMS_PER_PAGE,
   );
   const [viewMode, setViewMode] = useState<SessionReportsViewMode>("cards");
-  const isTabletUp = useIsTabletUp();
-  const effectiveViewMode = effectiveListViewMode(viewMode, isTabletUp);
   const [sortField, setSortField] =
     useState<SessionReportsSortField>("actualDate");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
   const [expandedGroupKeys, setExpandedGroupKeys] = useState<string[]>([]);
 
   const sortedReports = useMemo(() => {
-    if (effectiveViewMode !== "table") {
+    if (viewMode !== "table") {
       return sessionReports;
     }
 
@@ -385,7 +381,7 @@ export default function SessionReportsSection({
       const secondProgress = second.progress ?? Number.POSITIVE_INFINITY;
       return (firstProgress - secondProgress) * direction;
     });
-  }, [sessionReports, sortDirection, sortField, effectiveViewMode]);
+  }, [sessionReports, sortDirection, sortField, viewMode]);
 
   const handleSort = (field: SessionReportsSortField) => {
     if (sortField === field) {
@@ -501,10 +497,7 @@ export default function SessionReportsSection({
       ) {
         group.latestSessionStart = report.session_start ?? null;
       }
-      if (
-        group.latestLessonTopic === "—" &&
-        report.session_type === "LESSON"
-      ) {
+      if (group.latestLessonTopic === "—" && report.session_type === "LESSON") {
         group.latestLessonTopic = formatSessionTopicLabel(
           report.session_type,
           report.pre_lesson_kind,
@@ -527,7 +520,7 @@ export default function SessionReportsSection({
 
   const paginationTotalItems = serverDriven
     ? (serverPagination?.totalCount ?? 0)
-    : effectiveViewMode === "table"
+    : viewMode === "table"
       ? groupedTableReports.length
       : groupedReports.length;
   const paginationPageSize = serverDriven
@@ -567,42 +560,44 @@ export default function SessionReportsSection({
   }, [currentPage, totalPages, serverDriven]);
 
   return (
-    <Card title="Session Reports">
-      <div className="space-y-5">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-          <p className="text-sm text-gray-500 sm:max-w-lg">
+    <Card title="Session Reports" className="min-w-0">
+      <div className="min-w-0 space-y-5">
+        <div className="flex min-w-0 flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+          <p className="text-sm text-gray-500 lg:max-w-lg">
             {lockedTeacherId
               ? "View and log lesson and pre-lesson sessions for your assigned students. Use the filters below to narrow by student, lesson, or date."
               : "View and log all lesson and pre-lesson sessions across the catalog. Use the filters below to narrow by teacher, student, lesson, or date."}
           </p>
-          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
-            <ViewModeToggle viewMode={viewMode} onViewModeChange={setViewMode} />
-            <div className="flex flex-col-reverse sm:flex-row gap-3 sm:ml-2">
+          <div className="flex w-full min-w-0 flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center lg:w-auto lg:shrink-0 justify-end">
+            <ViewModeToggle
+              className="w-full sm:w-auto"
+              viewMode={viewMode}
+              onViewModeChange={setViewMode}
+            />
+            <Button
+              variant="secondary"
+              onClick={onExport}
+              disabled={!canExport}
+              className="w-full min-h-[44px] text-sm sm:w-auto"
+            >
+              Download CSV
+            </Button>
+            {canLogSession ? (
               <Button
-                variant="secondary"
-                onClick={onExport}
-                disabled={!canExport}
-                className="w-full sm:w-auto min-h-[44px] text-sm"
+                variant="primary"
+                onClick={onOpenSessionModal}
+                disabled={!logSessionEnabled}
+                className="w-full min-h-[44px] text-sm sm:w-auto"
               >
-                Download CSV
+                Log Session
               </Button>
-              {canLogSession && (
-                <Button
-                  variant="primary"
-                  onClick={onOpenSessionModal}
-                  disabled={!logSessionEnabled}
-                  className="w-full sm:w-auto min-h-[44px] text-sm"
-                >
-                  Log Session
-                </Button>
-              )}
-            </div>
+            ) : null}
           </div>
         </div>
 
-        <div className="rounded-lg border border-gray-200 bg-gray-50 p-3">
-          <div className="flex flex-col gap-3 xl:flex-row xl:items-end">
-            <div className="grid flex-1 grid-cols-1 gap-3 sm:grid-cols-2 tablet:grid-cols-3 xl:grid-cols-5">
+        <div className="min-w-0 rounded-lg border border-gray-200 bg-gray-50 p-3">
+          <div className="flex min-w-0 flex-col gap-3 xl:flex-row xl:items-end">
+            <div className="grid min-w-0 flex-1 grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-5">
               <SearchableSelect
                 value={sessionFilterDraft.lessonId}
                 onChange={(value) => onFilterChange("lessonId", value)}
@@ -635,12 +630,12 @@ export default function SessionReportsSection({
                 emptyMessage="No students found"
                 controlClassName="h-10"
               />
-              <div className="space-y-1">
+              <div className="min-w-0 space-y-1">
                 <label className="block text-xs font-semibold uppercase tracking-wide text-gray-600">
                   Month
                 </label>
                 <select
-                  className="w-full h-10 rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-ring"
+                  className="box-border h-10 w-full rounded-md border border-gray-300 bg-white px-3 text-base md:text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-ring"
                   value={sessionFilterDraft.month}
                   onChange={(event) =>
                     onFilterChange("month", event.target.value)
@@ -653,12 +648,12 @@ export default function SessionReportsSection({
                   ))}
                 </select>
               </div>
-              <div className="space-y-1">
+              <div className="min-w-0 space-y-1">
                 <label className="block text-xs font-semibold uppercase tracking-wide text-gray-600">
                   Year
                 </label>
                 <select
-                  className="w-full h-10 rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-ring"
+                  className="box-border h-10 w-full rounded-md border border-gray-300 bg-white px-3 text-base md:text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-ring"
                   value={sessionFilterDraft.year}
                   onChange={(event) =>
                     onFilterChange("year", event.target.value)
@@ -673,11 +668,11 @@ export default function SessionReportsSection({
                 </select>
               </div>
             </div>
-            <div className="flex justify-end">
+            <div className="flex w-full sm:justify-end xl:w-auto xl:shrink-0">
               <Button
                 variant="tertiary"
                 onClick={onResetFilters}
-                className="w-full min-h-[44px] text-sm xl:w-auto"
+                className="w-full min-h-[44px] text-sm sm:w-auto"
               >
                 Reset Filters
               </Button>
@@ -697,10 +692,14 @@ export default function SessionReportsSection({
               ? "No session reports match the current filters."
               : "No session reports recorded yet."}
           </div>
-        ) : effectiveViewMode === "table" ? (
+        ) : viewMode === "table" ? (
           <div className="space-y-3">
             <div className="flex justify-end gap-2">
-              <Button variant="tertiary" className="text-xs" onClick={expandAllGroups}>
+              <Button
+                variant="tertiary"
+                className="text-xs"
+                onClick={expandAllGroups}
+              >
                 Expand all
               </Button>
               <Button
@@ -712,199 +711,216 @@ export default function SessionReportsSection({
               </Button>
             </div>
             <div className="overflow-hidden rounded-md border border-gray-200">
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
-                      <button
-                        type="button"
-                        className="inline-flex items-center gap-1 hover:text-gray-700"
-                        onClick={() => handleSort("student")}
-                      >
-                        Student
-                        <SortIcon field="student" />
-                      </button>
-                    </th>
-                    <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
-                      <button
-                        type="button"
-                        className="inline-flex items-center gap-1 hover:text-gray-700"
-                        onClick={() => handleSort("teacher")}
-                      >
-                        Teacher
-                        <SortIcon field="teacher" />
-                      </button>
-                    </th>
-                    <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
-                      Session
-                    </th>
-                    <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
-                      <button
-                        type="button"
-                        className="inline-flex items-center gap-1 hover:text-gray-700"
-                        onClick={() => handleSort("scheduledDate")}
-                      >
-                        Scheduled Session
-                        <SortIcon field="scheduledDate" />
-                      </button>
-                    </th>
-                    <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
-                      <button
-                        type="button"
-                        className="inline-flex items-center gap-1 hover:text-gray-700"
-                        onClick={() => handleSort("actualDate")}
-                      >
-                        Actual Session
-                        <SortIcon field="actualDate" />
-                      </button>
-                    </th>
-                    <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
-                      <button
-                        type="button"
-                        className="inline-flex items-center gap-1 hover:text-gray-700"
-                        onClick={() => handleSort("nextScheduledDate")}
-                      >
-                        Next Schedule
-                        <SortIcon field="nextScheduledDate" />
-                      </button>
-                    </th>
-                    <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
-                      <button
-                        type="button"
-                        className="inline-flex items-center gap-1 hover:text-gray-700"
-                        onClick={() => handleSort("score")}
-                      >
-                        Score / Rating
-                        <SortIcon field="score" />
-                      </button>
-                    </th>
-                    <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
-                      <button
-                        type="button"
-                        className="inline-flex items-center gap-1 hover:text-gray-700"
-                        onClick={() => handleSort("linkedProgress")}
-                      >
-                        Linked Progress
-                        <SortIcon field="linkedProgress" />
-                      </button>
-                    </th>
-                    <th className="px-3 py-2 text-right text-xs font-semibold uppercase tracking-wider text-gray-500">
-                      Actions
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white">
-                  {paginatedTableGroups.map((group) => {
-                    const isExpanded = expandedGroupKeys.includes(group.key);
-                    return (
-                      <>
-                        <tr
-                          key={`${group.key}-header`}
-                          className="border-t border-gray-200 bg-gray-50/70"
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
+                        <button
+                          type="button"
+                          className="inline-flex items-center gap-1 hover:text-gray-700"
+                          onClick={() => handleSort("student")}
                         >
-                          <td className="px-3 py-2 text-sm font-semibold text-foreground">
-                            <button
-                              type="button"
-                              className="inline-flex items-center gap-1.5"
-                              onClick={() => toggleGroup(group.key)}
-                              aria-expanded={isExpanded}
+                          Student
+                          <SortIcon field="student" />
+                        </button>
+                      </th>
+                      <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
+                        <button
+                          type="button"
+                          className="inline-flex items-center gap-1 hover:text-gray-700"
+                          onClick={() => handleSort("teacher")}
+                        >
+                          Teacher
+                          <SortIcon field="teacher" />
+                        </button>
+                      </th>
+                      <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
+                        Session
+                      </th>
+                      <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
+                        <button
+                          type="button"
+                          className="inline-flex items-center gap-1 hover:text-gray-700"
+                          onClick={() => handleSort("scheduledDate")}
+                        >
+                          Scheduled Session
+                          <SortIcon field="scheduledDate" />
+                        </button>
+                      </th>
+                      <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
+                        <button
+                          type="button"
+                          className="inline-flex items-center gap-1 hover:text-gray-700"
+                          onClick={() => handleSort("actualDate")}
+                        >
+                          Actual Session
+                          <SortIcon field="actualDate" />
+                        </button>
+                      </th>
+                      <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
+                        <button
+                          type="button"
+                          className="inline-flex items-center gap-1 hover:text-gray-700"
+                          onClick={() => handleSort("nextScheduledDate")}
+                        >
+                          Next Schedule
+                          <SortIcon field="nextScheduledDate" />
+                        </button>
+                      </th>
+                      <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
+                        <button
+                          type="button"
+                          className="inline-flex items-center gap-1 hover:text-gray-700"
+                          onClick={() => handleSort("score")}
+                        >
+                          Score / Rating
+                          <SortIcon field="score" />
+                        </button>
+                      </th>
+                      <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
+                        <button
+                          type="button"
+                          className="inline-flex items-center gap-1 hover:text-gray-700"
+                          onClick={() => handleSort("linkedProgress")}
+                        >
+                          Linked Progress
+                          <SortIcon field="linkedProgress" />
+                        </button>
+                      </th>
+                      <th className="px-3 py-2 text-right text-xs font-semibold uppercase tracking-wider text-gray-500">
+                        Actions
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white">
+                    {paginatedTableGroups.map((group) => {
+                      const isExpanded = expandedGroupKeys.includes(group.key);
+                      return (
+                        <>
+                          <tr
+                            key={`${group.key}-header`}
+                            className="border-t border-gray-200 bg-gray-50/70"
+                          >
+                            <td className="px-3 py-2 text-sm font-semibold text-foreground">
+                              <button
+                                type="button"
+                                className="inline-flex items-center gap-1.5"
+                                onClick={() => toggleGroup(group.key)}
+                                aria-expanded={isExpanded}
+                              >
+                                {isExpanded ? (
+                                  <ChevronUpIcon className="h-4 w-4 text-gray-500" />
+                                ) : (
+                                  <ChevronDownIcon className="h-4 w-4 text-gray-500" />
+                                )}
+                                {formatPersonName(group.student)}
+                              </button>
+                            </td>
+                            <td className="px-3 py-2 text-xs text-gray-600">
+                              {group.reports.length} session
+                              {group.reports.length === 1 ? "" : "s"}
+                            </td>
+                            <td className="px-3 py-2 text-xs text-gray-600">
+                              {group.latestLessonTopic}
+                            </td>
+                            <td
+                              className="px-3 py-2 text-xs text-gray-600"
+                              colSpan={2}
                             >
-                              {isExpanded ? (
-                                <ChevronUpIcon className="h-4 w-4 text-gray-500" />
-                              ) : (
-                                <ChevronDownIcon className="h-4 w-4 text-gray-500" />
-                              )}
-                              {formatPersonName(group.student)}
-                            </button>
-                          </td>
-                          <td className="px-3 py-2 text-xs text-gray-600">
-                            {group.reports.length} session
-                            {group.reports.length === 1 ? "" : "s"}
-                          </td>
-                          <td className="px-3 py-2 text-xs text-gray-600">
-                            {group.latestLessonTopic}
-                          </td>
-                          <td className="px-3 py-2 text-xs text-gray-600" colSpan={2}>
-                            Latest: {formatSessionDateTime(group.latestSessionStart)}
-                          </td>
-                          <td className="px-3 py-2 text-xs text-gray-600" colSpan={2}>
-                            Lesson: {group.lessonCount} | Pre-lesson:{" "}
-                            {group.preLessonCount}
-                          </td>
-                          <td className="px-3 py-2 text-xs text-gray-600">—</td>
-                          <td className="px-3 py-2 text-right text-xs text-gray-500">
-                            Group
-                          </td>
-                        </tr>
-                        {isExpanded &&
-                          group.reports.map((report) => (
-                            <tr
-                              key={report.id}
-                              className="border-t border-gray-100"
+                              Latest:{" "}
+                              {formatSessionDateTime(group.latestSessionStart)}
+                            </td>
+                            <td
+                              className="px-3 py-2 text-xs text-gray-600"
+                              colSpan={2}
                             >
-                              <td className="px-3 py-2 text-sm font-semibold text-primary">
-                                <span className="pl-5">{formatPersonName(report.student)}</span>
-                              </td>
-                              <td className="px-3 py-2 text-sm text-gray-700">
-                                {formatPersonName(report.teacher)}
-                              </td>
-                              <td className="px-3 py-2 text-sm text-gray-700">
-                                {reportTopicLabel(report)}
-                              </td>
-                              <td className="px-3 py-2 text-sm text-gray-700">
-                                {formatDateOnly(report.session_date)}
-                              </td>
-                              <td className="px-3 py-2 text-sm text-gray-700">
-                                {formatSessionDateTime(report.session_start)}
-                              </td>
-                              <td className="px-3 py-2 text-sm text-gray-700">
-                                {formatDateOnly(report.next_session_date)}
-                              </td>
-                              <td className="px-3 py-2 text-sm text-gray-700">
-                                {report.score || "—"}
-                              </td>
-                              <td className="px-3 py-2 text-sm text-gray-700">
-                                {report.progress ? `Record #${report.progress}` : "—"}
-                              </td>
-                              <td className="px-3 py-2 text-right text-sm">
-                                <div className="inline-flex items-center gap-2">
-                                  <Button
-                                    variant="secondary"
-                                    className="!text-primary min-h-[32px] px-2.5 py-1 text-xs font-normal bg-white border border-primary/20 hover:bg-primary/10 hover:border-primary/30 inline-flex items-center gap-1.5"
-                                    onClick={() => onEditSession(report)}
-                                    aria-label="Edit session report"
-                                    title="Edit session report"
-                                  >
-                                    <PencilSquareIcon className="h-3.5 w-3.5" />
-                                  </Button>
-                                  {onRequestDelete && (
-                                  <Button
-                                    variant="secondary"
-                                    className="!text-red-600 min-h-[32px] px-2.5 py-1 text-xs font-normal bg-white border border-red-200 hover:bg-red-50 hover:border-red-300 inline-flex items-center gap-1.5"
-                                    onClick={() => onRequestDelete(report)}
-                                    aria-label="Delete session report"
-                                    title="Delete session report"
-                                  >
-                                    <TrashIcon className="h-3.5 w-3.5" />
-                                  </Button>
-                                  )}
-                                </div>
-                              </td>
-                            </tr>
-                          ))}
-                      </>
-                    );
-                  })}
-                </tbody>
-              </table>
+                              Lesson: {group.lessonCount} | Pre-lesson:{" "}
+                              {group.preLessonCount}
+                            </td>
+                            <td className="px-3 py-2 text-xs text-gray-600">
+                              —
+                            </td>
+                            <td className="px-3 py-2 text-right text-xs text-gray-500">
+                              Group
+                            </td>
+                          </tr>
+                          {isExpanded &&
+                            group.reports.map((report) => (
+                              <tr
+                                key={report.id}
+                                className="border-t border-gray-100"
+                              >
+                                <td className="px-3 py-2 text-sm font-semibold text-primary">
+                                  <span className="pl-5">
+                                    {formatPersonName(report.student)}
+                                  </span>
+                                </td>
+                                <td className="px-3 py-2 text-sm text-gray-700">
+                                  {formatPersonName(report.teacher)}
+                                </td>
+                                <td className="px-3 py-2 text-sm text-gray-700">
+                                  {reportTopicLabel(report)}
+                                </td>
+                                <td className="px-3 py-2 text-sm text-gray-700">
+                                  {formatDateOnly(report.session_date)}
+                                </td>
+                                <td className="px-3 py-2 text-sm text-gray-700">
+                                  {formatSessionDateTime(report.session_start)}
+                                </td>
+                                <td className="px-3 py-2 text-sm text-gray-700">
+                                  {formatDateOnly(report.next_session_date)}
+                                </td>
+                                <td className="px-3 py-2 text-sm text-gray-700">
+                                  {report.score || "—"}
+                                </td>
+                                <td className="px-3 py-2 text-sm text-gray-700">
+                                  {report.progress
+                                    ? `Record #${report.progress}`
+                                    : "—"}
+                                </td>
+                                <td className="px-3 py-2 text-right text-sm">
+                                  <div className="inline-flex items-center gap-2">
+                                    <Button
+                                      variant="secondary"
+                                      className="!text-primary min-h-[32px] px-2.5 py-1 text-xs font-normal bg-white border border-primary/20 hover:bg-primary/10 hover:border-primary/30 inline-flex items-center gap-1.5"
+                                      onClick={() => onEditSession(report)}
+                                      aria-label="Edit session report"
+                                      title="Edit session report"
+                                    >
+                                      <PencilSquareIcon className="h-3.5 w-3.5" />
+                                    </Button>
+                                    {onRequestDelete && (
+                                      <Button
+                                        variant="secondary"
+                                        className="!text-red-600 min-h-[32px] px-2.5 py-1 text-xs font-normal bg-white border border-red-200 hover:bg-red-50 hover:border-red-300 inline-flex items-center gap-1.5"
+                                        onClick={() => onRequestDelete(report)}
+                                        aria-label="Delete session report"
+                                        title="Delete session report"
+                                      >
+                                        <TrashIcon className="h-3.5 w-3.5" />
+                                      </Button>
+                                    )}
+                                  </div>
+                                </td>
+                              </tr>
+                            ))}
+                        </>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
             </div>
-          </div>
           </div>
         ) : (
           <div className="space-y-3">
             <div className="flex justify-end gap-2">
-              <Button variant="tertiary" className="text-xs" onClick={expandAllGroups}>
+              <Button
+                variant="tertiary"
+                className="text-xs"
+                onClick={expandAllGroups}
+              >
                 Expand all
               </Button>
               <Button
@@ -945,7 +961,9 @@ export default function SessionReportsSection({
                                 (group.student.cluster_codes?.length ?? 0) > 0,
                               )}
                             >
-                              {formatPersonClusterLabel(group.student.cluster_codes)}
+                              {formatPersonClusterLabel(
+                                group.student.cluster_codes,
+                              )}
                             </span>
                           </>
                         )}
@@ -962,7 +980,8 @@ export default function SessionReportsSection({
                           Pre-lesson: {group.preLessonCount}
                         </span>
                         <span>
-                          Latest: {formatSessionDateTime(group.latestSessionStart)}
+                          Latest:{" "}
+                          {formatSessionDateTime(group.latestSessionStart)}
                         </span>
                         <span>Latest topic: {group.latestLessonTopic}</span>
                       </div>

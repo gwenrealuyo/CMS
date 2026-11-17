@@ -69,6 +69,14 @@ export default function LessonDetailPanel({
           <h2 className="text-2xl font-semibold text-foreground mt-3">
             {lesson.title}
           </h2>
+          {lesson.short_title?.trim() ? (
+            <p className="mt-1 text-base text-gray-700">
+              <span className="text-sm font-semibold uppercase tracking-wide text-gray-500">
+                Short title:{" "}
+              </span>
+              {lesson.short_title.trim()}
+            </p>
+          ) : null}
           <p className="text-sm text-gray-500 mt-1 uppercase tracking-wide">
             Order: Step {lesson.order} · Code: {lesson.code}
           </p>

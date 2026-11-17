@@ -51,6 +51,11 @@ export interface LessonPersonSummary {
   branch?: number | null;
 }
 
+export interface VisitorAwaitingPendingTeacher {
+  id: number;
+  name: string;
+}
+
 export interface VisitorAwaitingTeacher {
   id: number;
   name: string;
@@ -64,6 +69,7 @@ export interface VisitorAwaitingTeacher {
   visitor_since: string | null;
   inviter_name: string;
   enrollment_id: number | null;
+  pending_teachers?: VisitorAwaitingPendingTeacher[];
 }
 
 export interface LessonTeacherRosterEntry {

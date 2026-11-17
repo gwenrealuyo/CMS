@@ -47,6 +47,8 @@ class Lesson(models.Model):
 
     class Meta:
         ordering = ["order", "title"]
+        verbose_name = "Lesson"
+        verbose_name_plural = "Lessons"
         constraints = [
             models.UniqueConstraint(
                 fields=["code", "version_label"],
@@ -91,8 +93,8 @@ class LessonJourney(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        verbose_name = "Lesson Journey Configuration"
-        verbose_name_plural = "Lesson Journey Configurations"
+        verbose_name = "Journey Configuration"
+        verbose_name_plural = "Journey Configurations"
 
     def __str__(self) -> str:
         return f"{self.lesson.title} journey config"
@@ -149,6 +151,8 @@ class PersonLessonProgress(models.Model):
     class Meta:
         ordering = ["lesson__order", "person__last_name", "person__first_name"]
         unique_together = ("person", "lesson")
+        verbose_name = "Person Progress"
+        verbose_name_plural = "Person Progress"
 
     def __str__(self) -> str:
         return f"{self.person.get_full_name() or self.person.username} - {self.lesson}"
@@ -196,6 +200,8 @@ class LessonStudentEnrollment(models.Model):
 
     class Meta:
         ordering = ["student__last_name", "student__first_name"]
+        verbose_name = "Student Enrollment"
+        verbose_name_plural = "Student Enrollments"
 
     def teacher_display_name(self) -> str:
         if self.teacher_id:
@@ -251,6 +257,8 @@ class LessonTeacherTransfer(models.Model):
 
     class Meta:
         ordering = ["-created_at"]
+        verbose_name = "Teacher Transfer"
+        verbose_name_plural = "Teacher Transfers"
 
     def __str__(self) -> str:
         return f"Transfer #{self.pk} for enrollment {self.enrollment_id}"
@@ -309,6 +317,8 @@ class LessonAssignmentRequest(models.Model):
 
     class Meta:
         ordering = ["-created_at"]
+        verbose_name = "Assignment Request"
+        verbose_name_plural = "Assignment Requests"
         constraints = [
             models.UniqueConstraint(
                 fields=["student", "teacher"],
@@ -354,6 +364,10 @@ class LessonSettings(models.Model):
         related_name="uploaded_ncc_lessons_pdfs",
     )
     ncc_lessons_pdf_updated_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        verbose_name = "Setting"
+        verbose_name_plural = "Settings"
 
     def __str__(self) -> str:
         return "Lesson Settings"
@@ -443,6 +457,8 @@ class LessonSessionReport(models.Model):
 
     class Meta:
         ordering = ("-session_date", "-session_start", "-created_at")
+        verbose_name = "Session Report"
+        verbose_name_plural = "Session Reports"
 
 
 class LessonFollowUpCase(models.Model):
@@ -480,6 +496,8 @@ class LessonFollowUpCase(models.Model):
 
     class Meta:
         ordering = ["-updated_at", "-id"]
+        verbose_name = "Follow-up Case"
+        verbose_name_plural = "Follow-up Cases"
 
     def __str__(self) -> str:
         return f"{self.student_id} ({self.status})"

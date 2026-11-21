@@ -31,6 +31,8 @@ export type AttendanceReportPerson = {
   venueColor: string;
   recordedAt?: string;
   isTardy?: boolean;
+  /** Onsite only; null when QR was not tracked for this record. */
+  qrPresented?: boolean | null;
   addedLater?: boolean;
   catchupReasonLabel?: string;
 };
@@ -63,6 +65,10 @@ export type AttendanceReport = {
   remainingCount: number;
   surpriseCount: number;
   tardyCount: number;
+  /** Onsite check-ins tagged as came without QR. */
+  noQrCount: number;
+  /** Onsite check-ins with a QR status recorded (denominator for compliance). */
+  qrTrackedCount: number;
   onsiteCount: number;
   onlineCount: number;
   addedLaterCount: number;
@@ -75,6 +81,8 @@ export type AttendanceReport = {
   onlineRate: number | null;
   addedLaterRate: number | null;
   tardyRate: number | null;
+  /** Brought QR / QR-tracked onsite check-ins. */
+  qrComplianceRate: number | null;
   onlineByVenue: VenueCount[];
   checkedInByStatus: StatusCount[];
   remainingByStatus: StatusCount[];
@@ -169,6 +177,7 @@ function toReportPersonFromRecord(
     venueColor: record.attendance_venue_color || "",
     recordedAt: record.recorded_at,
     isTardy,
+    qrPresented: mode === "ONSITE" ? record.qr_presented ?? null : null,
     addedLater: Boolean(record.catchup_reason),
     catchupReasonLabel: record.catchup_reason
       ? sundayCatchupReasonLabel(record.catchup_reason, record.catchup_note)
@@ -413,6 +422,14 @@ export function buildAttendanceReport(
     (person) => person.attendanceMode === "ONLINE"
   ).length;
   const tardyCount = checkedInRoster.filter((person) => person.isTardy).length;
+  const qrTrackedCount = checkedInRoster.filter(
+    (person) =>
+      person.attendanceMode === "ONSITE" && person.qrPresented != null
+  ).length;
+  const noQrCount = checkedInRoster.filter(
+    (person) =>
+      person.attendanceMode === "ONSITE" && person.qrPresented === false
+  ).length;
   const addedLaterCount = checkedInRoster.filter(
     (person) => person.addedLater
   ).length;
@@ -429,6 +446,8 @@ export function buildAttendanceReport(
     remainingCount,
     surpriseCount,
     tardyCount,
+    noQrCount,
+    qrTrackedCount,
     onsiteCount,
     onlineCount,
     addedLaterCount,
@@ -448,6 +467,10 @@ export function buildAttendanceReport(
     onlineRate: computeRatePercent(onlineCount, checkedInCount),
     addedLaterRate: computeRatePercent(addedLaterCount, checkedInCount),
     tardyRate: computeRatePercent(tardyCount, onsiteCount),
+    qrComplianceRate: computeRatePercent(
+      qrTrackedCount - noQrCount,
+      qrTrackedCount
+    ),
     onlineByVenue: countOnlineByVenue(checkedInRoster, onlineCount),
     checkedInByStatus: countByStatus(checkedInRoster, checkedInCount),
     remainingByStatus: countByStatus(remainingRoster, remainingCount),
@@ -532,6 +555,10 @@ export function buildAttendanceReportCsv(
     ["Onsite tardy % of Onsite", formatRatePercent(report.tardyRate)]
       .map(escapeCsvValue)
       .join(","),
+    ["Onsite no QR", String(report.noQrCount)].map(escapeCsvValue).join(","),
+    ["QR compliance % of Onsite", formatRatePercent(report.qrComplianceRate)]
+      .map(escapeCsvValue)
+      .join(","),
     ...report.onlineByVenue.map((venue) =>
       [
         `Online venue: ${venue.label}`,
@@ -577,6 +604,7 @@ export function buildAttendanceReportCsv(
       "Added later",
       "Checked In At",
       "Onsite tardy",
+      "Brought QR",
     ]
       .map(escapeCsvValue)
       .join(",")
@@ -602,6 +630,7 @@ export function buildAttendanceReportCsv(
             ? new Date(person.recordedAt).toLocaleString()
             : "",
           person.recordedAt ? (person.isTardy ? "Yes" : "No") : "",
+          person.qrPresented == null ? "" : person.qrPresented ? "Yes" : "No",
         ]
           .map(escapeCsvValue)
           .join(",")

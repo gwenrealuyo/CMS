@@ -7,6 +7,7 @@ import Modal from "@/src/components/ui/Modal";
 import ScalableSelect from "@/src/components/ui/ScalableSelect";
 import {
   buildAttendanceReport,
+  computeRatePercent,
   downloadAttendanceReportCsv,
   formatRatePercent,
   type AttendanceReportPerson,
@@ -288,6 +289,11 @@ function RosterRow({ person }: { person: AttendanceReportPerson }) {
           Onsite tardy
         </span>
       ) : null}
+      {person.attendanceMode === "ONSITE" && person.qrPresented === false ? (
+        <span className="inline-flex shrink-0 items-center rounded-full bg-orange-100 px-2 py-0.5 text-[10px] font-semibold text-orange-800">
+          No QR
+        </span>
+      ) : null}
     </li>
   );
 }
@@ -520,7 +526,27 @@ export default function EventAttendanceReportModal({
             activeClassName="border-amber-200 bg-amber-50/80"
             countClassName="text-amber-700"
           />
+          <SummaryCard
+            count={report.noQrCount}
+            label="No QR"
+            rate={computeRatePercent(report.noQrCount, report.qrTrackedCount)}
+            rateCaption="of onsite"
+            active={report.noQrCount > 0}
+            activeClassName="border-orange-200 bg-orange-50/80"
+            countClassName="text-orange-700"
+          />
         </div>
+
+        {report.qrTrackedCount > 0 ? (
+          <p className="-mt-2 text-xs text-muted-foreground">
+            QR compliance:{" "}
+            <span className="font-semibold text-lighthouse-navy">
+              {formatRatePercent(report.qrComplianceRate)}
+            </span>{" "}
+            of {report.qrTrackedCount} onsite check-in
+            {report.qrTrackedCount === 1 ? "" : "s"} brought their QR.
+          </p>
+        ) : null}
 
         {trackingExpected ? (
           <div className={`rounded-lg border p-4 ${attendanceRateTone.card}`}>

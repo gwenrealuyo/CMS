@@ -134,6 +134,31 @@ def _scoped_service_attendance(request):
     )
 
 
+def _scoped_onsite_qr_attendance(request):
+    return apply_branch_filter(
+        AttendanceRecord.objects.filter(
+            status=AttendanceRecord.AttendanceStatus.PRESENT,
+            attendance_mode=AttendanceRecord.AttendanceMode.ONSITE,
+            qr_presented__isnull=False,
+        ),
+        request.user,
+        request,
+        branch_lookup="event__branch_id",
+    )
+
+
+def _qr_compliance_params(request):
+    try:
+        months = int(request.query_params.get("months", 12))
+    except (TypeError, ValueError):
+        months = 12
+    try:
+        min_misses = int(request.query_params.get("min_misses", 2))
+    except (TypeError, ValueError):
+        min_misses = 2
+    return max(1, min(months, 60)), max(1, min(min_misses, 52))
+
+
 def _scoped_lesson_progress(request):
     return apply_branch_filter(
         PersonLessonProgress.objects.select_related("person", "lesson"),
@@ -529,6 +554,40 @@ class EngagementExportCsvView(APIView):
         response["Content-Disposition"] = (
             'attachment; filename="engagement_attendance.csv"'
         )
+        return response
+
+
+class QrComplianceView(APIView):
+    """Onsite QR compliance and repeat no-QR members, branch-scoped."""
+
+    permission_classes = [IsReportsViewer]
+
+    def get(self, request):
+        months, min_misses = _qr_compliance_params(request)
+        payload = services.build_qr_compliance(
+            _scoped_onsite_qr_attendance(request),
+            months=months,
+            min_misses=min_misses,
+        )
+        return Response(payload)
+
+
+class QrComplianceExportCsvView(APIView):
+    """Export onsite QR compliance as CSV."""
+
+    permission_classes = [IsReportsViewer]
+
+    def get(self, request):
+        months, min_misses = _qr_compliance_params(request)
+        payload = services.build_qr_compliance(
+            _scoped_onsite_qr_attendance(request),
+            months=months,
+            min_misses=min_misses,
+        )
+        csv_text = services.build_qr_compliance_csv(payload)
+
+        response = HttpResponse(csv_text, content_type="text/csv")
+        response["Content-Disposition"] = 'attachment; filename="qr_compliance.csv"'
         return response
 
 

@@ -11,7 +11,7 @@ import io
 from collections import Counter
 from datetime import date, datetime, timedelta
 
-from django.db.models import Count
+from django.db.models import Count, Max, Q
 from django.db.models.functions import TruncMonth
 from django.utils import timezone
 
@@ -20,6 +20,8 @@ from core.datetime_utils import church_today
 from apps.clusters.models import Cluster, ClusterComplianceNote, ClusterWeeklyReport
 from apps.events.models import EventType
 from apps.evangelism.models import EvangelismWeeklyReport
+from apps.people.models import Person
+from apps.people.name_formatting import format_person_display_name
 from apps.clusters.serializers import (
     ClusterComplianceNoteSerializer,
     ClusterComplianceSerializer,
@@ -1113,6 +1115,170 @@ def build_engagement_summary_csv(payload: dict) -> str:
                     row["service_headcount"],
                 ]
             )
+
+    return output.getvalue()
+
+
+def _percent(numerator: int, denominator: int) -> float | None:
+    if denominator <= 0:
+        return None
+    return round(numerator / denominator * 100, 1)
+
+
+def build_qr_compliance(
+    attendance_qs,
+    *,
+    months: int = 12,
+    min_misses: int = 2,
+    today: date | None = None,
+):
+    """QR compliance from pre-scoped onsite PRESENT records with ``qr_presented`` set."""
+    today = today or church_today()
+    start = _engagement_start_date(months, today)
+    qs = attendance_qs.filter(
+        occurrence_date__gte=start,
+        occurrence_date__lte=today,
+        qr_presented__isnull=False,
+    )
+    no_qr_filter = Q(qr_presented=False)
+
+    totals = qs.aggregate(
+        tracked=Count("id"),
+        no_qr=Count("id", filter=no_qr_filter),
+    )
+    tracked = totals["tracked"] or 0
+    no_qr = totals["no_qr"] or 0
+    brought = tracked - no_qr
+
+    monthly_map = {
+        row["_month"].strftime("%Y-%m"): row
+        for row in qs.annotate(_month=TruncMonth("occurrence_date"))
+        .values("_month")
+        .annotate(tracked=Count("id"), no_qr=Count("id", filter=no_qr_filter))
+        if row["_month"] is not None
+    }
+    monthly_trend = []
+    for period in _month_periods(months, today):
+        row = monthly_map.get(period)
+        month_tracked = row["tracked"] if row else 0
+        month_no_qr = row["no_qr"] if row else 0
+        monthly_trend.append(
+            {
+                "period": period,
+                "tracked": month_tracked,
+                "no_qr": month_no_qr,
+                "compliance_rate": _percent(
+                    month_tracked - month_no_qr, month_tracked
+                ),
+            }
+        )
+
+    member_rows = list(
+        qs.values("person_id")
+        .annotate(
+            tracked=Count("id"),
+            no_qr=Count("id", filter=no_qr_filter),
+            last_no_qr=Max("occurrence_date", filter=no_qr_filter),
+        )
+        .filter(no_qr__gte=max(1, min_misses))
+        .order_by("-no_qr", "person_id")
+    )
+    people_by_id = {
+        person.pk: person
+        for person in Person.objects.filter(
+            pk__in=[row["person_id"] for row in member_rows]
+        ).prefetch_related("clusters")
+    }
+    members = []
+    for row in member_rows:
+        person = people_by_id.get(row["person_id"])
+        if person is None:
+            continue
+        cluster_codes = [c.code for c in person.clusters.all() if c.code]
+        members.append(
+            {
+                "person_id": person.pk,
+                "name": format_person_display_name(person) or person.username,
+                "member_id": person.member_id or "",
+                "cluster_code": cluster_codes[0] if cluster_codes else "",
+                "tracked": row["tracked"],
+                "no_qr": row["no_qr"],
+                "no_qr_rate": _percent(row["no_qr"], row["tracked"]),
+                "last_no_qr_date": (
+                    row["last_no_qr"].isoformat() if row["last_no_qr"] else None
+                ),
+            }
+        )
+
+    return {
+        "summary": {
+            "tracked": tracked,
+            "brought_qr": brought,
+            "no_qr": no_qr,
+            "compliance_rate": _percent(brought, tracked),
+        },
+        "monthly_trend": monthly_trend,
+        "min_misses": max(1, min_misses),
+        "members": members,
+    }
+
+
+def build_qr_compliance_csv(payload: dict) -> str:
+    """Render a QR compliance payload as CSV text."""
+    output = io.StringIO()
+    writer = csv.writer(output)
+
+    summary = payload["summary"]
+    writer.writerow(["QR Compliance Summary"])
+    writer.writerow(["Onsite check-ins tracked", summary["tracked"]])
+    writer.writerow(["Brought QR", summary["brought_qr"]])
+    writer.writerow(["No QR", summary["no_qr"]])
+    writer.writerow(
+        [
+            "Compliance %",
+            "" if summary["compliance_rate"] is None else summary["compliance_rate"],
+        ]
+    )
+    writer.writerow([])
+
+    writer.writerow(["Monthly Trend", "Period", "Tracked", "No QR", "Compliance %"])
+    for row in payload["monthly_trend"]:
+        writer.writerow(
+            [
+                "",
+                row["period"],
+                row["tracked"],
+                row["no_qr"],
+                "" if row["compliance_rate"] is None else row["compliance_rate"],
+            ]
+        )
+    writer.writerow([])
+
+    writer.writerow(
+        [
+            f"Repeat no-QR members (at least {payload['min_misses']})",
+            "Name",
+            "LAMP ID",
+            "Cluster",
+            "Tracked",
+            "No QR",
+            "No QR %",
+            "Last no-QR date",
+        ]
+    )
+    for row in payload["members"]:
+        writer.writerow(
+            [
+                "",
+                row["name"],
+                row["member_id"],
+                row["cluster_code"],
+                row["tracked"],
+                row["no_qr"],
+                "" if row["no_qr_rate"] is None else row["no_qr_rate"],
+                row["last_no_qr_date"] or "",
+            ]
+        )
 
     return output.getvalue()
 

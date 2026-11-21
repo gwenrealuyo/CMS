@@ -162,6 +162,36 @@ export interface EngagementSummary {
   by_branch: EngagementBranchRow[];
 }
 
+export interface QrComplianceMonth {
+  period: string;
+  tracked: number;
+  no_qr: number;
+  compliance_rate: number | null;
+}
+
+export interface QrComplianceMember {
+  person_id: number;
+  name: string;
+  member_id: string;
+  cluster_code: string;
+  tracked: number;
+  no_qr: number;
+  no_qr_rate: number | null;
+  last_no_qr_date: string | null;
+}
+
+export interface QrComplianceSummary {
+  summary: {
+    tracked: number;
+    brought_qr: number;
+    no_qr: number;
+    compliance_rate: number | null;
+  };
+  monthly_trend: QrComplianceMonth[];
+  min_misses: number;
+  members: QrComplianceMember[];
+}
+
 export type NccProgressStatus =
   | "ASSIGNED"
   | "IN_PROGRESS"

@@ -199,6 +199,19 @@ Events-owned paid registration (not Finance donations/pledges; no payment gatewa
 - For **today or past** occurrences, **Generate Report** opens the same client-side attendance report as Event Details.
 - **New guest** opens `/events/guest?event={id}&occurrence=YYYY-MM-DD` for encoding walk-ins / new visitors with **ONSITE** attendance (Events write only).
 
+#### QR compliance tagging (onsite)
+
+`AttendanceRecord.qr_presented` records whether an onsite attendee brought their member QR: `true` = brought, `false` = came without it, `null` = not tracked (online records, catch-ups, and all records created before this field existed).
+
+- **Camera Scan** check-ins send `qr_presented: true`.
+- **Manual Entry** (Onsite station) shows a **Came without QR** checkbox, on by default. Checked sends `false` (the toast says "checked in (no QR)"); unchecked sends `true`.
+- When an onsite POST omits `qr_presented`, the API stores `true`. This covers the Event Details attendance panel. Online records are always forced to `null`, including a PATCH that switches a record from onsite to online.
+- In Recent Check-Ins, onsite rows show a **QR** / **No QR** chip. Clicking it toggles the value via `PATCH /api/events/{id}/attendance/{attendance_id}/` with `{ qr_presented }`. A **QR** filter (All / Brought QR / No QR) sits next to the Mode filter.
+- Viewers without Events write see `qr_presented: null` on other people's records.
+- Compliance appears in the per-occurrence Attendance Report and in **Analytics → Engagement → Onsite QR Compliance**:
+  - `GET /api/reports/qr-compliance/?months=&branch_id=&min_misses=` (ADMIN / PASTOR) returns a summary, a monthly trend, and **repeat no-QR members** (people with at least `min_misses` no-QR check-ins in the window, default 2).
+  - `GET /api/reports/qr-compliance/export/csv/` exports the same data as CSV.
+
 ### Guest (onsite)
 
 Staff page at `/events/guest` (no sidebar). Events write only (same as check-in: Admin, Pastor, Events Coordinator / Senior Coordinator).
@@ -265,7 +278,7 @@ API:
 Available from Event Details and the check-in page when the selected occurrence date is today or earlier (local calendar day). Future occurrences keep Open Check-In only. No new backend report API — the report is computed in the browser from people + attendance for that occurrence.
 
 - When **`track_expected_attendees`** is on:
-  - **Summary:** Expected, Checked In, **Onsite**, **Online**, Remaining, Surprises, **Onsite tardy**; optional **Online by venue** breakdown; attendance rate vs expected pool. **Onsite tardy** counts only onsite check-ins after the occurrence start plus `tardy_grace_minutes` (rate is of onsite, not of everyone checked in). Online check-ins, including Sunday catch-up, are not tardy.
+  - **Summary:** Expected, Checked In, **Onsite**, **Online**, Remaining, Surprises, **Onsite tardy**; optional **Online by venue** breakdown; attendance rate vs expected pool. **Onsite tardy** counts only onsite check-ins after the occurrence start plus `tardy_grace_minutes` (rate is of onsite, not of everyone checked in). Online check-ins, including Sunday catch-up, are not tardy. **No QR** counts onsite check-ins tagged as came without QR; its rate and the **QR compliance** line use only QR-tracked onsite check-ins as the denominator. The roster shows a **No QR** badge, and the CSV adds "Onsite no QR", "QR compliance % of Onsite", and a **Brought QR** column.
   - **Breakdowns:** Checked-in and remaining counts by person status and cluster.
   - **Surprises list** and a searchable **checked-in roster** with mode/venue chips.
   - **Download CSV** includes Expected / Remaining / Surprises summary rows and `checked_in` / `surprise` / `remaining` person categories.

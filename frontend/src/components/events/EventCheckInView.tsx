@@ -197,6 +197,11 @@ export default function EventCheckInView({
   const [checkInSearchTerm, setCheckInSearchTerm] = useState("");
   const [clusterFilter, setClusterFilter] = useState("");
   const [modeFilter, setModeFilter] = useState<"" | AttendanceMode>("");
+  const [qrFilter, setQrFilter] = useState<"" | "QR" | "NO_QR">("");
+  const [noQrManual, setNoQrManual] = useState(true);
+  const [qrTogglingIds, setQrTogglingIds] = useState<Set<number>>(
+    () => new Set(),
+  );
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [actionBanner, setActionBanner] = useState<{
     kind: CheckInFlash;
@@ -420,6 +425,15 @@ export default function EventCheckInView({
       );
     }
 
+    if (qrFilter) {
+      const wantPresented = qrFilter === "QR";
+      filtered = filtered.filter(
+        (record) =>
+          (record.attendance_mode || "ONSITE") === "ONSITE" &&
+          record.qr_presented === wantPresented,
+      );
+    }
+
     if (clusterFilter === "NO_CLUSTER") {
       filtered = filtered.filter(
         (record) =>
@@ -458,7 +472,7 @@ export default function EventCheckInView({
             displayId.includes(termWithoutLampPrefix)))
       );
     });
-  }, [recentCheckIns, checkInSearchTerm, clusterFilter, modeFilter]);
+  }, [recentCheckIns, checkInSearchTerm, clusterFilter, modeFilter, qrFilter]);
 
   const suggestions = useMemo(
     () => filterEligibleMembersByQuery(checkInCandidates, entryValue),
@@ -484,7 +498,10 @@ export default function EventCheckInView({
     };
   }, [showSuggestions]);
 
-  const checkInPerson = async (person: Person) => {
+  const checkInPerson = async (
+    person: Person,
+    { qrPresented }: { qrPresented: boolean },
+  ) => {
     if (!event) return;
 
     const personId = String(person.id);
@@ -534,17 +551,22 @@ export default function EventCheckInView({
           (event?.attendance_format ?? "hybrid") !== "online_only"
             ? onlineVenueCode
             : null,
+        qr_presented: stationMode === "ONSITE" ? qrPresented : null,
       });
       upsertAttendanceRecord(response.data.attendance_record);
       checkedInIdsRef.current.add(personId);
       setEntryValue("");
       setShowSuggestions(false);
+      const successMessage =
+        stationMode === "ONSITE" && !qrPresented
+          ? `${formatPersonName(person)} checked in (no QR).`
+          : `${formatPersonName(person)} checked in.`;
       setActionBanner({
         kind: "success",
-        message: `${formatPersonName(person)} checked in.`,
+        message: successMessage,
         person,
       });
-      showCheckInToast("success", `${formatPersonName(person)} checked in.`);
+      showCheckInToast("success", successMessage);
       triggerFlash("success");
       if (entryTab === "manual") {
         inputRef.current?.focus();
@@ -614,7 +636,7 @@ export default function EventCheckInView({
       return;
     }
 
-    await checkInPerson(resolved.person);
+    await checkInPerson(resolved.person, { qrPresented: !noQrManual });
   };
 
   const handleQrScan = (text: string) => {
@@ -631,7 +653,7 @@ export default function EventCheckInView({
       return;
     }
 
-    void checkInPerson(resolved.person);
+    void checkInPerson(resolved.person, { qrPresented: true });
   };
 
   const handleSelectSuggestion = (person: Person) => {
@@ -650,7 +672,32 @@ export default function EventCheckInView({
     }
     setEntryValue(formatPersonName(person));
     setShowSuggestions(false);
-    void checkInPerson(person);
+    void checkInPerson(person, { qrPresented: !noQrManual });
+  };
+
+  const toggleQrPresented = async (record: EventAttendanceRecord) => {
+    if (qrTogglingIds.has(record.id)) return;
+    const next = record.qr_presented === false;
+    setQrTogglingIds((prev) => new Set(prev).add(record.id));
+    try {
+      const response = await eventsApi.updateAttendance(eventId, record.id, {
+        qr_presented: next,
+      });
+      upsertAttendanceRecord(response.data.attendance_record);
+    } catch (error: unknown) {
+      const message = formatApiErrorMessage(
+        error,
+        "Unable to update QR status. Please try again.",
+      );
+      setActionBanner({ kind: "error", message });
+      showCheckInToast("error", message);
+    } finally {
+      setQrTogglingIds((prev) => {
+        const nextIds = new Set(prev);
+        nextIds.delete(record.id);
+        return nextIds;
+      });
+    }
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -1117,6 +1164,23 @@ export default function EventCheckInView({
                   </div>
                 )}
               </div>
+              {stationMode === "ONSITE" ? (
+                <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 text-sm text-amber-900">
+                  <input
+                    type="checkbox"
+                    checked={noQrManual}
+                    onChange={(e) => setNoQrManual(e.target.checked)}
+                    className="mt-0.5 h-4 w-4 shrink-0 rounded border-amber-300 text-amber-600 focus:ring-amber-500"
+                  />
+                  <span>
+                    <span className="font-medium">Came without QR</span>
+                    <span className="block text-xs text-amber-800/80">
+                      Uncheck if they have their QR but you are entering them
+                      manually.
+                    </span>
+                  </span>
+                </label>
+              ) : null}
               <Button
                 type="submit"
                 disabled={peopleLoading || submitting || !entryValue.trim()}
@@ -1201,6 +1265,28 @@ export default function EventCheckInView({
                     <option value="ONLINE">Online</option>
                   </select>
                 </div>
+                {(event.attendance_format ?? "hybrid") !== "online_only" ? (
+                  <div className="sm:w-40 sm:shrink-0">
+                    <label
+                      htmlFor="check-in-qr-filter"
+                      className="mb-1 block text-xs font-semibold uppercase tracking-wide text-muted-foreground"
+                    >
+                      QR
+                    </label>
+                    <select
+                      id="check-in-qr-filter"
+                      value={qrFilter}
+                      onChange={(event) =>
+                        setQrFilter(event.target.value as "" | "QR" | "NO_QR")
+                      }
+                      className="input-field h-11 min-h-[44px] w-full text-sm md:min-h-[44px] md:py-0"
+                    >
+                      <option value="">All</option>
+                      <option value="QR">Brought QR</option>
+                      <option value="NO_QR">No QR</option>
+                    </select>
+                  </div>
+                ) : null}
                 <div className="sm:w-52 sm:shrink-0">
                   <label
                     htmlFor="check-in-cluster-filter"
@@ -1264,6 +1350,33 @@ export default function EventCheckInView({
                             ? "Online"
                             : "Onsite"}
                         </span>
+                        {(record.attendance_mode || "ONSITE") === "ONSITE" ? (
+                          <button
+                            type="button"
+                            onClick={() => void toggleQrPresented(record)}
+                            disabled={qrTogglingIds.has(record.id)}
+                            title={
+                              record.qr_presented === false
+                                ? "Came without QR. Click to mark as brought QR."
+                                : record.qr_presented === true
+                                  ? "Brought QR. Click to mark as no QR."
+                                  : "QR not tracked. Click to mark as no QR."
+                            }
+                            className={`inline-flex shrink-0 items-center rounded-full px-2 py-0.5 text-[10px] font-semibold transition-colors disabled:opacity-50 ${
+                              record.qr_presented === false
+                                ? "bg-amber-100 text-amber-800 hover:bg-amber-200"
+                                : record.qr_presented === true
+                                  ? "bg-green-100 text-green-800 hover:bg-green-200"
+                                  : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                            }`}
+                          >
+                            {record.qr_presented === false
+                              ? "No QR"
+                              : record.qr_presented === true
+                                ? "QR"
+                                : "QR ?"}
+                          </button>
+                        ) : null}
                         {record.attendance_venue_label ? (
                           <span
                             className="inline-flex shrink-0 items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold"

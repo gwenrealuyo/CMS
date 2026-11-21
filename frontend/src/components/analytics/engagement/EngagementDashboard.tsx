@@ -12,6 +12,7 @@ import WeeklyAttendanceCharts from "./WeeklyAttendanceCharts";
 import WeeklyComparisonTable from "./WeeklyComparisonTable";
 import ServiceAttendanceChart from "./ServiceAttendanceChart";
 import EngagementBranchTable from "./EngagementBranchTable";
+import QrComplianceSection from "./QrComplianceSection";
 
 interface EngagementDashboardProps {
   /** "" means all branches; otherwise a branch id string. */
@@ -138,6 +139,8 @@ export default function EngagementDashboard({
         service={data?.service ?? null}
         loading={loading}
       />
+
+      <QrComplianceSection branchId={branchParam} months={months} />
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <WeeklyAttendanceCharts

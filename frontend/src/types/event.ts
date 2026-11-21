@@ -68,6 +68,8 @@ export interface EventAttendanceRecord {
   recorded_by_name?: string | null;
   catchup_reason?: string;
   catchup_note?: string;
+  /** Onsite only: true = QR scanned, false = came without QR, null = not tracked. */
+  qr_presented?: boolean | null;
   journey_id?: number | null;
   recorded_at: string;
   updated_at: string;

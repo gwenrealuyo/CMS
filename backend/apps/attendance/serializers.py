@@ -103,10 +103,12 @@ class AttendanceRecordSerializer(serializers.ModelSerializer):
             "recorded_by_name",
             "catchup_reason",
             "catchup_note",
+            "qr_presented",
             "journey_id",
             "recorded_at",
             "updated_at",
         ]
+        extra_kwargs = {"qr_presented": {"required": False}}
         read_only_fields = [
             "event",
             "journey_id",
@@ -143,6 +145,7 @@ class AttendanceRecordSerializer(serializers.ModelSerializer):
             representation["person"] = {"id": None}
             representation["catchup_reason"] = ""
             representation["catchup_note"] = ""
+            representation["qr_presented"] = None
             representation["recorded_by"] = None
             representation["recorded_by_name"] = None
         representation["notes"] = ""
@@ -209,7 +212,10 @@ class AttendanceRecordSerializer(serializers.ModelSerializer):
                     }
                 )
             attrs["attendance_venue"] = None
+            if self.instance is None and attrs.get("qr_presented") is None:
+                attrs["qr_presented"] = True
         elif mode == AttendanceRecord.AttendanceMode.ONLINE:
+            attrs["qr_presented"] = None
             if onsite_only:
                 raise ValidationError(
                     {
@@ -287,6 +293,7 @@ class AttendanceRecordSerializer(serializers.ModelSerializer):
                 "attendance_mode", AttendanceRecord.AttendanceMode.ONSITE
             ),
             "attendance_venue": validated_data.get("attendance_venue"),
+            "qr_presented": validated_data.get("qr_presented"),
         }
         event = validated_data["event"]
         person = validated_data["person"]

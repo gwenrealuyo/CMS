@@ -123,7 +123,7 @@ import { ModuleSetting } from "@/src/types/moduleSettings";
 import { PeopleAutomationSetting } from "@/src/types/peopleAutomationSettings";
 import { EventSetting } from "@/src/types/eventSettings";
 import { NotificationFeedResponse } from "@/src/types/notifications";
-import { ReportsScopeMeta, PeopleSummary, EngagementSummary, NccSummary, CymSummary, V2bSummary, StewardshipSummary, OverviewSummary } from "@/src/types/reports";
+import { ReportsScopeMeta, PeopleSummary, EngagementSummary, QrComplianceSummary, NccSummary, CymSummary, V2bSummary, StewardshipSummary, OverviewSummary } from "@/src/types/reports";
 
 const api = axios.create({
   baseURL: process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api",
@@ -1142,6 +1142,7 @@ export const eventsApi = {
       notes?: string;
       attendance_mode?: AttendanceMode;
       attendance_venue?: string | null;
+      qr_presented?: boolean | null;
     }
   ) =>
     api.post<{
@@ -1159,6 +1160,7 @@ export const eventsApi = {
       attendance_venue?: string | null;
       status?: AttendanceStatus;
       notes?: string;
+      qr_presented?: boolean | null;
     }
   ) =>
     api.patch<{
@@ -3154,6 +3156,21 @@ export const reportsApi = {
     months?: number;
   }) =>
     api.get("/reports/engagement/export/csv/", {
+      params,
+      responseType: "blob",
+    }),
+  getQrCompliance: (params?: {
+    branch_id?: number | string;
+    months?: number;
+    min_misses?: number;
+  }) =>
+    api.get<QrComplianceSummary>("/reports/qr-compliance/", { params }),
+  exportQrComplianceCSV: (params?: {
+    branch_id?: number | string;
+    months?: number;
+    min_misses?: number;
+  }) =>
+    api.get("/reports/qr-compliance/export/csv/", {
       params,
       responseType: "blob",
     }),

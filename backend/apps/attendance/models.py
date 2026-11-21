@@ -64,6 +64,14 @@ class AttendanceRecord(models.Model):
         default="",
     )
     catchup_note = models.CharField(max_length=200, blank=True, default="")
+    qr_presented = models.BooleanField(
+        null=True,
+        blank=True,
+        help_text=(
+            "Onsite only: True if the member's QR was scanned, False if they "
+            "came without it. Null means not tracked."
+        ),
+    )
     journey = models.OneToOneField(
         "people.Journey",
         on_delete=models.SET_NULL,
@@ -152,6 +160,14 @@ class AttendanceRecord(models.Model):
                     }
                 )
         elif mode == self.AttendanceMode.ONLINE:
+            if self.qr_presented is not None:
+                raise ValidationError(
+                    {
+                        "qr_presented": (
+                            "QR tracking only applies to onsite attendance."
+                        )
+                    }
+                )
             if event is not None and getattr(event, "attendance_format", None) == (
                 "onsite_only"
             ):

@@ -14,7 +14,12 @@ import ScalableSelect from "@/src/components/ui/ScalableSelect";
 import ToolbarSearch from "@/src/components/ui/ToolbarSearch";
 import ViewModeToggle from "@/src/components/ui/ViewModeToggle";
 import { peopleApi } from "@/src/lib/api";
-import { useIsMdUp, useListViewMode } from "@/src/lib/listViewMode";
+import { useOptionalSidebar } from "@/src/components/layout/SidebarContext";
+import {
+  getContentLayoutWidth,
+  useIsMdUp,
+  useListViewMode,
+} from "@/src/lib/listViewMode";
 import {
   escapeCsvValue,
   extractErrorMessage,
@@ -122,12 +127,29 @@ export default function AwaitingTeacherSection({
   const [itemsPerPage, setItemsPerPage] = useState(DEFAULT_ITEMS_PER_PAGE);
   const [viewMode, setViewMode] = useListViewMode("table");
   const isMdUp = useIsMdUp();
+  const sidebar = useOptionalSidebar();
+  const sidebarCollapsed = sidebar?.collapsed ?? null;
+  /** One toolbar row only when content (viewport − sidebar) is wide enough. */
+  const [toolbarSingleRow, setToolbarSingleRow] = useState(false);
   const [profilePerson, setProfilePerson] = useState<Person | null>(null);
   const [profileOpen, setProfileOpen] = useState(false);
   const [profileLoading, setProfileLoading] = useState(false);
   const [profileError, setProfileError] = useState<string | null>(null);
   const [showExportDropdown, setShowExportDropdown] = useState(false);
   const exportMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const AWAITING_TOOLBAR_SINGLE_ROW_MIN_PX = 720;
+    const syncToolbarLayout = () => {
+      setToolbarSingleRow(
+        getContentLayoutWidth(window.innerWidth, sidebarCollapsed) >=
+          AWAITING_TOOLBAR_SINGLE_ROW_MIN_PX,
+      );
+    };
+    syncToolbarLayout();
+    window.addEventListener("resize", syncToolbarLayout);
+    return () => window.removeEventListener("resize", syncToolbarLayout);
+  }, [sidebarCollapsed]);
 
   const closeProfile = () => {
     setProfileOpen(false);
@@ -405,56 +427,96 @@ export default function AwaitingTeacherSection({
         </p>
 
         <div className={`${TOOLBAR_CARD_CLASS} min-w-0`}>
-          <div className="flex min-w-0 flex-col gap-3 tablet:flex-row tablet:items-center tablet:gap-2">
-            <ToolbarSearch
-              fullWidth
-              className="min-w-0 w-full tablet:min-w-0 tablet:flex-1"
-              value={searchQuery}
-              onChange={(value) => {
-                setSearchQuery(value);
-                if (serverDriven) {
-                  onServerSearchChange?.(value);
-                } else {
-                  setCurrentPage(1);
-                }
-              }}
-              placeholder="Search visitors..."
-              ariaLabel="Search visitors awaiting a teacher"
-            />
-            <select
-              value={statusFilter}
-              onChange={(event) => {
-                const next = event.target.value as AwaitingTeacherStatusFilter;
-                setStatusFilter(next);
-                if (serverDriven) {
-                  onServerStatusChange?.(next);
-                } else {
-                  setCurrentPage(1);
-                }
-              }}
-              className="box-border h-auto w-full min-w-0 shrink-0 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm tablet:w-28 lg:w-44"
-              aria-label="Filter by visitor status"
-            >
-              <option value="ONGOING">Ongoing</option>
-              <option value="NO_RESPONSE">No Response</option>
-              <option value="ALL">All</option>
-            </select>
-            <ViewModeToggle
-              className={isMdUp ? "w-fit shrink-0" : "w-full"}
-              compact={isMdUp}
-              viewMode={viewMode}
-              onViewModeChange={setViewMode}
-            />
+          <div
+            className={
+              toolbarSingleRow
+                ? "flex min-w-0 flex-row items-center gap-2"
+                : "flex min-w-0 flex-col gap-3"
+            }
+          >
             <div
-              ref={exportMenuRef}
-              className="relative w-full min-w-0 shrink-0 tablet:w-auto"
+              className={
+                toolbarSingleRow
+                  ? "flex min-w-0 flex-1 items-center gap-2"
+                  : "flex min-w-0 flex-col gap-3 tablet:flex-row tablet:items-center tablet:gap-2"
+              }
             >
+              <ToolbarSearch
+                fullWidth
+                className={
+                  toolbarSingleRow
+                    ? "min-w-0 flex-1"
+                    : "min-w-0 w-full tablet:flex-1"
+                }
+                value={searchQuery}
+                onChange={(value) => {
+                  setSearchQuery(value);
+                  if (serverDriven) {
+                    onServerSearchChange?.(value);
+                  } else {
+                    setCurrentPage(1);
+                  }
+                }}
+                placeholder="Search visitors..."
+                ariaLabel="Search visitors awaiting a teacher"
+              />
+              <select
+                value={statusFilter}
+                onChange={(event) => {
+                  const next = event.target.value as AwaitingTeacherStatusFilter;
+                  setStatusFilter(next);
+                  if (serverDriven) {
+                    onServerStatusChange?.(next);
+                  } else {
+                    setCurrentPage(1);
+                  }
+                }}
+                className={
+                  toolbarSingleRow
+                    ? "box-border h-auto w-36 shrink-0 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm lg:w-44"
+                    : "box-border h-auto w-full min-w-0 shrink-0 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm tablet:w-40"
+                }
+                aria-label="Filter by visitor status"
+              >
+                <option value="ONGOING">Ongoing</option>
+                <option value="NO_RESPONSE">No Response</option>
+                <option value="ALL">All</option>
+              </select>
+            </div>
+
+            <div
+              className={
+                toolbarSingleRow
+                  ? "flex shrink-0 items-center gap-2"
+                  : "flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center sm:gap-2"
+              }
+            >
+              <ViewModeToggle
+                className={
+                  toolbarSingleRow || isMdUp ? "w-fit shrink-0" : "w-full"
+                }
+                compact={toolbarSingleRow || isMdUp}
+                viewMode={viewMode}
+                onViewModeChange={setViewMode}
+              />
+              <div
+                ref={exportMenuRef}
+                className={
+                  toolbarSingleRow
+                    ? "relative shrink-0"
+                    : "relative w-full min-w-0 sm:w-auto"
+                }
+              >
               <Button
                 type="button"
                 variant="secondary"
                 onClick={() => setShowExportDropdown((previous) => !previous)}
                 disabled={loading || filteredRows.length === 0}
-                className="w-full gap-2 min-h-[44px] text-sm tablet:w-auto"
+                className={
+                  toolbarSingleRow
+                    ? "gap-2 min-h-[44px] w-auto text-sm"
+                    : "w-full gap-2 min-h-[44px] text-sm sm:w-auto"
+                }
                 aria-expanded={showExportDropdown}
                 aria-haspopup="menu"
               >
@@ -536,6 +598,7 @@ export default function AwaitingTeacherSection({
                   </div>
                 </div>
               ) : null}
+              </div>
             </div>
           </div>
         </div>
